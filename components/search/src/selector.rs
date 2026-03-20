@@ -914,10 +914,10 @@ mod tests {
             "id": "search-config-v2",
             "last_modified": 1000,
             "bucket": "main",
-            "signature": {
+            "signatures": [{
               "x5u": "fake",
               "signature": "fake",
-            },
+            }],
           },
           "timestamp": 1000,
           "changes": [
@@ -979,10 +979,10 @@ mod tests {
             "id": "search-config-v2",
             "last_modified": 1000,
             "bucket": "main",
-            "signature": {
+            "signatures": [{
               "x5u": "fake",
               "signature": "fake",
-            },
+            }],
           },
           "timestamp": 1000,
           "changes": [
@@ -1028,10 +1028,10 @@ mod tests {
             "id": "search-config-overrides-v2",
             "last_modified": 1000,
             "bucket": "main",
-            "signature": {
+            "signatures": [{
               "x5u": "fake",
               "signature": "fake",
-            },
+            }],
           },
           "timestamp": 1000,
           "changes": [ engine ]
@@ -1052,10 +1052,10 @@ mod tests {
                 "id": "search-config-v2",
                 "last_modified": 1000,
                 "bucket": "main",
-                "signature": {
+                "signatures": [{
                   "x5u": "fake",
                   "signature": "fake",
-                },
+                }],
               },
               "timestamp": 1000,
               "changes": [
@@ -1139,10 +1139,10 @@ mod tests {
                  "id": "search-config-overrides-v2",
                  "last_modified": 1000,
                  "bucket": "main",
-                 "signature": {
+                 "signatures": [{
                    "x5u": "fake",
                    "signature": "fake",
-                 },
+                 }],
                },
                "timestamp": 1000,
                "changes": [

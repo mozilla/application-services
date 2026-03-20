@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     data BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS collection_metadata (
     collection_url TEXT PRIMARY KEY,
-    last_modified INTEGER, bucket TEXT, signature TEXT, x5u TEXT);
+    last_modified INTEGER, bucket TEXT, signatures TEXT);
 "#;
 
 /// Initializes an SQLite connection to the Remote Settings database, performing
@@ -37,7 +37,7 @@ pub struct RemoteSettingsConnectionInitializer;
 
 impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
     const NAME: &'static str = "remote_settings";
-    const END_VERSION: u32 = 2;
+    const END_VERSION: u32 = 3;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
         let initial_pragmas = "
@@ -72,6 +72,33 @@ impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
                 tx.execute("ALTER TABLE collection_metadata ADD COLUMN x5u TEXT", ())?;
                 Ok(())
             }
+            2 => {
+                tx.execute(
+                    "ALTER TABLE collection_metadata ADD COLUMN signatures TEXT",
+                    (),
+                )?;
+                tx.execute(
+                    r#"
+                    UPDATE collection_metadata
+                    SET signatures = CASE
+                        -- Replace empty signatures with empty arrays.
+                        WHEN COALESCE(signature, '') = '' OR COALESCE(x5u, '') = ''
+                            THEN json_array()
+                        -- Add the existing signature as array with one element.
+                        ELSE json_array(
+                            json_object(
+                                'signature', signature,
+                                'x5u', x5u
+                            )
+                        )
+                    END
+                    "#,
+                    (),
+                )?;
+                tx.execute("ALTER TABLE collection_metadata DROP COLUMN signature", ())?;
+                tx.execute("ALTER TABLE collection_metadata DROP COLUMN x5u", ())?;
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
@@ -100,7 +127,7 @@ CREATE TABLE IF NOT EXISTS collection_metadata (
 PRAGMA user_version=0;
 "#;
 
-    /// Test running all schema upgrades from V16, which was the first schema with a "real"
+    /// Test running all schema upgrades from V0, which was the first schema with a "real"
     /// migration.
     ///
     /// If an upgrade fails, then this test will fail with a panic.
@@ -109,5 +136,36 @@ PRAGMA user_version=0;
         let db_file = MigratedDatabaseFile::new(RemoteSettingsConnectionInitializer, V0_SCHEMA);
         db_file.run_all_upgrades();
         db_file.assert_schema_matches_new_database();
+    }
+
+    #[test]
+    fn test_2_to_3_signatures() {
+        let db_file = MigratedDatabaseFile::new(RemoteSettingsConnectionInitializer, V0_SCHEMA);
+        db_file.upgrade_to(2);
+        let mut conn = db_file.open();
+        let tx = conn.transaction().unwrap();
+        tx.execute(
+            "INSERT INTO collection_metadata (collection_url, last_modified, bucket, signature, x5u) VALUES (?, ?, ?, ?, ?)",
+            ("a", 123, "main", "sig1", "uri1"),
+        ).unwrap();
+        tx.execute(
+            "INSERT INTO collection_metadata (collection_url, last_modified, bucket, signature, x5u) VALUES (?, ?, ?, ?, ?)",
+            ("b", 456, "main", "sig2", "uri2"),
+        ).unwrap();
+        tx.commit().unwrap();
+
+        db_file.upgrade_to(3);
+
+        let mut stmt = conn
+            .prepare("SELECT signatures FROM collection_metadata WHERE collection_url = 'a'")
+            .unwrap();
+        let signatures1: String = stmt.query_row([], |row| row.get(0)).unwrap();
+        assert_eq!(signatures1, r#"[{"signature":"sig1","x5u":"uri1"}]"#);
+
+        stmt = conn
+            .prepare("SELECT signatures FROM collection_metadata WHERE collection_url = 'b'")
+            .unwrap();
+        let signatures2: String = stmt.query_row([], |row| row.get(0)).unwrap();
+        assert_eq!(signatures2, r#"[{"signature":"sig2","x5u":"uri2"}]"#)
     }
 }

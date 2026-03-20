@@ -23,6 +23,12 @@
 - **BREAKING**: `reset_all_breaches()` now clears the `breachesL` password table instead of resetting `time_of_last_breach` timestamps.
 - Schema migrated to version 5: `timeOfLastBreach` column dropped from `loginsL` and `loginsM`.
 
+## ✨ What's New ✨
+
+### Remote Settings
+* Add multi-signature support ([#7270](https://github.com/mozilla/application-services/pull/7270))
+
+
 # v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️

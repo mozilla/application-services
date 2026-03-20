@@ -135,25 +135,39 @@ impl Storage {
         collection_url: &str,
     ) -> Result<Option<CollectionMetadata>> {
         let tx = self.transaction()?;
+        // signatures is a JSON array of objects with "signature" and "x5u" fields,
+        // so we need to iterate through the rows and construct the list of signatures.
+        // we use LEFT JOIN to return a row even if list of signatures is empty.
         let mut stmt_metadata = tx.prepare(
-            "SELECT bucket, signature, x5u FROM collection_metadata WHERE collection_url = ?",
+            "
+            SELECT
+                cm.bucket,
+                json_extract(sig.value, '$.x5u') AS x5u,
+                json_extract(sig.value, '$.signature') AS signature
+            FROM collection_metadata AS cm
+            LEFT JOIN json_each(cm.signatures) AS sig ON true
+            WHERE cm.collection_url = ?
+            ",
         )?;
 
-        if let Some(metadata) = stmt_metadata
-            .query_row(params![collection_url], |row| {
-                Ok(CollectionMetadata {
-                    bucket: row.get(0).unwrap_or_default(),
-                    signature: CollectionSignature {
-                        signature: row.get(1).unwrap_or_default(),
-                        x5u: row.get(2).unwrap_or_default(),
-                    },
-                })
-            })
-            .optional()?
-        {
-            Ok(Some(metadata))
-        } else {
-            Ok(None)
+        let mut rows = stmt_metadata.query(params![collection_url])?;
+        let mut bucket: Option<String> = None;
+        let mut signatures = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            // bucket should be the same for every row, so just set it once
+            if bucket.is_none() {
+                bucket = Some(row.get(0)?);
+            }
+            let x5u: Option<String> = row.get(1)?;
+            let signature: Option<String> = row.get(2)?;
+            if let (Some(x5u), Some(signature)) = (x5u, signature) {
+                signatures.push(CollectionSignature { signature, x5u });
+            }
+        }
+        match bucket {
+            Some(bucket) => Ok(Some(CollectionMetadata { bucket, signatures })),
+            None => Ok(None),
         }
     }
 
@@ -256,19 +270,21 @@ impl Storage {
         last_modified: u64,
         metadata: CollectionMetadata,
     ) -> Result<()> {
-        // Update the metadata
-        tx.execute(
-            "INSERT OR REPLACE INTO collection_metadata \
-            (collection_url, last_modified, bucket, signature, x5u) \
-            VALUES (?, ?, ?, ?, ?)",
-            (
-                collection_url,
-                last_modified,
-                metadata.bucket,
-                metadata.signature.signature,
-                metadata.signature.x5u,
-            ),
+        let signatures_json = serde_json::to_string(&metadata.signatures)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+        let mut stmt = tx.prepare(
+            "INSERT OR REPLACE INTO collection_metadata
+            (collection_url, last_modified, bucket, signatures)
+            VALUES (?, ?, ?, ?)",
         )?;
+
+        stmt.execute((
+            collection_url,
+            last_modified,
+            &metadata.bucket,
+            &signatures_json,
+        ))?;
         Ok(())
     }
 
@@ -899,17 +915,25 @@ mod tests {
             1337,
             CollectionMetadata {
                 bucket: "main".into(),
-                signature: CollectionSignature {
-                    signature: "b64encodedsig".into(),
-                    x5u: "http://15u/".into(),
-                },
+                signatures: vec![
+                    CollectionSignature {
+                        signature: "b64encodedsig".into(),
+                        x5u: "http://15u/".into(),
+                    },
+                    CollectionSignature {
+                        signature: "b64encodedsig2".into(),
+                        x5u: "http://15u2/".into(),
+                    },
+                ],
             },
         )?;
 
         let metadata = storage.get_collection_metadata(collection_url)?.unwrap();
 
-        assert_eq!(metadata.signature.signature, "b64encodedsig");
-        assert_eq!(metadata.signature.x5u, "http://15u/");
+        assert_eq!(metadata.signatures[0].signature, "b64encodedsig");
+        assert_eq!(metadata.signatures[0].x5u, "http://15u/");
+        assert_eq!(metadata.signatures[1].signature, "b64encodedsig2");
+        assert_eq!(metadata.signatures[1].x5u, "http://15u2/");
 
         Ok(())
     }
