@@ -129,6 +129,14 @@ impl TypeRef {
         }
     }
 
+    pub(crate) fn supports_gecko_prefs(&self, lax_pref_validation: bool) -> bool {
+        match self {
+            Self::Option(boxed) => matches!(**boxed, Self::Boolean | Self::Int | Self::String),
+            Self::Boolean | Self::Int | Self::String => lax_pref_validation,
+            _ => false,
+        }
+    }
+
     pub(crate) fn name(&self) -> Option<&str> {
         match self {
             Self::Enum(s) | Self::Object(s) | Self::StringAlias(s) => Some(s),
@@ -303,22 +311,33 @@ impl FeatureManifest {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn validate_manifest(&self) -> Result<()> {
+        self.validate_manifest_with(false)
+    }
+
+    pub fn validate_manifest_with(&self, lax_gecko_pref_validation: bool) -> Result<()> {
         // We then validate that each type_ref is valid
-        self.validate_schema()?;
-        self.validate_defaults()?;
+        self.validate_schema_with(lax_gecko_pref_validation)?;
+        self.validate_defaults_with(lax_gecko_pref_validation)?;
 
         // Validating the imported manifests.
         // This is not only validating the well formed-ness of the imported manifests
         // but also the defaults that are sent into the child manifests.
         for child in self.all_imports.values() {
-            child.validate_manifest()?;
+            child.validate_manifest_with(lax_gecko_pref_validation)?;
         }
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn validate_schema(&self) -> Result<(), FMLError> {
-        let validator = SchemaValidator::new(&self.enum_defs, &self.obj_defs);
+        self.validate_schema_with(false)
+    }
+
+    fn validate_schema_with(&self, lax_gecko_pref_validation: bool) -> Result<(), FMLError> {
+        let validator = SchemaValidator::new(&self.enum_defs, &self.obj_defs)
+            .with_lax_gecko_pref_validation(lax_gecko_pref_validation);
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
         }
@@ -329,8 +348,14 @@ impl FeatureManifest {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn validate_defaults(&self) -> Result<()> {
-        let validator = DefaultsValidator::new(&self.enum_defs, &self.obj_defs);
+        self.validate_defaults_with(false)
+    }
+
+    fn validate_defaults_with(&self, lax_gecko_pref_validation: bool) -> Result<()> {
+        let validator = DefaultsValidator::new(&self.enum_defs, &self.obj_defs)
+            .with_lax_gecko_pref_validation(lax_gecko_pref_validation);
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
         }
@@ -762,7 +787,7 @@ impl PropDef {
         self.pref_key.is_some() && self.typ.supports_prefs()
     }
     pub fn has_gecko_prefs(&self) -> bool {
-        self.gecko_pref.is_some() && self.typ.supports_prefs()
+        self.gecko_pref.is_some() && self.typ.supports_gecko_prefs(false)
     }
     pub fn pref_key(&self) -> Option<String> {
         self.pref_key.clone()

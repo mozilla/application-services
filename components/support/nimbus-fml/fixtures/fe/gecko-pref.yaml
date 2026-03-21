@@ -1,0 +1,36 @@
+---
+about:
+  description: This file codes for all features in the Fenix browser
+  kotlin:
+    class: .nimbus.FxNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
+channels:
+  - release
+  - beta
+  - nightly
+  - developer
+features:
+  gecko-nimbus-validation:
+    description: "Feature for validating Nimbus Gecko functionality"
+    variables:
+      test-preference-bool:
+        description: "A test gecko preference"
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "gecko.nimbus.test.bool"
+          branch: "default"
+      test-preference-int:
+        description: "A test gecko preference"
+        type: Option<Int>
+        gecko-pref:
+          pref: "gecko.nimbus.test.int"
+          branch: "default"
+      test-preference-string:
+        description: "A test gecko preference"
+        type: Option<String>
+        gecko-pref:
+          pref: "gecko.nimbus.test.string"
+          branch: "default"

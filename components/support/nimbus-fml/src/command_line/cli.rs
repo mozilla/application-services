@@ -174,6 +174,10 @@ pub struct LoaderInfo {
     /// If INPUT is a remote file, then use this as the tag or branch name.
     #[arg(long = "ref")]
     pub ref_: Option<String>,
+
+    #[arg(long)]
+    /// Enable lax gecko-pref validation.
+    pub lax_gecko_pref_validation: bool,
 }
 
 impl From<Language> for TargetLanguage {

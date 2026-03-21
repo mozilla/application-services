@@ -166,6 +166,7 @@ fn create_loader(
         repo_files,
         cwd,
         refs,
+        lax_gecko_pref_validation: loader_info.lax_gecko_pref_validation,
     })
 }
 

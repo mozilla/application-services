@@ -1,7 +1,9 @@
 # v151.0 (In progress)
 
 ## ⚠️ Breaking Changes ⚠️
-- `nimbus-fml validate` no longer enforces that variables do not use both `gecko-pref` and `default` due to causing CI failures in Experimenter.
+- It is now enforced by `nimbus-fml` that feature variables using gecko-pref must be have `type: Option<T>`, for `T` in `Boolean`, `Int`, and `String`.
+- `nimbus-fml` commands now all have a `--lax-gecko-pref-validation` flag to bypass the above restriction, as well as the restriction that `gecko-pref` and `default` are mutually exclusive.
+- The `FmlLoaderConfig` now has a `lax_gecko_pref_validation` field to allow `FmlClient` consumers (i.e., Experimenter) to opt-in to lax validation.
 
 [Full Changelog](In progress)
 
