@@ -99,10 +99,10 @@ impl<'a> SchemaValidator<'a> {
             }
 
             // Check pref support for this type.
-            if prop.gecko_pref.is_some() && !prop.typ.supports_prefs() {
+            if prop.gecko_pref.is_some() && !prop.typ.supports_gecko_prefs(self.lax_pref_validation) {
                 return Err(FMLError::ValidationError(
                     path,
-                    "Pref keys can only be used with Boolean, String, Int and Text variables"
+                    "Pref keys can only be used with Option<Boolean>, Option<Int>, Option<String> and Option<StringAlaias> variables"
                         .to_string(),
                 ));
             }

@@ -129,6 +129,19 @@ impl TypeRef {
         }
     }
 
+    pub(crate) fn supports_gecko_prefs(&self, lax_pref_validation: bool) -> bool {
+        match self {
+            Some(
+                Self::Boolean
+                | Self::Int
+                | Self::String
+                | Self::StringAlias(_)
+            ) => true,
+            Self::Boolean | Self::Int | Self::String | Self::StringAlias(_) => lax_pref_validation,
+            _ => false,
+        }
+    }
+
     pub(crate) fn name(&self) -> Option<&str> {
         match self {
             Self::Enum(s) | Self::Object(s) | Self::StringAlias(s) => Some(s),
@@ -569,7 +582,7 @@ impl FeatureDef {
     }
 
     pub fn has_gecko_prefs(&self) -> bool {
-        self.props.iter().any(|p| p.has_gecko_prefs())
+        self.props.iter().any(|p| p.has_gecko_prefs(false))
     }
 
     pub fn get_string_aliases(&self) -> HashMap<&str, &PropDef> {
@@ -762,7 +775,7 @@ impl PropDef {
         self.pref_key.is_some() && self.typ.supports_prefs()
     }
     pub fn has_gecko_prefs(&self) -> bool {
-        self.gecko_pref.is_some() && self.typ.supports_prefs()
+        self.gecko_pref.is_some() && self.typ.supports_gecko_prefs(false)
     }
     pub fn pref_key(&self) -> Option<String> {
         self.pref_key.clone()
