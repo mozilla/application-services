@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::feeds::FeedSection;
+use super::feeds::{deserialize_feeds, FeedSection};
 
 /// Top-level response from the Merino curated recommendations API.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
@@ -16,6 +16,7 @@ pub struct CuratedRecommendationsResponse {
     /// The list of recommended items.
     pub data: Vec<RecommendationDataItem>,
     /// Optional categorized feeds (e.g. by topic section).
+    #[serde(default, deserialize_with = "deserialize_feeds")]
     #[uniffi(default = None)]
     pub feeds: Option<Vec<FeedSection>>,
     /// Optional interest picker configuration for displaying section selection UI.
@@ -54,7 +55,8 @@ pub struct RecommendationDataItem {
     pub corpus_item_id: String,
     /// Unique identifier for the scheduled corpus item.
     #[serde(rename = "scheduledCorpusItemId")]
-    pub scheduled_corpus_item_id: String,
+    #[uniffi(default = None)]
+    pub scheduled_corpus_item_id: Option<String>,
     /// URL of the recommended article.
     pub url: String,
     /// Title of the recommended article.
@@ -77,7 +79,8 @@ pub struct RecommendationDataItem {
     pub icon_url: Option<String>,
     /// Numeric tile identifier used for telemetry.
     #[serde(rename = "tileId")]
-    pub tile_id: i64,
+    #[uniffi(default = None)]
+    pub tile_id: Option<i64>,
     /// The position rank at which this item was received from the server.
     #[serde(rename = "receivedRank")]
     pub received_rank: i64,
