@@ -1,4 +1,8 @@
-# v150.0 (In progress)
+# v151.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v150.0 (_2026-03-23_)
 
 # General
   - `error-support` breadcrumbs now include the timestamp.
@@ -11,7 +15,7 @@
 * `recordEventOrThrow()` now returns `Deferred<Unit>` instead of `Job`. Callers must use `.await()` (instead of `.join()`) to observe exceptions thrown during event recording.
 * It is now enforced via `nimbus-fml validate` that feature variables do not use both `gecko-pref` and `default` for the same variable.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v149.0...v150.0)
 
 ### Ads Client
 - Added `rotation_days` parameter to `MozAdsClientBuilder` to allow embedders to configure the context ID rotation period. ([#7262](https://github.com/mozilla/application-services/pull/7262))
