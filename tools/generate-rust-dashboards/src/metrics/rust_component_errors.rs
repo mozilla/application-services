@@ -127,8 +127,8 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         "client_info.os_version",
     ));
     builder.add_variable(TextBoxVariable {
-        label: "Search details".into(),
-        name: "details".into(),
+        label: "Search".into(),
+        name: "search".into(),
         ..TextBoxVariable::default()
     });
 
@@ -248,7 +248,7 @@ fn error_list_count_panel() -> Panel {
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
             "'${version}' = '' OR version = CAST('${version}' AS NUMERIC)".into(),
-            "'${details}' = '' OR details LIKE '%${details}%'".into(),
+            "'${search}' = '' OR (details LIKE '%${search}%') OR client_id = '${search}'".into(),
             filter_where_clause("architecture"),
             filter_where_clause("device_manufacturer"),
             filter_where_clause("device_model"),
@@ -291,6 +291,7 @@ fn error_list_log_panel() -> Panel {
             "error_type".into(),
             "details".into(),
             "ARRAY_TO_STRING(breadcrumbs, '\\n') as breadcrumbs".into(),
+            "client_id".into(),
             "app_display_version".into(),
             "architecture".into(),
             "build_date".into(),
@@ -310,7 +311,7 @@ fn error_list_log_panel() -> Panel {
             // In that case, it's usually better to only see the logs after the change.
             "IF('${build_date}' = '', true, build_date >= '${build_date}')".into(),
             "'${version}' = '' OR version = CAST('${version}' AS NUMERIC)".into(),
-            "('${details}' = '' OR details LIKE '%${details}%')".into(),
+            "'${search}' = '' OR (details LIKE '%${search}%') OR client_id = '${search}'".into(),
             filter_where_clause("architecture"),
             filter_where_clause("device_manufacturer"),
             filter_where_clause("device_model"),
