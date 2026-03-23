@@ -1067,8 +1067,15 @@ uniffi::custom_type!(JsonObject, String, {
 uniffi::custom_type!(PrefValue, String, {
     remote,
     try_lift: |val| {
-        let json: Value = serde_json::from_str(&val)?;
-        if json.is_string() || json.is_boolean() || (json.is_number() && !json.is_f64()) || json.is_null() {
+        // Raw strings that are not valid JSON (e.g. pref values read directly from Gecko)
+        // should be treated as JSON string values.
+        let json: Value = match serde_json::from_str(&val) {
+            Ok(json) => json,
+            Err(_) => Value::String(val),
+        };
+        let is_valid_pref_type = json.is_string() || json.is_boolean()
+            || (json.is_number() && !json.is_f64()) || json.is_null();
+        if is_valid_pref_type {
             Ok(json)
         } else {
             Err(anyhow::anyhow!(format!("Value {} is not a string, boolean, number, or null, or is a float", json)))
