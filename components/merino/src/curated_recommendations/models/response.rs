@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::feeds::Feeds;
+use super::feeds::FeedSection;
 
 /// Top-level response from the Merino curated recommendations API.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
@@ -15,9 +15,9 @@ pub struct CuratedRecommendationsResponse {
     pub recommended_at: i64,
     /// The list of recommended items.
     pub data: Vec<RecommendationDataItem>,
-    /// Optional categorized feeds (e.g. by topic section, Fakespot products).
+    /// Optional categorized feeds (e.g. by topic section).
     #[uniffi(default = None)]
-    pub feeds: Option<Feeds>,
+    pub feeds: Option<Vec<FeedSection>>,
     /// Optional interest picker configuration for displaying section selection UI.
     #[serde(rename = "interestPicker")]
     #[uniffi(default = None)]
