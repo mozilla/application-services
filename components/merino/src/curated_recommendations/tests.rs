@@ -4,9 +4,9 @@
  */
 
 use super::*;
-use crate::curated_recommendations::models::{
-    CuratedRecommendationLocale, RecommendationDataItem, SectionSettings,
-};
+use crate::curated_recommendations::models::locale::CuratedRecommendationLocale;
+use crate::curated_recommendations::models::request::SectionSettings;
+use crate::curated_recommendations::models::response::RecommendationDataItem;
 
 struct FakeHttpClientSuccess;
 

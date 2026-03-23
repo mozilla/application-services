@@ -12,16 +12,16 @@
 
 mod error;
 mod http;
-mod models;
+pub mod models;
 #[cfg(test)]
 mod tests;
 
-use crate::curated_recommendations::models::CuratedRecommendationLocale;
+use crate::curated_recommendations::models::locale::CuratedRecommendationLocale;
+use crate::curated_recommendations::models::request::CuratedRecommendationsConfig;
+use crate::curated_recommendations::models::request::CuratedRecommendationsRequest;
+use crate::curated_recommendations::models::response::CuratedRecommendationsResponse;
 pub use error::{ApiResult, Error, Result};
 use error_support::handle_error;
-pub use models::{
-    CuratedRecommendationsConfig, CuratedRecommendationsRequest, CuratedRecommendationsResponse,
-};
 use url::Url;
 
 /// Default base host for the Merino curated recommendations API.

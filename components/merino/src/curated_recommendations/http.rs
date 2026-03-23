@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::error::{trace, Error};
-use super::models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
+use crate::curated_recommendations::models::request::CuratedRecommendationsRequest;
+use crate::curated_recommendations::models::response::CuratedRecommendationsResponse;
 use url::Url;
 use viaduct::{header_names, Request, Response};
 

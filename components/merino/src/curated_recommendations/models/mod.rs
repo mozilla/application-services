@@ -8,18 +8,3 @@ pub mod layout;
 pub mod locale;
 pub mod request;
 pub mod response;
-
-// Re-export all model types for use by UniFFI bindings and downstream consumers.
-#[allow(unused_imports)]
-pub use feeds::{
-    CuratedRecommendationsBucket, FakespotCta, FakespotFeed, FakespotProduct, FeedSection, Feeds,
-};
-#[allow(unused_imports)]
-pub use layout::{Layout, ResponsiveLayout, Tile};
-pub use locale::CuratedRecommendationLocale;
-#[allow(unused_imports)]
-pub use request::{CuratedRecommendationsConfig, CuratedRecommendationsRequest, SectionSettings};
-#[allow(unused_imports)]
-pub use response::{
-    CuratedRecommendationsResponse, InterestPicker, InterestPickerSection, RecommendationDataItem,
-};
