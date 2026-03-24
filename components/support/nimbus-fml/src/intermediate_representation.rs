@@ -29,7 +29,7 @@ impl TargetLanguage {
         match self {
             TargetLanguage::Kotlin => "kt",
             TargetLanguage::Swift => "swift",
-            TargetLanguage::IR => "fml.json",
+            TargetLanguage::IR => "ir.json",
             TargetLanguage::ExperimenterJSON => "json",
             TargetLanguage::ExperimenterYAML => "yaml",
         }
@@ -50,7 +50,7 @@ impl TryFrom<&str> for TargetLanguage {
         Ok(match value.to_ascii_lowercase().as_str() {
             "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
             "swift" => TargetLanguage::Swift,
-            "fml.json" => TargetLanguage::IR,
+            "ir.json" => TargetLanguage::IR,
             "yaml" => TargetLanguage::ExperimenterYAML,
             "json" => TargetLanguage::ExperimenterJSON,
             _ => bail!("Unknown or unsupported target language: \"{}\"", value),

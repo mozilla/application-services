@@ -205,10 +205,11 @@ pub mod test {
     }
 
     pub fn run_script_with_generated_code(manifest_files: &[String], script: &Path) -> Result<()> {
-        if !detect_swiftc()? {
-            eprintln!("SDK-446 Install swift or add it the PATH to run tests");
-            return Ok(());
-        }
+        assert!(
+            detect_swiftc()?,
+            "Bug 2026345 -- Cannot run swift tests without swiftc"
+        );
+
         let temp = tempfile::tempdir()?;
         let build_dir = temp.path();
         compile_manifest_swift(manifest_files, build_dir)?;

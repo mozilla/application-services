@@ -454,6 +454,25 @@ impl FileLoader {
         Ok(serde_yaml::from_str(&string)?)
     }
 
+    pub(crate) fn read_ir<T: serde::de::DeserializeOwned>(&self, file: &FilePath) -> Result<T> {
+        let string = self
+            .read_to_string(file)
+            .map_err(|e| FMLError::InvalidPath(format!("{file}: {e}")))?;
+
+        // serde_yaml 0.9 changed the serialization format of enums from using
+        // singleton maps to YAML tags.
+        //
+        // However, support for (de)serializing nested enums was never added
+        // before the project became EOL.
+        //
+        // Thankfully nothing actually loads IR except tests and all th test
+        // fixtures are already in JSON format, so we can use serde_json to load
+        // these files instead.
+        //
+        // See-also: https://github.com/dtolnay/serde-yaml/releases/tag/0.9.0
+        Ok(serde_json::from_str(&string)?)
+    }
+
     fn fetch_and_cache(&self, url: &Url) -> Result<String> {
         if !SUPPORT_URL_LOADING {
             unimplemented!("Loading manifests from URLs is not yet supported ({})", url);
