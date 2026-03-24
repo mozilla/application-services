@@ -65,13 +65,13 @@ fn test_cache_works_using_real_timeouts() {
             },
         )
         .unwrap();
-    matches!(o1.cache_outcome, CacheOutcome::MissStored);
+    assert!(matches!(o1.cache_outcome, CacheOutcome::MissStored));
 
     // Second call: hit (no extra HTTP) but no refresh
     let o2 = cache
         .send_with_policy(req.clone(), &RequestCachePolicy::default())
         .unwrap();
-    matches!(o2.cache_outcome, CacheOutcome::Hit);
+    assert!(matches!(o2.cache_outcome, CacheOutcome::Hit));
     assert_eq!(o2.response.status, 200);
 
     // Third call: Miss due to timeout for the test_ttl duration
@@ -79,6 +79,6 @@ fn test_cache_works_using_real_timeouts() {
     let o3 = cache
         .send_with_policy(req, &RequestCachePolicy::default())
         .unwrap();
-    matches!(o3.cache_outcome, CacheOutcome::MissStored);
+    assert!(matches!(o3.cache_outcome, CacheOutcome::MissStored));
     assert_eq!(o3.response.status, 200);
 }
