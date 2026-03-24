@@ -50,7 +50,7 @@ fn test_contract_spoc_staging() {
     let result = client.request_spoc_ads(
         vec![MozAdsPlacementRequestWithCount {
             placement_id: "mock_spoc_1".to_string(),
-            count: 1,
+            count: 3,
             iab_content: None,
         }],
         None,
@@ -59,6 +59,7 @@ fn test_contract_spoc_staging() {
     assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
     let placements = result.unwrap();
     assert!(placements.contains_key("mock_spoc_1"));
+    assert!(placements.get("mock_spoc_1").unwrap().len() == 3);
 }
 
 #[test]
