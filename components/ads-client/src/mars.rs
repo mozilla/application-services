@@ -55,10 +55,12 @@ where
         let request_hash = RequestHash::new(&ad_request);
 
         let response: AdResponse<A> = if let Some(cache) = self.http_cache.as_ref() {
-            let outcome = cache.send_with_policy(ad_request, cache_policy)?;
-            self.telemetry.record(&outcome.cache_outcome);
-            check_http_status_for_error(&outcome.response)?;
-            AdResponse::<A>::parse(outcome.response.json()?, &self.telemetry)?
+            let (response, cache_outcomes) = cache.send_with_policy(ad_request, cache_policy)?;
+            for outcome in &cache_outcomes {
+                self.telemetry.record(outcome);
+            }
+            check_http_status_for_error(&response)?;
+            AdResponse::<A>::parse(response.json()?, &self.telemetry)?
         } else {
             let request: Request = ad_request.into();
             let response = request.send()?;

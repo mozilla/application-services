@@ -74,7 +74,7 @@ impl HttpCacheStore {
         Ok(ByteSize::b(size_bytes))
     }
 
-    /// Removes all entries from the store who's expires_at is before the current time.
+    /// Removes all entries from the store whose expires_at is at or before the current time.
     pub fn delete_expired_entries(&self) -> SqliteResult<usize> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
@@ -82,7 +82,7 @@ impl HttpCacheStore {
         }
         let conn = self.conn.lock();
         conn.execute(
-            "DELETE FROM http_cache WHERE expires_at < ?1",
+            "DELETE FROM http_cache WHERE expires_at <= ?1",
             params![self.clock.now_epoch_seconds()],
         )
     }

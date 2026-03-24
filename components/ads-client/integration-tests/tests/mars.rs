@@ -21,6 +21,7 @@ fn staging_client() -> ads_client::MozAdsClient {
 }
 
 #[test]
+#[ignore = "integration test: run manually with -- --ignored"]
 fn test_contract_image_staging() {
     init_backend();
 
@@ -43,6 +44,7 @@ fn test_contract_image_staging() {
 }
 
 #[test]
+#[ignore = "integration test: run manually with -- --ignored"]
 fn test_contract_spoc_staging() {
     init_backend();
 
@@ -63,6 +65,7 @@ fn test_contract_spoc_staging() {
 }
 
 #[test]
+#[ignore = "integration test: run manually with -- --ignored"]
 fn test_contract_tile_staging() {
     init_backend();
 

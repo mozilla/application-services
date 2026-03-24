@@ -33,6 +33,7 @@ fn init_backend() {
 }
 
 #[test]
+#[ignore = "integration test: run manually with -- --ignored"]
 fn test_cache_works_using_real_timeouts() {
     init_backend();
 
@@ -56,7 +57,7 @@ fn test_cache_works_using_real_timeouts() {
     let test_ttl = 2;
 
     // First call: miss -> store
-    let o1 = cache
+    let (_, outcomes) = cache
         .send_with_policy(
             req.clone(),
             &RequestCachePolicy {
@@ -65,20 +66,20 @@ fn test_cache_works_using_real_timeouts() {
             },
         )
         .unwrap();
-    assert!(matches!(o1.cache_outcome, CacheOutcome::MissStored));
+    assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
     // Second call: hit (no extra HTTP) but no refresh
-    let o2 = cache
+    let (response, outcomes) = cache
         .send_with_policy(req.clone(), &RequestCachePolicy::default())
         .unwrap();
-    assert!(matches!(o2.cache_outcome, CacheOutcome::Hit));
-    assert_eq!(o2.response.status, 200);
+    assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
+    assert_eq!(response.status, 200);
 
     // Third call: Miss due to timeout for the test_ttl duration
     std::thread::sleep(Duration::from_secs(test_ttl));
-    let o3 = cache
+    let (response, outcomes) = cache
         .send_with_policy(req, &RequestCachePolicy::default())
         .unwrap();
-    assert!(matches!(o3.cache_outcome, CacheOutcome::MissStored));
-    assert_eq!(o3.response.status, 200);
+    assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+    assert_eq!(response.status, 200);
 }
