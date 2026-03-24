@@ -15,8 +15,9 @@ use url::Url;
 use viaduct::Request;
 
 use crate::{
-    client::RemoteState, config::BaseUrl, error::Error, storage::Storage, RemoteSettingsClient,
-    RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer, Result,
+    client::RemoteState, config::BaseUrl, error::Error, storage::Storage,
+    telemetry::RemoteSettingsTelemetryWrapper, RemoteSettingsClient, RemoteSettingsConfig,
+    RemoteSettingsContext, RemoteSettingsServer, Result,
 };
 
 /// Internal Remote settings service API
@@ -30,6 +31,7 @@ struct RemoteSettingsServiceInner {
     bucket_name: String,
     app_context: Option<RemoteSettingsContext>,
     remote_state: RemoteState,
+    telemetry: RemoteSettingsTelemetryWrapper,
     /// Weakrefs for all clients that we've created.  Note: this stores the
     /// top-level/public `RemoteSettingsClient` structs rather than `client::RemoteSettingsClient`.
     /// The reason for this is that we return Arcs to the public struct to the foreign code, so we
@@ -57,9 +59,14 @@ impl RemoteSettingsService {
                 bucket_name,
                 app_context: config.app_context,
                 remote_state: RemoteState::default(),
+                telemetry: RemoteSettingsTelemetryWrapper::noop(),
                 clients: vec![],
             }),
         }
+    }
+
+    pub fn set_telemetry(&self, telemetry: RemoteSettingsTelemetryWrapper) {
+        self.inner.lock().telemetry = telemetry;
     }
 
     pub fn make_client(&self, collection_name: String) -> Arc<RemoteSettingsClient> {
@@ -84,11 +91,16 @@ impl RemoteSettingsService {
 
     /// Sync collections for all active clients
     pub fn sync(&self) -> Result<Vec<String>> {
+        const TELEMETRY_SOURCE_POLL: &str = "settings-changes-monitoring";
         // Make sure we only sync each collection once, even if there are multiple clients
         let mut synced_collections = HashSet::new();
 
         let mut inner = self.inner.lock();
-        let changes = inner.fetch_changes()?;
+        let changes_result = inner.fetch_changes();
+        if let Err(ref e) = changes_result {
+            inner.telemetry.report_sync_error(e, TELEMETRY_SOURCE_POLL);
+        }
+        let changes = changes_result?;
         let change_map: HashMap<_, _> = changes
             .changes
             .iter()
@@ -99,18 +111,27 @@ impl RemoteSettingsService {
         for client in inner.active_clients() {
             let client = &client.internal;
             let collection_name = client.collection_name();
+            let cid = format!("{bucket_name}/{collection_name}");
             if let Some(client_last_modified) = client.get_last_modified_timestamp()? {
                 if let Some(server_last_modified) = change_map.get(&(collection_name, &bucket_name))
                 {
                     if client_last_modified == *server_last_modified {
                         trace!("skipping up-to-date collection: {collection_name}");
+                        inner.telemetry.report_up_to_date(&cid, None);
                         continue;
                     }
                 }
             }
             if synced_collections.insert(collection_name.to_string()) {
                 trace!("syncing collection: {collection_name}");
-                client.sync()?;
+                let start_time = std::time::Instant::now();
+                let sync_result = client.sync();
+                let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
+                match &sync_result {
+                    Ok(()) => inner.telemetry.report_success(&cid, Some(duration)),
+                    Err(e) => inner.telemetry.report_sync_error(e, &cid),
+                }
+                sync_result?;
             }
         }
         Ok(synced_collections.into_iter().collect())
