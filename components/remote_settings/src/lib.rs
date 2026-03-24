@@ -15,6 +15,7 @@ pub mod service;
 #[cfg(feature = "signatures")]
 pub(crate) mod signatures;
 pub mod storage;
+pub mod telemetry;
 
 pub(crate) mod jexl_filter;
 mod macros;
