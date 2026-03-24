@@ -4,9 +4,10 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use merino::curated_recommendations::{
-    CuratedRecommendationsClient, CuratedRecommendationsConfig, CuratedRecommendationsRequest,
+use merino::curated_recommendations::models::request::{
+    CuratedRecommendationsConfig, CuratedRecommendationsRequest,
 };
+use merino::curated_recommendations::CuratedRecommendationsClient;
 
 #[derive(Debug, Parser)]
 struct Cli {
