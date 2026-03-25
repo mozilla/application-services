@@ -40,7 +40,7 @@ pub struct SyncStatusExtras {
 /// [crate::RemoteSettingsService::set_telemetry].
 ///
 /// Consumers implement the trait like this (Kotlin example):
-/// ```
+/// ```kotlin
 /// import mozilla.appservices.remote_settings.RemoteSettingsTelemetry
 /// import org.mozilla.appservices.remote_settings.GleanMetrics.RemoteSettingsClient
 ///
