@@ -242,11 +242,15 @@ mod test {
     use mockito::{mock, Matcher};
     use std::sync::Arc;
 
-    type EventTuple = (String, RemoteSettingsSyncStatus, SyncStatusExtras);
+    struct EmittedEvent {
+        source: String,
+        status: RemoteSettingsSyncStatus,
+        extras: SyncStatusExtras,
+    }
 
     /// Telemetry implementation that records all events for later assertion.
     struct FakeTelemetry {
-        events: std::sync::Mutex<Vec<EventTuple>>,
+        events: std::sync::Mutex<Vec<EmittedEvent>>,
     }
 
     impl FakeTelemetry {
@@ -264,7 +268,10 @@ mod test {
             status: RemoteSettingsSyncStatus,
             extras: SyncStatusExtras,
         ) {
-            self.events.lock().unwrap().push((source, status, extras));
+            self.events
+                .lock()
+                .unwrap()
+                .push(EmittedEvent { source, status, extras });
         }
     }
 
@@ -283,103 +290,19 @@ mod test {
         (service, telemetry)
     }
 
-    #[test]
-    fn test_telemetry_network_error_on_changes_failure() {
-        viaduct_dev::init_backend_dev();
-        let _m = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
-            .match_query(Matcher::Any)
-            .with_status(500)
-            .with_body("server error")
-            .create();
-
-        let (service, telemetry) = make_service(&mockito::server_url());
-        let _ = service.sync();
-
-        let events = telemetry.events.lock().unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].0, "settings-changes-monitoring");
-        assert_eq!(events[0].1, RemoteSettingsSyncStatus::NetworkError);
-        assert!(events[0].2.errorName.is_some());
-    }
-
-    #[test]
-    fn test_telemetry_on_changes_success() {
-        viaduct_dev::init_backend_dev();
-        let _m = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
-            .match_query(Matcher::Any)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"changes": []}"#)
-            .create();
-
-        let (service, telemetry) = make_service(&mockito::server_url());
-        let _ = service.sync();
-
-        let events = telemetry.events.lock().unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].0, "settings-changes-monitoring");
-        assert_eq!(events[0].1, RemoteSettingsSyncStatus::Success);
-        assert!(events[0].2.duration.is_some());
-    }
-
-    #[test]
-    fn test_telemetry_on_collection_success() {
-        viaduct_dev::init_backend_dev();
-        let collection = "cid";
-        let timestamp = 1774420582054u64;
-
-        let _changes = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
-                .match_query(Matcher::Any)
-                .with_status(200)
-                .with_header("content-type", "application/json")
-                .with_body(format!(
-                    r#"{{"changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
-                ))
-                .create();
-
-        let _changeset = mock(
-                "GET",
-                format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
-            )
+    fn mock_monitor_changes(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
             .match_query(Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(format!(
-                r#"{{"changes": [], "timestamp": {timestamp}, "metadata": {{"bucket": "main", "signatures": []}}}}"#
+                r#"{{"timestamp": {timestamp}, "changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
             ))
-            .create();
-
-        let (service, telemetry) = make_service(&mockito::server_url());
-        let _client = service.make_client(collection.into());
-        let _ = service.sync();
-
-        let events = telemetry.events.lock().unwrap();
-        assert_eq!(events.len(), 2);
-        // First event is for the changes endpoint
-        assert_eq!(events[0].0, "settings-changes-monitoring");
-        // Second event is for the collection sync
-        assert_eq!(events[1].0, format!("main/{collection}"));
-        assert_eq!(events[1].1, RemoteSettingsSyncStatus::Success);
-        assert!(events[1].2.duration.is_some());
+            .create()
     }
 
-    #[test]
-    fn test_telemetry_on_collection_up_to_date() {
-        viaduct_dev::init_backend_dev();
-        let collection = "cid";
-        let timestamp = 1774420582054u64;
-
-        let _changes = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
-            .match_query(Matcher::Any)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(format!(
-                r#"{{"changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
-            ))
-            // .expect_at_least(2)
-            .create();
-
-        let _changeset = mock(
+    fn mock_changeset(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock(
             "GET",
             format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
         )
@@ -389,8 +312,77 @@ mod test {
         .with_body(format!(
             r#"{{"changes": [], "timestamp": {timestamp}, "metadata": {{"bucket": "main", "signatures": []}}}}"#
         ))
-        // .expect(1)
-        .create();
+        .create()
+    }
+
+    fn mock_changeset_error(bucket: &str, collection: &str) -> mockito::Mock {
+        mock(
+            "GET",
+            format!("/v1/buckets/{bucket}/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(500)
+        .with_body("server error")
+        .create()
+    }
+
+    #[test]
+    fn test_telemetry_network_error_on_changes_failure() {
+        viaduct_dev::init_backend_dev();
+        mock_changeset_error("monitor", "changes");
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].source, "settings-changes-monitoring");
+        assert_eq!(events[0].status, RemoteSettingsSyncStatus::NetworkError);
+        assert!(events[0].extras.errorName.is_some());
+    }
+
+    #[test]
+    fn test_telemetry_on_changes_success() {
+        viaduct_dev::init_backend_dev();
+        let _changes = mock_monitor_changes("cid", 42);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].source, "settings-changes-monitoring");
+        assert_eq!(events[0].status, RemoteSettingsSyncStatus::Success);
+        assert!(events[0].extras.duration.is_some());
+    }
+
+    #[test]
+    fn test_telemetry_on_collection_success() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].source, "settings-changes-monitoring");
+        assert_eq!(events[1].source, format!("main/{collection}"));
+        assert_eq!(events[1].status, RemoteSettingsSyncStatus::Success);
+        assert!(events[1].extras.duration.is_some());
+    }
+
+    #[test]
+    fn test_telemetry_on_collection_up_to_date() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
 
         let (service, telemetry) = make_service(&mockito::server_url());
         let _client = service.make_client(collection.into());
@@ -403,14 +395,9 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len() - events_before, 2);
-        // First event is for the changes endpoint
-        assert_eq!(events[events_before].0, "settings-changes-monitoring");
-        // Second event is for the collection sync
-        assert_eq!(events[events_before + 1].0, format!("main/{collection}"));
-        assert_eq!(
-            events[events_before + 1].1,
-            RemoteSettingsSyncStatus::UpToDate
-        );
+        assert_eq!(events[events_before].source, "settings-changes-monitoring");
+        assert_eq!(events[events_before + 1].source, format!("main/{collection}"));
+        assert_eq!(events[events_before + 1].status, RemoteSettingsSyncStatus::UpToDate);
     }
 
     #[test]
@@ -418,25 +405,8 @@ mod test {
         viaduct_dev::init_backend_dev();
         let collection = "cid";
         let timestamp = 1774420582054u64;
-
-        let _changes = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
-            .match_query(Matcher::Any)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(format!(
-                r#"{{"changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
-            ))
-            .create();
-
-        let _changeset = mock(
-            "GET",
-            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
-        )
-        .match_query(Matcher::Any)
-        .with_status(500)
-        .with_header("content-type", "application/json")
-        .with_body("server error")
-        .create();
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset_error("main", collection);
 
         let (service, telemetry) = make_service(&mockito::server_url());
         let _client = service.make_client(collection.into());
@@ -444,11 +414,9 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 2);
-        // First event is for the changes endpoint
-        assert_eq!(events[0].0, "settings-changes-monitoring");
-        assert_eq!(events[0].1, RemoteSettingsSyncStatus::Success);
-        // Second event is for the collection sync
-        assert_eq!(events[1].0, format!("main/{collection}"));
-        assert_eq!(events[1].1, RemoteSettingsSyncStatus::NetworkError);
+        assert_eq!(events[0].source, "settings-changes-monitoring");
+        assert_eq!(events[0].status, RemoteSettingsSyncStatus::Success);
+        assert_eq!(events[1].source, format!("main/{collection}"));
+        assert_eq!(events[1].status, RemoteSettingsSyncStatus::NetworkError);
     }
 }
