@@ -52,3 +52,4 @@ itertools = "0"
 regex = "1.9"
 viaduct = { path = "../../viaduct/" }
 termcolor = "1.4.1"
+mozilla-central-workspace-hack = { version = "0.1", features = ["nimbus-fml"], optional = true }

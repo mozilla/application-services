@@ -1068,6 +1068,7 @@ dependencies = [
  "camino",
  "clap",
  "glob",
+ "mozilla-central-workspace-hack",
  "serde",
  "toml 0.5.9",
  "uniffi_bindgen",
@@ -2586,6 +2587,7 @@ dependencies = [
  "lazy_static",
  "logins",
  "merino",
+ "mozilla-central-workspace-hack",
  "nimbus-sdk",
  "places",
  "push",
@@ -2787,6 +2789,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mozbuild"
+version = "0.1.0"
+
+[[package]]
+name = "mozilla-central-workspace-hack"
+version = "0.1.0"
+
+[[package]]
 name = "native-tls"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2883,6 +2893,7 @@ dependencies = [
  "icu_segmenter",
  "itertools 0.14.0",
  "lazy_static",
+ "mozilla-central-workspace-hack",
  "regex",
  "serde",
  "serde_json",
@@ -3052,13 +3063,13 @@ dependencies = [
 [[package]]
 name = "ohttp"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41a03aaaf57495c75ce66aee6a7c3b21abf046c9d4cca3d45b22cdbf0de1bfba"
+source = "git+https://github.com/martinthomson/ohttp#324f876e79394c9b815dcacda3fd4f48f105fdf2"
 dependencies = [
  "bindgen",
  "byteorder",
  "hex",
  "log",
+ "mozbuild",
  "serde",
  "serde_derive",
  "thiserror 2.0.3",
