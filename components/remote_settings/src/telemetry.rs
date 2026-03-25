@@ -26,6 +26,7 @@ pub enum RemoteSettingsSyncStatus {
 }
 
 #[derive(Debug, PartialEq, uniffi::Record, Default)]
+#[allow(non_snake_case)]
 pub struct SyncStatusExtras {
     /// Duration of the sync operation in milliseconds, if available.
     pub duration: Option<u64>,

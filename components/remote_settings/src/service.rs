@@ -91,16 +91,11 @@ impl RemoteSettingsService {
 
     /// Sync collections for all active clients
     pub fn sync(&self) -> Result<Vec<String>> {
-        const TELEMETRY_SOURCE_POLL: &str = "settings-changes-monitoring";
         // Make sure we only sync each collection once, even if there are multiple clients
         let mut synced_collections = HashSet::new();
 
         let mut inner = self.inner.lock();
-        let changes_result = inner.fetch_changes();
-        if let Err(ref e) = changes_result {
-            inner.telemetry.report_sync_error(e, TELEMETRY_SOURCE_POLL);
-        }
-        let changes = changes_result?;
+        let changes = inner.fetch_changes()?;
         let change_map: HashMap<_, _> = changes
             .changes
             .iter()
@@ -203,18 +198,24 @@ impl RemoteSettingsServiceInner {
         trace!("make_request: {url}");
         self.remote_state.ensure_no_backoff()?;
 
+        let start_time = std::time::Instant::now();
         let req = Request::get(url);
         let resp = req.send()?;
 
         self.remote_state.handle_backoff_hint(&resp)?;
 
+        const TELEMETRY_SOURCE_POLL: &str = "settings-changes-monitoring";
         if resp.is_success() {
-            Ok(resp.json()?)
+            let body = resp.json()?;
+            let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
+            self
+                .telemetry
+                .report_success(TELEMETRY_SOURCE_POLL, Some(duration));
+            Ok(body)
         } else {
-            Err(Error::response_error(
-                &resp.url,
-                format!("status code: {}", resp.status),
-            ))
+            let e = Error::response_error(&resp.url, format!("status code: {}", resp.status));
+            self.telemetry.report_sync_error(&e, TELEMETRY_SOURCE_POLL);
+            Err(e)
         }
     }
 }
