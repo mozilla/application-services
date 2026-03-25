@@ -1,5 +1,8 @@
 # v151.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+- `nimbus-fml validate` no longer enforces that variables do not use both `gecko-pref` and `default` due to causing CI failures in Experimenter.
+
 [Full Changelog](In progress)
 
 # v150.0 (_2026-03-23_)
