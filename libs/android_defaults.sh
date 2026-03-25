@@ -4,6 +4,7 @@
 
 if [[ -z "${ANDROID_NDK_HOME:-}" || -z "${ANDROID_NDK_ROOT:-}" ]]; then
     pushd ..
+    echo "Initializing NDK. Can take a few seconds."
     NDK_VERSION=$(./gradlew -q printNdkVersion | tail -1)
     export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
     export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
