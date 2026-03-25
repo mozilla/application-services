@@ -45,6 +45,11 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's New ✨
+
+### Remote Settings
+* Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
+
 # v150.0 (_2026-03-23_)
 
 # General

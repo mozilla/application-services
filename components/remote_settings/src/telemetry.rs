@@ -117,7 +117,7 @@ impl RemoteSettingsTelemetryWrapper {
         // This mimics what we do in the desktop client:
         // https://searchfox.org/firefox-main/rev/26c440c6196eb0b4/services/settings/RemoteSettingsClient.sys.mjs#965
         let error_name = format!("{error:?}")
-            .split("{")
+            .split(&['{', '('])
             .next()
             .unwrap_or("")
             .trim()

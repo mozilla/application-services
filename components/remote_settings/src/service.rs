@@ -361,6 +361,7 @@ mod test {
         assert!(events[0].extras.duration.is_some());
     }
 
+    #[cfg(not(feature = "signatures"))]
     #[test]
     fn test_telemetry_on_collection_success() {
         viaduct_dev::init_backend_dev();
@@ -381,6 +382,7 @@ mod test {
         assert!(events[1].extras.duration.is_some());
     }
 
+    #[cfg(not(feature = "signatures"))]
     #[test]
     fn test_telemetry_on_collection_up_to_date() {
         viaduct_dev::init_backend_dev();
@@ -432,6 +434,30 @@ mod test {
         assert_eq!(
             events[1].extras.errorName,
             Some("ResponseError".to_string())
+        );
+    }
+
+    #[cfg(feature = "signatures")]
+    #[test]
+    fn test_telemetry_on_collection_signature_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].source, "settings-changes-monitoring");
+        assert_eq!(events[1].source, format!("main/{collection}"));
+        assert_eq!(events[1].status, RemoteSettingsSyncStatus::SignatureError);
+        assert_eq!(
+            events[1].extras.errorName,
+            Some("IncompleteSignatureDataError".to_string())
         );
     }
 }
