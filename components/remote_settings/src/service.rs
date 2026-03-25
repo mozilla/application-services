@@ -268,10 +268,11 @@ mod test {
             status: RemoteSettingsSyncStatus,
             extras: SyncStatusExtras,
         ) {
-            self.events
-                .lock()
-                .unwrap()
-                .push(EmittedEvent { source, status, extras });
+            self.events.lock().unwrap().push(EmittedEvent {
+                source,
+                status,
+                extras,
+            });
         }
     }
 
@@ -338,6 +339,10 @@ mod test {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].source, "settings-changes-monitoring");
         assert_eq!(events[0].status, RemoteSettingsSyncStatus::NetworkError);
+        assert_eq!(
+            events[0].extras.errorName,
+            Some("ResponseError".to_string())
+        );
         assert!(events[0].extras.errorName.is_some());
     }
 
@@ -396,8 +401,14 @@ mod test {
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len() - events_before, 2);
         assert_eq!(events[events_before].source, "settings-changes-monitoring");
-        assert_eq!(events[events_before + 1].source, format!("main/{collection}"));
-        assert_eq!(events[events_before + 1].status, RemoteSettingsSyncStatus::UpToDate);
+        assert_eq!(
+            events[events_before + 1].source,
+            format!("main/{collection}")
+        );
+        assert_eq!(
+            events[events_before + 1].status,
+            RemoteSettingsSyncStatus::UpToDate
+        );
     }
 
     #[test]
@@ -418,5 +429,9 @@ mod test {
         assert_eq!(events[0].status, RemoteSettingsSyncStatus::Success);
         assert_eq!(events[1].source, format!("main/{collection}"));
         assert_eq!(events[1].status, RemoteSettingsSyncStatus::NetworkError);
+        assert_eq!(
+            events[1].extras.errorName,
+            Some("ResponseError".to_string())
+        );
     }
 }

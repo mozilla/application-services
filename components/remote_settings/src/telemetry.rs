@@ -112,12 +112,22 @@ impl RemoteSettingsTelemetryWrapper {
     }
 
     pub fn report_sync_error(&self, error: &Error, source: &str) {
+        // This is a bit hacky and naive, but it allows us to get the original
+        // error type without needing to add too much machinery to our error types.
+        // This mimics what we do in the desktop client:
+        // https://searchfox.org/firefox-main/rev/26c440c6196eb0b4/services/settings/RemoteSettingsClient.sys.mjs#965
+        let error_name = format!("{error:?}")
+            .split("{")
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_string();
         self.inner.report(
             source.to_string(),
             error_to_status(error),
             SyncStatusExtras {
                 duration: None,
-                errorName: Some(format!("{error:?}")),
+                errorName: Some(error_name),
             },
         );
     }
