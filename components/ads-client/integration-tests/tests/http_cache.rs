@@ -27,15 +27,10 @@ impl From<TestRequest> for Request {
     }
 }
 
-fn init_backend() {
-    // Err means the backend is already initialized.
-    let _ = viaduct_dev::init_backend_dev();
-}
-
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_cache_works_using_real_timeouts() {
-    init_backend();
+    viaduct_dev::init_backend_dev();
 
     let cache = HttpCache::<TestRequest>::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))

@@ -358,7 +358,10 @@ mod tests {
         let (_, outcomes) = cache
             .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
-        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissNotCacheable));
+        assert!(matches!(
+            outcomes.last().unwrap(),
+            CacheOutcome::MissNotCacheable
+        ));
 
         // Next call should hit network again (since we didn't cache)
         let _m2 = mock("POST", "/ads")
