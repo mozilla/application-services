@@ -67,8 +67,6 @@ impl<'a> DefaultsValidator<'a> {
         // This is only checking if a Map with an Enum as key has a complete set of keys (i.e. all variants)
         self.validate_feature_enum_maps(feature_def)?;
 
-        self.validate_no_defaults_for_gecko_prefs(feature_def)?;
-
         // Now check the examples for this feature.
         let path = ErrorPath::feature(&feature_def.name);
         for ex in &feature_def.examples {
@@ -152,20 +150,6 @@ impl<'a> DefaultsValidator<'a> {
         for prop in &feature_def.props {
             let path = path.property(&prop.name);
             self.validate_enum_maps(&path, &prop.typ, &prop.default)?;
-        }
-        Ok(())
-    }
-
-    fn validate_no_defaults_for_gecko_prefs(&self, feature_def: &FeatureDef) -> Result<()> {
-        let path = ErrorPath::feature(&feature_def.name);
-        for prop in &feature_def.props {
-            if prop.gecko_pref.is_some() && !prop.default.is_null() {
-                let path = path.property(&prop.name);
-                return Err(FMLError::ValidationError(
-                    path.path,
-                    "gecko-pref and default are mutually exclusive".into(),
-                ));
-            }
         }
         Ok(())
     }
@@ -1316,39 +1300,5 @@ mod string_alias {
         assert!(validator.validate_feature_def(&f).is_err());
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test_gecko_prefs {
-    use serde_json::json;
-
-    use crate::error::FMLError;
-    use crate::intermediate_representation::{GeckoPrefDef, PrefBranch};
-
-    use super::*;
-
-    #[test]
-    fn test_validate_default_mutually_exclusive_with_gecko_pref() {
-        let mut prop = PropDef::new("var", &TypeRef::String, &json!("default-value"));
-        prop.gecko_pref = Some(GeckoPrefDef {
-            pref: "some.pref".into(),
-            branch: PrefBranch::User,
-        });
-
-        let feature = FeatureDef {
-            name: "Feature".to_string(),
-            props: vec![prop],
-            ..Default::default()
-        };
-
-        let objs = Default::default();
-        let enums = Default::default();
-        let validator = DefaultsValidator::new(&enums, &objs);
-
-        assert!(matches!(
-            validator.validate_feature_def(&feature),
-            Err(FMLError::ValidationError(path, reason)) if path == "features/Feature.var" && reason == "gecko-pref and default are mutually exclusive",
-        ));
     }
 }
