@@ -41,6 +41,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ads-client-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "ads-client",
+ "mockito",
+ "serde_json",
+ "url",
+ "viaduct",
+ "viaduct-dev",
+ "viaduct-hyper",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

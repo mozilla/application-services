@@ -22,7 +22,8 @@ use std::cmp;
 use std::path::Path;
 use std::time::Duration;
 
-pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
+pub type HttpCacheSendResult =
+    std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RequestCachePolicy {
@@ -57,11 +58,6 @@ pub enum CacheOutcome {
     CleanupFailed(HttpCacheError), // cleaning expired objects failed
 }
 
-pub struct SendOutcome {
-    pub response: Response,
-    pub cache_outcome: CacheOutcome,
-}
-
 pub struct HttpCache<T: Hash + Into<Request>> {
     max_size: ByteSize,
     store: HttpCacheStore,
@@ -90,7 +86,8 @@ impl<T: Hash + Into<Request>> HttpCache<T> {
         &self,
         item: T,
         request_policy: &RequestCachePolicy,
-    ) -> HttpCacheSendResult<SendOutcome> {
+    ) -> HttpCacheSendResult {
+        let mut outcomes = vec![];
         let request_hash = RequestHash::new(&item);
         let request: Request = item.into();
         let request_policy_ttl = match request_policy.ttl_seconds {
@@ -98,25 +95,31 @@ impl<T: Hash + Into<Request>> HttpCache<T> {
             None => self.default_ttl,
         };
 
+        if let Err(e) = self.store.delete_expired_entries() {
+            outcomes.push(CacheOutcome::CleanupFailed(e.into()));
+        }
+
         if request_policy.mode == CacheMode::CacheFirst {
             match self.store.lookup(&request_hash) {
                 Ok(Some(response)) => {
-                    return Ok(SendOutcome {
-                        response,
-                        cache_outcome: CacheOutcome::Hit,
-                    });
+                    outcomes.push(CacheOutcome::Hit);
+                    return Ok((response, outcomes));
                 }
                 Err(e) => {
-                    let mut outcome =
+                    outcomes.push(CacheOutcome::LookupFailed(e));
+                    let (response, mut fetch_outcomes) =
                         self.fetch_and_cache(&request, &request_hash, &request_policy_ttl)?;
-                    outcome.cache_outcome = CacheOutcome::LookupFailed(e);
-                    return Ok(outcome);
+                    outcomes.append(&mut fetch_outcomes);
+                    return Ok((response, outcomes));
                 }
                 Ok(None) => {}
             }
         }
 
-        self.fetch_and_cache(&request, &request_hash, &request_policy_ttl)
+        let (response, mut fetch_outcomes) =
+            self.fetch_and_cache(&request, &request_hash, &request_policy_ttl)?;
+        outcomes.append(&mut fetch_outcomes);
+        Ok((response, outcomes))
     }
 
     fn fetch_and_cache(
@@ -124,14 +127,8 @@ impl<T: Hash + Into<Request>> HttpCache<T> {
         request: &Request,
         request_hash: &RequestHash,
         request_policy_ttl: &Duration,
-    ) -> HttpCacheSendResult<SendOutcome> {
+    ) -> HttpCacheSendResult {
         let response = request.clone().send()?;
-        if let Err(e) = self.store.delete_expired_entries() {
-            return Ok(SendOutcome {
-                response,
-                cache_outcome: CacheOutcome::CleanupFailed(e.into()),
-            });
-        }
         let cache_control = CacheControl::from(&response);
         let cache_outcome = if cache_control.should_cache() {
             let response_ttl = match cache_control.max_age {
@@ -146,10 +143,7 @@ impl<T: Hash + Into<Request>> HttpCache<T> {
             );
 
             if final_ttl.as_secs() == 0 {
-                return Ok(SendOutcome {
-                    response,
-                    cache_outcome: CacheOutcome::NoCache,
-                });
+                return Ok((response, vec![CacheOutcome::NoCache]));
             }
 
             match self.cache_object(request_hash, &response, &final_ttl) {
@@ -160,10 +154,7 @@ impl<T: Hash + Into<Request>> HttpCache<T> {
             CacheOutcome::MissNotCacheable
         };
 
-        Ok(SendOutcome {
-            response,
-            cache_outcome,
-        })
+        Ok((response, vec![cache_outcome]))
     }
 
     fn cache_object(
@@ -289,17 +280,17 @@ mod tests {
         let req = make_post_request();
 
         // First call: miss -> store
-        let o1 = cache
+        let (_, outcomes) = cache
             .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
-        matches!(o1.cache_outcome, CacheOutcome::MissStored);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Second call: hit (no extra HTTP request due to expect(1))
-        let o2 = cache
+        let (response, outcomes) = cache
             .send_with_policy(req, &RequestCachePolicy::default())
             .unwrap();
-        matches!(o2.cache_outcome, CacheOutcome::Hit);
-        assert_eq!(o2.response.status, 200);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
+        assert_eq!(response.status, 200);
     }
 
     #[test]
@@ -324,7 +315,7 @@ mod tests {
         let req = make_post_request();
 
         // First refresh: live -> MissStored
-        let o1 = cache
+        let (_, outcomes) = cache
             .send_with_policy(
                 req.clone(),
                 &RequestCachePolicy {
@@ -333,10 +324,10 @@ mod tests {
                 },
             )
             .unwrap();
-        matches!(o1.cache_outcome, CacheOutcome::MissStored);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Second refresh: live again (different body), still MissStored
-        let o2 = cache
+        let (response, outcomes) = cache
             .send_with_policy(
                 req,
                 &RequestCachePolicy {
@@ -345,8 +336,8 @@ mod tests {
                 },
             )
             .unwrap();
-        matches!(o2.cache_outcome, CacheOutcome::MissStored);
-        assert_eq!(o2.response.status, 200);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+        assert_eq!(response.status, 200);
     }
 
     #[test]
@@ -364,10 +355,13 @@ mod tests {
         let cache = make_cache();
         let req = make_post_request();
 
-        let o = cache
+        let (_, outcomes) = cache
             .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
-        matches!(o.cache_outcome, CacheOutcome::MissNotCacheable);
+        assert!(matches!(
+            outcomes.last().unwrap(),
+            CacheOutcome::MissNotCacheable
+        ));
 
         // Next call should hit network again (since we didn't cache)
         let _m2 = mock("POST", "/ads")
@@ -376,12 +370,12 @@ mod tests {
             .with_body(r#"{"ok":true}"#)
             .expect(1)
             .create();
-        let o2 = cache
+        let (_, outcomes) = cache
             .send_with_policy(req, &RequestCachePolicy::default())
             .unwrap();
         // Either MissStored (if headers differ) or MissNotCacheable if still no-store
         assert!(matches!(
-            o2.cache_outcome,
+            outcomes.last().unwrap(),
             CacheOutcome::MissStored | CacheOutcome::MissNotCacheable
         ));
     }
@@ -407,8 +401,8 @@ mod tests {
         };
 
         // Store ttl should resolve to 1s as specified by response headers
-        let out = cache.send_with_policy(req, &policy).unwrap();
-        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+        let (_, outcomes) = cache.send_with_policy(req, &policy).unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // After ~>1s, cleanup should remove it
         cache.store.get_clock().advance(2);
@@ -437,8 +431,8 @@ mod tests {
         };
 
         // Store with effective TTL = 2s
-        let out = cache.send_with_policy(req, &policy).unwrap();
-        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+        let (_, outcomes) = cache.send_with_policy(req, &policy).unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired yet at ~1s
         cache.store.get_clock().advance(1);
@@ -470,8 +464,8 @@ mod tests {
         let policy = RequestCachePolicy::default();
 
         // Store with effective TTL = 2s from client default
-        let out = cache.send_with_policy(req, &policy).unwrap();
-        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+        let (_, outcomes) = cache.send_with_policy(req, &policy).unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired at ~1s
         cache.store.get_clock().advance(1);
@@ -482,6 +476,40 @@ mod tests {
         cache.store.get_clock().advance(3);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_expired_entry_is_a_miss_on_next_send() {
+        viaduct_dev::init_backend_dev();
+
+        let _m1 = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"ok":true,"n":1}"#)
+            .create();
+        let _m2 = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"ok":true,"n":2}"#)
+            .create();
+
+        let cache = make_cache_with_ttl(2);
+        let req = make_post_request();
+
+        // First call: miss -> store with 2s TTL
+        let (_, outcomes) = cache
+            .send_with_policy(req.clone(), &RequestCachePolicy::default())
+            .unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+
+        // Advance clock past the TTL
+        cache.store.get_clock().advance(3);
+
+        // Second call: expired entry must be a miss, not a hit
+        let (_, outcomes) = cache
+            .send_with_policy(req, &RequestCachePolicy::default())
+            .unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
     }
 
     #[test]

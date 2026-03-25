@@ -1,0 +1,28 @@
+name: Ads Client Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "components/ads-client/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/ads-client/**"
+
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup toolchain install
+      - name: Run ads-client integration tests against MARS staging
+        run: cargo test -p ads-client-integration-tests -- --ignored

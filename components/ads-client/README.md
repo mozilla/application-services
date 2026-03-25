@@ -24,21 +24,23 @@ cargo test -p ads-client
 
 ### Integration Tests
 
-Integration tests make real HTTP calls to the Mozilla Ads Routing Service (MARS) and are not run automatically in CI. They are marked with `#[ignore]` and must be run manually.
+Integration tests make real HTTP calls to the Mozilla Ads Routing Service (MARS) staging environment. They live in a dedicated crate (`integration-tests/`) and are marked `#[ignore]` so they do not run with a plain `cargo test`.
 
-To run integration tests:
-
-```shell
-cargo test -p ads-client --test integration_test -- --ignored
-```
-
-To run a specific integration test:
+They are run by the dedicated GitHub Actions workflow (`.github/workflows/ads-client-tests.yaml`), and can also be run manually:
 
 ```shell
-cargo test -p ads-client --test integration_test -- --ignored test_mock_pocket_billboard_1_placement
+cargo test -p ads-client-integration-tests -- --ignored
 ```
 
-**Note:** Integration tests require network access and will make real HTTP requests to the MARS API.
+To run a specific test file or test:
+
+```shell
+cargo test -p ads-client-integration-tests --test mars -- --ignored
+cargo test -p ads-client-integration-tests --test http_cache -- --ignored
+cargo test -p ads-client-integration-tests --test mars test_contract_image_staging -- --ignored
+```
+
+**Note:** Integration tests require network access and will make real HTTP requests to the MARS staging API.
 
 ## Usage
 
