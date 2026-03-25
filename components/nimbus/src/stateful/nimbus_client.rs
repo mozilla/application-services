@@ -18,7 +18,7 @@ use crate::enrollment::{
     EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
     ExperimentEnrollment, PreviousGeckoPrefState,
 };
-use crate::error::{BehaviorError, info};
+use crate::error::{BehaviorError, info, warn};
 use crate::evaluator::{
     CalculatedAttributes, ExperimentAvailable, TargetingAttributes, get_calculated_attributes,
     is_experiment_available,
@@ -803,16 +803,22 @@ impl NimbusClient {
             let mut writer = db.write()?;
 
             let mut results = Vec::new();
-            for experiment_slug in enrollments.unwrap() {
-                let result = unenroll_for_pref(
-                    db,
-                    &mut writer,
-                    &experiment_slug,
-                    pref_unenroll_reason,
-                    &pref_state.gecko_pref.pref,
-                    self.gecko_prefs.as_deref(),
-                )?;
-                results.push(result);
+            if let Some(enrollments) = enrollments {
+                for experiment_slug in enrollments {
+                    let result = unenroll_for_pref(
+                        db,
+                        &mut writer,
+                        &experiment_slug,
+                        pref_unenroll_reason,
+                        &pref_state.gecko_pref.pref,
+                        self.gecko_prefs.as_deref(),
+                    )?;
+                    results.push(result);
+                }
+            } else {
+                warn!(
+                    "Could not find enrollment. Could unenrollment already occurred through another preference?"
+                )
             }
 
             let mut state = self.mutable_state.lock().unwrap();
