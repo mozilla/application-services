@@ -45,9 +45,11 @@ name = "ads-client-integration-tests"
 version = "0.1.0"
 dependencies = [
  "ads-client",
+ "mockito",
  "serde_json",
  "url",
  "viaduct",
+ "viaduct-dev",
  "viaduct-hyper",
 ]
 

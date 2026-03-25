@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
 use ads_client::http_cache::{ByteSize, CacheMode, CacheOutcome, HttpCache, RequestCachePolicy};
-use url::Url;
+use mockito::mock;
 use viaduct::Request;
 
 /// Test-only hashable wrapper around Request.
@@ -29,7 +29,7 @@ impl From<TestRequest> for Request {
 
 fn init_backend() {
     // Err means the backend is already initialized.
-    let _ = viaduct_hyper::viaduct_init_backend_hyper();
+    let _ = viaduct_dev::init_backend_dev();
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn test_cache_works_using_real_timeouts() {
         .build()
         .expect("cache build should succeed");
 
-    let url = Url::parse("https://ads.mozilla.org/v1/ads").unwrap();
+    let url = format!("{}/v1/ads", mockito::server_url()).parse().unwrap();
     let req = TestRequest(Request::post(url).json(&serde_json::json!({
         "context_id": "12347fff-00b0-aaaa-0978-189231239808",
         "placements": [
@@ -55,6 +55,13 @@ fn test_cache_works_using_real_timeouts() {
     })));
 
     let test_ttl = 2;
+
+    let _m1 = mock("POST", "/v1/ads")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"ok":true}"#)
+        .expect(1)
+        .create();
 
     // First call: miss -> store
     let (_, outcomes) = cache
@@ -68,12 +75,19 @@ fn test_cache_works_using_real_timeouts() {
         .unwrap();
     assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
-    // Second call: hit (no extra HTTP) but no refresh
+    // Second call: hit (no extra HTTP due to expect(1))
     let (response, outcomes) = cache
         .send_with_policy(req.clone(), &RequestCachePolicy::default())
         .unwrap();
     assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
     assert_eq!(response.status, 200);
+
+    let _m2 = mock("POST", "/v1/ads")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"ok":true}"#)
+        .expect(1)
+        .create();
 
     // Third call: Miss due to timeout for the test_ttl duration
     std::thread::sleep(Duration::from_secs(test_ttl));

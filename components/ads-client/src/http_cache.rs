@@ -283,13 +283,13 @@ mod tests {
         let (_, outcomes) = cache
             .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
-        matches!(outcomes.last().unwrap(), CacheOutcome::MissStored);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Second call: hit (no extra HTTP request due to expect(1))
         let (response, outcomes) = cache
             .send_with_policy(req, &RequestCachePolicy::default())
             .unwrap();
-        matches!(outcomes.last().unwrap(), CacheOutcome::Hit);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
         assert_eq!(response.status, 200);
     }
 
@@ -324,7 +324,7 @@ mod tests {
                 },
             )
             .unwrap();
-        matches!(outcomes.last().unwrap(), CacheOutcome::MissStored);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Second refresh: live again (different body), still MissStored
         let (response, outcomes) = cache
@@ -336,7 +336,7 @@ mod tests {
                 },
             )
             .unwrap();
-        matches!(outcomes.last().unwrap(), CacheOutcome::MissStored);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
         assert_eq!(response.status, 200);
     }
 
@@ -358,7 +358,7 @@ mod tests {
         let (_, outcomes) = cache
             .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
-        matches!(outcomes.last().unwrap(), CacheOutcome::MissNotCacheable);
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissNotCacheable));
 
         // Next call should hit network again (since we didn't cache)
         let _m2 = mock("POST", "/ads")
