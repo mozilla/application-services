@@ -98,15 +98,6 @@ impl<'a> SchemaValidator<'a> {
                 }
             }
 
-            // Check pref support for this type.
-            if prop.gecko_pref.is_some() && !prop.typ.supports_prefs() {
-                return Err(FMLError::ValidationError(
-                    path,
-                    "Pref keys can only be used with Boolean, String, Int and Text variables"
-                        .to_string(),
-                ));
-            }
-
             // Check string-alias definition.
             if let Some(sa) = &prop.string_alias {
                 // Check that the string-alias has only been defined once in this feature.
