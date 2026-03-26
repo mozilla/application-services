@@ -34,6 +34,10 @@ pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
 
     match (&input, &cmd.output.is_dir()) {
         (FilePath::Remote(_), _) => generate_struct_single(&files, input, cmd),
+        (FilePath::Local(file), _) if !file.exists() => Err(FMLError::CliError(format!(
+            "Input file or directory `{}' does not exist",
+            filename
+        ))),
         (FilePath::Local(file), _) if file.is_file() => generate_struct_single(&files, input, cmd),
         (FilePath::Local(dir), true) if dir.is_dir() => generate_struct_from_dir(&files, cmd, dir),
         (_, true) => generate_struct_from_glob(&files, cmd, filename),
@@ -132,7 +136,7 @@ fn load_feature_manifest(
         let parser: Parser = Parser::new(files, path)?;
         parser.get_intermediate_representation(channel)?
     } else {
-        files.read::<FeatureManifest>(&path)?
+        files.read_ir::<FeatureManifest>(&path)?
     };
     ir.validate_manifest()?;
     Ok(ir)
@@ -362,40 +366,35 @@ pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
     Ok(())
 }
 
-#[cfg(all(
-    test,
-    any(feature = "swift-tests", feature = "kotlin-tests"),
-    not(feature = "all-features-workaround")
-))]
+#[cfg(test)]
 mod test {
-    use std::fs;
     use std::path::PathBuf;
 
     use anyhow::anyhow;
-    use jsonschema::JSONSchema;
+    use tempfile::NamedTempFile;
 
     use super::*;
-    use crate::backends::experimenter_manifest::ExperimenterManifest;
-    use crate::backends::{kotlin, swift};
     use crate::frontend::AboutBlock;
-    use crate::util::{generated_src_dir, join, pkg_dir};
+    use crate::util::{join, pkg_dir};
 
-    const MANIFEST_PATHS: &[&str] = &[
-        "fixtures/ir/simple_nimbus_validation.json",
-        "fixtures/ir/simple_nimbus_validation.json",
-        "fixtures/ir/with_objects.json",
-        "fixtures/ir/full_homescreen.json",
+    pub(crate) const MANIFEST_PATHS: &[&str] = &[
+        "fixtures/ir/simple_nimbus_validation.ir.json",
+        "fixtures/ir/simple_nimbus_validation.ir.json",
+        "fixtures/ir/with_objects.ir.json",
+        "fixtures/ir/full_homescreen.ir.json",
         "fixtures/fe/importing/simple/app.yaml",
         "fixtures/fe/importing/diamond/00-app.yaml",
     ];
 
+    #[allow(dead_code)]
     pub(crate) fn generate_and_assert(
         test_script: &str,
         manifest: &str,
         channel: &str,
         is_ir: bool,
     ) -> Result<()> {
-        let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
+        let output = NamedTempFile::new()?;
+        let cmd = create_command_from_test(test_script, manifest, channel, is_ir, output.path())?;
         generate_struct(&cmd)?;
         run_script_with_generated_code(
             &cmd.language,
@@ -428,6 +427,7 @@ mod test {
 
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
+    #[allow(dead_code)]
     pub(crate) fn generate_and_assert_with_config(
         test_script: &str,
         manifest: &str,
@@ -435,7 +435,8 @@ mod test {
         is_ir: bool,
         config_about: AboutBlock,
     ) -> Result<()> {
-        let cmd = create_command_from_test(test_script, manifest, channel, is_ir)?;
+        let output = NamedTempFile::new()?;
+        let cmd = create_command_from_test(test_script, manifest, channel, is_ir, output.path())?;
         generate_struct_cli_overrides(config_about, &cmd)?;
         run_script_with_generated_code(
             &cmd.language,
@@ -445,11 +446,13 @@ mod test {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn create_command_from_test(
         test_script: &str,
         manifest: &str,
         channel: &str,
         is_ir: bool,
+        output: &Path,
     ) -> Result<GenerateStructCmd, crate::error::FMLError> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
@@ -458,23 +461,10 @@ mod test {
             .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
         let language: TargetLanguage = ext.try_into()?;
         let manifest_fml = join(pkg_dir(), manifest);
-        let file = PathBuf::from(&manifest_fml);
-        let file = file
-            .file_stem()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
-            .to_str()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-        let stem = pbuf.file_stem().unwrap().to_str().unwrap();
-        fs::create_dir_all(join(generated_src_dir(), stem))?;
-        let manifest_out = format!(
-            "{}/{stem}/{file}_{channel}.{}",
-            generated_src_dir(),
-            language.extension()
-        );
         let loader = Default::default();
         Ok(GenerateStructCmd {
             manifest: manifest_fml,
-            output: manifest_out.into(),
+            output: output.into(),
             load_from_ir: is_ir,
             language,
             channel: channel.into(),
@@ -482,6 +472,7 @@ mod test {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) fn generate_multiple_and_assert(
         test_script: &str,
         manifests: &[(&str, &str)],
@@ -489,7 +480,9 @@ mod test {
         let cmds = manifests
             .iter()
             .map(|(manifest, channel)| {
-                let cmd = create_command_from_test(test_script, manifest, channel, false)?;
+                let output = NamedTempFile::new()?;
+                let cmd =
+                    create_command_from_test(test_script, manifest, channel, false, output.path())?;
                 generate_struct(&cmd)?;
                 Ok(cmd)
             })
@@ -511,70 +504,47 @@ mod test {
 
     fn run_script_with_generated_code(
         language: &TargetLanguage,
-        manifests_out: &[String],
-        test_script: &str,
+        #[allow(unused_variables)] manifests_out: &[String],
+        #[allow(unused_variables)] test_script: &str,
     ) -> Result<()> {
         match language {
+            #[cfg(all(feature = "kotlin-tests", not(feature = "all-features-workaround")))]
             TargetLanguage::Kotlin => {
-                kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
+                backends::kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
             }
-            TargetLanguage::Swift => {
-                swift::test::run_script_with_generated_code(manifests_out, test_script.as_ref())?
-            }
+
+            #[cfg(all(feature = "swift-tests", not(feature = "all-features-workaround")))]
+            TargetLanguage::Swift => backends::swift::test::run_script_with_generated_code(
+                manifests_out,
+                test_script.as_ref(),
+            )?,
+
             _ => unimplemented!(),
         }
+
+        #[allow(unreachable_code)]
         Ok(())
     }
 
     #[test]
     fn test_importing_simple_experimenter_manifest() -> Result<()> {
         // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
-        let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
-        let files = FileLoader::default()?;
-        let path = files.file_path(&cmd.manifest)?;
-        let fm = load_feature_manifest(files, path, cmd.load_from_ir, None)?;
-        let m: ExperimenterManifest = fm.try_into()?;
+        let tmpfile = NamedTempFile::new()?;
+        let cmd = create_experimenter_manifest_cmd(
+            "fixtures/fe/importing/simple/app.yaml",
+            tmpfile.path(),
+        )?;
+        generate_experimenter_manifest(&cmd)?;
 
-        assert!(m.contains_key("homescreen"));
-        assert!(m.contains_key("search"));
+        let manifest: serde_yaml::Value = serde_yaml::from_reader(&tmpfile)?;
+        println!("{:?}", manifest);
 
-        Ok(())
-    }
+        assert!(manifest.is_mapping());
+        let manifest = manifest.as_mapping().unwrap();
 
-    fn validate_against_experimenter_schema<P: AsRef<Path>>(
-        schema_path: P,
-        generated_yaml: &serde_yaml::Value,
-    ) -> Result<()> {
-        let generated_manifest: ExperimenterManifest =
-            serde_yaml::from_value(generated_yaml.to_owned())?;
-        let generated_json = serde_json::to_value(generated_manifest)?;
+        assert!(manifest.contains_key("homescreen"));
+        assert!(manifest.contains_key("search"));
 
-        let schema = fs::read_to_string(&schema_path)?;
-        let schema: serde_json::Value = serde_json::from_str(&schema)?;
-        let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
-        let res = compiled.validate(&generated_json);
-        if let Err(e) = res {
-            panic!(
-                "Validation errors: \n{}",
-                e.map(|e| e.to_string()).collect::<Vec<String>>().join("\n")
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_schema_validation() -> Result<()> {
-        for path in MANIFEST_PATHS {
-            let cmd = create_experimenter_manifest_cmd(path)?;
-            generate_experimenter_manifest(&cmd)?;
-
-            let generated = fs::read_to_string(&cmd.output)?;
-            let generated_yaml = serde_yaml::from_str(&generated)?;
-            validate_against_experimenter_schema(
-                join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
-                &generated_yaml,
-            )?;
-        }
         Ok(())
     }
 
@@ -618,27 +588,16 @@ mod test {
         Ok(())
     }
 
-    fn create_experimenter_manifest_cmd(path: &str) -> Result<GenerateExperimenterManifestCmd> {
+    pub(crate) fn create_experimenter_manifest_cmd(
+        path: &str,
+        output: &Path,
+    ) -> Result<GenerateExperimenterManifestCmd> {
         let manifest = join(pkg_dir(), path);
-        let file = Path::new(&manifest);
-        let filestem = file
-            .file_stem()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
-            .to_str()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-
-        fs::create_dir_all(generated_src_dir())?;
-
-        let output = join(generated_src_dir(), &format!("{filestem}.yaml")).into();
-        let load_from_ir = if let Some(ext) = file.extension() {
-            TargetLanguage::ExperimenterJSON == ext.try_into()?
-        } else {
-            false
-        };
+        let load_from_ir = manifest.ends_with(".ir.json");
         let loader = Default::default();
         Ok(GenerateExperimenterManifestCmd {
             manifest,
-            output,
+            output: output.into(),
             language: TargetLanguage::ExperimenterYAML,
             load_from_ir,
             loader,
@@ -647,17 +606,6 @@ mod test {
 
     fn test_single_merged_manifest_file(path: &str, channel: &str) -> Result<()> {
         let manifest = join(pkg_dir(), path);
-        let file = Path::new(&manifest);
-        let filestem = file
-            .file_stem()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
-            .to_str()
-            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-
-        fs::create_dir_all(generated_src_dir())?;
-
-        let output: PathBuf =
-            join(generated_src_dir(), &format!("single-file-{filestem}.yaml")).into();
         let loader = Default::default();
 
         // Load the source file, and get the default_json()
@@ -666,17 +614,19 @@ mod test {
         let fm = load_feature_manifest(files, src, false, Some(channel))?;
         let expected = fm.default_json();
 
+        let output = NamedTempFile::new()?;
+
         // Generate the merged file
         let cmd = GenerateSingleFileManifestCmd {
             loader: Default::default(),
             manifest,
-            output: output.clone(),
+            output: output.path().into(),
             channel: channel.to_string(),
         };
         generate_single_file_manifest(&cmd)?;
 
         // Reload the generated file, and get the default_json()
-        let dest = FilePath::Local(output);
+        let dest = FilePath::Local(output.path().into());
         let files: FileLoader = TryFrom::try_from(&loader)?;
         let fm = load_feature_manifest(files, dest, false, Some(channel))?;
         let observed = fm.default_json();
@@ -703,8 +653,62 @@ mod test {
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/00-app.yaml", "debug")?;
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/01-lib.yaml", "debug")?;
         test_single_merged_manifest_file("fixtures/fe/importing/diamond/02-sublib.yaml", "debug")?;
-
         test_single_merged_manifest_file("fixtures/fe/misc-features.yaml", "debug")?;
+        Ok(())
+    }
+}
+
+#[cfg(all(
+    test,
+    feature = "jsonschema-tests",
+    not(feature = "all-features-workaround")
+))]
+mod test_jsonschema {
+    use std::fs;
+
+    use jsonschema::JSONSchema;
+    use tempfile::NamedTempFile;
+
+    use super::test::{create_experimenter_manifest_cmd, MANIFEST_PATHS};
+    use super::*;
+    use crate::backends::experimenter_manifest::ExperimenterManifest;
+    use crate::util::{join, pkg_dir};
+
+    fn validate_against_experimenter_schema<P: AsRef<Path>>(
+        schema_path: P,
+        generated_yaml: &serde_yaml::Value,
+    ) -> Result<()> {
+        let generated_manifest: ExperimenterManifest =
+            serde_yaml::from_value(generated_yaml.to_owned())?;
+        let generated_json = serde_json::to_value(generated_manifest)?;
+
+        let schema = fs::read_to_string(&schema_path)?;
+        let schema: serde_json::Value = serde_json::from_str(&schema)?;
+        let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
+        let res = compiled.validate(&generated_json);
+        if let Err(e) = res {
+            panic!(
+                "Validation errors: \n{}",
+                e.map(|e| e.to_string()).collect::<Vec<String>>().join("\n")
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_validation() -> Result<()> {
+        for path in MANIFEST_PATHS {
+            let output = NamedTempFile::new()?;
+            let cmd = create_experimenter_manifest_cmd(path, output.path())?;
+            generate_experimenter_manifest(&cmd)?;
+
+            let generated = fs::read_to_string(&cmd.output)?;
+            let generated_yaml = serde_yaml::from_str(&generated)?;
+            validate_against_experimenter_schema(
+                join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
+                &generated_yaml,
+            )?;
+        }
         Ok(())
     }
 }
@@ -717,18 +721,16 @@ mod test {
 mod kts_tests {
     use crate::frontend::{AboutBlock, KotlinAboutBlock};
 
-    use super::{
-        test::{
-            generate_and_assert, generate_and_assert_with_config, generate_multiple_and_assert,
-        },
-        *,
+    use super::test::{
+        generate_and_assert, generate_and_assert_with_config, generate_multiple_and_assert,
     };
+    use super::*;
 
     #[test]
     fn test_simple_validation_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/simple_nimbus_validation.kts",
-            "fixtures/ir/simple_nimbus_validation.json",
+            "fixtures/ir/simple_nimbus_validation.ir.json",
             "release",
             true,
         )?;
@@ -739,7 +741,7 @@ mod kts_tests {
     fn test_with_objects_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.kts",
-            "fixtures/ir/with_objects.json",
+            "fixtures/ir/with_objects.ir.json",
             "release",
             true,
         )?;
@@ -750,7 +752,7 @@ mod kts_tests {
     fn test_with_full_homescreen_from_ir() -> Result<()> {
         generate_and_assert(
             "test/full_homescreen.kts",
-            "fixtures/ir/full_homescreen.json",
+            "fixtures/ir/full_homescreen.ir.json",
             "release",
             true,
         )?;
@@ -829,7 +831,7 @@ mod kts_tests {
     fn test_with_app_menu_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.kts",
-            "fixtures/ir/app_menu.json",
+            "fixtures/ir/app_menu.ir.json",
             "release",
             true,
         )?;
@@ -993,16 +995,14 @@ mod kts_tests {
     not(feature = "all-features-workaround")
 ))]
 mod swift_tests {
-    use super::{
-        test::{generate_and_assert, generate_multiple_and_assert},
-        *,
-    };
+    use super::test::{generate_and_assert, generate_multiple_and_assert};
+    use super::*;
 
     #[test]
     fn test_with_app_menu_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.swift",
-            "fixtures/ir/app_menu.json",
+            "fixtures/ir/app_menu.ir.json",
             "release",
             true,
         )?;
@@ -1013,7 +1013,7 @@ mod swift_tests {
     fn test_with_objects_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.swift",
-            "fixtures/ir/with_objects.json",
+            "fixtures/ir/with_objects.ir.json",
             "release",
             true,
         )?;

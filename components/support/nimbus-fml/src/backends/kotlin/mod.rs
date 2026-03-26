@@ -172,10 +172,11 @@ pub mod test {
 
     // Given a generated manifest, run a kts script against it.
     pub fn run_script_with_generated_code(manifests_kt: &[String], script: &str) -> Result<()> {
-        if !detect_kotlinc()? {
-            println!("SDK-446 Install kotlinc or add it the PATH to run tests");
-            return Ok(());
-        }
+        assert!(
+            detect_kotlinc()?,
+            "Bug 2026340 -- Cannot run kotlin tests without kotlinc"
+        );
+
         let temp_dir = compile_manifest_kt(manifests_kt)?;
         let build_dir = temp_dir.path();
 

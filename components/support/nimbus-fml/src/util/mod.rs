@@ -35,8 +35,3 @@ pub(crate) fn sdk_dir() -> String {
 pub(crate) fn build_dir() -> String {
     join(pkg_dir(), "build")
 }
-
-#[allow(dead_code)]
-pub(crate) fn generated_src_dir() -> String {
-    join(build_dir(), "generated")
-}
