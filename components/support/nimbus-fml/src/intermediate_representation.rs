@@ -762,7 +762,7 @@ impl PropDef {
         self.pref_key.is_some() && self.typ.supports_prefs()
     }
     pub fn has_gecko_prefs(&self) -> bool {
-        self.gecko_pref.is_some() && self.typ.supports_prefs()
+        self.gecko_pref.is_some()
     }
     pub fn pref_key(&self) -> Option<String> {
         self.pref_key.clone()
