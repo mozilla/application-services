@@ -329,13 +329,10 @@ impl Storage {
     }
 
     /// Remove attachments that are no longer referenced by any current record.
-    /// When the server updates an attachment, the attachment gets a new UUID in its location
+    /// When the server updates an attachment, the record gets a new UUID/hash in its location
     /// field. Without this cleanup, the old attachment blob persists forever, causing unbounded
     /// database growth (1+ GB observed in production for `quicksuggest-amp.sql`).
-    fn cleanup_orphaned_attachments(
-        tx: &Transaction<'_>,
-        collection_url: &str,
-    ) -> Result<()> {
+    fn cleanup_orphaned_attachments(tx: &Transaction<'_>, collection_url: &str) -> Result<()> {
         tx.execute(
             "DELETE FROM attachments
              WHERE collection_url = ?1
@@ -628,7 +625,10 @@ mod tests {
             last_modified: 100,
             deleted: false,
             attachment: Some(attachment_meta_v1.clone()),
-            fields: serde_json::json!({"type": "amp"}).as_object().unwrap().clone(),
+            fields: serde_json::json!({"type": "amp"})
+                .as_object()
+                .unwrap()
+                .clone(),
         }];
 
         storage.insert_collection_content(
@@ -649,7 +649,10 @@ mod tests {
             last_modified: 200,
             deleted: false,
             attachment: Some(attachment_meta_v2.clone()),
-            fields: serde_json::json!({"type": "amp"}).as_object().unwrap().clone(),
+            fields: serde_json::json!({"type": "amp"})
+                .as_object()
+                .unwrap()
+                .clone(),
         }];
 
         storage.insert_collection_content(
@@ -676,10 +679,10 @@ mod tests {
     /// The `quicksuggest-amp` changeset uses filter_expression to target specific countries
     /// and form factors. If the server removes a record (e.g. drops a country), a tombstone
     /// is sent:
-    /// { 
-    ///     "id": "sponsored-suggestions-gb-phone", 
-    ///     "last_modified": 1774549156905, 
-    ///     "deleted": true 
+    /// {
+    ///   "id": "sponsored-suggestions-gb-phone",
+    ///   "last_modified": 1774549156905,
+    ///   "deleted": true
     /// }
     /// The record row gets deleted, but the cached attachment blob was never cleaned up.
     #[test]
@@ -704,14 +707,20 @@ mod tests {
                 last_modified: 100,
                 deleted: false,
                 attachment: Some(attachment_meta.clone()),
-                fields: serde_json::json!({"type": "amp"}).as_object().unwrap().clone(),
+                fields: serde_json::json!({"type": "amp"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
             },
             RemoteSettingsRecord {
                 id: "sponsored-suggestions-us-phone".to_string(),
                 last_modified: 100,
                 deleted: false,
                 attachment: None,
-                fields: serde_json::json!({"type": "amp"}).as_object().unwrap().clone(),
+                fields: serde_json::json!({"type": "amp"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
             },
         ];
 
