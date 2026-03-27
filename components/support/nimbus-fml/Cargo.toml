@@ -33,7 +33,7 @@ tempfile = "3"
 # jsonschema = { version = "0.17", default-features = false }
 
 [dependencies]
-clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive", "help"]}
 anyhow = "1.0.44"
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
