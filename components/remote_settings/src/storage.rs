@@ -231,6 +231,7 @@ impl Storage {
 
         Self::update_record_rows(&tx, collection_url, records)?;
         Self::update_collection_metadata(&tx, collection_url, last_modified, metadata)?;
+        Self::cleanup_orphaned_attachments(&tx, collection_url)?;
         tx.commit()?;
         Ok(())
     }
@@ -324,6 +325,26 @@ impl Storage {
         tx.execute("DELETE FROM attachments", [])?;
         tx.execute("DELETE FROM collection_metadata", [])?;
         tx.commit()?;
+        Ok(())
+    }
+
+    /// Remove attachments that are no longer referenced by any current record.
+    /// When the server updates an attachment, the attachment gets a new UUID in its location
+    /// field. Without this cleanup, the old attachment blob persists forever, causing unbounded
+    /// database growth (1+ GB observed in production for `quicksuggest-amp.sql`).
+    fn cleanup_orphaned_attachments(
+        tx: &Transaction<'_>,
+        collection_url: &str,
+    ) -> Result<()> {
+        tx.execute(
+            "DELETE FROM attachments
+             WHERE collection_url = ?1
+             AND NOT EXISTS (
+                 SELECT 1 FROM records WHERE collection_url = ?1
+                 AND json_extract(data, '$.attachment.location') = attachments.id
+             )",
+            params![collection_url],
+        )?;
         Ok(())
     }
 }
