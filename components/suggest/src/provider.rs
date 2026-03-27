@@ -43,7 +43,7 @@ pub enum SuggestionProvider {
     Yelp = 5,
     Mdn = 6,
     Weather = 7,
-    // Fakespot = 8,
+    // Fakespot = 8, removed
     Dynamic = 9,
 }
 
