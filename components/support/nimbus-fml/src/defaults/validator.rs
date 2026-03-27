@@ -16,7 +16,7 @@ pub(crate) struct DefaultsValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
 
-    lax_pref_validation: bool,
+    lax_gecko_pref_validation: bool,
 }
 
 impl<'a> DefaultsValidator<'a> {
@@ -27,11 +27,12 @@ impl<'a> DefaultsValidator<'a> {
         Self {
             enum_defs,
             object_defs,
+            lax_gecko_pref_validation: false,
         }
     }
 
-    pub(crate) fn with_lax_pref_validation(Self) -> Self {
-        self.lax_pref_validation = true;
+    pub(crate) fn with_lax_gecko_pref_validation(mut self, value: bool) -> Self {
+        self.lax_gecko_pref_validation = value;
         self
     }
 
@@ -74,7 +75,7 @@ impl<'a> DefaultsValidator<'a> {
         // This is only checking if a Map with an Enum as key has a complete set of keys (i.e. all variants)
         self.validate_feature_enum_maps(feature_def)?;
 
-        if !self.lax_pref_validation {
+        if !self.lax_gecko_pref_validation {
             self.validate_no_defaults_for_gecko_prefs(feature_def)?;
         }
 

@@ -34,6 +34,8 @@ const DISALLOWED_PREFS: &[(&str, &str)] = &[
 pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
+
+    lax_gecko_pref_validation: bool,
 }
 
 impl<'a> SchemaValidator<'a> {
@@ -44,7 +46,13 @@ impl<'a> SchemaValidator<'a> {
         Self {
             enum_defs: enums,
             object_defs: objs,
+            lax_gecko_pref_validation: false,
         }
+    }
+
+    pub(crate) fn with_lax_gecko_pref_validation(mut self, value: bool) -> Self {
+        self.lax_gecko_pref_validation = value;
+        self
     }
 
     fn _get_enum(&self, nm: &str) -> Option<&EnumDef> {
@@ -99,7 +107,8 @@ impl<'a> SchemaValidator<'a> {
             }
 
             // Check pref support for this type.
-            if prop.gecko_pref.is_some() && !prop.typ.supports_gecko_prefs(self.lax_pref_validation) {
+            if prop.gecko_pref.is_some() && !prop.typ.supports_gecko_prefs(self.lax_gecko_pref_validation)
+            {
                 return Err(FMLError::ValidationError(
                     path,
                     "Pref keys can only be used with Option<Boolean>, Option<Int>, Option<String> and Option<StringAlaias> variables"

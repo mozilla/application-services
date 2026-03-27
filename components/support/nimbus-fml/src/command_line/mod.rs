@@ -91,6 +91,7 @@ fn create_single_file_from_cli(
         output,
         channel,
         loader,
+        lax_gecko_pref_validation: cmd.lax_gecko_pref_validation,
     })
 }
 
@@ -110,6 +111,7 @@ fn create_generate_command_experimenter_from_cli(
         language,
         load_from_ir,
         loader,
+        lax_gecko_pref_validation: cmd.lax_gecko_pref_validation,
     };
     Ok(cmd)
 }
@@ -172,7 +174,11 @@ fn create_loader(
 fn create_validate_command_from_cli(cmd: &cli::Validate, cwd: &Path) -> Result<ValidateCmd> {
     let manifest = cmd.input.clone();
     let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
-    Ok(ValidateCmd { manifest, loader })
+    Ok(ValidateCmd {
+        manifest,
+        loader,
+        lax_gecko_pref_validation: cmd.lax_gecko_pref_validation,
+    })
 }
 
 fn create_print_channels_from_cli(cmd: &cli::Channels, cwd: &Path) -> Result<PrintChannelsCmd> {

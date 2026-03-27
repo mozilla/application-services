@@ -87,6 +87,7 @@ fn generate_struct_single(
         manifest_path,
         cmd.load_from_ir,
         Some(&cmd.channel),
+        false,
     )?;
     generate_struct_from_ir(&ir, cmd)
 }
@@ -112,7 +113,13 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
 pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let ir = load_feature_manifest(files, path, cmd.load_from_ir, None)?;
+    let ir = load_feature_manifest(
+        files,
+        path,
+        cmd.load_from_ir,
+        None,
+        cmd.lax_gecko_pref_validation,
+    )?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
@@ -120,7 +127,13 @@ pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestC
 pub(crate) fn generate_single_file_manifest(cmd: &GenerateSingleFileManifestCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let fm = load_feature_manifest(files, path, false, Some(&cmd.channel))?;
+    let fm = load_feature_manifest(
+        files,
+        path,
+        false,
+        Some(&cmd.channel),
+        cmd.lax_gecko_pref_validation,
+    )?;
     let frontend: ManifestFrontEnd = fm.into();
     std::fs::write(&cmd.output, serde_yaml::to_string(&frontend)?)?;
     Ok(())
@@ -131,6 +144,7 @@ fn load_feature_manifest(
     path: FilePath,
     load_from_ir: bool,
     channel: Option<&str>,
+    lax_gecko_pref_validation: bool,
 ) -> Result<FeatureManifest> {
     let ir = if !load_from_ir {
         let parser: Parser = Parser::new(files, path)?;
@@ -138,7 +152,7 @@ fn load_feature_manifest(
     } else {
         files.read_ir::<FeatureManifest>(&path)?
     };
-    ir.validate_manifest()?;
+    ir.validate_manifest_with(lax_gecko_pref_validation)?;
     Ok(ir)
 }
 
@@ -302,7 +316,7 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         .map(|c| {
             let intermediate_representation = parser.get_intermediate_representation(Some(c));
             match intermediate_representation {
-                Ok(ir) => (c, ir.validate_manifest()),
+                Ok(ir) => (c, ir.validate_manifest_with(cmd.lax_gecko_pref_validation)),
                 Err(e) => (c, Err(e)),
             }
         })
@@ -352,7 +366,7 @@ pub(crate) fn print_channels(cmd: &PrintChannelsCmd) -> Result<()> {
 pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let fm = load_feature_manifest(files, path.clone(), false, cmd.channel.as_deref())?;
+    let fm = load_feature_manifest(files, path.clone(), false, cmd.channel.as_deref(), false)?;
     let info = if let Some(feature_id) = &cmd.feature {
         ManifestInfo::from_feature(&path, &fm, feature_id)?
     } else {
@@ -407,7 +421,8 @@ mod test {
     fn generate_struct_cli_overrides(from_cli: AboutBlock, cmd: &GenerateStructCmd) -> Result<()> {
         let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
         let path = files.file_path(&cmd.manifest)?;
-        let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, Some(&cmd.channel))?;
+        let mut ir =
+            load_feature_manifest(files, path, cmd.load_from_ir, Some(&cmd.channel), false)?;
 
         // We do a dance here to make sure that we can override class names and package names during tests,
         // and while we still have to support setting those options from the command line.
@@ -611,7 +626,7 @@ mod test {
         // Load the source file, and get the default_json()
         let files: FileLoader = TryFrom::try_from(&loader)?;
         let src = files.file_path(&manifest)?;
-        let fm = load_feature_manifest(files, src, false, Some(channel))?;
+        let fm = load_feature_manifest(files, src, false, Some(channel), false)?;
         let expected = fm.default_json();
 
         let output = NamedTempFile::new()?;
@@ -628,7 +643,7 @@ mod test {
         // Reload the generated file, and get the default_json()
         let dest = FilePath::Local(output.path().into());
         let files: FileLoader = TryFrom::try_from(&loader)?;
-        let fm = load_feature_manifest(files, dest, false, Some(channel))?;
+        let fm = load_feature_manifest(files, dest, false, Some(channel), false)?;
         let observed = fm.default_json();
 
         // They should be the same.

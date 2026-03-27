@@ -34,6 +34,7 @@ pub(crate) struct GenerateExperimenterManifestCmd {
     pub(crate) language: TargetLanguage,
     pub(crate) load_from_ir: bool,
     pub(crate) loader: LoaderConfig,
+    pub(crate) lax_gecko_pref_validation: bool,
 }
 
 pub(crate) struct GenerateSingleFileManifestCmd {
@@ -41,11 +42,13 @@ pub(crate) struct GenerateSingleFileManifestCmd {
     pub(crate) output: PathBuf,
     pub(crate) channel: String,
     pub(crate) loader: LoaderConfig,
+    pub(crate) lax_gecko_pref_validation: bool,
 }
 
 pub(crate) struct ValidateCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
+    pub(crate) lax_gecko_pref_validation: bool,
 }
 
 pub(crate) struct PrintChannelsCmd {

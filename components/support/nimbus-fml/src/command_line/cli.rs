@@ -79,6 +79,10 @@ pub struct GenerateExperimenter {
 
     #[command(flatten)]
     pub loader_info: LoaderInfo,
+
+    #[arg(long)]
+    /// Enable lax gecko-pref validation.
+    pub lax_gecko_pref_validation: bool,
 }
 
 #[derive(Args)]
@@ -107,6 +111,10 @@ pub struct SingleFile {
 
     #[command(flatten)]
     pub loader_info: LoaderInfo,
+
+    #[arg(long)]
+    /// Enable lax gecko-pref validation.
+    pub lax_gecko_pref_validation: bool,
 }
 
 #[derive(Args)]
@@ -117,6 +125,10 @@ pub struct Validate {
 
     #[command(flatten)]
     pub loader_info: LoaderInfo,
+
+    #[arg(long)]
+    /// Enable lax gecko-pref validation.
+    pub lax_gecko_pref_validation: bool,
 }
 
 #[derive(Args)]
