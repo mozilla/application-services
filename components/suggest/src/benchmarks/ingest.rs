@@ -172,14 +172,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
                 true,
             ),
         ),
-        (
-            "ingest-fakespot",
-            IngestBenchmark::new(SuggestionProvider::Fakespot, false),
-        ),
-        (
-            "ingest-again-fakespot",
-            IngestBenchmark::new(SuggestionProvider::Fakespot, true),
-        ),
     ]
 }
 
@@ -191,8 +183,6 @@ pub fn print_debug_ingestion_sizes() {
     );
     store
         .ingest(SuggestIngestionConstraints {
-            // Uncomment to measure the size for a specific provider
-            // providers: Some(vec![crate::SuggestionProvider::Fakespot]),
             ..SuggestIngestionConstraints::default()
         })
         .unwrap();

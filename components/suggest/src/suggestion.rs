@@ -84,21 +84,6 @@ pub enum Suggestion {
         city: Option<Geoname>,
         score: f64,
     },
-    Fakespot {
-        fakespot_grade: String,
-        product_id: String,
-        rating: f64,
-        title: String,
-        total_reviews: i64,
-        url: String,
-        icon: Option<Vec<u8>>,
-        icon_mimetype: Option<String>,
-        score: f64,
-        // Details about the FTS match.  For performance reasons, this is only calculated for the
-        // result with the highest score.  We assume that only one that will be shown to the user
-        // and therefore the only one we'll collect metrics for.
-        match_info: Option<FtsMatchInfo>,
-    },
     Dynamic {
         suggestion_type: String,
         data: Option<serde_json::Value>,
@@ -153,8 +138,7 @@ impl Suggestion {
             | Self::Amo { .. }
             | Self::Yelp { .. }
             | Self::Mdn { .. }
-            | Self::Weather { .. }
-            | Self::Fakespot { .. } => self.raw_url(),
+            | Self::Weather { .. } => self.raw_url(),
         }
     }
 
@@ -165,8 +149,7 @@ impl Suggestion {
             | Self::Wikipedia { url, .. }
             | Self::Amo { url, .. }
             | Self::Yelp { url, .. }
-            | Self::Mdn { url, .. }
-            | Self::Fakespot { url, .. } => Some(url),
+            | Self::Mdn { url, .. } => Some(url),
             Self::Weather { .. } | Self::Dynamic { .. } => None,
         }
     }
@@ -183,7 +166,6 @@ impl Suggestion {
             | Self::Yelp { .. }
             | Self::Mdn { .. }
             | Self::Weather { .. }
-            | Self::Fakespot { .. }
             | Self::Dynamic { .. } => self.url(),
         }
     }
@@ -194,18 +176,16 @@ impl Suggestion {
             | Self::Wikipedia { title, .. }
             | Self::Amo { title, .. }
             | Self::Yelp { title, .. }
-            | Self::Mdn { title, .. }
-            | Self::Fakespot { title, .. } => title,
+            | Self::Mdn { title, .. } => title,
             _ => "untitled",
         }
     }
 
     pub fn icon_data(&self) -> Option<&[u8]> {
         match self {
-            Self::Amp { icon, .. }
-            | Self::Wikipedia { icon, .. }
-            | Self::Yelp { icon, .. }
-            | Self::Fakespot { icon, .. } => icon.as_deref(),
+            Self::Amp { icon, .. } | Self::Wikipedia { icon, .. } | Self::Yelp { icon, .. } => {
+                icon.as_deref()
+            }
             _ => None,
         }
     }
@@ -217,41 +197,13 @@ impl Suggestion {
             | Self::Yelp { score, .. }
             | Self::Mdn { score, .. }
             | Self::Weather { score, .. }
-            | Self::Fakespot { score, .. }
             | Self::Dynamic { score, .. } => *score,
             Self::Wikipedia { .. } => DEFAULT_SUGGESTION_SCORE,
         }
     }
 
     pub fn fts_match_info(&self) -> Option<&FtsMatchInfo> {
-        match self {
-            Self::Fakespot { match_info, .. } => match_info.as_ref(),
-            _ => None,
-        }
-    }
-}
-
-#[cfg(test)]
-/// Testing utilitise
-impl Suggestion {
-    pub fn with_fakespot_keyword_bonus(mut self) -> Self {
-        match &mut self {
-            Self::Fakespot { score, .. } => {
-                *score += 0.01;
-            }
-            _ => panic!("Not Suggestion::Fakespot"),
-        }
-        self
-    }
-
-    pub fn with_fakespot_product_type_bonus(mut self, bonus: f64) -> Self {
-        match &mut self {
-            Self::Fakespot { score, .. } => {
-                *score += 0.001 * bonus;
-            }
-            _ => panic!("Not Suggestion::Fakespot"),
-        }
-        self
+        None
     }
 }
 

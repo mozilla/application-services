@@ -89,7 +89,6 @@ enum SuggestionProviderArg {
     Yelp,
     Mdn,
     Weather,
-    Fakespot,
 }
 
 impl From<SuggestionProviderArg> for SuggestionProvider {
@@ -101,7 +100,6 @@ impl From<SuggestionProviderArg> for SuggestionProvider {
             SuggestionProviderArg::Yelp => Self::Yelp,
             SuggestionProviderArg::Mdn => Self::Mdn,
             SuggestionProviderArg::Weather => Self::Weather,
-            SuggestionProviderArg::Fakespot => Self::Fakespot,
         }
     }
 }

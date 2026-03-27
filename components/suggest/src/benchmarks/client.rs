@@ -38,15 +38,6 @@ impl RemoteSettingsBenchmarkClient {
             })?,
             rs::Collection::Other,
         )?;
-        new_benchmark_client.fetch_data_with_client(
-            remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
-                server: None,
-                bucket_name: None,
-                collection_name: rs::Collection::Fakespot.name().to_owned(),
-                server_url: None,
-            })?,
-            rs::Collection::Fakespot,
-        )?;
         Ok(new_benchmark_client)
     }
 

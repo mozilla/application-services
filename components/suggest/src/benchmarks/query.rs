@@ -58,59 +58,7 @@ impl BenchmarkWithInput for QueryBenchmark {
 
 pub fn all_benchmarks() -> Vec<(&'static str, QueryBenchmark)> {
     vec![
-        // Fakespot queries, these attempt to perform prefix matches with various character
-        // lengths.
-        //
         // The query code will only do a prefix match if the total input length is > 3 chars.
-        // Therefore, to test shorter prefixes we use 2-term queries.
-        (
-            "query-fakespot-hand-s",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "hand s",
-                should_match: true,
-            }
-        ),
-        (
-            "query-fakespot-hand-sa",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "hand sa",
-                should_match: true,
-            }
-        ),
-        (
-            "query-fakespot-hand-san",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "hand san",
-                should_match: true,
-            }
-        ),
-        (
-            "query-fakespot-sani",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "sani",
-                should_match: true,
-            }
-        ),
-        (
-            "query-fakespot-sanit",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "sanit",
-                should_match: true,
-            }
-        ),
-        (
-            "query-fakespot-saniti",
-            QueryBenchmark {
-                provider: SuggestionProvider::Fakespot,
-                query: "saniti",
-                should_match: false,
-            },
-        ),
 
         // weather: no matches
         (
