@@ -79,7 +79,7 @@ impl FmlClient {
         let path = files.file_path(&manifest_path)?;
         let parser: Parser = Parser::new(files, path)?;
         let ir = parser.get_intermediate_representation(Some(&channel))?;
-        ir.validate_manifest()?;
+        ir.validate_manifest_with(config.lax_gecko_pref_validation)?;
 
         Ok(FmlClient {
             default_json: get_default_json_for_manifest(&ir)?,

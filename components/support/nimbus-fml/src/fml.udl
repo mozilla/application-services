@@ -23,6 +23,7 @@ dictionary FmlLoaderConfig {
     string? cache;
     record<DOMString, string> refs;
     sequence<string> ref_files;
+    boolean lax_gecko_pref_validation;
 };
 
 interface FmlClient {

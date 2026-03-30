@@ -34,6 +34,8 @@ const DISALLOWED_PREFS: &[(&str, &str)] = &[
 pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
+
+    lax_gecko_pref_validation: bool,
 }
 
 impl<'a> SchemaValidator<'a> {
@@ -44,7 +46,13 @@ impl<'a> SchemaValidator<'a> {
         Self {
             enum_defs: enums,
             object_defs: objs,
+            lax_gecko_pref_validation: false,
         }
+    }
+
+    pub(crate) fn with_lax_gecko_pref_validation(mut self, value: bool) -> Self {
+        self.lax_gecko_pref_validation = value;
+        self
     }
 
     fn _get_enum(&self, nm: &str) -> Option<&EnumDef> {
@@ -99,10 +107,14 @@ impl<'a> SchemaValidator<'a> {
             }
 
             // Check pref support for this type.
-            if prop.gecko_pref.is_some() && !prop.typ.supports_prefs() {
+            if prop.gecko_pref.is_some()
+                && !prop
+                    .typ
+                    .supports_gecko_prefs(self.lax_gecko_pref_validation)
+            {
                 return Err(FMLError::ValidationError(
                     path,
-                    "Pref keys can only be used with Boolean, String, Int and Text variables"
+                    "Pref keys can only be used with Option<Boolean>, Option<Int>, and Option<String>  variables"
                         .to_string(),
                 ));
             }
@@ -567,5 +579,43 @@ mod string_aliases {
         assert!(validator.validate_feature_def(&fm).is_err());
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_gecko_prefs {
+    use serde_json::json;
+
+    use crate::error::FMLError;
+    use crate::intermediate_representation::{GeckoPrefDef, PrefBranch, PropDef};
+
+    use super::*;
+
+    #[test]
+    fn test_validate_gecko_pref_supported_types() {
+        let mut prop = PropDef::new("var", &TypeRef::String, &json!(null));
+        prop.gecko_pref = Some(GeckoPrefDef {
+            pref: "some.pref".into(),
+            branch: PrefBranch::User,
+        });
+
+        let feature = FeatureDef {
+            name: "Feature".to_string(),
+            props: vec![prop],
+            ..Default::default()
+        };
+
+        let objs = Default::default();
+        let enums = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs);
+
+        assert!(matches!(
+            validator.validate_feature_def(&feature),
+            Err(FMLError::ValidationError(path, reason)) if path == "features/Feature/var" && reason == "Pref keys can only be used with Option<Boolean>, Option<Int>, and Option<String>  variables"
+        ));
+
+        let validator = SchemaValidator::new(&enums, &objs).with_lax_gecko_pref_validation(true);
+
+        assert!(matches!(validator.validate_feature_def(&feature), Ok(())));
     }
 }

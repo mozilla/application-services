@@ -25,6 +25,7 @@ pub struct LoaderConfig {
     pub repo_files: Vec<String>,
     pub cache_dir: Option<PathBuf>,
     pub refs: BTreeMap<String, String>,
+    pub lax_gecko_pref_validation: bool,
 }
 
 impl LoaderConfig {
@@ -48,6 +49,7 @@ impl Default for LoaderConfig {
             cache_dir: None,
             cwd: env::current_dir().expect("Current Working Directory is not set"),
             refs: Default::default(),
+            lax_gecko_pref_validation: false,
         }
     }
 }
@@ -797,7 +799,7 @@ mod unit_tests {
                 "fixtures/loaders/config_files/remote.json".to_string(),
                 "fixtures/loaders/config_files/local.yaml".to_string(),
             ],
-            refs: Default::default(),
+            ..Default::default()
         };
 
         let files: FileLoader = config.try_into()?;
@@ -855,8 +857,8 @@ mod unit_tests {
         let config = &LoaderConfig {
             cwd,
             cache_dir: None,
-            repo_files: Default::default(),
             refs: BTreeMap::from([("@my-remote/repo".to_string(), "cli-branch".to_string())]),
+            ..Default::default()
         };
 
         let files: FileLoader = config.try_into()?;
@@ -879,8 +881,7 @@ mod unit_tests {
         let config = &LoaderConfig {
             cwd,
             cache_dir: None,
-            repo_files: Default::default(),
-            refs: Default::default(),
+            ..Default::default()
         };
 
         let files: FileLoader = config.try_into()?;

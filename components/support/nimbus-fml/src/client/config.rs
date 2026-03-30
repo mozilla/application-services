@@ -11,6 +11,7 @@ pub struct FmlLoaderConfig {
     pub cache: Option<String>,
     pub refs: HashMap<String, String>,
     pub ref_files: Vec<String>,
+    pub lax_gecko_pref_validation: bool,
 }
 
 impl From<FmlLoaderConfig> for LoaderConfig {
@@ -22,6 +23,7 @@ impl From<FmlLoaderConfig> for LoaderConfig {
             refs: value.refs.into_iter().collect(),
             repo_files: value.ref_files,
             cache_dir: cache,
+            lax_gecko_pref_validation: value.lax_gecko_pref_validation,
         }
     }
 }
