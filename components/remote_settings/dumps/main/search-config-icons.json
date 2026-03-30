@@ -874,6 +874,23 @@
     },
     {
       "attachment": {
+        "filename": "startpage-16.svg",
+        "hash": "b9aeff79e16d2db1b53574ceacae0149bc3c5b5d6b6dcd3542a1d7034ed64b70",
+        "location": "main-workspace/search-config-icons/a2a88863-029c-4197-8a1c-fee311fc1aae.svg",
+        "mimetype": "image/svg+xml",
+        "size": 1717
+      },
+      "engineIdentifiers": [
+        "startpage"
+      ],
+      "filter_expression": "env.appinfo.OS != \"iOS\"",
+      "id": "acae3d3c-b09e-47f0-a9e5-57980d21fc4a",
+      "imageSize": 16,
+      "last_modified": 1774879272191,
+      "schema": 1773705608175
+    },
+    {
+      "attachment": {
         "filename": "duckduckgo.pdf",
         "hash": "1658dba5cc1e8acdee34d58496f90e7473375a2012f3a6147bb16777add1c581",
         "location": "main-workspace/search-config-icons/b9f8a8d5-3086-4b98-90f5-a29f577e3014.pdf",
@@ -1190,5 +1207,5 @@
       "schema": 1743687832067
     }
   ],
-  "timestamp": 1772466505212
+  "timestamp": 1774879272191
 }
