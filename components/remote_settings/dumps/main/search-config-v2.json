@@ -2588,9 +2588,9 @@
       },
       "id": "7ace4aa1-e762-4f4b-87b9-b23b3c3a930b",
       "identifier": "google",
-      "last_modified": 1772114960790,
+      "last_modified": 1774874010729,
       "recordType": "engine",
-      "schema": 1772064008248,
+      "schema": 1774656007453,
       "variants": [
         {
           "environment": {
@@ -2644,9 +2644,7 @@
           "environment": {
             "regions": [
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "telemetrySuffix": "com-nocodes"
@@ -2702,7 +2700,8 @@
                 ],
                 "distributions": [
                   "dt-002",
-                  "dt-003"
+                  "dt-003",
+                  "xiaomi-001"
                 ]
               },
               "partnerCode": "firefox-b-1-dt",
@@ -2783,9 +2782,7 @@
             ],
             "excludedRegions": [
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "partnerCode": "firefox-b-lm",
@@ -2849,9 +2846,7 @@
             ],
             "excludedRegions": [
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "partnerCode": "firefox-b-vv",
@@ -2881,9 +2876,7 @@
             ],
             "excludedRegions": [
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "partnerCode": "firefox-b-tf",
@@ -2914,9 +2907,7 @@
             "excludedRegions": [
               "us",
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "partnerCode": "firefox-b-ar",
@@ -2943,14 +2934,13 @@
             ],
             "distributions": [
               "dt-002",
-              "dt-003"
+              "dt-003",
+              "xiaomi-001"
             ],
             "excludedRegions": [
               "us",
               "ru",
-              "tr",
-              "by",
-              "kz"
+              "by"
             ]
           },
           "partnerCode": "firefox-b-dt",
@@ -8386,5 +8376,5 @@
       "schema": 1707824831520
     }
   ],
-  "timestamp": 1772114960790
+  "timestamp": 1774874010729
 }
