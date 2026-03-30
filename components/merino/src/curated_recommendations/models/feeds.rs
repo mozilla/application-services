@@ -4,74 +4,18 @@
  */
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use super::layout::Layout;
 use super::response::RecommendationDataItem;
 
-/// Container for all categorized recommendation feeds returned by the API.
-///
-/// Each field corresponds to a content category or special feed type. Fields are
-/// `None` when the category was not requested or has no content available.
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct Feeds {
-    /// High-priority "need to know" recommendations.
-    #[uniffi(default)]
-    pub need_to_know: Option<CuratedRecommendationsBucket>,
-    /// Fakespot product review recommendations.
-    #[uniffi(default)]
-    pub fakespot: Option<FakespotFeed>,
-    /// Top stories section.
-    #[uniffi(default)]
-    pub top_stories_section: Option<FeedSection>,
-    #[uniffi(default)]
-    pub business: Option<FeedSection>,
-    #[uniffi(default)]
-    pub career: Option<FeedSection>,
-    #[uniffi(default)]
-    pub arts: Option<FeedSection>,
-    #[uniffi(default)]
-    pub food: Option<FeedSection>,
-    #[uniffi(default)]
-    pub health: Option<FeedSection>,
-    #[uniffi(default)]
-    pub home: Option<FeedSection>,
-    #[uniffi(default)]
-    pub finance: Option<FeedSection>,
-    #[uniffi(default)]
-    pub government: Option<FeedSection>,
-    #[uniffi(default)]
-    pub sports: Option<FeedSection>,
-    #[uniffi(default)]
-    pub tech: Option<FeedSection>,
-    #[uniffi(default)]
-    pub travel: Option<FeedSection>,
-    #[uniffi(default)]
-    pub education: Option<FeedSection>,
-    #[uniffi(default)]
-    pub hobbies: Option<FeedSection>,
-    #[serde(rename = "society-parenting")]
-    #[uniffi(default)]
-    pub society_parenting: Option<FeedSection>,
-    #[serde(rename = "education-science")]
-    #[uniffi(default)]
-    pub education_science: Option<FeedSection>,
-    #[uniffi(default)]
-    pub society: Option<FeedSection>,
-}
-
-/// A ranked list of curated recommendations with an optional title.
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct CuratedRecommendationsBucket {
-    /// The recommendations in this bucket.
-    pub recommendations: Vec<RecommendationDataItem>,
-    /// Optional display title for this bucket.
-    #[uniffi(default)]
-    pub title: Option<String>,
-}
-
 /// A categorized feed section containing recommendations and responsive layout configuration.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct FeedSection {
+    /// Identifier for this feed section (the key from the API response map,
+    /// e.g. `"top_stories_section"`, `"travel"`, `"arts"`).
+    #[serde(rename = "feedId", default)]
+    pub feed_id: String,
     /// The display position of this section within the overall feed.
     #[serde(rename = "receivedFeedRank")]
     pub received_feed_rank: i32,
@@ -92,46 +36,29 @@ pub struct FeedSection {
     pub is_blocked: bool,
 }
 
-/// A feed of Fakespot product review recommendations.
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct FakespotFeed {
-    /// The recommended products.
-    pub products: Vec<FakespotProduct>,
-    /// Default category name for display.
-    #[serde(rename = "defaultCategoryName")]
-    pub default_category_name: String,
-    /// Header copy text displayed above the product list.
-    #[serde(rename = "headerCopy")]
-    pub header_copy: String,
-    /// Footer copy text displayed below the product list.
-    #[serde(rename = "footerCopy")]
-    pub footer_copy: String,
-    /// Call-to-action link for the Fakespot feed.
-    pub cta: FakespotCta,
-}
-
-/// Details for a single Fakespot product recommendation.
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct FakespotProduct {
-    /// Unique product identifier.
-    id: String,
-    /// Product title.
-    title: String,
-    /// Product category.
-    category: String,
-    /// URL of the product image.
-    #[serde(rename = "imageUrl")]
-    image_url: String,
-    /// URL of the product page.
-    url: String,
-}
-
-/// Call-to-action link for the Fakespot feed.
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct FakespotCta {
-    /// Display text for the call-to-action button.
-    #[serde(rename = "ctaCopy")]
-    pub cta_copy: String,
-    /// URL the call-to-action links to.
-    pub url: String,
+/// Deserializes the `feeds` field from a JSON map of section name to section data
+/// into an `Option<Vec<FeedSection>>`, populating each section's `feed_id` from its map key.
+pub(crate) fn deserialize_feeds<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<FeedSection>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let map: Option<HashMap<String, serde_json::Value>> = Option::deserialize(deserializer)?;
+    match map {
+        None => Ok(None),
+        Some(map) => {
+            let mut sections = Vec::with_capacity(map.len());
+            for (key, mut value) in map {
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("feedId".to_string(), serde_json::Value::String(key.clone()));
+                }
+                let section: FeedSection =
+                    serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                sections.push(section);
+            }
+            sections.sort_by_key(|s| s.received_feed_rank);
+            Ok(Some(sections))
+        }
+    }
 }

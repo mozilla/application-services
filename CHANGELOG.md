@@ -38,6 +38,10 @@
 ### Remote Settings
 * Add multi-signature support ([#7270](https://github.com/mozilla/application-services/pull/7270))
 
+## ✨ What's Changed ✨
+
+### Merino Client
+* Updated response to reflect the updated API response ([#7289](https://github.com/mozilla/application-services/pull/7289))
 
 # v149.0 (_2026-02-23_)
 
