@@ -1325,6 +1325,58 @@ mod tests {
     use std::{thread, time};
 
     #[test]
+    fn test_firefox_account() {
+        ensure_initialized();
+
+        let login = LoginEntry {
+            origin: "chrome://FirefoxAccounts".into(),
+            http_realm: Some("Firefox Accounts credentials".into()),
+            username: "test".into(),
+            password: "secret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory();
+
+        let added = db
+            .add(login.clone(), &*TEST_ENCDEC)
+            .expect("should be able to add FirefoxAccounts login");
+
+        let fetched = db
+            .get_by_id(&added.meta.id)
+            .expect("should work")
+            .expect("should get the FirefoxAccounts record");
+
+        assert_eq!(login.origin, fetched.fields.origin);
+    }
+
+    #[test]
+    fn test_a_form_action_account() {
+        ensure_initialized();
+
+        let login = LoginEntry {
+            origin: "chrome://FirefoxAccounts".into(),
+            form_action_origin: Some("chrome://FirefoxAccounts".into()),
+            username: "test".into(),
+            password: "secret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory();
+
+        let added = db
+            .add(login.clone(), &*TEST_ENCDEC)
+            .expect("should be able to add FirefoxAccounts login");
+
+        let fetched = db
+            .get_by_id(&added.meta.id)
+            .expect("should work")
+            .expect("should get the FirefoxAccounts record");
+
+        assert_eq!(login.origin, fetched.fields.origin);
+    }
+
+    #[test]
     fn test_username_dupe_semantics() {
         ensure_initialized();
         let mut login = LoginEntry {
