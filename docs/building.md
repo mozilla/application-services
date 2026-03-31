@@ -108,7 +108,6 @@ The following instructions assume that you are building `application-services` f
       1. Android SDK Command-line Tools (latest)
    1. Set environment variables based on the boostrapped code and the downloaded ndk. Add it to your rc file (either `.zshrc` or `.bashrc` depending on your shell) to make it permanent
       1. Set `JAVA_HOME` to point to the bootstraped JDK 17 installation directory. Ex: `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/`
-      1. Set `ANDROID_SDK_ROOT` to the bootstraped android sdk. Ex: `export ANDROID_SDK_ROOT=~/.mozbuild/android-sdk-linux`
       1. Set `ANDROID_HOME` to the bootstraped android sdk. Ex: `export ANDROID_HOME=~/.mozbuild/android-sdk-linux`
       1. Set `NSS_STATIC` to 1. Ex: `export NSS_STATIC=1`
       1. Set `NSS_DIR` to your local nss folder. Ex: `export NSS_DIR=~/Mozilla/application-services/libs/desktop/linux-x86-64/nss`
