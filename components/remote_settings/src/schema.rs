@@ -182,4 +182,83 @@ PRAGMA user_version=0;
         let signatures2: String = stmt.query_row([], |row| row.get(0)).unwrap();
         assert_eq!(signatures2, r#"[{"signature":"sig2","x5u":"uri2"}]"#)
     }
+
+    #[test]
+    fn test_3_to_4_orphaned_attachments_cleanup() {
+        let db_file = MigratedDatabaseFile::new(RemoteSettingsConnectionInitializer, V0_SCHEMA);
+        db_file.upgrade_to(3);
+        let mut conn = db_file.open();
+        let tx = conn.transaction().unwrap();
+
+        let record = serde_json::json!({
+            "id": "sponsored-suggestions-us-phone",
+            "last_modified": 200,
+            "attachment": {
+                "filename": "sponsored-suggestions-us-phone.json",
+                "mimetype": "application/json",
+                "location": "main-workspace/quicksuggest-amp/b.json",
+                "hash": "abc123",
+                "size": 1000
+            },
+            "type": "amp"
+        });
+        tx.execute(
+            "INSERT INTO records (id, collection_url, data) VALUES (?, ?, ?)",
+            rusqlite::params![
+                "sponsored-suggestions-us-phone",
+                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                serde_json::to_vec(&record).unwrap(),
+            ],
+        ).unwrap();
+
+        // Insert the current attachment (referenced by the record)
+        tx.execute(
+            "INSERT INTO attachments (id, collection_url, data) VALUES (?, ?, ?)",
+            rusqlite::params![
+                "main-workspace/quicksuggest-amp/b.json",
+                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                b"current attachment data",
+            ],
+        ).unwrap();
+
+        // Insert an orphaned attachment (old version, no record references it)
+        tx.execute(
+            "INSERT INTO attachments (id, collection_url, data) VALUES (?, ?, ?)",
+            rusqlite::params![
+                "main-workspace/quicksuggest-amp/a.json",
+                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                b"orphaned attachment data that should be cleaned up",
+            ],
+        ).unwrap();
+
+        tx.commit().unwrap();
+
+        // Verify that both attachments exist before migration
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM attachments", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2, "Should have 2 attachments before migration");
+        drop(conn);
+
+        db_file.upgrade_to(4);
+        db_file.assert_schema_matches_new_database();
+
+        let conn = db_file.open();
+
+        // Only the referenced attachment should remain
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM attachments", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1, "Should have 1 attachment after migration (orphan cleaned up)");
+
+        // Verify that the surviving attachment is the current one
+        let surviving_id: String = conn
+            .query_row("SELECT id FROM attachments", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            surviving_id,
+            "main-workspace/quicksuggest-amp/b.json",
+            "The referenced attachment should survive the migration"
+        );
+    }
 }
