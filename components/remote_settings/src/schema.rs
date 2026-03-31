@@ -37,7 +37,7 @@ pub struct RemoteSettingsConnectionInitializer;
 
 impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
     const NAME: &'static str = "remote_settings";
-    const END_VERSION: u32 = 3;
+    const END_VERSION: u32 = 4;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
         let initial_pragmas = "
@@ -97,6 +97,20 @@ impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
                 )?;
                 tx.execute("ALTER TABLE collection_metadata DROP COLUMN signature", ())?;
                 tx.execute("ALTER TABLE collection_metadata DROP COLUMN x5u", ())?;
+                Ok(())
+            }
+            3 => {
+                // Clean up orphaned attachment blobs that are no longer referenced
+                // by any current record. A bug (FXIOS-15181) caused these to accumulate over time,
+                // leading to a database to grow to 1+ GB ( where the expected size was ~11 MB).
+                tx.execute(
+                    "DELETE FROM attachments
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM records
+                        WHERE json_extract(records.data, '$.attachment.location') = attachments.id
+                    )",
+                    (),
+                )?;
                 Ok(())
             }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
