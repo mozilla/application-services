@@ -231,6 +231,7 @@ impl Storage {
 
         Self::update_record_rows(&tx, collection_url, records)?;
         Self::update_collection_metadata(&tx, collection_url, last_modified, metadata)?;
+        Self::cleanup_orphaned_attachments(&tx, collection_url)?;
         tx.commit()?;
         Ok(())
     }
@@ -324,6 +325,23 @@ impl Storage {
         tx.execute("DELETE FROM attachments", [])?;
         tx.execute("DELETE FROM collection_metadata", [])?;
         tx.commit()?;
+        Ok(())
+    }
+
+    /// Remove attachments that are no longer referenced by any current record.
+    /// When the server updates an attachment, the record gets a new UUID/hash in its location
+    /// field. Without this cleanup, the old attachment blob persists forever, causing unbounded
+    /// database growth (1+ GB observed in production for `quicksuggest-amp.sql`).
+    fn cleanup_orphaned_attachments(tx: &Transaction<'_>, collection_url: &str) -> Result<()> {
+        tx.execute(
+            "DELETE FROM attachments
+             WHERE collection_url = ?1
+             AND NOT EXISTS (
+                 SELECT 1 FROM records WHERE collection_url = ?1
+                 AND json_extract(data, '$.attachment.location') = attachments.id
+             )",
+            params![collection_url],
+        )?;
         Ok(())
     }
 }
@@ -560,6 +578,184 @@ mod tests {
         assert!(fetched_attachment_2.is_some());
         let fetched_attachment_2 = fetched_attachment_2.unwrap();
         assert_eq!(fetched_attachment_2, attachment_2);
+
+        Ok(())
+    }
+
+    /// Test that orphaned attachments are cleaned up when a record's attachment location changes.
+    /// This reproduces the 1.1GB bloat observed in production. The `quicksuggest-amp` collection
+    /// has records like:
+    /// {
+    ///   "type": "amp",
+    ///   "country": "US",
+    ///   "form_factor": "phone",
+    ///   "filter_expression": "env.country == 'US' && env.formFactor == 'phone'",
+    ///   "id": "sponsored-suggestions-us-phone",
+    ///   "attachment": { "hash": "992ed42aa...", "size": 9795975, "filename": "sponsored-suggestions-us-phone.json", ... }
+    /// }
+    /// When the data refreshes (schema timestamp changes), the record keeps its ID but gets
+    /// a new attachment with a different hash/location. The old cached blob was never cleaned up.
+    #[test]
+    fn test_storage_orphaned_attachments_cleaned_up_on_update() -> Result<()> {
+        let mut storage = Storage::new(":memory:".into());
+        let collection_url = "https://example.com/api";
+
+        let attachment_v1 = b"version 1 data";
+        let attachment_v2 = b"version 2 data";
+
+        let attachment_meta_v1 = Attachment {
+            filename: "sponsored-suggestions-us-phone.json".to_string(),
+            mimetype: "application/json".to_string(),
+            location: "main-workspace/quicksuggest-amp/attachment-v1.json".to_string(),
+            hash: format!("{:x}", Sha256::digest(attachment_v1)),
+            size: attachment_v1.len() as u64,
+        };
+
+        let attachment_meta_v2 = Attachment {
+            filename: "sponsored-suggestions-us-phone.json".to_string(),
+            mimetype: "application/json".to_string(),
+            location: "main-workspace/quicksuggest-amp/attachment-v2.json".to_string(),
+            hash: format!("{:x}", Sha256::digest(attachment_v2)),
+            size: attachment_v2.len() as u64,
+        };
+
+        // Initially record points to attachment_v1
+        let records_v1 = vec![RemoteSettingsRecord {
+            id: "sponsored-suggestions-us-phone".to_string(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(attachment_meta_v1.clone()),
+            fields: serde_json::json!({"type": "amp"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        storage.insert_collection_content(
+            collection_url,
+            &records_v1,
+            100,
+            CollectionMetadata::default(),
+        )?;
+        storage.set_attachment(collection_url, &attachment_meta_v1.location, attachment_v1)?;
+
+        let fetched = storage.get_attachment(collection_url, attachment_meta_v1.clone())?;
+        assert!(fetched.is_some(), "v1 attachment should be stored");
+
+        // Simulate a server data refresh while keeping the same record ID
+        // but a new attachment location
+        let records_v2 = vec![RemoteSettingsRecord {
+            id: "sponsored-suggestions-us-phone".to_string(),
+            last_modified: 200,
+            deleted: false,
+            attachment: Some(attachment_meta_v2.clone()),
+            fields: serde_json::json!({"type": "amp"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        storage.insert_collection_content(
+            collection_url,
+            &records_v2,
+            200,
+            CollectionMetadata::default(),
+        )?;
+        storage.set_attachment(collection_url, &attachment_meta_v2.location, attachment_v2)?;
+
+        let fetched_v2 = storage.get_attachment(collection_url, attachment_meta_v2)?;
+        assert!(fetched_v2.is_some(), "v2 attachment should be stored");
+
+        let fetched_v1 = storage.get_attachment(collection_url, attachment_meta_v1)?;
+        assert!(
+            fetched_v1.is_none(),
+            "v1 attachment should be cleaned up after record points to v2"
+        );
+
+        Ok(())
+    }
+
+    /// Test that orphaned attachments are cleaned up when a record is deleted via tombstone.
+    /// The `quicksuggest-amp` changeset uses filter_expression to target specific countries
+    /// and form factors. If the server removes a record (e.g. drops a country), a tombstone
+    /// is sent:
+    /// {
+    ///   "id": "sponsored-suggestions-gb-phone",
+    ///   "last_modified": 1774549156905,
+    ///   "deleted": true
+    /// }
+    /// The record row gets deleted, but the cached attachment blob was never cleaned up.
+    #[test]
+    fn test_storage_orphaned_attachments_cleaned_up_on_delete() -> Result<()> {
+        let mut storage = Storage::new(":memory:".into());
+        let collection_url = "https://example.com/api";
+
+        let attachment_data = b"sponsored suggestions for GB phone";
+
+        let attachment_meta = Attachment {
+            filename: "sponsored-suggestions-gb-phone.json".to_string(),
+            mimetype: "application/json".to_string(),
+            location: "main-workspace/quicksuggest-amp/attachment-gb.json".to_string(),
+            hash: format!("{:x}", Sha256::digest(attachment_data)),
+            size: attachment_data.len() as u64,
+        };
+
+        // Initially we have two records, one with an attachment
+        let initial_records = vec![
+            RemoteSettingsRecord {
+                id: "sponsored-suggestions-gb-phone".to_string(),
+                last_modified: 100,
+                deleted: false,
+                attachment: Some(attachment_meta.clone()),
+                fields: serde_json::json!({"type": "amp"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            },
+            RemoteSettingsRecord {
+                id: "sponsored-suggestions-us-phone".to_string(),
+                last_modified: 100,
+                deleted: false,
+                attachment: None,
+                fields: serde_json::json!({"type": "amp"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            },
+        ];
+
+        storage.insert_collection_content(
+            collection_url,
+            &initial_records,
+            100,
+            CollectionMetadata::default(),
+        )?;
+        storage.set_attachment(collection_url, &attachment_meta.location, attachment_data)?;
+
+        let fetched = storage.get_attachment(collection_url, attachment_meta.clone())?;
+        assert!(fetched.is_some(), "GB attachment should be stored");
+
+        // Simulate server sending a tombstone, GB record is deleted
+        let updated_records = vec![RemoteSettingsRecord {
+            id: "sponsored-suggestions-gb-phone".to_string(),
+            last_modified: 200,
+            deleted: true,
+            attachment: None,
+            fields: RsJsonObject::new(),
+        }];
+
+        storage.insert_collection_content(
+            collection_url,
+            &updated_records,
+            200,
+            CollectionMetadata::default(),
+        )?;
+
+        let fetched = storage.get_attachment(collection_url, attachment_meta)?;
+        assert!(
+            fetched.is_none(),
+            "GB attachment should be cleaned up after record is deleted via tombstone"
+        );
 
         Ok(())
     }
