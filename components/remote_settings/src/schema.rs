@@ -102,7 +102,7 @@ impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
             3 => {
                 // Clean up orphaned attachment blobs that are no longer referenced
                 // by any current record. A bug (FXIOS-15181) caused these to accumulate over time,
-                // leading to a database to grow to 1+ GB ( where the expected size was ~11 MB).
+                // leading a database to grow to 1+ GB (where the expected size was ~11 MB).
                 tx.execute(
                     "DELETE FROM attachments
                     WHERE NOT EXISTS (
@@ -249,15 +249,17 @@ PRAGMA user_version=0;
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM attachments", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 1, "Should have 1 attachment after migration (orphan cleaned up)");
+        assert_eq!(
+            count, 1,
+            "Should have 1 attachment after migration (orphan cleaned up)"
+        );
 
         // Verify that the surviving attachment is the current one
         let surviving_id: String = conn
             .query_row("SELECT id FROM attachments", [], |row| row.get(0))
             .unwrap();
         assert_eq!(
-            surviving_id,
-            "main-workspace/quicksuggest-amp/b.json",
+            surviving_id, "main-workspace/quicksuggest-amp/b.json",
             "The referenced attachment should survive the migration"
         );
     }
