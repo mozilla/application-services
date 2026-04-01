@@ -112,7 +112,7 @@ impl RemoteSettingsService {
                 {
                     if client_last_modified == *server_last_modified {
                         trace!("skipping up-to-date collection: {collection_name}");
-                        inner.telemetry.report_up_to_date(&cid, None);
+                        inner.telemetry.report_uptake_up_to_date(&cid, None);
                         continue;
                     }
                 }
@@ -123,8 +123,8 @@ impl RemoteSettingsService {
                 let sync_result = client.sync();
                 let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
                 match &sync_result {
-                    Ok(()) => inner.telemetry.report_success(&cid, Some(duration)),
-                    Err(e) => inner.telemetry.report_sync_error(e, &cid),
+                    Ok(()) => inner.telemetry.report_uptake_success(&cid, Some(duration)),
+                    Err(e) => inner.telemetry.report_uptake_error(e, &cid),
                 }
                 sync_result?;
             }
@@ -209,11 +209,12 @@ impl RemoteSettingsServiceInner {
             let body = resp.json()?;
             let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
             self.telemetry
-                .report_success(TELEMETRY_SOURCE_POLL, Some(duration));
+                .report_uptake_success(TELEMETRY_SOURCE_POLL, Some(duration));
             Ok(body)
         } else {
             let e = Error::response_error(&resp.url, format!("status code: {}", resp.status));
-            self.telemetry.report_sync_error(&e, TELEMETRY_SOURCE_POLL);
+            self.telemetry
+                .report_uptake_error(&e, TELEMETRY_SOURCE_POLL);
             Err(e)
         }
     }
@@ -237,20 +238,14 @@ struct ChangesCollection {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::telemetry::{RemoteSettingsSyncStatus, SyncStatusExtras};
+    use crate::telemetry::UptakeEventExtras;
     use crate::{RemoteSettingsConfig2, RemoteSettingsServer};
     use mockito::{mock, Matcher};
     use std::sync::Arc;
 
-    struct EmittedEvent {
-        source: String,
-        status: RemoteSettingsSyncStatus,
-        extras: SyncStatusExtras,
-    }
-
     /// Telemetry implementation that records all events for later assertion.
     struct FakeTelemetry {
-        events: std::sync::Mutex<Vec<EmittedEvent>>,
+        events: std::sync::Mutex<Vec<UptakeEventExtras>>,
     }
 
     impl FakeTelemetry {
@@ -262,17 +257,8 @@ mod test {
     }
 
     impl crate::telemetry::RemoteSettingsTelemetry for FakeTelemetry {
-        fn report(
-            &self,
-            source: String,
-            status: RemoteSettingsSyncStatus,
-            extras: SyncStatusExtras,
-        ) {
-            self.events.lock().unwrap().push(EmittedEvent {
-                source,
-                status,
-                extras,
-            });
+        fn report_uptake(&self, extras: UptakeEventExtras) {
+            self.events.lock().unwrap().push(extras);
         }
     }
 
@@ -337,13 +323,13 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].source, "settings-changes-monitoring");
-        assert_eq!(events[0].status, RemoteSettingsSyncStatus::NetworkError);
         assert_eq!(
-            events[0].extras.errorName,
-            Some("ResponseError".to_string())
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
         );
-        assert!(events[0].extras.errorName.is_some());
+        assert_eq!(events[0].value, Some("network_error".to_string()));
+        assert_eq!(events[0].errorName, Some("ResponseError".to_string()));
+        assert!(events[0].errorName.is_some());
     }
 
     #[test]
@@ -356,9 +342,12 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].source, "settings-changes-monitoring");
-        assert_eq!(events[0].status, RemoteSettingsSyncStatus::Success);
-        assert!(events[0].extras.duration.is_some());
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert!(events[0].duration.is_some());
     }
 
     #[cfg(not(feature = "signatures"))]
@@ -376,10 +365,13 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].source, "settings-changes-monitoring");
-        assert_eq!(events[1].source, format!("main/{collection}"));
-        assert_eq!(events[1].status, RemoteSettingsSyncStatus::Success);
-        assert!(events[1].extras.duration.is_some());
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("success".to_string()));
+        assert!(events[1].duration.is_some());
     }
 
     #[cfg(not(feature = "signatures"))]
@@ -402,14 +394,17 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len() - events_before, 2);
-        assert_eq!(events[events_before].source, "settings-changes-monitoring");
         assert_eq!(
-            events[events_before + 1].source,
-            format!("main/{collection}")
+            events[events_before].source,
+            Some("settings-changes-monitoring".to_string())
         );
         assert_eq!(
-            events[events_before + 1].status,
-            RemoteSettingsSyncStatus::UpToDate
+            events[events_before + 1].source,
+            Some(format!("main/{collection}"))
+        );
+        assert_eq!(
+            events[events_before + 1].value,
+            Some("up_to_date".to_string())
         );
     }
 
@@ -427,14 +422,14 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].source, "settings-changes-monitoring");
-        assert_eq!(events[0].status, RemoteSettingsSyncStatus::Success);
-        assert_eq!(events[1].source, format!("main/{collection}"));
-        assert_eq!(events[1].status, RemoteSettingsSyncStatus::NetworkError);
         assert_eq!(
-            events[1].extras.errorName,
-            Some("ResponseError".to_string())
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
         );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("network_error".to_string()));
+        assert_eq!(events[1].errorName, Some("ResponseError".to_string()));
     }
 
     #[cfg(feature = "signatures")]
@@ -452,11 +447,14 @@ mod test {
 
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].source, "settings-changes-monitoring");
-        assert_eq!(events[1].source, format!("main/{collection}"));
-        assert_eq!(events[1].status, RemoteSettingsSyncStatus::SignatureError);
         assert_eq!(
-            events[1].extras.errorName,
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("signature_error".to_string()));
+        assert_eq!(
+            events[1].errorName,
             Some("IncompleteSignatureDataError".to_string())
         );
     }

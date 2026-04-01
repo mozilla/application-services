@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use crate::error::Error;
 
 /// Remote Settings sync status.
 #[derive(Debug, PartialEq, uniffi::Enum)]
-pub enum RemoteSettingsSyncStatus {
+pub enum SyncStatus {
     /// Sync completed and new data was stored.
     Success,
     /// Local data is already up to date, no new data was stored.
@@ -25,11 +25,36 @@ pub enum RemoteSettingsSyncStatus {
     UnknownError,
 }
 
+impl fmt::Display for SyncStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SyncStatus::Success => "success",
+            SyncStatus::UpToDate => "up_to_date",
+            SyncStatus::NetworkError => "network_error",
+            SyncStatus::BackoffError => "backoff_error",
+            SyncStatus::SignatureError => "signature_error",
+            SyncStatus::ServerError => "server_error",
+            SyncStatus::UnknownError => "unknown_error",
+        };
+        f.write_str(s)
+    }
+}
+
 #[derive(Debug, PartialEq, uniffi::Record, Default)]
 #[allow(non_snake_case)]
-pub struct SyncStatusExtras {
+pub struct UptakeEventExtras {
+    /// Main sync status.
+    pub value: Option<String>,
+    /// Source of the sync (eg. "settings-changes-monitoring", "main/{collection}", ...)
+    pub source: Option<String>,
+    /// Age of the data in milliseconds, if available.
+    pub age: Option<String>,
+    /// Trigger that caused the sync (eg. "manual", "startup", "scheduled", ...) if available.
+    pub trigger: Option<String>,
+    /// Timestamp received from the server, if available.
+    pub timestamp: Option<String>,
     /// Duration of the sync operation in milliseconds, if available.
-    pub duration: Option<u64>,
+    pub duration: Option<String>,
     /// The name of the error that occurred, if available.
     pub errorName: Option<String>,
 }
@@ -41,35 +66,30 @@ pub struct SyncStatusExtras {
 ///
 /// Consumers implement the trait like this (Kotlin example):
 /// ```kotlin
+/// /* Import the UniFFI-generated bindings */
 /// import mozilla.appservices.remote_settings.RemoteSettingsTelemetry
-/// import org.mozilla.appservices.remote_settings.GleanMetrics.RemoteSettingsClient
+/// import mozilla.appservices.remote_settings.UptakeEventExtras
+/// /* Import the Glean-generated bindings */
+/// import org.mozilla.appservices.remote_settings.GleanMetrics.RemoteSettings as RSMetrics
 ///
-/// class RSTelemetry : RemoteSettingsTelemetry {
-///     override fun report(source: String, value: RemoteSettingsSyncStatus, extras: SyncStatusExtras) {
-///         RemoteSettingsClient.syncStatus.record(
-///             RemoteSettingsClient.SyncStatusExtra(
-///                 value = value,
-///                 source = source,
-///                 duration = extras.duration,
-///                 errorName = extras.errorName
-///             )
-///         )
+/// class GleanTelemetry : RemoteSettingsTelemetry {
+///     override fun report_uptake(eventExtras: UptakeEventExtras) {
+///         RSMetrics.uptakeRemotesettings.record(eventExtras)
 ///     }
 /// }
 ///
-/// service.setTelemetry(RSTelemetry())
+/// service.setTelemetry(GleanTelemetry())
 /// ```
 #[uniffi::export(with_foreign)]
 pub trait RemoteSettingsTelemetry: Send + Sync {
     /// Report uptake event.
-    fn report(&self, source: String, value: RemoteSettingsSyncStatus, extras: SyncStatusExtras);
+    fn report_uptake(&self, extras: UptakeEventExtras);
 }
 
 struct NoopRemoteSettingsTelemetry;
 
 impl RemoteSettingsTelemetry for NoopRemoteSettingsTelemetry {
-    fn report(&self, _source: String, _value: RemoteSettingsSyncStatus, _extras: SyncStatusExtras) {
-    }
+    fn report_uptake(&self, _extras: UptakeEventExtras) {}
 }
 
 /// Wrapper around [RemoteSettingsTelemetry] used internally.
@@ -89,29 +109,31 @@ impl RemoteSettingsTelemetryWrapper {
         }
     }
 
-    pub fn report_success(&self, source: &str, duration: Option<u64>) {
-        self.inner.report(
-            source.to_string(),
-            RemoteSettingsSyncStatus::Success,
-            SyncStatusExtras {
-                duration,
-                errorName: None,
-            },
-        );
+    pub fn report_uptake_success(&self, source: &str, duration: Option<u64>) {
+        self.inner.report_uptake(UptakeEventExtras {
+            value: Some(SyncStatus::Success.to_string()),
+            source: Some(source.to_string()),
+            age: None,
+            trigger: None,
+            timestamp: None,
+            duration: duration.map(|d| d.to_string()),
+            errorName: None,
+        });
     }
 
-    pub fn report_up_to_date(&self, source: &str, duration: Option<u64>) {
-        self.inner.report(
-            source.to_string(),
-            RemoteSettingsSyncStatus::UpToDate,
-            SyncStatusExtras {
-                duration,
-                errorName: None,
-            },
-        );
+    pub fn report_uptake_up_to_date(&self, source: &str, duration: Option<u64>) {
+        self.inner.report_uptake(UptakeEventExtras {
+            value: Some(SyncStatus::UpToDate.to_string()),
+            source: Some(source.to_string()),
+            age: None,
+            trigger: None,
+            timestamp: None,
+            duration: duration.map(|d| d.to_string()),
+            errorName: None,
+        });
     }
 
-    pub fn report_sync_error(&self, error: &Error, source: &str) {
+    pub fn report_uptake_error(&self, error: &Error, source: &str) {
         // This is a bit hacky and naive, but it allows us to get the original
         // error type without needing to add too much machinery to our error types.
         // This mimics what we do in the desktop client:
@@ -122,26 +144,27 @@ impl RemoteSettingsTelemetryWrapper {
             .unwrap_or("")
             .trim()
             .to_string();
-        self.inner.report(
-            source.to_string(),
-            error_to_status(error),
-            SyncStatusExtras {
-                duration: None,
-                errorName: Some(error_name),
-            },
-        );
+        self.inner.report_uptake(UptakeEventExtras {
+            value: Some(error_to_status(error).to_string()),
+            source: Some(source.to_string()),
+            age: None,
+            trigger: None,
+            timestamp: None,
+            duration: None,
+            errorName: Some(error_name),
+        });
     }
 }
 
-fn error_to_status(error: &Error) -> RemoteSettingsSyncStatus {
+fn error_to_status(error: &Error) -> SyncStatus {
     match error {
         Error::RequestError(viaduct::ViaductError::NetworkError(_))
-        | Error::ResponseError { .. } => RemoteSettingsSyncStatus::NetworkError,
-        Error::BackoffError(_) => RemoteSettingsSyncStatus::BackoffError,
+        | Error::ResponseError { .. } => SyncStatus::NetworkError,
+        Error::BackoffError(_) => SyncStatus::BackoffError,
         #[cfg(feature = "signatures")]
-        Error::IncompleteSignatureDataError(_) => RemoteSettingsSyncStatus::SignatureError,
+        Error::IncompleteSignatureDataError(_) => SyncStatus::SignatureError,
         #[cfg(feature = "signatures")]
-        Error::SignatureError(_) => RemoteSettingsSyncStatus::SignatureError,
-        _ => RemoteSettingsSyncStatus::UnknownError,
+        Error::SignatureError(_) => SyncStatus::SignatureError,
+        _ => SyncStatus::UnknownError,
     }
 }

@@ -24,7 +24,7 @@ pub use client::{Attachment, RemoteSettingsRecord, RsJsonObject};
 pub use config::{BaseUrl, RemoteSettingsConfig, RemoteSettingsServer};
 pub use context::RemoteSettingsContext;
 pub use error::{trace, ApiResult, RemoteSettingsError, Result};
-pub use telemetry::{RemoteSettingsSyncStatus, RemoteSettingsTelemetry, SyncStatusExtras};
+pub use telemetry::{RemoteSettingsTelemetry, SyncStatus, UptakeEventExtras};
 
 use error::Error;
 use storage::Storage;
