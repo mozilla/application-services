@@ -8,7 +8,6 @@ import mozilla.appservices.remote_settings.RemoteSettingsTelemetry
 import mozilla.appservices.remote_settings.UptakeEventExtras
 import org.mozilla.appservices.remote_settings.GleanMetrics.RemoteSettings as RSMetrics
 
-
 /**
  * GleanTelemetry is a thin wrapper used to expose
  * callbacks used to emit telemetry events to Glean.
