@@ -22,7 +22,7 @@ class GleanTelemetry : RemoteSettingsTelemetry {
                 trigger = extras.trigger,
                 timestamp = extras.timestamp,
                 duration = extras.duration,
-                errorName = extras.errorName,
+                errorname = extras.errorName,
             ),
         )
     }
