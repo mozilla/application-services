@@ -4,8 +4,8 @@
 
 package mozilla.appservices.remotesettings
 
-import mozilla.appservices.remote_settings.RemoteSettingsTelemetry
-import mozilla.appservices.remote_settings.UptakeEventExtras
+import mozilla.appservices.remotesettings.RemoteSettingsTelemetry
+import mozilla.appservices.remotesettings.UptakeEventExtras
 import org.mozilla.appservices.remotesettings.GleanMetrics.RemoteSettings as RSMetrics
 
 /**
@@ -14,6 +14,16 @@ import org.mozilla.appservices.remotesettings.GleanMetrics.RemoteSettings as RSM
  */
 class GleanTelemetry : RemoteSettingsTelemetry {
     override fun reportUptake(extras: UptakeEventExtras) {
-        RSMetrics.uptakeRemotesettings.record(extras)
+        RSMetrics.uptakeRemotesettings.record(
+            RSMetrics.UptakeRemotesettingsExtra(
+                value = extras.value,
+                source = extras.source,
+                age = extras.age,
+                trigger = extras.trigger,
+                timestamp = extras.timestamp,
+                duration = extras.duration,
+                errorName = extras.errorName,
+            ),
+        )
     }
 }

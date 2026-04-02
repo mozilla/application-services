@@ -36,6 +36,7 @@ remote_settings:
         type: string
       errorName:
         description: An optional string with the error name attribute in case of failure.
+        type: string
       trigger:
         description: >
           A label to distinguish what triggered the polling/fetching of remote content (eg. "broadcast", "timer", "forced", "manual")
