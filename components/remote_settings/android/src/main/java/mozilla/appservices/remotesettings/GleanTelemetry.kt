@@ -4,13 +4,15 @@
 
 package mozilla.appservices.remotesettings
 
-/* UniFFI-generated bindings */
 import mozilla.appservices.remote_settings.RemoteSettingsTelemetry
 import mozilla.appservices.remote_settings.UptakeEventExtras
-/* Glean-generated bindings */
 import org.mozilla.appservices.remote_settings.GleanMetrics.RemoteSettings as RSMetrics
 
 
+/**
+ * GleanTelemetry is a thin wrapper used to expose
+ * callbacks used to emit telemetry events to Glean.
+ */
 class GleanTelemetry : RemoteSettingsTelemetry {
     override fun report_uptake(extras: SyncStatusExtras) {
         RSMetrics.uptakeRemotesettings.record(extras)
