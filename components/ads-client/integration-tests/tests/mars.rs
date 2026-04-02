@@ -105,7 +105,11 @@ fn test_record_impression() {
         .expect("mock_tile_1 placement should be present");
 
     let result = client.record_impression(ad.callbacks.impression.to_string());
-    assert!(result.is_ok(), "record_impression failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "record_impression failed: {:?}",
+        result.err()
+    );
 }
 
 #[test]

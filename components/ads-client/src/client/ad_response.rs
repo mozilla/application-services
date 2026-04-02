@@ -520,11 +520,23 @@ mod tests {
 
         let ads = &response.data["mock_tile_1"];
 
-        let report_0 = ads[0].callbacks.report.as_ref().unwrap().query().unwrap_or("");
+        let report_0 = ads[0]
+            .callbacks
+            .report
+            .as_ref()
+            .unwrap()
+            .query()
+            .unwrap_or("");
         assert!(report_0.contains("placement_id=mock_tile_1"));
         assert!(report_0.contains("position=0"));
 
-        let report_1 = ads[1].callbacks.report.as_ref().unwrap().query().unwrap_or("");
+        let report_1 = ads[1]
+            .callbacks
+            .report
+            .as_ref()
+            .unwrap()
+            .query()
+            .unwrap_or("");
         assert!(report_1.contains("placement_id=mock_tile_1"));
         assert!(report_1.contains("position=1"));
     }
