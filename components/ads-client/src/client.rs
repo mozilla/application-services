@@ -132,6 +132,7 @@ where
         let cache_policy = options.unwrap_or_default();
         let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, &cache_policy)?;
         response.add_request_hash_to_callbacks(&request_hash);
+        response.add_placement_info_to_report_callbacks();
         Ok(response)
     }
 
