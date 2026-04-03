@@ -111,7 +111,7 @@ The following instructions assume that you are building `application-services` f
       1. Set `ANDROID_HOME` to the bootstraped Android SDK. Ex: `export ANDROID_HOME=~/.mozbuild/android-sdk-linux`
       1. Set `NSS_STATIC` to 1. Ex: `export NSS_STATIC=1`
       1. Set `NSS_DIR` to your local NSS folder. Ex: `export NSS_DIR=~/Mozilla/application-services/libs/desktop/linux-x86-64/nss`
-      1. Set `ANDROID_NDK_ROOT` to the ndk you downloaded via android studio, Ex: `export ANDROID_NDK_ROOT=~/.mozbuild/android-sdk-linux/ndk/29.0.14206865`
+      1. Set `ANDROID_NDK_ROOT` to the NDK you downloaded via Android Studio, Ex: `export ANDROID_NDK_ROOT=~/.mozbuild/android-sdk-linux/ndk/29.0.14206865`
 1. If you are on Windows using WSL - drop to the section below, [Windows setup
 for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceeding.
 1. Check dependencies, environment variables
