@@ -118,7 +118,7 @@ for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceed
    1. Run `./libs/verify-android-environment.sh`
    2. Follow instructions and rerun until it is successful.
 
-**Note:** If you opened the application-services or firefox repos in android studio, it likely added a `local.properties` file that could override some of the environment variables above. If you experience build errors, correct or delete these values in the `local.properties` files.
+**Note:** If you opened the application-services or Firefox repos in Android Studio, it likely added a `local.properties` or `gradle-daemon-jvm.properties` file that could override some of the environment variables above. If you experience build errors, correct or delete these values in the `local.properties` files.
 
 ### Windows setup for Android (via WSL)
 
