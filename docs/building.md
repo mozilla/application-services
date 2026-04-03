@@ -102,7 +102,7 @@ The following instructions assume that you are building `application-services` f
 1. Install Android SDK, JAVA, NDK and set required env vars
    1. [Bootstrap a Firefox for Android environment](https://firefox-source-docs.mozilla.org/mobile/android/index.html) (**not** inside the Application Service repository).
    1. Download and install [Android Studio](https://developer.android.com/studio/#downloads).
-   1. Configure android studio to use the bootstrapped SDK under `Settings > Languages & Frameworks > Android SDK`, set it to the boostraped sdk from mozbuild. Ex: `~/.mozbuild/android-sdk-linux`
+   1. Configure Android Studio to use the bootstrapped SDK under `Settings > Languages & Frameworks > Android SDK`, set it to the SDK from mozbuild. Ex: `~/.mozbuild/android-sdk-linux` or `~/.mozbuild/android-sdk-macos`
    1. Download the required NDK and command-line tools under `Settings > Languages & Frameworks > Android SDK > SDK Tools`. Pick:
       1. NDK (Side by side) version 29.0.14206865 [as configured](https://github.com/mozilla/application-services/blob/bb8cde8a5/taskcluster/docker/linux/Dockerfile#L25)
       1. Android SDK Command-line Tools (latest)
