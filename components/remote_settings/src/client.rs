@@ -720,14 +720,6 @@ impl ApiClient for ViaductApiClient {
     }
 }
 
-/// A simple HTTP client that can retrieve Remote Settings data using the properties by [ClientConfig].
-/// Methods defined on this will fetch data from
-/// <base_url>/buckets/<bucket_name>/collections/<collection_name>/
-pub struct Client {
-    endpoints: RemoteSettingsEndpoints,
-    pub(crate) remote_state: Mutex<RemoteState>,
-}
-
 /// Stores all the endpoints for a Remote Settings server
 ///
 /// There's actually not to many of these, so we can just pack them all into a struct
