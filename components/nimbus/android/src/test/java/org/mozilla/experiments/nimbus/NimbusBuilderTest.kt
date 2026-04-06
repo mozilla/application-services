@@ -7,7 +7,7 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Job
-import mozilla.appservices.remotesettings.RemoteSettingsConfig2
+import mozilla.appservices.remotesettings.RemoteSettingsConfig
 import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,7 +35,7 @@ class NimbusBuilderTest {
         }.build(
             appInfo,
             NimbusServerSettings(
-                rsService = RemoteSettingsService(storageDir = "dummy", config = RemoteSettingsConfig2()),
+                rsService = RemoteSettingsService(storageDir = "dummy", config = RemoteSettingsConfig()),
                 collectionName = "nimbus-preview",
             ),
         ) as DummyNimbus

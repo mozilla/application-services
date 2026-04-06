@@ -16,7 +16,7 @@ use viaduct::Request;
 
 use crate::{
     client::RemoteState, config::BaseUrl, error::Error, storage::Storage, RemoteSettingsClient,
-    RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsServer, Result,
+    RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer, Result,
 };
 
 /// Internal Remote settings service API
@@ -42,7 +42,7 @@ impl RemoteSettingsService {
     /// Construct a [RemoteSettingsService]
     ///
     /// This is typically done early in the application-startup process
-    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> Self {
+    pub fn new(storage_dir: String, config: RemoteSettingsConfig) -> Self {
         let storage_dir = storage_dir.into();
         let base_url = config
             .server
@@ -120,7 +120,7 @@ impl RemoteSettingsService {
     ///
     /// This will cause all current and future clients to use new config and will delete any stored
     /// records causing the clients to return new results from the new config.
-    pub fn update_config(&self, config: RemoteSettingsConfig2) -> Result<()> {
+    pub fn update_config(&self, config: RemoteSettingsConfig) -> Result<()> {
         let base_url = config
             .server
             .unwrap_or(RemoteSettingsServer::Prod)
