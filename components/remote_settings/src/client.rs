@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::config::{BaseUrl};
+use crate::config::BaseUrl;
 use crate::error::{debug, trace, Error, Result};
 use crate::jexl_filter::JexlFilter;
 #[cfg(feature = "signatures")]
@@ -13,9 +13,7 @@ use crate::{packaged_attachments, packaged_collections, RemoteSettingsServer};
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 use url::Url;
 use viaduct::{Request, Response};
 
