@@ -776,6 +776,9 @@ impl ValidateAndFixup for LoginEntry {
             }
             .into());
         }
+        // The `allow_empty_passwords` feature flag is used on desktop during the migration phase
+        // to allow existing logins with empty passwords to be imported.
+        #[cfg(not(feature = "allow_empty_passwords"))]
         if self.password.is_empty() {
             return Err(InvalidLogin::EmptyPassword.into());
         }
@@ -1073,7 +1076,7 @@ mod tests {
             },
             TestCase {
                 login: login_with_empty_password,
-                should_err: true,
+                should_err: cfg!(not(feature = "allow_empty_passwords")),
                 expected_err: "Invalid login: Password is empty",
             },
             TestCase {
