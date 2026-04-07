@@ -11,7 +11,6 @@ error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 parking_lot = ">=0.11,<=0.12"
 rusqlite = { version = "0.37.0", features = ["functions", "bundled", "unlock_notify"] }
-serde = "1"
 sql-support = { path = "../support/sql" }
 thiserror = "2"
 url = { version = "2.1" }

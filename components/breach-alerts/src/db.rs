@@ -49,11 +49,8 @@ impl BreachAlertsDb {
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_READ_WRITE;
 
-        let conn = open_database_with_flags(
-            db_path,
-            flags,
-            &schema::BreachAlertsConnectionInitializer,
-        )?;
+        let conn =
+            open_database_with_flags(db_path, flags, &schema::BreachAlertsConnectionInitializer)?;
         Ok(Self {
             interrupt_handle: Arc::new(SqlInterruptHandle::new(&conn)),
             writer: BreachAlertsDbInner::Open(conn),
@@ -112,7 +109,7 @@ impl ThreadSafeBreachAlertsDb {
     }
 }
 
-// Deref to a Mutex<StorageDb>, which is how we will use ThreadSafeBreachAlertsDb most of the time
+// Deref to a Mutex<BreachAlertsDb>, which is how we will use ThreadSafeBreachAlertsDb most of the time
 impl Deref for ThreadSafeBreachAlertsDb {
     type Target = Mutex<BreachAlertsDb>;
 
@@ -174,25 +171,6 @@ fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
             }
         })
         .unwrap_or_else(|| p.as_ref().to_owned())
-}
-
-/// If `p` is a file URL, return it, otherwise try and make it one.
-///
-/// Errors if `p` is a relative non-url path, or if it's a URL path
-/// that's isn't a `file:` URL.
-#[allow(dead_code)]
-pub fn ensure_url_path(p: impl AsRef<Path>) -> Result<Url> {
-    if let Some(u) = p.as_ref().to_str().and_then(|s| Url::parse(s).ok()) {
-        if u.scheme() == "file" {
-            Ok(u)
-        } else {
-            Err(Error::IllegalDatabasePath(p.as_ref().to_owned()))
-        }
-    } else {
-        let p = p.as_ref();
-        let u = Url::from_file_path(p).map_err(|_| Error::IllegalDatabasePath(p.to_owned()))?;
-        Ok(u)
-    }
 }
 
 /// As best as possible, convert `p` into an absolute path, resolving

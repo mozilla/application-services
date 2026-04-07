@@ -391,7 +391,6 @@ dependencies = [
  "interrupt-support",
  "parking_lot",
  "rusqlite",
- "serde",
  "sql-support",
  "tempfile",
  "thiserror 2.0.3",

@@ -5,9 +5,14 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+mod api;
 pub mod db;
 pub mod error;
 mod schema;
 pub mod store;
 
+pub use crate::api::BreachAlertDismissal;
+pub use crate::error::{ApiResult, BreachAlertsApiError};
 pub use crate::store::BreachAlertsStore;
+
+uniffi::setup_scaffolding!();
