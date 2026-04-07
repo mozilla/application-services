@@ -16,7 +16,9 @@ pub type CK_OBJECT_CLASS = CK_ULONG;
 pub type CK_KEY_TYPE = CK_ULONG;
 pub type CK_ATTRIBUTE_TYPE = CK_ULONG;
 pub type CK_FLAGS = CK_ULONG;
-#[repr(C)]
+// On Windows, PKCS#11 structs use 1-byte packing (see pkcs11p.h).
+#[cfg_attr(target_os = "windows", repr(C, packed))]
+#[cfg_attr(not(target_os = "windows"), repr(C))]
 #[derive(Clone, Copy)]
 pub struct CK_ATTRIBUTE {
     pub type_: CK_ATTRIBUTE_TYPE,
