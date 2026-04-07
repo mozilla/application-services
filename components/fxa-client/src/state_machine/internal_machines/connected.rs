@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{invalid_transition, Event, InternalStateMachine, State};
-use crate::{Error, FxaEvent, FxaState, Result};
+use crate::{Error, FxaEvent, FxaRustAuthState, FxaState, Result};
 use error_support::report_error;
 
 pub struct ConnectedStateMachine;
@@ -18,6 +18,16 @@ impl InternalStateMachine for ConnectedStateMachine {
             FxaEvent::Disconnect => Ok(Disconnect),
             FxaEvent::CheckAuthorizationStatus => Ok(CheckAuthorizationStatus),
             FxaEvent::CallGetProfile => Ok(GetProfile),
+            FxaEvent::BeginOAuthFlow {
+                service,
+                scopes,
+                entrypoint,
+            } => Ok(BeginOAuthFlow {
+                service,
+                scopes,
+                entrypoint,
+                initial_state: FxaRustAuthState::Connected,
+            }),
             e => Err(Error::InvalidStateTransition(format!("Connected -> {e}"))),
         }
     }
@@ -41,6 +51,13 @@ impl InternalStateMachine for ConnectedStateMachine {
             (GetProfile, GetProfileSuccess) => Complete(FxaState::Connected),
             (GetProfile, CallError) => Complete(FxaState::AuthIssues),
             (CheckAuthorizationStatus, CallError) => Complete(FxaState::AuthIssues),
+            (BeginOAuthFlow { initial_state, .. }, BeginOAuthFlowSuccess { oauth_url }) => {
+                Complete(FxaState::Authenticating {
+                    oauth_url,
+                    initial_state,
+                })
+            }
+            (BeginOAuthFlow { .. }, CallError) => Cancel,
             (state, event) => return invalid_transition(state, event),
         })
     }

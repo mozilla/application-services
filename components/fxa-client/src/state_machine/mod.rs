@@ -42,10 +42,13 @@ impl FirefoxAccount {
                 internal_machines::DisconnectedStateMachine,
                 event,
             )?,
-            FxaState::Authenticating { .. } => self.process_event_with_internal_state_machine(
-                internal_machines::AuthenticatingStateMachine,
-                event,
-            )?,
+            FxaState::Authenticating { initial_state, .. } => self
+                .process_event_with_internal_state_machine(
+                    internal_machines::AuthenticatingStateMachine {
+                        initial_state: *initial_state,
+                    },
+                    event,
+                )?,
             FxaState::Connected => self.process_event_with_internal_state_machine(
                 internal_machines::ConnectedStateMachine,
                 event,
@@ -95,8 +98,9 @@ impl FirefoxAccount {
                 state => {
                     let event = state.make_call(self, &device_config)?;
                     let event_msg = event.to_string();
-                    internal_state = state_machine.next_state(state, event)?;
-                    breadcrumb!("FxaStateMachine.process_event {event_msg} -> {internal_state}")
+                    let next_state = state_machine.next_state(state, event);
+                    breadcrumb!("FxaStateMachine.process_event {event_msg} -> {next_state:?}");
+                    internal_state = next_state?;
                 }
             }
         }

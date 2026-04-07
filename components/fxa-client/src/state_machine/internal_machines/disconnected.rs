@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{invalid_transition, Event, InternalStateMachine, State};
-use crate::{Error, FxaEvent, FxaState, Result};
+use crate::{Error, FxaEvent, FxaRustAuthState, FxaState, Result};
 
 pub struct DisconnectedStateMachine;
 
@@ -14,17 +14,27 @@ use State::*;
 impl InternalStateMachine for DisconnectedStateMachine {
     fn initial_state(&self, event: FxaEvent) -> Result<State> {
         match event {
-            FxaEvent::BeginOAuthFlow { scopes, entrypoint } => {
-                Ok(State::BeginOAuthFlow { scopes, entrypoint })
-            }
+            FxaEvent::BeginOAuthFlow {
+                service,
+                scopes,
+                entrypoint,
+            } => Ok(State::BeginOAuthFlow {
+                service,
+                scopes,
+                entrypoint,
+                initial_state: FxaRustAuthState::Disconnected,
+            }),
             FxaEvent::BeginPairingFlow {
                 pairing_url,
+                service,
                 scopes,
                 entrypoint,
             } => Ok(State::BeginPairingFlow {
                 pairing_url,
+                service,
                 scopes,
                 entrypoint,
+                initial_state: FxaRustAuthState::Disconnected,
             }),
             e => Err(Error::InvalidStateTransition(format!(
                 "Disconnected -> {e}"
@@ -35,10 +45,16 @@ impl InternalStateMachine for DisconnectedStateMachine {
     fn next_state(&self, state: State, event: Event) -> Result<State> {
         Ok(match (state, event) {
             (BeginOAuthFlow { .. }, BeginOAuthFlowSuccess { oauth_url }) => {
-                Complete(FxaState::Authenticating { oauth_url })
+                Complete(FxaState::Authenticating {
+                    oauth_url,
+                    initial_state: FxaRustAuthState::Disconnected,
+                })
             }
             (BeginPairingFlow { .. }, BeginPairingFlowSuccess { oauth_url }) => {
-                Complete(FxaState::Authenticating { oauth_url })
+                Complete(FxaState::Authenticating {
+                    oauth_url,
+                    initial_state: FxaRustAuthState::Disconnected,
+                })
             }
             (BeginOAuthFlow { .. }, CallError) => Cancel,
             (BeginPairingFlow { .. }, CallError) => Cancel,
@@ -57,6 +73,7 @@ mod test {
         let tester = StateMachineTester::new(
             DisconnectedStateMachine,
             FxaEvent::BeginOAuthFlow {
+                service: "service".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
             },
@@ -64,8 +81,10 @@ mod test {
         assert_eq!(
             tester.state,
             BeginOAuthFlow {
+                service: "service".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                initial_state: FxaRustAuthState::Disconnected,
             }
         );
         assert_eq!(tester.peek_next_state(CallError), Cancel);
@@ -75,6 +94,7 @@ mod test {
             }),
             Complete(FxaState::Authenticating {
                 oauth_url: "http://example.com/oauth-start".to_owned(),
+                initial_state: FxaRustAuthState::Disconnected,
             })
         );
     }
@@ -84,6 +104,7 @@ mod test {
         let tester = StateMachineTester::new(
             DisconnectedStateMachine,
             FxaEvent::BeginPairingFlow {
+                service: "service".to_owned(),
                 pairing_url: "https://example.com/pairing-url".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
@@ -92,9 +113,11 @@ mod test {
         assert_eq!(
             tester.state,
             BeginPairingFlow {
+                service: "service".to_owned(),
                 pairing_url: "https://example.com/pairing-url".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                initial_state: FxaRustAuthState::Disconnected,
             }
         );
         assert_eq!(tester.peek_next_state(CallError), Cancel);
@@ -104,6 +127,7 @@ mod test {
             }),
             Complete(FxaState::Authenticating {
                 oauth_url: "http://example.com/oauth-start".to_owned(),
+                initial_state: FxaRustAuthState::Disconnected,
             })
         );
     }
