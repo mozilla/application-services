@@ -1,0 +1,7 @@
+[package]
+name = "breach-alerts"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+uniffi = { version = "0.31" }
