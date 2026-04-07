@@ -387,7 +387,16 @@ dependencies = [
 name = "breach-alerts"
 version = "0.1.0"
 dependencies = [
+ "error-support",
+ "interrupt-support",
+ "parking_lot",
+ "rusqlite",
+ "serde",
+ "sql-support",
+ "tempfile",
+ "thiserror 2.0.3",
  "uniffi",
+ "url",
 ]
 
 [[package]]

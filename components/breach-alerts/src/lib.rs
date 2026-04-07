@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod db;
+pub mod error;
+mod schema;
+pub mod store;
+
+pub use crate::store::BreachAlertsStore;
