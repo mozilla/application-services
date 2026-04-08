@@ -493,7 +493,7 @@ fn fixup_bookmark_json(json: &mut JsonValue) -> SyncedBookmarkValidity {
     let mut validity = SyncedBookmarkValidity::Valid;
     // the json value should always be on object, if not don't try to do any fixups.  The result will
     // be that into_content_with_fixup() returns an IncomingContent with IncomingKind::Malformed.
-    if let JsonValue::Object(ref mut obj) = json {
+    if let JsonValue::Object(obj) = json {
         obj.entry("parentid")
             .and_modify(|v| fixup_optional_str(v, &mut validity));
         obj.entry("title")
@@ -567,7 +567,7 @@ fn fixup_optional_keyword(val: &mut JsonValue, validity: &mut SyncedBookmarkVali
 
 fn fixup_optional_tags(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
     match val {
-        JsonValue::Array(ref tags) => {
+        JsonValue::Array(tags) => {
             let mut valid_tags = HashSet::with_capacity(tags.len());
             for v in tags {
                 if let JsonValue::String(tag) = v {

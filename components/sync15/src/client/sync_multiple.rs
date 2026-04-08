@@ -8,11 +8,11 @@
 use super::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use super::status::{ServiceStatus, SyncResult};
 use super::storage_client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
-use crate::clients_engine::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
-use crate::engine::{EngineSyncAssociation, SyncEngine};
-use crate::error::{debug, info, trace, warn, Error};
-use crate::telemetry;
 use crate::KeyBundle;
+use crate::clients_engine::{self, CLIENTS_TTL_REFRESH, CommandProcessor};
+use crate::engine::{EngineSyncAssociation, SyncEngine};
+use crate::error::{Error, debug, info, trace, warn};
+use crate::telemetry;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::result;

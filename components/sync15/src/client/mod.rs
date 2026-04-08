@@ -26,7 +26,7 @@ mod token;
 mod util;
 
 pub(crate) use coll_state::{CollState, LocalCollStateMachine};
-pub(crate) use coll_update::{fetch_incoming, CollectionUpdate};
+pub(crate) use coll_update::{CollectionUpdate, fetch_incoming};
 pub(crate) use collection_keys::CollectionKeys;
 pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
@@ -35,5 +35,5 @@ pub use storage_client::{
     SetupStorageClient, Sync15ClientResponse, Sync15StorageClient, Sync15StorageClientInit,
 };
 pub use sync_multiple::{
-    sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
+    MemoryCachedState, SyncRequestInfo, sync_multiple, sync_multiple_with_command_processor,
 };
