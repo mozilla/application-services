@@ -86,40 +86,6 @@ fn test_contract_tile_prod() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_report_url_contains_placement_id_and_position() {
-    init_backend();
-
-    let client = prod_client();
-    let placements = client
-        .request_tile_ads(
-            vec![MozAdsPlacementRequest {
-                placement_id: "mock_tile_1".to_string(),
-                iab_content: None,
-            }],
-            None,
-        )
-        .expect("tile ad request should succeed");
-
-    let ad = placements
-        .get("mock_tile_1")
-        .expect("mock_tile_1 placement should be present");
-
-    let report_url = ad
-        .callbacks
-        .report
-        .as_ref()
-        .expect("mock_tile_1 should have a report URL");
-
-    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
-    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
-    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
-
-    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
-    assert_eq!(position_count, 1, "expected exactly one position");
-}
-
-#[test]
-#[ignore = "integration test: run manually with -- --ignored"]
 fn test_record_impression() {
     init_backend();
 
@@ -195,6 +161,12 @@ fn test_report_ad() {
         .report
         .as_ref()
         .expect("mock_tile_1 should have a report URL");
+
+    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
+    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
+    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
+    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
+    assert_eq!(position_count, 1, "expected exactly one position");
 
     let result = client.report_ad(report_url.to_string(), MozAdsReportReason::NotInterested);
     assert!(result.is_ok(), "report_ad failed: {:?}", result.err());
