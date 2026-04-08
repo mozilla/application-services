@@ -4,6 +4,7 @@
 
 use super::{invalid_transition, Event, InternalStateMachine, State};
 use crate::{Error, FxaEvent, FxaState, Result};
+use error_support::report_error;
 
 pub struct AuthenticatingStateMachine;
 
@@ -19,6 +20,7 @@ impl InternalStateMachine for AuthenticatingStateMachine {
                 state: state.clone(),
             }),
             FxaEvent::CancelOAuthFlow => Ok(Complete(FxaState::Disconnected)),
+            FxaEvent::Disconnect => Ok(Disconnect),
             // These next 2 cases allow apps to begin a new oauth flow when we're already in the
             // middle of an existing one.
             FxaEvent::BeginOAuthFlow { scopes, entrypoint } => {
@@ -43,6 +45,13 @@ impl InternalStateMachine for AuthenticatingStateMachine {
         Ok(match (state, event) {
             (CompleteOAuthFlow { .. }, CompleteOAuthFlowSuccess) => InitializeDevice,
             (CompleteOAuthFlow { .. }, CallError) => Complete(FxaState::Disconnected),
+            (Disconnect, DisconnectSuccess) => Complete(FxaState::Disconnected),
+            (Disconnect, CallError) => {
+                // disconnect() is currently infallible, but let's handle errors anyway in case we
+                // refactor it in the future.
+                report_error!("fxa-state-machine-error", "saw CallError after Disconnect");
+                Complete(FxaState::Disconnected)
+            }
             (InitializeDevice, InitializeDeviceSuccess) => Complete(FxaState::Connected),
             (InitializeDevice, CallError) => Complete(FxaState::Disconnected),
             (BeginOAuthFlow { .. }, BeginOAuthFlowSuccess { oauth_url }) => {
@@ -167,6 +176,19 @@ mod test {
             Complete(FxaState::Authenticating {
                 oauth_url: "http://example.com/oauth-start".to_owned(),
             })
+        );
+    }
+
+    #[test]
+    fn test_disconnect_during_oauth_flow() {
+        let tester = StateMachineTester::new(AuthenticatingStateMachine, FxaEvent::Disconnect);
+        assert_eq!(
+            tester.peek_next_state(CallError),
+            Complete(FxaState::Disconnected)
+        );
+        assert_eq!(
+            tester.peek_next_state(DisconnectSuccess),
+            Complete(FxaState::Disconnected)
         );
     }
 }
