@@ -201,6 +201,10 @@ the details of which are reproduced below.
     <url>https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: find-msvc-tools</name>
+    <url>https://github.com/rust-lang/cc-rs/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: form_urlencoded</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>

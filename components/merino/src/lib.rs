@@ -5,12 +5,19 @@
 
 //! This crate is a cross-platform client library for Mozilla's Merino service.
 //!
-//! It provides a [`CuratedRecommendationsClient`](curated_recommendations::CuratedRecommendationsClient)
-//! that fetches curated content recommendations (articles, stories) from the Merino backend,
-//! powering features like Firefox's New Tab page.
+//! It provides two clients:
+//!
+//! - [`CuratedRecommendationsClient`](curated_recommendations::CuratedRecommendationsClient) —
+//!   fetches curated content recommendations (articles, stories) from the Merino backend,
+//!   powering features like Firefox's New Tab page.
+//!
+//! - [`SuggestClient`](suggest::SuggestClient) —
+//!   fetches search suggestions from the Merino suggest endpoint,
+//!   powering features like Firefox's address bar suggestions.
 //!
 //! This crate uses [UniFFI](https://mozilla.github.io/uniffi-rs/) to generate cross-platform
 //! bindings for Android and other targets.
 
 pub mod curated_recommendations;
+pub mod suggest;
 uniffi::setup_scaffolding!("merino");

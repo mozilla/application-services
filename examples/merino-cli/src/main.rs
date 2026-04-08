@@ -2,12 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+extern crate libsqlite3_sys;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use merino::curated_recommendations::models::request::{
     CuratedRecommendationsConfig, CuratedRecommendationsRequest,
 };
 use merino::curated_recommendations::CuratedRecommendationsClient;
+use merino::suggest::{SuggestClient, SuggestConfig, SuggestOptions};
+use viaduct::{configure_ohttp_channel, OhttpConfig};
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -15,17 +19,18 @@ struct Cli {
     #[arg(long)]
     base_host: Option<String>,
 
-    /// Required user agent header
-    #[arg(long)]
-    user_agent: String,
-
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    Query {
+    /// Fetch curated recommendations
+    Recommendations {
+        /// Required user agent header
+        #[arg(long)]
+        user_agent: String,
+
         /// JSON string of type CuratedRecommendationsRequest
         #[clap(long)]
         json: Option<String>,
@@ -34,38 +39,121 @@ enum Commands {
         #[clap(long, value_name = "FILE")]
         json_file: Option<std::path::PathBuf>,
     },
+    /// Fetch suggestions
+    Suggest {
+        /// OHTTP relay URL
+        #[arg(
+            long,
+            default_value = "https://ohttp-relay-merino-prod.edgecompute.app/"
+        )]
+        relay_url: String,
+
+        /// OHTTP gateway host
+        #[arg(long, default_value = "prod.merino.prod.webservices.mozgcp.net")]
+        gateway_host: String,
+
+        /// Search query
+        #[arg(long)]
+        query: String,
+
+        /// Comma-separated list of providers (e.g. "wikipedia,adm")
+        #[arg(long)]
+        providers: Option<String>,
+
+        /// Source identifier sent to Merino (e.g urlbar, new tab. defaults to unknown)
+        #[arg(long)]
+        source: Option<String>,
+
+        /// Country code (e.g. "US")
+        #[arg(long)]
+        country: Option<String>,
+
+        /// Region code (e.g. "CA")
+        #[arg(long)]
+        region: Option<String>,
+
+        /// City name
+        #[arg(long)]
+        city: Option<String>,
+
+        /// Client variants
+        #[arg(long)]
+        client_variants: Option<String>,
+
+        /// Request type (e.g location | weather)
+        #[arg(long)]
+        request_type: Option<String>,
+
+        /// Accept-Language header value (e.g. "en-US")
+        #[arg(long)]
+        accept_language: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
+    viaduct_hyper::viaduct_init_backend_hyper()?;
+
     let cli = Cli::parse();
 
-    viaduct_hyper::viaduct_init_backend_hyper()?;
-    let config = CuratedRecommendationsConfig {
-        base_host: cli.base_host.clone(),
-        user_agent_header: cli.user_agent.clone(),
-    };
-
-    let client = CuratedRecommendationsClient::new(config)?;
-
     match cli.command {
-        Commands::Query { json, json_file } => {
+        Commands::Recommendations {
+            user_agent,
+            json,
+            json_file,
+        } => {
+            let config = CuratedRecommendationsConfig {
+                base_host: cli.base_host,
+                user_agent_header: user_agent,
+            };
+            let client = CuratedRecommendationsClient::new(config)?;
             let json_data = match (json_file, json) {
                 (Some(path), _) => std::fs::read_to_string(path)?,
                 (None, Some(raw)) => raw,
                 (None, None) => anyhow::bail!("You must provide either --json or --json-file"),
             };
-
-            query_from_json(json_data, &client)?;
+            let request: CuratedRecommendationsRequest = serde_json::from_str(&json_data)?;
+            let response = client.get_curated_recommendations(&request)?;
+            println!("{}", serde_json::to_string_pretty(&response)?);
         }
-    };
+        Commands::Suggest {
+            relay_url,
+            gateway_host,
+            query,
+            providers,
+            source,
+            country,
+            region,
+            city,
+            client_variants,
+            request_type,
+            accept_language,
+        } => {
+            configure_ohttp_channel(
+                "merino".to_string(),
+                OhttpConfig {
+                    relay_url,
+                    gateway_host,
+                },
+            )?;
+            let config = SuggestConfig {
+                base_host: cli.base_host,
+            };
+            let client = SuggestClient::new(config)?;
+            let options = SuggestOptions {
+                providers,
+                source,
+                country,
+                region,
+                city,
+                client_variants,
+                request_type,
+                accept_language,
+            };
+            let response = client.get_suggestions(query, options)?;
+            let json: serde_json::Value = serde_json::from_str(&response)?;
+            println!("{}", serde_json::to_string_pretty(&json)?);
+        }
+    }
 
-    Ok(())
-}
-
-fn query_from_json(json: String, client: &CuratedRecommendationsClient) -> Result<()> {
-    let request: CuratedRecommendationsRequest = serde_json::from_str(&json)?;
-    let response = client.get_curated_recommendations(&request)?;
-
-    println!("{}", serde_json::to_string_pretty(&response)?);
     Ok(())
 }
