@@ -6,7 +6,8 @@
 use std::sync::Arc;
 
 use ads_client::{
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest,
+    MozAdsPlacementRequestWithCount, MozAdsReportReason,
 };
 
 fn init_backend() {
@@ -14,18 +15,18 @@ fn init_backend() {
     let _ = viaduct_hyper::viaduct_init_backend_hyper();
 }
 
-fn staging_client() -> ads_client::MozAdsClient {
+fn prod_client() -> ads_client::MozAdsClient {
     Arc::new(MozAdsClientBuilder::new())
-        .environment(MozAdsEnvironment::Staging)
+        .environment(MozAdsEnvironment::Prod)
         .build()
 }
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_image_staging() {
+fn test_contract_image_prod() {
     init_backend();
 
-    let client = staging_client();
+    let client = prod_client();
     let result = client.request_image_ads(
         vec![MozAdsPlacementRequest {
             placement_id: "mock_billboard_1".to_string(),
@@ -45,10 +46,10 @@ fn test_contract_image_staging() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_spoc_staging() {
+fn test_contract_spoc_prod() {
     init_backend();
 
-    let client = staging_client();
+    let client = prod_client();
     let result = client.request_spoc_ads(
         vec![MozAdsPlacementRequestWithCount {
             placement_id: "mock_spoc_1".to_string(),
@@ -66,10 +67,10 @@ fn test_contract_spoc_staging() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_tile_staging() {
+fn test_contract_tile_prod() {
     init_backend();
 
-    let client = staging_client();
+    let client = prod_client();
     let result = client.request_tile_ads(
         vec![MozAdsPlacementRequest {
             placement_id: "mock_tile_1".to_string(),
@@ -81,4 +82,92 @@ fn test_contract_tile_staging() {
     assert!(result.is_ok(), "Tile ad request failed: {:?}", result.err());
     let placements = result.unwrap();
     assert!(placements.contains_key("mock_tile_1"));
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_impression() {
+    init_backend();
+
+    let client = prod_client();
+    let placements = client
+        .request_tile_ads(
+            vec![MozAdsPlacementRequest {
+                placement_id: "mock_tile_1".to_string(),
+                iab_content: None,
+            }],
+            None,
+        )
+        .expect("tile ad request should succeed");
+
+    let ad = placements
+        .get("mock_tile_1")
+        .expect("mock_tile_1 placement should be present");
+
+    let result = client.record_impression(ad.callbacks.impression.to_string());
+    assert!(
+        result.is_ok(),
+        "record_impression failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_click() {
+    init_backend();
+
+    let client = prod_client();
+    let placements = client
+        .request_tile_ads(
+            vec![MozAdsPlacementRequest {
+                placement_id: "mock_tile_1".to_string(),
+                iab_content: None,
+            }],
+            None,
+        )
+        .expect("tile ad request should succeed");
+
+    let ad = placements
+        .get("mock_tile_1")
+        .expect("mock_tile_1 placement should be present");
+
+    let result = client.record_click(ad.callbacks.click.to_string());
+    assert!(result.is_ok(), "record_click failed: {:?}", result.err());
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_report_ad() {
+    init_backend();
+
+    let client = prod_client();
+    let placements = client
+        .request_tile_ads(
+            vec![MozAdsPlacementRequest {
+                placement_id: "mock_tile_1".to_string(),
+                iab_content: None,
+            }],
+            None,
+        )
+        .expect("tile ad request should succeed");
+
+    let ad = placements
+        .get("mock_tile_1")
+        .expect("mock_tile_1 placement should be present");
+
+    let report_url = ad
+        .callbacks
+        .report
+        .as_ref()
+        .expect("mock_tile_1 should have a report URL");
+
+    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
+    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
+    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
+    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
+    assert_eq!(position_count, 1, "expected exactly one position");
+
+    let result = client.report_ad(report_url.to_string(), MozAdsReportReason::NotInterested);
+    assert!(result.is_ok(), "report_ad failed: {:?}", result.err());
 }

@@ -13,6 +13,7 @@ use crate::client::ad_response::{
 };
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
 use crate::client::AdsClient;
+use crate::client::ReportReason;
 use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
@@ -189,6 +190,23 @@ pub enum MozAdsIABContentTaxonomy {
 pub struct MozAdsRequestCachePolicy {
     pub mode: MozAdsCacheMode,
     pub ttl_seconds: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, uniffi::Enum)]
+pub enum MozAdsReportReason {
+    Inappropriate,
+    NotInterested,
+    SeenTooManyTimes,
+}
+
+impl From<MozAdsReportReason> for ReportReason {
+    fn from(reason: MozAdsReportReason) -> Self {
+        match reason {
+            MozAdsReportReason::Inappropriate => ReportReason::Inappropriate,
+            MozAdsReportReason::NotInterested => ReportReason::NotInterested,
+            MozAdsReportReason::SeenTooManyTimes => ReportReason::SeenTooManyTimes,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Enum)]

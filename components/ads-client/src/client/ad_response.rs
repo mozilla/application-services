@@ -60,6 +60,19 @@ impl<A: AdResponseValue> AdResponse<A> {
         }
     }
 
+    pub fn add_placement_info_to_report_callbacks(&mut self) {
+        for (placement_id, ads) in self.data.iter_mut() {
+            for (position, ad) in ads.iter_mut().enumerate() {
+                if let Some(report_url) = ad.callbacks_mut().report.as_mut() {
+                    report_url
+                        .query_pairs_mut()
+                        .append_pair("placement_id", placement_id)
+                        .append_pair("position", &position.to_string());
+                }
+            }
+        }
+    }
+
     pub fn take_first(self) -> HashMap<String, A> {
         self.data
             .into_iter()
@@ -467,6 +480,94 @@ mod tests {
             .query()
             .unwrap_or("")
             .contains("request_hash=abc123def456"));
+    }
+
+    #[test]
+    fn test_add_placement_info_to_report_callbacks() {
+        let mut response = AdResponse {
+            data: HashMap::from([(
+                "mock_tile_1".to_string(),
+                vec![
+                    AdImage {
+                        alt_text: None,
+                        block_key: "key1".into(),
+                        callbacks: AdCallbacks {
+                            click: Url::parse("https://example.com/click1").unwrap(),
+                            impression: Url::parse("https://example.com/impression1").unwrap(),
+                            report: Some(Url::parse("https://example.com/report").unwrap()),
+                        },
+                        format: "billboard".to_string(),
+                        image_url: "https://example.com/image1.png".to_string(),
+                        url: "https://example.com/ad1".to_string(),
+                    },
+                    AdImage {
+                        alt_text: None,
+                        block_key: "key2".into(),
+                        callbacks: AdCallbacks {
+                            click: Url::parse("https://example.com/click2").unwrap(),
+                            impression: Url::parse("https://example.com/impression2").unwrap(),
+                            report: Some(Url::parse("https://example.com/report").unwrap()),
+                        },
+                        format: "billboard".to_string(),
+                        image_url: "https://example.com/image2.png".to_string(),
+                        url: "https://example.com/ad2".to_string(),
+                    },
+                ],
+            )]),
+        };
+
+        response.add_placement_info_to_report_callbacks();
+
+        let ads = &response.data["mock_tile_1"];
+
+        let report_0 = ads[0]
+            .callbacks
+            .report
+            .as_ref()
+            .unwrap()
+            .query()
+            .unwrap_or("");
+        assert!(report_0.contains("placement_id=mock_tile_1"));
+        assert!(report_0.contains("position=0"));
+
+        let report_1 = ads[1]
+            .callbacks
+            .report
+            .as_ref()
+            .unwrap()
+            .query()
+            .unwrap_or("");
+        assert!(report_1.contains("placement_id=mock_tile_1"));
+        assert!(report_1.contains("position=1"));
+    }
+
+    #[test]
+    fn test_add_placement_info_skips_ads_without_report_url() {
+        let mut response = AdResponse {
+            data: HashMap::from([(
+                "mock_tile_1".to_string(),
+                vec![AdImage {
+                    alt_text: None,
+                    block_key: "key1".into(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click").unwrap(),
+                        impression: Url::parse("https://example.com/impression").unwrap(),
+                        report: None,
+                    },
+                    format: "billboard".to_string(),
+                    image_url: "https://example.com/image.png".to_string(),
+                    url: "https://example.com/ad".to_string(),
+                }],
+            )]),
+        };
+
+        // Should not panic
+        response.add_placement_info_to_report_callbacks();
+
+        let ad = &response.data["mock_tile_1"][0];
+        assert!(ad.callbacks.report.is_none());
+        assert!(ad.callbacks.click.query().is_none());
+        assert!(ad.callbacks.impression.query().is_none());
     }
 
     #[test]

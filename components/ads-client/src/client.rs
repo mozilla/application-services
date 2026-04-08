@@ -9,6 +9,23 @@ use std::time::Duration;
 use crate::client::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::client::config::{AdsClientConfig, Environment};
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ReportReason {
+    Inappropriate,
+    NotInterested,
+    SeenTooManyTimes,
+}
+
+impl ReportReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ReportReason::Inappropriate => "inappropriate",
+            ReportReason::NotInterested => "not_interested",
+            ReportReason::SeenTooManyTimes => "seen_too_many_times",
+        }
+    }
+}
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::MARSClient;
 use crate::telemetry::Telemetry;
@@ -115,6 +132,7 @@ where
         let cache_policy = options.unwrap_or_default();
         let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, &cache_policy)?;
         response.add_request_hash_to_callbacks(&request_hash);
+        response.add_placement_info_to_report_callbacks();
         Ok(response)
     }
 
@@ -199,9 +217,9 @@ where
             })
     }
 
-    pub fn report_ad(&self, report_url: Url) -> Result<(), ReportAdError> {
+    pub fn report_ad(&self, report_url: Url, reason: ReportReason) -> Result<(), ReportAdError> {
         self.client
-            .report_ad(report_url)
+            .report_ad(report_url, reason)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })
