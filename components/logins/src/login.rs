@@ -757,11 +757,18 @@ impl ValidateAndFixup for LoginEntry {
                             .form_action_origin = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    if let Some(fixed) = Self::validate_and_fixup_origin(href)? {
-                        get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                            field_info: "form_action_origin is not normalized".into()
-                        })?
-                        .form_action_origin = Some(fixed);
+                    match Self::validate_and_fixup_origin(href) {
+                        Ok(Some(fixed)) => {
+                            get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
+                                field_info: "form_action_origin is not normalized".into()
+                            })?
+                            .form_action_origin = Some(fixed);
+                        }
+                        Ok(None) => {}
+                        #[cfg(feature = "ignore_form_action_origin_validation_errors")]
+                        Err(_) => {}
+                        #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
+                        Err(e) => return Err(e),
                     }
                 }
             }
@@ -1301,6 +1308,20 @@ mod tests {
                 tc,
             );
         }
+    }
+
+    #[test]
+    #[cfg(feature = "ignore_form_action_origin_validation_errors")]
+    fn test_invalid_form_action_origin_allowed() {
+        let login = LoginEntry {
+            origin: "https://example.com".into(),
+            form_action_origin: Some("email".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
+        };
+        let fixed = login.fixup().expect("should not error");
+        assert_eq!(fixed.form_action_origin, Some("email".into()));
     }
 
     #[test]

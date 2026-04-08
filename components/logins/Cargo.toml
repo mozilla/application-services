@@ -9,7 +9,13 @@ exclude = ["/android", "/ios"]
 [features]
 default = []
 keydb = ["nss/keydb", "dep:async-trait", "dep:futures"]
+# Allows logins with empty passwords to be imported. Used on Desktop during
+# migration to accept existing logins that have empty passwords.
 allow_empty_passwords = []
+# Runs URL validation and fixup for the `form_action_origin` field, but ignores
+# errors, allowing non-URL values (e.g. "email", "UserCode") that exist in some
+# Desktop databases to be saved regardless.
+ignore_form_action_origin_validation_errors = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
