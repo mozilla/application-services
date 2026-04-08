@@ -9,6 +9,7 @@ exclude = ["/android", "/ios"]
 [features]
 default = []
 keydb = ["nss/keydb", "dep:async-trait", "dep:futures"]
+allow_empty_passwords = []
 
 [dependencies]
 sync15 = { path = "../sync15" }

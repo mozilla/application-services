@@ -5,6 +5,11 @@
 - `nimbus-fml` commands now all have a `--lax-gecko-pref-validation` flag to bypass the above restriction, as well as the restriction that `gecko-pref` and `default` are mutually exclusive.
 - The `FmlLoaderConfig` now has a `lax_gecko_pref_validation` field to allow `FmlClient` consumers (i.e., Experimenter) to opt-in to lax validation.
 
+## ✨ What's New ✨
+
+### Logins
+- New `allow_empty_passwords` feature flag to allow storing logins with empty passwords. This feature is intended to be enabled on desktop during the migration.
+
 [Full Changelog](In progress)
 
 # v150.0 (_2026-03-23_)
