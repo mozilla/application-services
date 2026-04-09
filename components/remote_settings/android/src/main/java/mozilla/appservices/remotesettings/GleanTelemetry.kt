@@ -4,6 +4,7 @@
 
 package mozilla.appservices.remotesettings
 
+import android.util.Log
 import mozilla.appservices.remotesettings.RemoteSettingsTelemetry
 import mozilla.appservices.remotesettings.UptakeEventExtras
 import org.mozilla.appservices.remotesettings.GleanMetrics.RemoteSettings as RSMetrics
@@ -14,6 +15,17 @@ import org.mozilla.appservices.remotesettings.GleanMetrics.RemoteSettings as RSM
  */
 class GleanTelemetry : RemoteSettingsTelemetry {
     override fun reportUptake(extras: UptakeEventExtras) {
+        Log.d(
+            GleanTelemetry::javaClass.name,
+            "Remote Settings Telemetry Uptake called with: " +
+                "value=${extras.value}, " +
+                "source=${extras.source}, " +
+                "age=${extras.age}, " +
+                "trigger=${extras.trigger}, " +
+                "timestamp=${extras.timestamp}, " +
+                "duration=${extras.duration}, " +
+                "errorName=${extras.errorName}",
+        )
         RSMetrics.uptakeRemotesettings.record(
             RSMetrics.UptakeRemotesettingsExtra(
                 value = extras.value,
