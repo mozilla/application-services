@@ -1,0 +1,12 @@
+[package]
+name = "validate-logins"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+logins = { path = "../../components/logins", features = ["ignore_form_action_origin_validation_errors"] }
+serde = "1"
+serde_json = "1"
