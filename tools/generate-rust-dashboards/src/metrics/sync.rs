@@ -6,8 +6,8 @@ use crate::{
     config::{Application, ReleaseChannel, TeamConfig},
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
-        FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel,
-        PieChartPanel, Target, TimeSeriesPanel, Transformation,
+        FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel, Target,
+        TimeSeriesPanel, Transformation,
     },
     sql::Query,
     util::{Join, UrlBuilder},
@@ -83,7 +83,7 @@ fn overview_count_panel(
                 }],
                 custom: FieldConfigCustom {
                     axis_label: "success rate".into(),
-                    axis_soft_min: 90,
+                    axis_soft_min: 99,
                     axis_soft_max: 100,
                     ..FieldConfigCustom::default()
                 },
@@ -110,36 +110,31 @@ fn overview_count_panel(
 ///
 /// We use subqueries to smooth out the differences between desktop and mobile telemetry.
 fn desktop_count_query(channel_expr: String) -> String {
-    // TODO: switch from `telemetry.sync` to the newer glean ping
     format!(
         "\
-SELECT
-    engine.name as engine_name,
-    $__timeGroup(submission_timestamp, $__interval) as time,
-    SAFE_DIVIDE(
-        -- 100 * success count
-        100 * COUNTIF(
-            syncs.failure_reason IS NULL
-            AND engine.failure_reason IS NULL
-            AND (engine.incoming IS NOT NULL OR ARRAY_LENGTH(engine.outgoing) > 0)
-        ),
-        -- count success or failures
-        COUNTIF(
-            syncs.failure_reason IS NOT NULL
-            OR engine.failure_reason IS NOT NULL
-            OR (engine.incoming IS NOT NULL OR ARRAY_LENGTH(engine.outgoing) > 0)
-        )
-    ) AS success_rate,
-FROM telemetry.sync
-CROSS JOIN UNNEST(payload.syncs) as syncs
-CROSS JOIN UNNEST(syncs.engines) as engine
-WHERE normalized_channel = {channel_expr}
-    AND engine.name <> 'extension-storage'
-    AND engine.name <> 'bookmarks'
-    AND $__timeFilter(submission_timestamp)
-GROUP BY 1, 2
-ORDER BY engine_name, time"
-    )
+WITH counts AS
+  (SELECT 
+      $__timeGroup(submission_timestamp, $__interval) as time,
+      JSON_VALUE(engine.name) AS engine_name,
+      COUNTIF(syncs.failureReason IS NOT NULL OR engine.failureReason IS NOT NULL) as count_total_errors,
+      COUNTIF(syncs.failureReason IS NULL
+              AND engine.failureReason IS NULL
+              AND (engine.incoming IS NOT NULL
+                   OR engine.outgoing IS NOT NULL 
+                   OR engine.took IS NOT NULL)) AS count_success,
+   FROM firefox_desktop.sync
+   CROSS JOIN UNNEST(JSON_QUERY_ARRAY(metrics.object.syncs_syncs)) as syncs
+   CROSS JOIN UNNEST(JSON_QUERY_ARRAY(syncs,'$.engines')) AS engine
+   WHERE metrics IS NOT NULL
+     AND JSON_VALUE(engine.name) NOT IN ('bookmarks', 'extension-storage')
+     AND normalized_channel = {channel_expr}
+     AND $__timeFilter(submission_timestamp)
+   GROUP BY time, engine_name)
+SELECT engine_name,
+       time,
+       count_success / (count_success + count_total_errors) * 100 AS success_rate,
+FROM counts
+ORDER BY time")
 }
 
 /// Subquery to fetch general sync info for mobile
@@ -184,39 +179,59 @@ GROUP BY 1, 2"
 
 fn error_list_count_panel(config: &TeamConfig) -> Panel {
     let query = Query {
-        select: vec!["message".into(), "COUNT(*) as count".into()],
+        select: vec![
+            "error".into(),
+            "$__timeGroup(submission_timestamp, $__interval) as time".into(),
+            "COUNT(*) as count".into(),
+        ],
         where_: vec![
+            "application='${application}'".into(),
             "engine_name='${engine}'".into(),
             "normalized_channel = '${channel}'".into(),
-            "$__timeFilter(time)".into(),
+            "$__timeFilter(submission_timestamp)".into(),
         ],
         from: format!("(\n{}\n)", error_subquery(config)),
-        group_by: Some("1".into()),
+        group_by: Some("1, 2".into()),
         order_by: Some("count DESC".into()),
         ..Query::default()
     };
 
-    PieChartPanel {
-        title: "".into(),
+    TimeSeriesPanel {
+        title: "Error counts".into(),
         grid_pos: GridPos::height(10),
         datasource: Datasource::bigquery(),
-        interval: "30m".into(),
-        targets: vec![Target::timeseries(query.sql())],
-        ..PieChartPanel::default()
+        // needs to be fairly large since the total sync count can be low on mobile/nightly
+        interval: "1d".into(),
+        targets: vec![Target::table(query.sql())],
+        transformations: vec![
+            Transformation::PartitionByValues {
+                fields: vec!["error".into()],
+                keep_fields: true,
+            },
+            Transformation::RenameByRegex {
+                regex: "count (.*)".into(),
+                rename_pattern: "$1".into(),
+            },
+        ],
+        ..TimeSeriesPanel::default()
     }
     .into()
 }
 
 fn error_list_log_panel(config: &TeamConfig) -> Panel {
     let query = Query {
-        select: vec!["message".into(), "time".into()],
+        select: vec![
+            "CONCAT(IFNULL(error, 'unknown'), ': ', IFNULL(details, 'unknown')) as message".into(),
+            "submission_timestamp".into(),
+        ],
         from: format!("(\n{}\n)", error_subquery(config)),
         where_: vec![
             "engine_name='${engine}'".into(),
             "normalized_channel = '${channel}'".into(),
-            "$__timeFilter(time)".into(),
+            "application='${application}'".into(),
+            "$__timeFilter(submission_timestamp)".into(),
         ],
-        order_by: Some("time DESC".into()),
+        order_by: Some("submission_timestamp DESC".into()),
         limit: Some(1000),
         ..Query::default()
     };
@@ -239,33 +254,61 @@ fn error_list_log_panel(config: &TeamConfig) -> Panel {
 fn error_subquery(config: &TeamConfig) -> String {
     let mut queries = vec![];
 
-    // Desktop needs
-    queries.push("\
-SELECT CONCAT(IFNULL(engine.failure_reason.name, 'unknown'), ': ', IFNULL(engine.failure_reason.error, '')) as message,
-        submission_timestamp as time,
-        engine.name as engine_name,
-        normalized_channel
-FROM telemetry.sync
-CROSS JOIN UNNEST(payload.syncs) as syncs
-CROSS JOIN UNNEST(syncs.engines) as engine
-WHERE engine.failure_reason IS NOT NULL
-".to_string());
+    // Desktop
+    queries.push(
+        "\
+SELECT
+  'firefox_desktop' as application,
+  STRING(engine.name) AS engine_name,
+  normalized_channel,
+  JSON_VALUE(engine.failureReason, '$.name') AS error,
+  JSON_VALUE(engine.failureReason, '$.error') AS details,
+  submission_timestamp
+FROM
+  firefox_desktop.sync
+CROSS JOIN
+  UNNEST(JSON_QUERY_ARRAY(metrics.object.syncs_syncs)) AS syncs
+CROSS JOIN
+  UNNEST(JSON_QUERY_ARRAY(syncs,'$.engines')) AS engine
+WHERE
+  metrics IS NOT NULL
+  AND engine.failureReason IS NOT NULL
+  AND client_info.os NOT IN ('iOS', 'Android')"
+            .to_string(),
+    );
 
     queries.extend(
         config
             .components
             .iter()
             .flat_map(|c| c.sync_engines())
-            .map(|engine_name| {
-                format!(
-                    "\
-SELECT CONCAT(failure_reason.key, ': ', failure_reason.value) as message,
-    submission_timestamp as time,
-    '{engine_name}' as engine_name,
-    normalized_channel
-FROM mozdata.fenix.{engine_name}_sync
-CROSS JOIN UNNEST(metrics.labeled_string.{engine_name}_sync_v2_failure_reason) as failure_reason"
-                )
+            .flat_map(|engine_name| {
+                [
+                    format!(
+                        "\
+    SELECT
+        'firefox_android' as application,
+        '{engine_name}' as engine_name,
+        normalized_channel,
+        failure_reason.key as error,
+        failure_reason.value as details,
+        submission_timestamp
+    FROM mozdata.fenix.{engine_name}_sync
+    CROSS JOIN UNNEST(metrics.labeled_string.{engine_name}_sync_v2_failure_reason) as failure_reason"
+                    ),
+                    format!(
+                        "\
+    SELECT
+        'firefox_ios' as application,
+        '{engine_name}' as engine_name,
+        normalized_channel,
+        failure_reason.key as error,
+        failure_reason.value as details,
+        submission_timestamp
+    FROM mozdata.firefox_ios.{engine_name}_sync
+    CROSS JOIN UNNEST(metrics.labeled_string.{engine_name}_sync_v2_failure_reason) as failure_reason"
+                    ),
+                ]
             }),
     );
 
