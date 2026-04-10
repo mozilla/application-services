@@ -19,20 +19,20 @@ pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
     vec![
         AdPlacementRequest {
-            placement: "example_placement_1".to_string(),
-            count: 1,
             content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
                 categories: vec!["entertainment".to_string()],
+                taxonomy: IABContentTaxonomy::IAB2_1,
             }),
+            count: 1,
+            placement: "example_placement_1".to_string(),
         },
         AdPlacementRequest {
-            placement: "example_placement_2".to_string(),
-            count: 1,
             content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
                 categories: vec!["entertainment".to_string()],
+                taxonomy: IABContentTaxonomy::IAB2_1,
             }),
+            count: 1,
+            placement: "example_placement_2".to_string(),
         },
     ]
 }
@@ -43,14 +43,14 @@ pub fn make_happy_ad_request() -> AdRequest {
         TEST_CONTEXT_ID.to_string(),
         vec![
             AdPlacementRequest {
-                placement: "example_placement_1".to_string(),
-                count: 1,
                 content: None,
+                count: 1,
+                placement: "example_placement_1".to_string(),
             },
             AdPlacementRequest {
-                placement: "example_placement_2".to_string(),
-                count: 1,
                 content: None,
+                count: 1,
+                placement: "example_placement_2".to_string(),
             },
         ],
         url,

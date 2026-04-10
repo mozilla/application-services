@@ -12,7 +12,7 @@ use url::Url as AdsClientUrl;
 
 use client::ad_request::AdPlacementRequest;
 use client::AdsClient;
-use http_cache::RequestCachePolicy;
+use http_cache::CachePolicy;
 
 mod client;
 mod error;
@@ -51,7 +51,7 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let cache_policy: RequestCachePolicy = options.into();
+        let cache_policy: CachePolicy = options.into();
         let response = inner
             .request_image_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
@@ -66,7 +66,7 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let cache_policy: RequestCachePolicy = options.into();
+        let cache_policy: CachePolicy = options.into();
         let response = inner
             .request_spoc_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
@@ -84,7 +84,7 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let cache_policy: RequestCachePolicy = options.into();
+        let cache_policy: CachePolicy = options.into();
         let response = inner
             .request_tile_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;

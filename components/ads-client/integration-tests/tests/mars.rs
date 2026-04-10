@@ -29,8 +29,8 @@ fn test_contract_image_prod() {
     let client = prod_client();
     let result = client.request_image_ads(
         vec![MozAdsPlacementRequest {
-            placement_id: "mock_billboard_1".to_string(),
             iab_content: None,
+            placement_id: "mock_billboard_1".to_string(),
         }],
         None,
     );
@@ -52,9 +52,9 @@ fn test_contract_spoc_prod() {
     let client = prod_client();
     let result = client.request_spoc_ads(
         vec![MozAdsPlacementRequestWithCount {
-            placement_id: "mock_spoc_1".to_string(),
             count: 3,
             iab_content: None,
+            placement_id: "mock_spoc_1".to_string(),
         }],
         None,
     );
@@ -73,8 +73,8 @@ fn test_contract_tile_prod() {
     let client = prod_client();
     let result = client.request_tile_ads(
         vec![MozAdsPlacementRequest {
-            placement_id: "mock_tile_1".to_string(),
             iab_content: None,
+            placement_id: "mock_tile_1".to_string(),
         }],
         None,
     );

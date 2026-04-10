@@ -8,9 +8,6 @@ use viaduct::Response;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
-    #[error("Error requesting ads: {0}")]
-    RequestAds(#[from] RequestAdsError),
-
     #[error("Error recording a click for a placement: {0}")]
     RecordClick(#[from] RecordClickError),
 
@@ -19,6 +16,9 @@ pub enum ComponentError {
 
     #[error("Error reporting an ad: {0}")]
     ReportAd(#[from] ReportAdError),
+
+    #[error("Error requesting ads: {0}")]
+    RequestAds(#[from] RequestAdsError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -35,26 +35,26 @@ pub enum RequestAdsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BuildRequestError {
-    #[error("Could not build request with empty placement configs")]
-    EmptyConfig,
-
     #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
     DuplicatePlacementId { placement_id: String },
+
+    #[error("Could not build request with empty placement configs")]
+    EmptyConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum FetchAdsError {
-    #[error("URL parse error: {0}")]
-    UrlParse(#[from] url::ParseError),
-
-    #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::ViaductError),
+    #[error("Could not fetch ads, MARS responded with: {0}")]
+    HTTPError(#[from] HTTPError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("Could not fetch ads, MARS responded with: {0}")]
-    HTTPError(#[from] HTTPError),
+    #[error("Error sending request: {0}")]
+    Request(#[from] viaduct::ViaductError),
+
+    #[error("URL parse error: {0}")]
+    UrlParse(#[from] url::ParseError),
 }
 
 #[derive(Debug, thiserror::Error)]

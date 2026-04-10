@@ -15,15 +15,16 @@ use crate::{
     },
     http_cache::{HttpCache, HttpCacheError, RequestHash},
     telemetry::Telemetry,
-    RequestCachePolicy,
+    CachePolicy,
 };
 use url::Url;
-use viaduct::Request;
+use viaduct::{Client, ClientSettings, Request};
 
 pub struct MARSClient<T>
 where
     T: Telemetry,
 {
+    http_client: Client,
     http_cache: Option<HttpCache<AdRequest>>,
     telemetry: T,
 }
@@ -34,21 +35,23 @@ where
 {
     pub fn new(http_cache: Option<HttpCache<AdRequest>>, telemetry: T) -> Self {
         Self {
+            http_client: Client::new(ClientSettings::default()),
             http_cache,
             telemetry,
         }
     }
 
-    fn make_callback_request(&self, callback: Url) -> Result<(), CallbackRequestError> {
-        let request = Request::get(callback);
-        let response = request.send()?;
-        check_http_status_for_error(&response).map_err(Into::into)
+    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
+        if let Some(cache) = &self.http_cache {
+            cache.clear()?;
+        }
+        Ok(())
     }
 
     pub fn fetch_ads<A>(
         &self,
         ad_request: AdRequest,
-        cache_policy: &RequestCachePolicy,
+        cache_policy: CachePolicy,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
@@ -56,7 +59,8 @@ where
         let request_hash = RequestHash::new(&ad_request);
 
         let response: AdResponse<A> = if let Some(cache) = self.http_cache.as_ref() {
-            let (response, cache_outcomes) = cache.send_with_policy(ad_request, cache_policy)?;
+            let (response, cache_outcomes) =
+                cache.send_with_policy(&self.http_client, ad_request, &cache_policy)?;
             for outcome in &cache_outcomes {
                 self.telemetry.record(outcome);
             }
@@ -71,14 +75,6 @@ where
         Ok((response, request_hash))
     }
 
-    pub fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
-        Ok(self.make_callback_request(callback)?)
-    }
-
-    pub fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
-        Ok(self.make_callback_request(callback)?)
-    }
-
     // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
     #[allow(dead_code)]
     pub fn invalidate_cache_by_hash(
@@ -91,6 +87,14 @@ where
         Ok(())
     }
 
+    pub fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
+        Ok(self.make_callback_request(callback)?)
+    }
+
+    pub fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
+        Ok(self.make_callback_request(callback)?)
+    }
+
     pub fn report_ad(&self, mut callback: Url, reason: ReportReason) -> Result<(), ReportAdError> {
         callback
             .query_pairs_mut()
@@ -98,11 +102,10 @@ where
         Ok(self.make_callback_request(callback)?)
     }
 
-    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
-        if let Some(cache) = &self.http_cache {
-            cache.clear()?;
-        }
-        Ok(())
+    fn make_callback_request(&self, callback: Url) -> Result<(), CallbackRequestError> {
+        let request = Request::get(callback);
+        let response = request.send()?;
+        check_http_status_for_error(&response).map_err(Into::into)
     }
 }
 
@@ -179,7 +182,7 @@ mod tests {
 
         let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads::<AdImage>(ad_request, &RequestCachePolicy::default());
+        let result = client.fetch_ads::<AdImage>(ad_request, CachePolicy::default());
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
         assert_eq!(expected_response, response);
@@ -200,13 +203,13 @@ mod tests {
 
         // First call should be a miss then warm the cache
         let (response1, _request_hash1) = client
-            .fetch_ads::<AdImage>(make_happy_ad_request(), &RequestCachePolicy::default())
+            .fetch_ads::<AdImage>(make_happy_ad_request(), CachePolicy::default())
             .unwrap();
         assert_eq!(response1, expected);
 
         // Second call should be a hit
         let (response2, _request_hash2) = client
-            .fetch_ads::<AdImage>(make_happy_ad_request(), &RequestCachePolicy::default())
+            .fetch_ads::<AdImage>(make_happy_ad_request(), CachePolicy::default())
             .unwrap();
         assert_eq!(response2, expected);
     }

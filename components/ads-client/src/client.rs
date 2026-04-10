@@ -26,7 +26,7 @@ impl ReportReason {
         }
     }
 }
-use crate::http_cache::{HttpCache, RequestCachePolicy};
+use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::MARSClient;
 use crate::telemetry::Telemetry;
 use ad_request::{AdPlacementRequest, AdRequest};
@@ -51,8 +51,8 @@ where
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
     environment: Environment,
-    telemetry: T,
     rotation_days: u8,
+    telemetry: T,
 }
 
 impl<T> AdsClient<T>
@@ -96,11 +96,11 @@ where
 
             let client = MARSClient::new(http_cache, telemetry.clone());
             let client = Self {
-                environment,
-                context_id_component,
                 client,
-                telemetry: telemetry.clone(),
+                context_id_component,
+                environment,
                 rotation_days,
+                telemetry: telemetry.clone(),
             };
             telemetry.record(&ClientOperationEvent::New);
             return client;
@@ -108,77 +108,38 @@ where
 
         let client = MARSClient::new(None, telemetry.clone());
         let client = Self {
-            environment,
-            context_id_component,
             client,
-            telemetry: telemetry.clone(),
+            context_id_component,
+            environment,
             rotation_days,
+            telemetry: telemetry.clone(),
         };
         telemetry.record(&ClientOperationEvent::New);
         client
     }
 
-    fn request_ads<A>(
-        &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
-        options: Option<RequestCachePolicy>,
-    ) -> Result<AdResponse<A>, RequestAdsError>
-    where
-        A: AdResponseValue,
-    {
-        let context_id = self.get_context_id()?;
-        let url = self.environment.into_url("ads");
-        let ad_request = AdRequest::try_new(context_id, ad_placement_requests, url)?;
-        let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, &cache_policy)?;
-        response.add_request_hash_to_callbacks(&request_hash);
-        response.add_placement_info_to_report_callbacks();
-        Ok(response)
+    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
+        self.client.clear_cache()
     }
 
-    pub fn request_image_ads(
-        &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
-        options: Option<RequestCachePolicy>,
-    ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
-        let response = self
-            .request_ads::<AdImage>(ad_placement_requests, options)
-            .inspect_err(|e| {
-                self.telemetry.record(e);
-            })?;
-        self.telemetry.record(&ClientOperationEvent::RequestAds);
-        Ok(response.take_first())
+    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
+        self.context_id_component.request(self.rotation_days)
     }
 
-    pub fn request_spoc_ads(
-        &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
-        options: Option<RequestCachePolicy>,
-    ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdSpoc>(ad_placement_requests, options);
-        result
+    pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
+        // TODO: Re-enable cache invalidation behind a Nimbus experiment.
+        // The mobile team has requested this be temporarily disabled.
+        // let mut click_url = click_url.clone();
+        // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
+        //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
+        // }
+        self.client
+            .record_click(click_url)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })
-            .map(|response| {
-                self.telemetry.record(&ClientOperationEvent::RequestAds);
-                response.data
-            })
-    }
-
-    pub fn request_tile_ads(
-        &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
-        options: Option<RequestCachePolicy>,
-    ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads::<AdTile>(ad_placement_requests, options);
-        result
-            .inspect_err(|e| {
-                self.telemetry.record(e);
-            })
-            .map(|response| {
-                self.telemetry.record(&ClientOperationEvent::RequestAds);
-                response.take_first()
+            .inspect(|_| {
+                self.telemetry.record(&ClientOperationEvent::RecordClick);
             })
     }
 
@@ -200,23 +161,6 @@ where
             })
     }
 
-    pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
-        // TODO: Re-enable cache invalidation behind a Nimbus experiment.
-        // The mobile team has requested this be temporarily disabled.
-        // let mut click_url = click_url.clone();
-        // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
-        //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
-        // }
-        self.client
-            .record_click(click_url)
-            .inspect_err(|e| {
-                self.telemetry.record(e);
-            })
-            .inspect(|_| {
-                self.telemetry.record(&ClientOperationEvent::RecordClick);
-            })
-    }
-
     pub fn report_ad(&self, report_url: Url, reason: ReportReason) -> Result<(), ReportAdError> {
         self.client
             .report_ad(report_url, reason)
@@ -228,12 +172,68 @@ where
             })
     }
 
-    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(self.rotation_days)
+    pub fn request_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<CachePolicy>,
+    ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
+        let response = self
+            .request_ads::<AdImage>(ad_placement_requests, options)
+            .inspect_err(|e| {
+                self.telemetry.record(e);
+            })?;
+        self.telemetry.record(&ClientOperationEvent::RequestAds);
+        Ok(response.take_first())
     }
 
-    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
-        self.client.clear_cache()
+    pub fn request_spoc_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<CachePolicy>,
+    ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
+        let result = self.request_ads::<AdSpoc>(ad_placement_requests, options);
+        result
+            .inspect_err(|e| {
+                self.telemetry.record(e);
+            })
+            .map(|response| {
+                self.telemetry.record(&ClientOperationEvent::RequestAds);
+                response.data
+            })
+    }
+
+    pub fn request_tile_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<CachePolicy>,
+    ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
+        let result = self.request_ads::<AdTile>(ad_placement_requests, options);
+        result
+            .inspect_err(|e| {
+                self.telemetry.record(e);
+            })
+            .map(|response| {
+                self.telemetry.record(&ClientOperationEvent::RequestAds);
+                response.take_first()
+            })
+    }
+
+    fn request_ads<A>(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<CachePolicy>,
+    ) -> Result<AdResponse<A>, RequestAdsError>
+    where
+        A: AdResponseValue,
+    {
+        let context_id = self.get_context_id()?;
+        let url = self.environment.into_url("ads");
+        let ad_request = AdRequest::try_new(context_id, ad_placement_requests, url)?;
+        let cache_policy = options.unwrap_or_default();
+        let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, cache_policy)?;
+        response.add_request_hash_to_callbacks(&request_hash);
+        response.add_placement_info_to_report_callbacks();
+        Ok(response)
     }
 }
 
@@ -268,21 +268,21 @@ mod tests {
             Box::new(DefaultContextIdCallback),
         );
         AdsClient {
-            environment: Environment::Test,
-            context_id_component,
             client,
-            telemetry: MozAdsTelemetryWrapper::noop(),
+            context_id_component,
+            environment: Environment::Test,
             rotation_days: DEFAULT_ROTATION_DAYS,
+            telemetry: MozAdsTelemetryWrapper::noop(),
         }
     }
 
     #[test]
     fn test_get_context_id() {
         let config = AdsClientConfig {
-            environment: Environment::Test,
             cache_config: None,
-            telemetry: MozAdsTelemetryWrapper::noop(),
+            environment: Environment::Test,
             rotation_days: None,
+            telemetry: MozAdsTelemetryWrapper::noop(),
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -394,7 +394,7 @@ mod tests {
         ads_client
             .request_ads::<AdImage>(
                 make_happy_placement_requests(),
-                Some(RequestCachePolicy::default()),
+                Some(CachePolicy::default()),
             )
             .unwrap();
     }

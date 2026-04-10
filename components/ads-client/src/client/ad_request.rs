@@ -48,9 +48,9 @@ impl AdRequest {
         };
 
         let mut request = AdRequest {
-            url,
-            placements: vec![],
             context_id,
+            placements: vec![],
+            url,
         };
 
         let mut used_placement_ids: HashSet<String> = HashSet::new();
@@ -63,14 +63,14 @@ impl AdRequest {
             }
 
             request.placements.push(AdPlacementRequest {
-                placement: ad_placement_request.placement.clone(),
-                count: ad_placement_request.count,
                 content: ad_placement_request
                     .content
                     .map(|iab_content| AdContentCategory {
                         categories: iab_content.categories,
                         taxonomy: iab_content.taxonomy,
                     }),
+                count: ad_placement_request.count,
+                placement: ad_placement_request.placement.clone(),
             });
 
             used_placement_ids.insert(ad_placement_request.placement.clone());
@@ -82,15 +82,15 @@ impl AdRequest {
 
 #[derive(Debug, Hash, PartialEq, Serialize)]
 pub struct AdPlacementRequest {
-    pub placement: String,
-    pub count: u32,
     pub content: Option<AdContentCategory>,
+    pub count: u32,
+    pub placement: String,
 }
 
 #[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
 pub struct AdContentCategory {
-    pub taxonomy: IABContentTaxonomy,
     pub categories: Vec<String>,
+    pub taxonomy: IABContentTaxonomy,
 }
 
 #[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
@@ -121,12 +121,12 @@ mod tests {
     #[test]
     fn test_ad_placement_request_with_content_serialize() {
         let request = AdPlacementRequest {
-            placement: "example_placement".into(),
-            count: 1,
             content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
                 categories: vec!["Technology".into(), "Programming".into()],
+                taxonomy: IABContentTaxonomy::IAB2_1,
             }),
+            count: 1,
+            placement: "example_placement".into(),
         };
 
         let serialized = to_value(&request).unwrap();
@@ -171,20 +171,20 @@ mod tests {
             TEST_CONTEXT_ID.to_string(),
             vec![
                 AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
                         categories: vec!["entertainment".to_string()],
+                        taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
+                    count: 1,
+                    placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    count: 2,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
                         categories: vec![],
+                        taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
+                    count: 2,
+                    placement: "example_placement_2".to_string(),
                 },
             ],
             url.clone(),
@@ -192,26 +192,26 @@ mod tests {
         .unwrap();
 
         let expected_request = AdRequest {
-            url,
             context_id: TEST_CONTEXT_ID.to_string(),
             placements: vec![
                 AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
                         categories: vec!["entertainment".to_string()],
+                        taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
+                    count: 1,
+                    placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    count: 2,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
                         categories: vec![],
+                        taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
+                    count: 2,
+                    placement: "example_placement_2".to_string(),
                 },
             ],
+            url,
         };
 
         assert_eq!(request, expected_request);
@@ -224,20 +224,20 @@ mod tests {
             TEST_CONTEXT_ID.to_string(),
             vec![
                 AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
                         categories: vec!["entertainment".to_string()],
+                        taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
+                    count: 1,
+                    placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
                     content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB3_0,
                         categories: vec![],
+                        taxonomy: IABContentTaxonomy::IAB3_0,
                     }),
+                    count: 1,
+                    placement: "example_placement_1".to_string(),
                 },
             ],
             url,
@@ -259,9 +259,9 @@ mod tests {
         let url: Url = "https://example.com/ads".parse().unwrap();
         let make_placements = || {
             vec![AdPlacementRequest {
-                placement: "tile_1".to_string(),
-                count: 1,
                 content: None,
+                count: 1,
+                placement: "tile_1".to_string(),
             }]
         };
 
@@ -283,9 +283,9 @@ mod tests {
         let req1 = AdRequest::try_new(
             "same-id".to_string(),
             vec![AdPlacementRequest {
-                placement: "tile_1".to_string(),
-                count: 1,
                 content: None,
+                count: 1,
+                placement: "tile_1".to_string(),
             }],
             url.clone(),
         )
@@ -294,9 +294,9 @@ mod tests {
         let req2 = AdRequest::try_new(
             "same-id".to_string(),
             vec![AdPlacementRequest {
-                placement: "tile_2".to_string(),
-                count: 3,
                 content: None,
+                count: 3,
+                placement: "tile_2".to_string(),
             }],
             url,
         )

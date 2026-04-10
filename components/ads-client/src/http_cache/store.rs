@@ -340,7 +340,7 @@ mod tests {
         let hash = hash_for_request(&create_test_request("https://example.com/api", b"body"));
 
         let err = store
-            .store_with_ttl(&hash, &resp, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
             .unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
@@ -359,7 +359,7 @@ mod tests {
         let hash = hash_for_request(&req);
         let resp = create_test_response(200, b"resp");
         store
-            .store_with_ttl(&hash, &resp, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
             .unwrap();
 
         let err = store.trim_to_max_size(1).unwrap_err();
@@ -392,7 +392,7 @@ mod tests {
         let hash = hash_for_request(&req);
         let resp = create_test_response(200, b"X");
 
-        let ttl = Duration::new(5, 0);
+        let ttl = Duration::from_secs(5);
         store.store_with_ttl(&hash, &resp, &ttl).unwrap();
 
         let (cached_at, expires_at, ttl_seconds) = fetch_timestamps(&store, &hash);
@@ -415,7 +415,7 @@ mod tests {
         let resp = create_test_response(200, b"Y");
 
         store
-            .store_with_ttl(&hash, &resp, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
             .unwrap();
         let (c1, e1, t1) = fetch_timestamps(&store, &hash);
         assert_eq!(t1, 300);
@@ -423,7 +423,7 @@ mod tests {
         store.get_clock().advance(3);
 
         store
-            .store_with_ttl(&hash, &resp, &Duration::new(1, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(1))
             .unwrap();
         let (c2, e2, t2) = fetch_timestamps(&store, &hash);
         assert_eq!(t2, 1);
@@ -441,10 +441,10 @@ mod tests {
         let resp = create_test_response(200, b"Z");
 
         store
-            .store_with_ttl(&hash_exp, &resp, &Duration::new(1, 0))
+            .store_with_ttl(&hash_exp, &resp, &Duration::from_secs(1))
             .unwrap();
         store
-            .store_with_ttl(&hash_fresh, &resp, &Duration::new(10, 0))
+            .store_with_ttl(&hash_fresh, &resp, &Duration::from_secs(10))
             .unwrap();
 
         assert!(store.lookup(&hash_exp).unwrap().is_some());
@@ -469,7 +469,7 @@ mod tests {
         let resp = create_test_response(200, b"W");
 
         store
-            .store_with_ttl(&hash, &resp, &Duration::new(1, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(1))
             .unwrap();
         store.clock.advance(2);
         assert!(store.lookup(&hash).unwrap().is_some());
@@ -486,7 +486,7 @@ mod tests {
         let resp = create_test_response(200, b"0");
 
         store
-            .store_with_ttl(&hash, &resp, &Duration::new(0, 0))
+            .store_with_ttl(&hash, &resp, &Duration::from_secs(0))
             .unwrap();
         assert!(store.lookup(&hash).unwrap().is_some());
 
@@ -505,7 +505,7 @@ mod tests {
         let response = create_test_response(200, b"test response");
 
         store
-            .store_with_ttl(&hash, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &response, &Duration::from_secs(300))
             .unwrap();
 
         let retrieved = store.lookup(&hash).unwrap().unwrap();
@@ -522,7 +522,7 @@ mod tests {
         let response = create_test_response(200, b"test response");
 
         store
-            .store_with_ttl(&hash, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &response, &Duration::from_secs(300))
             .unwrap();
 
         let retrieved = store.lookup(&hash).unwrap().unwrap();
@@ -547,7 +547,7 @@ mod tests {
             let large_body = vec![0u8; 300];
             let response = create_test_response(200, &large_body);
             store
-                .store_with_ttl(&hash, &response, &Duration::new(300, 0))
+                .store_with_ttl(&hash, &response, &Duration::from_secs(300))
                 .unwrap();
         }
 
@@ -575,7 +575,7 @@ mod tests {
             .unwrap();
 
         store
-            .store_with_ttl(&hash, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &response, &Duration::from_secs(300))
             .unwrap();
         let retrieved = store.lookup(&hash).unwrap();
         assert!(retrieved.is_some());
@@ -589,14 +589,14 @@ mod tests {
         let hash1 = hash_for_request(&request1);
         let response1 = create_test_response(200, b"test response 1");
         store
-            .store_with_ttl(&hash1, &response1, &Duration::new(300, 0))
+            .store_with_ttl(&hash1, &response1, &Duration::from_secs(300))
             .unwrap();
 
         let request2 = create_test_request("https://example.com/api2", b"test body 2");
         let hash2 = hash_for_request(&request2);
         let response2 = create_test_response(200, b"test response 2");
         store
-            .store_with_ttl(&hash2, &response2, &Duration::new(300, 0))
+            .store_with_ttl(&hash2, &response2, &Duration::from_secs(300))
             .unwrap();
 
         assert!(store.lookup(&hash1).unwrap().is_some());
@@ -620,10 +620,10 @@ mod tests {
         let resp = create_test_response(200, b"resp");
 
         store
-            .store_with_ttl(&hash1, &resp, &Duration::new(300, 0))
+            .store_with_ttl(&hash1, &resp, &Duration::from_secs(300))
             .unwrap();
         store
-            .store_with_ttl(&hash2, &resp, &Duration::new(300, 0))
+            .store_with_ttl(&hash2, &resp, &Duration::from_secs(300))
             .unwrap();
 
         assert!(store.lookup(&hash1).unwrap().is_some());
