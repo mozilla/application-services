@@ -18,10 +18,10 @@ pub struct AdsClientConfig<T>
 where
     T: Telemetry,
 {
-    pub environment: Environment,
     pub cache_config: Option<AdsCacheConfig>,
-    pub telemetry: T,
+    pub environment: Environment,
     pub rotation_days: Option<u8>,
+    pub telemetry: T,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -34,15 +34,6 @@ pub enum Environment {
 }
 
 impl Environment {
-    fn base_url(self) -> Url {
-        match self {
-            Environment::Prod => MARS_API_ENDPOINT_PROD.clone(),
-            Environment::Staging => MARS_API_ENDPOINT_STAGING.clone(),
-            #[cfg(test)]
-            Environment::Test => Url::parse(&mockito::server_url()).unwrap(),
-        }
-    }
-
     pub fn into_url(self, path: &str) -> Url {
         let mut base = self.base_url();
         // Ensure the path has a trailing slash so that `join` appends
@@ -52,6 +43,15 @@ impl Environment {
         }
         base.join(path)
             .expect("joining a path to a valid base URL must succeed")
+    }
+
+    fn base_url(self) -> Url {
+        match self {
+            Environment::Prod => MARS_API_ENDPOINT_PROD.clone(),
+            Environment::Staging => MARS_API_ENDPOINT_STAGING.clone(),
+            #[cfg(test)]
+            Environment::Test => Url::parse(&mockito::server_url()).unwrap(),
+        }
     }
 }
 

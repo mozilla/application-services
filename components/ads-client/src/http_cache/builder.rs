@@ -118,9 +118,9 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
+            default_ttl,
             max_size,
             store,
-            default_ttl,
             _phantom: std::marker::PhantomData,
         })
     }
@@ -135,9 +135,9 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
+            default_ttl,
             max_size,
             store,
-            default_ttl,
             _phantom: std::marker::PhantomData,
         })
     }

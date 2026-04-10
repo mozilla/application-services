@@ -189,4 +189,4 @@ If Fenix doesn't auto-publish application-services:
 - [Main Application Services Building Guide](../../../docs/building.md)
 - [Auto-Publishing Workflow Documentation](../../../docs/howtos/locally-published-components-in-fenix.md)
 - [Android FAQs](../../../docs/android-faqs.md)
-- [ads-client Usage Documentation](./usage.md)
+- [ads-client Usage Documentation (Kotlin)](./usage-kotlin.md)

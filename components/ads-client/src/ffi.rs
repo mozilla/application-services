@@ -16,7 +16,7 @@ use crate::client::AdsClient;
 use crate::client::ReportReason;
 use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
-use crate::http_cache::{CacheMode, RequestCachePolicy};
+use crate::http_cache::CachePolicy;
 use crate::MozAdsClient;
 use error_support::{ErrorHandling, GetErrorHandling};
 use parking_lot::Mutex;
@@ -50,39 +50,30 @@ impl GetErrorHandling for ComponentError {
     }
 }
 
-#[derive(uniffi::Record)]
+#[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
-    pub cache_policy: Option<MozAdsRequestCachePolicy>,
-}
-
-impl Default for MozAdsRequestOptions {
-    fn default() -> Self {
-        Self {
-            cache_policy: Some(MozAdsRequestCachePolicy {
-                mode: MozAdsCacheMode::default(),
-                ttl_seconds: None,
-            }),
-        }
-    }
+    pub cache_policy: Option<MozAdsCachePolicy>,
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsIABContent {
-    pub taxonomy: MozAdsIABContentTaxonomy,
     pub category_ids: Vec<String>,
+    pub taxonomy: MozAdsIABContentTaxonomy,
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementRequest {
-    pub placement_id: String,
+    #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
+    pub placement_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementRequestWithCount {
     pub count: u32,
-    pub placement_id: String,
+    #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
+    pub placement_id: String,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -97,10 +88,10 @@ pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
 
 #[derive(Default)]
 struct MozAdsClientBuilderInner {
-    environment: Option<MozAdsEnvironment>,
     cache_config: Option<MozAdsCacheConfig>,
-    telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    environment: Option<MozAdsEnvironment>,
     rotation_days: Option<u8>,
+    telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -116,9 +107,22 @@ impl MozAdsClientBuilder {
         Self::default()
     }
 
-    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
-        self.0.lock().environment = Some(environment);
-        self
+    pub fn build(&self) -> MozAdsClient {
+        let inner = self.0.lock();
+        let client_config = AdsClientConfig {
+            cache_config: inner.cache_config.clone().map(Into::into),
+            environment: inner.environment.unwrap_or_default().into(),
+            rotation_days: inner.rotation_days,
+            telemetry: inner
+                .telemetry
+                .clone()
+                .map(MozAdsTelemetryWrapper::new)
+                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+        };
+        let client = AdsClient::new(client_config);
+        MozAdsClient {
+            inner: Mutex::new(client),
+        }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
@@ -126,8 +130,8 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn telemetry(self: Arc<Self>, telemetry: Arc<dyn MozAdsTelemetry>) -> Arc<Self> {
-        self.0.lock().telemetry = Some(telemetry);
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
         self
     }
 
@@ -136,22 +140,9 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn build(&self) -> MozAdsClient {
-        let inner = self.0.lock();
-        let client_config = AdsClientConfig {
-            environment: inner.environment.unwrap_or_default().into(),
-            cache_config: inner.cache_config.clone().map(Into::into),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
-            rotation_days: inner.rotation_days,
-        };
-        let client = AdsClient::new(client_config);
-        MozAdsClient {
-            inner: Mutex::new(client),
-        }
+    pub fn telemetry(self: Arc<Self>, telemetry: Arc<dyn MozAdsTelemetry>) -> Arc<Self> {
+        self.0.lock().telemetry = Some(telemetry);
+        self
     }
 }
 
@@ -167,14 +158,16 @@ pub enum MozAdsEnvironment {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsCacheConfig {
     pub db_path: String,
+    #[uniffi(default = None)]
     pub default_cache_ttl_seconds: Option<u64>,
+    #[uniffi(default = None)]
     pub max_size_mib: Option<u64>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsContentCategory {
-    pub taxonomy: MozAdsIABContentTaxonomy,
     pub categories: Vec<String>,
+    pub taxonomy: MozAdsIABContentTaxonomy,
 }
 
 #[derive(Clone, Copy, Debug, uniffi::Enum, PartialEq)]
@@ -187,8 +180,9 @@ pub enum MozAdsIABContentTaxonomy {
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Record)]
-pub struct MozAdsRequestCachePolicy {
+pub struct MozAdsCachePolicy {
     pub mode: MozAdsCacheMode,
+    #[uniffi(default = None)]
     pub ttl_seconds: Option<u64>,
 }
 
@@ -250,9 +244,9 @@ pub struct MozAdsSpocFrequencyCaps {
 
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsSpocRanking {
-    pub priority: u32,
-    pub personalization_models: std::collections::HashMap<String, u32>,
     pub item_score: f64,
+    pub personalization_models: std::collections::HashMap<String, u32>,
+    pub priority: u32,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -297,9 +291,9 @@ impl From<SpocFrequencyCaps> for MozAdsSpocFrequencyCaps {
 impl From<SpocRanking> for MozAdsSpocRanking {
     fn from(ranking: SpocRanking) -> Self {
         Self {
-            priority: ranking.priority,
-            personalization_models: ranking.personalization_models.unwrap_or_default(),
             item_score: ranking.item_score,
+            personalization_models: ranking.personalization_models.unwrap_or_default(),
+            priority: ranking.priority,
         }
     }
 }
@@ -395,29 +389,12 @@ impl From<MozAdsIABContentTaxonomy> for IABContentTaxonomy {
     }
 }
 
-impl From<MozAdsRequestCachePolicy> for RequestCachePolicy {
-    fn from(policy: MozAdsRequestCachePolicy) -> Self {
-        Self {
-            mode: policy.mode.into(),
-            ttl_seconds: policy.ttl_seconds,
-        }
-    }
-}
-
-impl From<CacheMode> for MozAdsCacheMode {
-    fn from(mode: CacheMode) -> Self {
-        match mode {
-            CacheMode::CacheFirst => MozAdsCacheMode::CacheFirst,
-            CacheMode::NetworkFirst => MozAdsCacheMode::NetworkFirst,
-        }
-    }
-}
-
-impl From<MozAdsCacheMode> for CacheMode {
-    fn from(mode: MozAdsCacheMode) -> Self {
-        match mode {
-            MozAdsCacheMode::CacheFirst => CacheMode::CacheFirst,
-            MozAdsCacheMode::NetworkFirst => CacheMode::NetworkFirst,
+impl From<MozAdsCachePolicy> for CachePolicy {
+    fn from(policy: MozAdsCachePolicy) -> Self {
+        let ttl = policy.ttl_seconds.map(std::time::Duration::from_secs);
+        match policy.mode {
+            MozAdsCacheMode::CacheFirst => CachePolicy::CacheFirst { ttl },
+            MozAdsCacheMode::NetworkFirst => CachePolicy::NetworkFirst { ttl },
         }
     }
 }
@@ -425,19 +402,19 @@ impl From<MozAdsCacheMode> for CacheMode {
 impl From<&MozAdsIABContent> for AdContentCategory {
     fn from(content: &MozAdsIABContent) -> Self {
         Self {
-            taxonomy: content.taxonomy.into(),
             categories: content.category_ids.clone(),
+            taxonomy: content.taxonomy.into(),
         }
     }
 }
 
-impl From<MozAdsRequestOptions> for RequestCachePolicy {
+impl From<MozAdsRequestOptions> for CachePolicy {
     fn from(options: MozAdsRequestOptions) -> Self {
         options.cache_policy.map(Into::into).unwrap_or_default()
     }
 }
 
-impl From<Option<MozAdsRequestOptions>> for RequestCachePolicy {
+impl From<Option<MozAdsRequestOptions>> for CachePolicy {
     fn from(options: Option<MozAdsRequestOptions>) -> Self {
         options.map(Into::into).unwrap_or_default()
     }
@@ -456,9 +433,9 @@ impl From<MozAdsCacheConfig> for AdsCacheConfig {
 impl From<&MozAdsPlacementRequest> for AdPlacementRequest {
     fn from(request: &MozAdsPlacementRequest) -> Self {
         Self {
-            placement: request.placement_id.clone(),
-            count: 1,
             content: request.iab_content.as_ref().map(Into::into),
+            count: 1,
+            placement: request.placement_id.clone(),
         }
     }
 }
@@ -466,9 +443,9 @@ impl From<&MozAdsPlacementRequest> for AdPlacementRequest {
 impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
     fn from(request: &MozAdsPlacementRequestWithCount) -> Self {
         Self {
-            placement: request.placement_id.clone(),
-            count: request.count,
             content: request.iab_content.as_ref().map(Into::into),
+            count: request.count,
+            placement: request.placement_id.clone(),
         }
     }
 }
