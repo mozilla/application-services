@@ -12,7 +12,9 @@ pub const CKM_NSS_HKDF_SHA256: u32 = CKM_NSS + 4;
 pub const CKM_NSS_HKDF_SHA384: u32 = CKM_NSS + 5;
 
 pub type CK_GCM_PARAMS = CK_GCM_PARAMS_V3;
-#[repr(C)]
+// On Windows, PKCS#11 structs use 1-byte packing (see pkcs11p.h).
+#[cfg_attr(target_os = "windows", repr(C, packed))]
+#[cfg_attr(not(target_os = "windows"), repr(C))]
 pub struct CK_GCM_PARAMS_V3 {
     pub pIv: CK_BYTE_PTR,
     pub ulIvLen: CK_ULONG,
@@ -21,7 +23,9 @@ pub struct CK_GCM_PARAMS_V3 {
     pub ulAADLen: CK_ULONG,
     pub ulTagBits: CK_ULONG,
 }
-#[repr(C)]
+// On Windows, PKCS#11 structs use 1-byte packing (see pkcs11p.h).
+#[cfg_attr(target_os = "windows", repr(C, packed))]
+#[cfg_attr(not(target_os = "windows"), repr(C))]
 pub struct CK_NSS_HKDFParams {
     pub bExtract: CK_BBOOL,
     pub pSalt: CK_BYTE_PTR,
