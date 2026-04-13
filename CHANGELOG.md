@@ -31,6 +31,7 @@
 ### Ads Client
 - Added `rotation_days` parameter to `MozAdsClientBuilder` to allow embedders to configure the context ID rotation period. ([#7262](https://github.com/mozilla/application-services/pull/7262))
 - Added `reason` parameter to `report_ad` to comply with the MARS `/v1/t` tracking endpoint spec. Accepted values: `inappropriate`, `not_interested`, `seen_too_many_times`.
+- Added `MozAdsContextIdProvider` callback interface and `context_id_provider()` builder method, allowing embedders (e.g. HNT) to supply an externally managed context ID. When a provider is set the embedded `ContextIDComponent` is not created. Mobile consumers that do not set a provider are unaffected. ([AC-95](https://mozilla-hub.atlassian.net/browse/AC-95))
 
 ### Logins
 - **BREAKING**: Removed `time_of_last_breach` field from `LoginMeta` and `Login`. This can be derived from Remote Settings during runtime instead.

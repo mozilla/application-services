@@ -44,14 +44,23 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
+pub trait ContextIdProvider: Send + Sync {
+    fn context_id(&self) -> context_id::ApiResult<String>;
+}
+
+impl ContextIdProvider for ContextIDComponent {
+    fn context_id(&self) -> context_id::ApiResult<String> {
+        self.request(DEFAULT_ROTATION_DAYS)
+    }
+}
+
 pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
     client: MARSClient<T>,
-    context_id_component: ContextIDComponent,
+    context_id_provider: Box<dyn ContextIdProvider>,
     environment: Environment,
-    rotation_days: u8,
     telemetry: T,
 }
 
@@ -60,16 +69,17 @@ where
     T: Clone + Telemetry,
 {
     pub fn new(client_config: AdsClientConfig<T>) -> Self {
-        let context_id = Uuid::new_v4().to_string();
-        let context_id_component = ContextIDComponent::new(
-            &context_id,
-            0,
-            cfg!(test),
-            Box::new(DefaultContextIdCallback),
-        );
+        let context_id_provider = client_config.context_id_provider.unwrap_or_else(|| {
+            Box::new(ContextIDComponent::new(
+                &Uuid::new_v4().to_string(),
+                0,
+                cfg!(test),
+                Box::new(DefaultContextIdCallback),
+            ))
+        });
+
         let telemetry = client_config.telemetry;
         let environment = client_config.environment;
-        let rotation_days = client_config.rotation_days.unwrap_or(DEFAULT_ROTATION_DAYS);
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
@@ -97,9 +107,8 @@ where
             let client = MARSClient::new(http_cache, telemetry.clone());
             let client = Self {
                 client,
-                context_id_component,
+                context_id_provider,
                 environment,
-                rotation_days,
                 telemetry: telemetry.clone(),
             };
             telemetry.record(&ClientOperationEvent::New);
@@ -109,9 +118,8 @@ where
         let client = MARSClient::new(None, telemetry.clone());
         let client = Self {
             client,
-            context_id_component,
+            context_id_provider,
             environment,
-            rotation_days,
             telemetry: telemetry.clone(),
         };
         telemetry.record(&ClientOperationEvent::New);
@@ -123,7 +131,7 @@ where
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(self.rotation_days)
+        self.context_id_provider.context_id()
     }
 
     pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
@@ -261,17 +269,15 @@ mod tests {
     fn new_with_mars_client(
         client: MARSClient<MozAdsTelemetryWrapper>,
     ) -> AdsClient<MozAdsTelemetryWrapper> {
-        let context_id_component = ContextIDComponent::new(
-            &uuid::Uuid::new_v4().to_string(),
-            0,
-            false,
-            Box::new(DefaultContextIdCallback),
-        );
         AdsClient {
             client,
-            context_id_component,
+            context_id_provider: Box::new(ContextIDComponent::new(
+                &Uuid::new_v4().to_string(),
+                0,
+                false,
+                Box::new(DefaultContextIdCallback),
+            )),
             environment: Environment::Test,
-            rotation_days: DEFAULT_ROTATION_DAYS,
             telemetry: MozAdsTelemetryWrapper::noop(),
         }
     }
@@ -280,8 +286,8 @@ mod tests {
     fn test_get_context_id() {
         let config = AdsClientConfig {
             cache_config: None,
+            context_id_provider: None,
             environment: Environment::Test,
-            rotation_days: None,
             telemetry: MozAdsTelemetryWrapper::noop(),
         };
         let client = AdsClient::new(config);
@@ -352,6 +358,41 @@ mod tests {
 
         let result = ads_client.request_tile_ads(ad_placement_requests, None);
 
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_custom_context_id_provider() {
+        viaduct_dev::init_backend_dev();
+
+        struct FixedContextId;
+        impl ContextIdProvider for FixedContextId {
+            fn context_id(&self) -> context_id::ApiResult<String> {
+                Ok("custom-context-id-12345".to_string())
+            }
+        }
+
+        let expected_response = get_example_happy_image_response();
+        let _m = mockito::mock("POST", "/ads")
+            .match_body(mockito::Matcher::PartialJsonString(
+                r#"{"context_id":"custom-context-id-12345"}"#.to_string(),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .create();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            context_id_provider: Some(Box::new(FixedContextId)),
+            environment: Environment::Test,
+            telemetry: MozAdsTelemetryWrapper::noop(),
+        };
+        let client = AdsClient::new(config);
+
+        assert_eq!(client.get_context_id().unwrap(), "custom-context-id-12345");
+
+        let result = client.request_image_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
     }
 

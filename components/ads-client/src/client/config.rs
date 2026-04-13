@@ -19,8 +19,8 @@ where
     T: Telemetry,
 {
     pub cache_config: Option<AdsCacheConfig>,
+    pub context_id_provider: Option<Box<dyn super::ContextIdProvider>>,
     pub environment: Environment,
-    pub rotation_days: Option<u8>,
     pub telemetry: T,
 }
 
