@@ -49,11 +49,17 @@ impl FirefoxAccount {
         self.internal.lock().get_auth_state()
     }
 
-    /// Sets the user data for a user agent
-    /// **Important**: This should only be used on user agents such as Firefox
-    /// that require the user's session token
-    pub fn set_user_data(&self, user_data: UserData) {
-        self.internal.lock().set_user_data(user_data)
+    /// Stores the session token from a WebChannel login JSON payload without exposing it
+    /// to the browser layer.
+    ///
+    /// The `json_payload` is the `data` object from the `fxaccounts:login` WebChannel
+    /// command. The session token is extracted and stored internally; callers never hold
+    /// the raw token value.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    #[handle_error(Error)]
+    pub fn handle_web_channel_login(&self, json_payload: String) -> ApiResult<()> {
+        self.internal.lock().handle_web_channel_login(&json_payload)
     }
 
     /// Initiate a web-based OAuth sign-in flow.
@@ -335,13 +341,4 @@ pub enum FxaEvent {
     ///
     /// This event is valid for the `Connected` state.
     CallGetProfile,
-}
-
-/// User data provided by the web content, meant to be consumed by user agents
-#[derive(Debug, Clone)]
-pub struct UserData {
-    pub(crate) session_token: String,
-    pub(crate) uid: String,
-    pub(crate) email: String,
-    pub(crate) verified: bool,
 }
