@@ -7,6 +7,7 @@ pub mod ad_request;
 pub mod ad_response;
 pub mod environment;
 pub mod error;
+mod preflight;
 pub mod report_reason;
 
 pub use environment::Environment;
@@ -26,8 +27,11 @@ use crate::{
     CachePolicy,
 };
 
+pub const OHTTP_CHANNEL_ID: &str = "ads-client";
+
+use self::preflight::{PreflightRequest, PreflightResponse};
 use url::Url;
-use viaduct::{Client, ClientSettings, Request};
+use viaduct::{Client, ClientSettings, Headers, Request};
 
 pub struct MARSClient<T>
 where
@@ -62,15 +66,22 @@ where
         context_id: String,
         placements: Vec<AdPlacementRequest>,
         cache_policy: CachePolicy,
+        ohttp: bool,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
     {
         let url = self.environment.into_url("ads");
-        let ad_request = AdRequest::try_new(context_id, placements, url)?;
+        let mut ad_request = AdRequest::try_new(context_id, placements, url)?;
         let request_hash = RequestHash::new(&ad_request);
 
-        let client = self.client_for();
+        if ohttp {
+            ad_request
+                .headers
+                .extend(Headers::from(self.fetch_preflight()?));
+        }
+
+        let client = self.client_for(ohttp)?;
         let response: AdResponse<A> = if let Some(cache) = self.http_cache.as_ref() {
             let (response, cache_outcomes) =
                 cache.send_with_policy(&client, ad_request, &cache_policy)?;
@@ -100,28 +111,69 @@ where
         Ok(())
     }
 
-    pub fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
-        Ok(self.make_callback_request(callback)?)
+    pub fn record_click(&self, callback: Url, ohttp: bool) -> Result<(), RecordClickError> {
+        Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
-        Ok(self.make_callback_request(callback)?)
+    pub fn record_impression(
+        &self,
+        callback: Url,
+        ohttp: bool,
+    ) -> Result<(), RecordImpressionError> {
+        Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn report_ad(&self, mut callback: Url, reason: ReportReason) -> Result<(), ReportAdError> {
+    pub fn report_ad(
+        &self,
+        mut callback: Url,
+        reason: ReportReason,
+        ohttp: bool,
+    ) -> Result<(), ReportAdError> {
         callback
             .query_pairs_mut()
             .append_pair("reason", reason.as_str());
-        Ok(self.make_callback_request(callback)?)
+        Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    fn client_for(&self) -> Client {
-        Client::new(ClientSettings::default())
+    fn client_for(&self, ohttp: bool) -> Result<Client, viaduct::ViaductError> {
+        if ohttp {
+            Client::with_ohttp_channel(OHTTP_CHANNEL_ID, ClientSettings::default())
+        } else {
+            Ok(Client::new(ClientSettings::default()))
+        }
     }
 
-    fn make_callback_request(&self, callback: Url) -> Result<(), CallbackRequestError> {
+    fn fetch_preflight(&self) -> Result<PreflightResponse, CallbackRequestError> {
         let client = Client::new(ClientSettings::default());
-        let request = Request::get(callback);
+        let preflight_request = PreflightRequest(self.environment.into_url("ads-preflight"));
+        if let Some(cache) = &self.http_cache {
+            let (response, _) = cache.send_with_policy(
+                &client,
+                preflight_request,
+                &CachePolicy::CacheFirst { ttl: None },
+            )?;
+            check_http_status_for_error(&response)?;
+            Ok(response.json()?)
+        } else {
+            let request: Request = preflight_request.into();
+            let response = client.send_sync(request)?;
+            check_http_status_for_error(&response)?;
+            Ok(response.json()?)
+        }
+    }
+
+    fn make_callback_request(
+        &self,
+        callback: Url,
+        ohttp: bool,
+    ) -> Result<(), CallbackRequestError> {
+        let mut request = Request::get(callback);
+        if ohttp {
+            request
+                .headers
+                .extend(Headers::from(self.fetch_preflight()?));
+        }
+        let client = self.client_for(ohttp)?;
         let response = client.send_sync(request)?;
         check_http_status_for_error(&response).map_err(Into::into)
     }
@@ -158,7 +210,7 @@ mod tests {
             &mockito::server_url()
         ))
         .unwrap();
-        let result = client.record_impression(url);
+        let result = client.record_impression(url, false);
         assert!(result.is_ok());
     }
 
@@ -169,7 +221,7 @@ mod tests {
 
         let client = make_test_client(None);
         let url = Url::parse(&format!("{}/click_callback_url", &mockito::server_url())).unwrap();
-        let result = client.record_click(url);
+        let result = client.record_click(url, false);
         assert!(result.is_ok());
     }
 
@@ -190,7 +242,7 @@ mod tests {
             &mockito::server_url()
         ))
         .unwrap();
-        let result = client.report_ad(url, ReportReason::NotInterested);
+        let result = client.report_ad(url, ReportReason::NotInterested, false);
         assert!(result.is_ok());
     }
 
@@ -212,6 +264,7 @@ mod tests {
             TEST_CONTEXT_ID.to_string(),
             make_happy_placement_requests(),
             CachePolicy::default(),
+            false,
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -237,6 +290,7 @@ mod tests {
                 TEST_CONTEXT_ID.to_string(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
+                false,
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -247,6 +301,7 @@ mod tests {
                 TEST_CONTEXT_ID.to_string(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
+                false,
             )
             .unwrap();
         assert_eq!(response2, expected);
@@ -266,7 +321,7 @@ mod tests {
 
         let _m = mock("GET", "/click").with_status(200).create();
 
-        let result = client.record_click(callback_url);
+        let result = client.record_click(callback_url, false);
         assert!(result.is_ok());
     }
 
@@ -284,7 +339,7 @@ mod tests {
 
         let _m = mock("GET", "/impression").with_status(200).create();
 
-        let result = client.record_impression(callback_url);
+        let result = client.record_impression(callback_url, false);
         assert!(result.is_ok());
     }
 }

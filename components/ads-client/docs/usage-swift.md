@@ -34,9 +34,9 @@ let client = MozAdsClientBuilder()
 | Method                                                                                                                       | Return Type                        | Description                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `clearCache()`                                                                                                               | `Void`                             | Clears the client's HTTP cache. Throws on failure.                                                                                                                                   |
-| `recordClick(clickUrl: String)`                                                                                              | `Void`                             | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
-| `recordImpression(impressionUrl: String)`                                                                                    | `Void`                             | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
-| `reportAd(reportUrl: String)`                                                                                                | `Void`                             | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
+| `recordClick(clickUrl: String, options: MozAdsCallbackOptions?)`                                                                                              | `Void`                             | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
+| `recordImpression(impressionUrl: String, options: MozAdsCallbackOptions?)`                                                                                    | `Void`                             | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
+| `reportAd(reportUrl: String, reason: MozAdsReportReason, options: MozAdsCallbackOptions?)`                                                                                                | `Void`                             | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
 | `requestImageAds(mozAdRequests: [MozAdsPlacementRequest], options: MozAdsRequestOptions?)`                                   | `[String: MozAdsImage]`            | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a dictionary keyed by `placementId`.                                       |
 | `requestSpocAds(mozAdRequests: [MozAdsPlacementRequestWithCount], options: MozAdsRequestOptions?)`                           | `[String: [MozAdsSpoc]]`           | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a dictionary keyed by `placementId`. |
 | `requestTileAds(mozAdRequests: [MozAdsPlacementRequest], options: MozAdsRequestOptions?)`                                    | `[String: MozAdsTile]`             | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a dictionary keyed by `placementId`.                                        |
@@ -220,12 +220,45 @@ Options passed when making a single ad request.
 ```swift
 struct MozAdsRequestOptions {
     let cachePolicy: MozAdsRequestCachePolicy?
+    let ohttp: Bool  // default: false
 }
 ```
 
 | Field          | Type                          | Description                                                                                   |
 | -------------- | ----------------------------- | --------------------------------------------------------------------------------------------- |
 | `cachePolicy`  | `MozAdsRequestCachePolicy?`   | Per-request caching policy. If `nil`, uses the client's default TTL with a `cacheFirst` mode. |
+| `ohttp`        | `Bool`                        | Whether to route this request through OHTTP. Defaults to `false`.                             |
+
+---
+
+## `MozAdsCallbackOptions`
+
+Options passed when making callback requests (click, impression, report).
+
+```swift
+struct MozAdsCallbackOptions {
+    let ohttp: Bool  // default: false
+}
+```
+
+| Field   | Type   | Description                                                        |
+| ------- | ------ | ------------------------------------------------------------------ |
+| `ohttp` | `Bool` | Whether to route this callback through OHTTP. Defaults to `false`. |
+
+#### OHTTP Usage Example
+
+```swift
+// Request ads over OHTTP
+let ads = try client.requestTileAds(mozAdRequests: placements, options: MozAdsRequestOptions(ohttp: true))
+
+// Record a click over OHTTP
+try client.recordClick(clickUrl: ad.callbacks.click, options: MozAdsCallbackOptions(ohttp: true))
+
+// Record an impression over OHTTP
+try client.recordImpression(impressionUrl: ad.callbacks.impression, options: MozAdsCallbackOptions(ohttp: true))
+```
+
+> **Note:** OHTTP must be configured at the viaduct level before use. When `ohttp` is `true`, the client automatically performs a preflight request to obtain geo-location and user-agent headers, which are injected into the MARS request.
 
 ---
 

@@ -102,7 +102,7 @@ where
         self.context_id_provider.context_id()
     }
 
-    pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
+    pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
         // The mobile team has requested this be temporarily disabled.
         // let mut click_url = click_url.clone();
@@ -110,7 +110,7 @@ where
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
         self.client
-            .record_click(click_url)
+            .record_click(click_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })
@@ -119,7 +119,11 @@ where
             })
     }
 
-    pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
+    pub fn record_impression(
+        &self,
+        impression_url: Url,
+        ohttp: bool,
+    ) -> Result<(), RecordImpressionError> {
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
         // The mobile team has requested this be temporarily disabled.
         // let mut impression_url = impression_url.clone();
@@ -127,7 +131,7 @@ where
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
         self.client
-            .record_impression(impression_url)
+            .record_impression(impression_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })
@@ -137,9 +141,14 @@ where
             })
     }
 
-    pub fn report_ad(&self, report_url: Url, reason: ReportReason) -> Result<(), ReportAdError> {
+    pub fn report_ad(
+        &self,
+        report_url: Url,
+        reason: ReportReason,
+        ohttp: bool,
+    ) -> Result<(), ReportAdError> {
         self.client
-            .report_ad(report_url, reason)
+            .report_ad(report_url, reason, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })
@@ -152,9 +161,10 @@ where
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<CachePolicy>,
+        ohttp: bool,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(ad_placement_requests, options)
+            .request_ads::<AdImage>(ad_placement_requests, options, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })?;
@@ -166,8 +176,9 @@ where
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<CachePolicy>,
+        ohttp: bool,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdSpoc>(ad_placement_requests, options);
+        let result = self.request_ads::<AdSpoc>(ad_placement_requests, options, ohttp);
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -182,8 +193,9 @@ where
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<CachePolicy>,
+        ohttp: bool,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads::<AdTile>(ad_placement_requests, options);
+        let result = self.request_ads::<AdTile>(ad_placement_requests, options, ohttp);
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -198,6 +210,7 @@ where
         &self,
         placements: Vec<AdPlacementRequest>,
         options: Option<CachePolicy>,
+        ohttp: bool,
     ) -> Result<AdResponse<A>, RequestAdsError>
     where
         A: AdResponseValue,
@@ -206,7 +219,7 @@ where
         let cache_policy = options.unwrap_or_default();
         let (mut response, request_hash) =
             self.client
-                .fetch_ads::<A>(context_id, placements, cache_policy)?;
+                .fetch_ads::<A>(context_id, placements, cache_policy, ohttp)?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -276,7 +289,7 @@ mod tests {
         let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_image_ads(make_happy_placement_requests(), None);
+        let result = ads_client.request_image_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
     }
 
@@ -294,7 +307,7 @@ mod tests {
         let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None);
+        let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
     }
 
@@ -312,7 +325,7 @@ mod tests {
         let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_tile_ads(make_happy_placement_requests(), None);
+        let result = ads_client.request_tile_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
     }
 
@@ -347,7 +360,7 @@ mod tests {
 
         assert_eq!(client.get_context_id().unwrap(), "custom-context-id-12345");
 
-        let result = client.request_image_ads(make_happy_placement_requests(), None);
+        let result = client.request_image_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
     }
 
@@ -375,7 +388,7 @@ mod tests {
             .create();
 
         let response = ads_client
-            .request_image_ads(make_happy_placement_requests(), None)
+            .request_image_ads(make_happy_placement_requests(), None, false)
             .unwrap();
         let callback_url = response.values().next().unwrap().callbacks.click.clone();
 
@@ -383,17 +396,17 @@ mod tests {
             .with_status(200)
             .create();
 
-        // Doing another request should hit the cache
         ads_client
-            .request_image_ads(make_happy_placement_requests(), None)
+            .request_image_ads(make_happy_placement_requests(), None, false)
             .unwrap();
 
-        ads_client.record_click(callback_url).unwrap();
+        ads_client.record_click(callback_url, false).unwrap();
 
         ads_client
             .request_ads::<AdImage>(
                 make_happy_placement_requests(),
                 Some(CachePolicy::default()),
+                false,
             )
             .unwrap();
     }

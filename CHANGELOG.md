@@ -7,6 +7,9 @@
 
 ## ✨ What's New ✨
 
+### Ads Client
+- Add per-request OHTTP support via the `ohttp` flag on `MozAdsRequestOptions` and `MozAdsCallbackOptions`. When enabled, individual MARS requests are routed through viaduct's OHTTP layer with automatic preflight for geo/user-agent override headers.
+
 ### Logins
 - New `allow_empty_passwords` feature flag to allow storing logins with empty passwords. This feature is intended to be enabled on desktop during the migration.
 - Add `ignore_form_action_origin_validation_errors` feature flag that allows logins with non-URL `form_action_origin` values (e.g. "email", "UserCode") to be imported without error. URL normalization for valid URLs is still applied.
