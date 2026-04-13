@@ -78,4 +78,15 @@ mod tests {
         assert_eq!(url.host(), Some(Host::Domain("ads.mozilla.org")));
         assert_eq!(url.path(), "/v1/ads");
     }
+
+    #[test]
+    fn staging_endpoint_parses_and_is_expected() {
+        let url = Environment::Staging.into_url("ads");
+
+        assert_eq!(url.as_str(), "https://ads.allizom.org/v1/ads");
+
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.host(), Some(Host::Domain("ads.allizom.org")));
+        assert_eq!(url.path(), "/v1/ads");
+    }
 }
