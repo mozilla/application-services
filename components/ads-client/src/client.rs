@@ -362,6 +362,41 @@ mod tests {
     }
 
     #[test]
+    fn test_custom_context_id_provider() {
+        viaduct_dev::init_backend_dev();
+
+        struct FixedContextId;
+        impl ContextIdProvider for FixedContextId {
+            fn context_id(&self) -> context_id::ApiResult<String> {
+                Ok("custom-context-id-12345".to_string())
+            }
+        }
+
+        let expected_response = get_example_happy_image_response();
+        let _m = mockito::mock("POST", "/ads")
+            .match_body(mockito::Matcher::PartialJsonString(
+                r#"{"context_id":"custom-context-id-12345"}"#.to_string(),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .create();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            context_id_provider: Some(Box::new(FixedContextId)),
+            environment: Environment::Test,
+            telemetry: MozAdsTelemetryWrapper::noop(),
+        };
+        let client = AdsClient::new(config);
+
+        assert_eq!(client.get_context_id().unwrap(), "custom-context-id-12345");
+
+        let result = client.request_image_ads(make_happy_placement_requests(), None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
