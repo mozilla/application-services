@@ -53,6 +53,25 @@ impl FirefoxAccount {
             .try_into()
     }
 
+    /// Builds a complete `signedInUser` JSON object for a WebChannel `fxaccounts:fxa_status`
+    /// response, embedding the session token without exposing it to the browser layer. Email and
+    /// uid are read from the cached profile in internal state. Returns `None` if no session token
+    /// is available.
+    pub fn get_signed_in_user_for_web_channel(&self) -> Option<String> {
+        self.internal.lock().get_signed_in_user_for_web_channel()
+    }
+
+    /// Handle a WebChannel password-change notification by exchanging the new session token
+    /// for a new refresh token.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    #[handle_error(Error)]
+    pub fn handle_web_channel_password_change(&self, json_payload: String) -> ApiResult<()> {
+        self.internal
+            .lock()
+            .handle_web_channel_password_change(&json_payload)
+    }
+
     /// Get the session token for the user's account, if one is available.
     ///
     /// **💾 This method alters the persisted account state.**
