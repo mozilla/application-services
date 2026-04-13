@@ -32,7 +32,7 @@ impl From<TestRequest> for Request {
 fn test_cache_works_using_real_timeouts() {
     viaduct_dev::init_backend_dev();
 
-    let cache = HttpCache::<TestRequest>::builder("integration_tests.db")
+    let cache = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
         .build()

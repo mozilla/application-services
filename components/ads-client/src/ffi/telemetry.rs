@@ -6,9 +6,10 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
-use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
+use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
 
 #[uniffi::export(with_foreign)]

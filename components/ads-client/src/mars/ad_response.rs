@@ -43,11 +43,11 @@ impl<A: AdResponseValue> AdResponse<A> {
         Ok(AdResponse { data: result })
     }
 
-    pub fn add_request_hash_to_callbacks(&mut self, request_hash: &RequestHash) {
-        for ads in self.data.values_mut() {
-            for ad in ads.iter_mut() {
+    pub fn enrich_callbacks(&mut self, request_hash: &RequestHash) {
+        let hash_str = request_hash.to_string();
+        for (placement_id, ads) in self.data.iter_mut() {
+            for (position, ad) in ads.iter_mut().enumerate() {
                 let callbacks = ad.callbacks_mut();
-                let hash_str = request_hash.to_string();
                 callbacks
                     .click
                     .query_pairs_mut()
@@ -56,14 +56,7 @@ impl<A: AdResponseValue> AdResponse<A> {
                     .impression
                     .query_pairs_mut()
                     .append_pair("request_hash", &hash_str);
-            }
-        }
-    }
-
-    pub fn add_placement_info_to_report_callbacks(&mut self) {
-        for (placement_id, ads) in self.data.iter_mut() {
-            for (position, ad) in ads.iter_mut().enumerate() {
-                if let Some(report_url) = ad.callbacks_mut().report.as_mut() {
+                if let Some(report_url) = callbacks.report.as_mut() {
                     report_url
                         .query_pairs_mut()
                         .append_pair("placement_id", placement_id)
@@ -447,43 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_request_hash_to_callbacks() {
-        let mut response = AdResponse {
-            data: HashMap::from([(
-                "placement_1".to_string(),
-                vec![AdImage {
-                    alt_text: Some("An ad for a puppy".to_string()),
-                    block_key: "abc123".into(),
-                    callbacks: AdCallbacks {
-                        click: Url::parse("https://example.com/click").unwrap(),
-                        impression: Url::parse("https://example.com/impression").unwrap(),
-                        report: Some(Url::parse("https://example.com/report").unwrap()),
-                    },
-                    format: "billboard".to_string(),
-                    image_url: "https://example.com/image.png".to_string(),
-                    url: "https://example.com/ad".to_string(),
-                }],
-            )]),
-        };
-
-        let request_hash = RequestHash::from("abc123def456");
-        response.add_request_hash_to_callbacks(&request_hash);
-        let callbacks = &response.data.values().next().unwrap()[0].callbacks;
-
-        assert!(callbacks
-            .click
-            .query()
-            .unwrap_or("")
-            .contains("request_hash=abc123def456"));
-        assert!(callbacks
-            .impression
-            .query()
-            .unwrap_or("")
-            .contains("request_hash=abc123def456"));
-    }
-
-    #[test]
-    fn test_add_placement_info_to_report_callbacks() {
+    fn test_enrich_callbacks() {
         let mut response = AdResponse {
             data: HashMap::from([(
                 "mock_tile_1".to_string(),
@@ -516,10 +473,26 @@ mod tests {
             )]),
         };
 
-        response.add_placement_info_to_report_callbacks();
+        let request_hash = RequestHash::from("abc123def456");
+        response.enrich_callbacks(&request_hash);
 
         let ads = &response.data["mock_tile_1"];
 
+        // request_hash added to click and impression
+        assert!(ads[0]
+            .callbacks
+            .click
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
+        assert!(ads[0]
+            .callbacks
+            .impression
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
+
+        // placement info added to report
         let report_0 = ads[0]
             .callbacks
             .report
@@ -542,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_placement_info_skips_ads_without_report_url() {
+    fn test_enrich_callbacks_skips_ads_without_report_url() {
         let mut response = AdResponse {
             data: HashMap::from([(
                 "mock_tile_1".to_string(),
@@ -562,12 +535,24 @@ mod tests {
         };
 
         // Should not panic
-        response.add_placement_info_to_report_callbacks();
+        let request_hash = RequestHash::from("abc123def456");
+        response.enrich_callbacks(&request_hash);
 
         let ad = &response.data["mock_tile_1"][0];
         assert!(ad.callbacks.report.is_none());
-        assert!(ad.callbacks.click.query().is_none());
-        assert!(ad.callbacks.impression.query().is_none());
+        // click/impression still get request_hash
+        assert!(ad
+            .callbacks
+            .click
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
+        assert!(ad
+            .callbacks
+            .impression
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
     }
 
     #[test]

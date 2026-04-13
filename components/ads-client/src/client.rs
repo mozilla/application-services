@@ -6,39 +6,20 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-use crate::client::config::{AdsClientConfig, Environment};
-use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ReportReason {
-    Inappropriate,
-    NotInterested,
-    SeenTooManyTimes,
-}
-
-impl ReportReason {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ReportReason::Inappropriate => "inappropriate",
-            ReportReason::NotInterested => "not_interested",
-            ReportReason::SeenTooManyTimes => "seen_too_many_times",
-        }
-    }
-}
-use crate::http_cache::{CachePolicy, HttpCache};
-use crate::mars::MARSClient;
+use crate::http_cache::{ByteSize, CachePolicy, HttpCache, HttpCacheError};
+use crate::mars::ad_request::AdPlacementRequest;
+use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
+use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
+use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::Telemetry;
-use ad_request::{AdPlacementRequest, AdRequest};
+use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use error::RequestAdsError;
 use url::Url;
 use uuid::Uuid;
 
-use crate::http_cache::{ByteSize, HttpCacheError};
-
-pub mod ad_request;
-pub mod ad_response;
 pub mod config;
+pub mod error;
 
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
@@ -60,7 +41,6 @@ where
 {
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
-    environment: Environment,
     telemetry: T,
 }
 
@@ -83,7 +63,7 @@ where
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
-        if let Some(cache_cfg) = client_config.cache_config {
+        let http_cache = client_config.cache_config.and_then(|cache_cfg| {
             let default_cache_ttl = Duration::from_secs(
                 cache_cfg
                     .default_cache_ttl_seconds
@@ -92,7 +72,7 @@ where
             let max_cache_size =
                 ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            let http_cache = match HttpCache::builder(cache_cfg.db_path)
+            match HttpCache::builder(cache_cfg.db_path)
                 .max_size(max_cache_size)
                 .default_ttl(default_cache_ttl)
                 .build()
@@ -102,28 +82,16 @@ where
                     telemetry.record(&e);
                     None
                 }
-            };
+            }
+        });
 
-            let client = MARSClient::new(http_cache, telemetry.clone());
-            let client = Self {
-                client,
-                context_id_provider,
-                environment,
-                telemetry: telemetry.clone(),
-            };
-            telemetry.record(&ClientOperationEvent::New);
-            return client;
-        }
-
-        let client = MARSClient::new(None, telemetry.clone());
-        let client = Self {
+        let client = MARSClient::new(environment, http_cache, telemetry.clone());
+        telemetry.record(&ClientOperationEvent::New);
+        Self {
             client,
             context_id_provider,
-            environment,
             telemetry: telemetry.clone(),
-        };
-        telemetry.record(&ClientOperationEvent::New);
-        client
+        }
     }
 
     pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
@@ -228,19 +196,18 @@ where
 
     fn request_ads<A>(
         &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
+        placements: Vec<AdPlacementRequest>,
         options: Option<CachePolicy>,
     ) -> Result<AdResponse<A>, RequestAdsError>
     where
         A: AdResponseValue,
     {
         let context_id = self.get_context_id()?;
-        let url = self.environment.into_url("ads");
-        let ad_request = AdRequest::try_new(context_id, ad_placement_requests, url)?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, cache_policy)?;
-        response.add_request_hash_to_callbacks(&request_hash);
-        response.add_placement_info_to_report_callbacks();
+        let (mut response, request_hash) =
+            self.client
+                .fetch_ads::<A>(context_id, placements, cache_policy)?;
+        response.enrich_callbacks(&request_hash);
         Ok(response)
     }
 }
@@ -258,6 +225,7 @@ pub enum ClientOperationEvent {
 mod tests {
     use crate::{
         ffi::telemetry::MozAdsTelemetryWrapper,
+        mars::Environment,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,
@@ -277,7 +245,6 @@ mod tests {
                 false,
                 Box::new(DefaultContextIdCallback),
             )),
-            environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
         }
     }
@@ -306,14 +273,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(None, telemetry);
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let ad_placement_requests = make_happy_placement_requests();
-
-        let result = ads_client.request_image_ads(ad_placement_requests, None);
-
+        let result = ads_client.request_image_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
     }
 
@@ -328,14 +291,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(None, telemetry);
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let ad_placement_requests = make_happy_placement_requests();
-
-        let result = ads_client.request_spoc_ads(ad_placement_requests, None);
-
+        let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
     }
 
@@ -350,14 +309,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(None, telemetry.clone());
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
         let ads_client = new_with_mars_client(mars_client);
 
-        let ad_placement_requests = make_happy_placement_requests();
-
-        let result = ads_client.request_tile_ads(ad_placement_requests, None);
-
+        let result = ads_client.request_tile_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
     }
 
@@ -403,8 +358,11 @@ mod tests {
         let cache = HttpCache::builder("test_record_click_invalidates_cache")
             .build()
             .unwrap();
-        let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(Some(cache), telemetry.clone());
+        let mars_client = MARSClient::new(
+            Environment::Test,
+            Some(cache),
+            MozAdsTelemetryWrapper::noop(),
+        );
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();

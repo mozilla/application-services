@@ -3,92 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use error_support::error;
 use viaduct::Response;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ComponentError {
-    #[error("Error recording a click for a placement: {0}")]
-    RecordClick(#[from] RecordClickError),
-
-    #[error("Error recording an impressions for a placement: {0}")]
-    RecordImpression(#[from] RecordImpressionError),
-
-    #[error("Error reporting an ad: {0}")]
-    ReportAd(#[from] ReportAdError),
-
-    #[error("Error requesting ads: {0}")]
-    RequestAds(#[from] RequestAdsError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RequestAdsError {
-    #[error("Error building ad requests from configs: {0}")]
-    BuildRequest(#[from] BuildRequestError),
-
-    #[error(transparent)]
-    ContextId(#[from] context_id::ApiError),
-
-    #[error("Error requesting ads from MARS: {0}")]
-    FetchAds(#[from] FetchAdsError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BuildRequestError {
-    #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
-    DuplicatePlacementId { placement_id: String },
-
-    #[error("Could not build request with empty placement configs")]
-    EmptyConfig,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum FetchAdsError {
-    #[error("Could not fetch ads, MARS responded with: {0}")]
-    HTTPError(#[from] HTTPError),
-
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::ViaductError),
-
-    #[error("URL parse error: {0}")]
-    UrlParse(#[from] url::ParseError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CallbackRequestError {
-    #[error("Could not fetch ads, MARS responded with: {0}")]
-    HTTPError(#[from] HTTPError),
-
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    #[error("Invalid callback URL: {0}")]
-    InvalidUrl(#[from] url::ParseError),
-
-    #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::ViaductError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RecordImpressionError {
-    #[error("Callback request to MARS failed: {0}")]
-    CallbackRequest(#[from] CallbackRequestError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RecordClickError {
-    #[error("Callback request to MARS failed: {0}")]
-    CallbackRequest(#[from] CallbackRequestError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ReportAdError {
-    #[error("Callback request to MARS failed: {0}")]
-    CallbackRequest(#[from] CallbackRequestError),
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum HTTPError {
@@ -124,6 +39,66 @@ pub fn check_http_status_for_error(response: &Response) -> Result<(), HTTPError>
         },
     };
     Err(error)
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BuildRequestError {
+    #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
+    DuplicatePlacementId { placement_id: String },
+
+    #[error("Could not build request with empty placement configs")]
+    EmptyConfig,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FetchAdsError {
+    #[error("Error building ad request: {0}")]
+    BuildRequest(#[from] BuildRequestError),
+
+    #[error("Could not fetch ads, MARS responded with: {0}")]
+    HTTPError(#[from] HTTPError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("Error sending request: {0}")]
+    Request(#[from] viaduct::ViaductError),
+
+    #[error("URL parse error: {0}")]
+    UrlParse(#[from] url::ParseError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CallbackRequestError {
+    #[error("Could not fetch ads, MARS responded with: {0}")]
+    HTTPError(#[from] HTTPError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("Invalid callback URL: {0}")]
+    InvalidUrl(#[from] url::ParseError),
+
+    #[error("Error sending request: {0}")]
+    Request(#[from] viaduct::ViaductError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RecordClickError {
+    #[error("Callback request to MARS failed: {0}")]
+    CallbackRequest(#[from] CallbackRequestError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RecordImpressionError {
+    #[error("Callback request to MARS failed: {0}")]
+    CallbackRequest(#[from] CallbackRequestError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ReportAdError {
+    #[error("Callback request to MARS failed: {0}")]
+    CallbackRequest(#[from] CallbackRequestError),
 }
 
 #[cfg(test)]
