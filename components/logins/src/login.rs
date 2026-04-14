@@ -328,9 +328,12 @@ impl SecureLoginFields {
         encdec: &dyn EncryptorDecryptor,
         login_id: &str,
     ) -> Result<Self> {
-        let jsonbytes = encdec
-            .decrypt(ciphertext.as_bytes().into())
-            .map_err(|e| Error::DecryptionFailed(format!("{e} (decrypting {login_id})")))?;
+        let jsonbytes = encdec.decrypt(ciphertext.as_bytes().into()).map_err(|e| {
+            Error::DecryptionFailed(format!(
+                "{e} (decrypting {login_id}, ciphertext length: {})",
+                ciphertext.len(),
+            ))
+        })?;
         let json =
             std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
         Ok(serde_json::from_str(json)?)
