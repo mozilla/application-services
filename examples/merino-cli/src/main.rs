@@ -42,14 +42,11 @@ enum Commands {
     /// Fetch suggestions
     Suggest {
         /// OHTTP relay URL
-        #[arg(
-            long,
-            default_value = "https://ohttp-relay-merino-prod.edgecompute.app/"
-        )]
+        #[arg(long, default_value = "https://ohttp-merino.mozilla.fastly-edge.com")]
         relay_url: String,
 
         /// OHTTP gateway host
-        #[arg(long, default_value = "prod.merino.prod.webservices.mozgcp.net")]
+        #[arg(long, default_value = "ohttp-gateway-merino.services.mozilla.com")]
         gateway_host: String,
 
         /// Search query
