@@ -469,6 +469,7 @@ The following text applies to code linked from these dependencies:
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
+[find-msvc-tools](https://github.com/rust-lang/cc-rs),
 [form_urlencoded](https://github.com/servo/rust-url),
 [fs-err](https://github.com/andrewhickman/fs-err),
 [getrandom](https://github.com/rust-random/getrandom),

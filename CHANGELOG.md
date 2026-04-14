@@ -11,6 +11,15 @@
 - New `allow_empty_passwords` feature flag to allow storing logins with empty passwords. This feature is intended to be enabled on desktop during the migration.
 - Add `ignore_form_action_origin_validation_errors` feature flag that allows logins with non-URL `form_action_origin` values (e.g. "email", "UserCode") to be imported without error. URL normalization for valid URLs is still applied.
 
+### Merino Client
+- Added a client for the merino suggest endpoint
+- Added a `suggest` subcommand to `merino-cli` for locally testing the suggest endpoint.
+
+## ✨ What's Changed ✨
+
+### Merino Client
+- `merino-cli` now supports subcommands: `recommendations` for curated recommendations and `suggest` for the suggest endpoint.
+
 [Full Changelog](In progress)
 
 # v150.0 (_2026-03-23_)

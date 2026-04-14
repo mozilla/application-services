@@ -485,6 +485,7 @@ The following text applies to code linked from these dependencies:
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
+[find-msvc-tools](https://github.com/rust-lang/cc-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
 [foreign-types](https://github.com/sfackler/foreign-types),

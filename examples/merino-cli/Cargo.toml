@@ -13,3 +13,4 @@ serde_json = "1.0"
 merino = { path = "../../components/merino" }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+libsqlite3-sys = { version = "0.35.0", features = ["bundled"] }
