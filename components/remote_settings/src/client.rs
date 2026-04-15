@@ -347,6 +347,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         })
     }
 
+    /// Returns the last modified timestamp for the collection.
     pub fn get_last_modified_timestamp(&self) -> Result<Option<u64>> {
         let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();

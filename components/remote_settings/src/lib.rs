@@ -151,6 +151,12 @@ impl RemoteSettingsClient {
             .map(|records| records.into_iter().map(|r| (r.id.clone(), r)).collect())
     }
 
+    /// Returns the last_modified value for the collection as an unsigned int64.
+    #[uniffi::method()]
+    pub fn get_last_modified_timestamp(&self) -> Option<u64> {
+        self.get_last_modified_timestamp()
+    }
+
     /// Get attachment data for a remote settings record
     ///
     /// Attachments are large binary blobs used for data that doesn't fit in a normal record.  They
