@@ -3,43 +3,27 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+pub mod error;
 pub mod telemetry;
 
 use std::sync::Arc;
 
-use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
-use crate::client::ad_response::{
-    AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
-};
-use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
-use crate::client::{AdsClient, ContextIdProvider, ReportReason};
-use crate::error::ComponentError;
+use crate::client::config::{AdsCacheConfig, AdsClientConfig};
+use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
+use crate::mars::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
+use crate::mars::ad_response::{
+    AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+};
+use crate::mars::Environment;
+use crate::mars::ReportReason;
 use crate::MozAdsClient;
-use error_support::{ErrorHandling, GetErrorHandling};
 use parking_lot::Mutex;
 use url::Url;
 
-pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
-
+pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
-
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum MozAdsClientApiError {
-    #[error("Something unexpected occurred.")]
-    Other { reason: String },
-}
-
-impl GetErrorHandling for ComponentError {
-    type ExternalError = MozAdsClientApiError;
-
-    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        ErrorHandling::convert(MozAdsClientApiError::Other {
-            reason: self.to_string(),
-        })
-    }
-}
 
 // TODO: Temporary workaround for HNT requirements — do not use for new integrations.
 // Context ID management should remain internal to the ads client and this interface should be removed.

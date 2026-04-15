@@ -9,10 +9,8 @@ use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
 use rusqlite::Connection;
 use sql_support::open_database;
-use std::hash::Hash;
 use std::path::PathBuf;
 use std::time::Duration;
-use viaduct::Request;
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const DEFAULT_TTL: Duration = Duration::from_secs(300);
@@ -44,20 +42,18 @@ pub enum HttpCacheBuilderError {
     },
 }
 
-pub struct HttpCacheBuilder<T: Hash + Into<Request>> {
+pub struct HttpCacheBuilder {
     db_path: PathBuf,
     max_size: Option<ByteSize>,
     default_ttl: Option<Duration>,
-    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
+impl HttpCacheBuilder {
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
             max_size: None,
             default_ttl: None,
-            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -109,7 +105,7 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
         Ok(conn)
     }
 
-    pub fn build(&self) -> Result<HttpCache<T>, HttpCacheBuilderError> {
+    pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
@@ -121,12 +117,11 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
             default_ttl,
             max_size,
             store,
-            _phantom: std::marker::PhantomData,
         })
     }
 
     #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache<T>, HttpCacheBuilderError> {
+    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
@@ -138,7 +133,6 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
             default_ttl,
             max_size,
             store,
-            _phantom: std::marker::PhantomData,
         })
     }
 }
@@ -147,18 +141,7 @@ impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
 mod tests {
     use super::*;
 
-    // Test-only type that satisfies Hash + Into<Request>
-    #[derive(Hash, Clone)]
-    struct TestItem(String);
-
-    impl From<TestItem> for Request {
-        fn from(_t: TestItem) -> Self {
-            Request::get("https://example.com".parse().unwrap())
-        }
-    }
-
-    // Helper to avoid repeating the generic type annotation on every test.
-    fn make_test_builder(path: &str) -> HttpCacheBuilder<TestItem> {
+    fn make_test_builder(path: &str) -> HttpCacheBuilder {
         HttpCacheBuilder::new(path)
     }
 

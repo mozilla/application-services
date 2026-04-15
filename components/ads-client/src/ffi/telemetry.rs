@@ -6,9 +6,10 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
-use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
+use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
 
 #[uniffi::export(with_foreign)]
@@ -58,11 +59,13 @@ impl Telemetry for MozAdsTelemetryWrapper {
                     CacheOutcome::MissNotCacheable => "miss_not_cacheable".to_string(),
                     CacheOutcome::MissStored => "miss_stored".to_string(),
                     CacheOutcome::StoreFailed(_) => "store_failed".to_string(),
+                    CacheOutcome::TrimFailed(_) => "trim_failed".to_string(),
                     CacheOutcome::CleanupFailed(_) => "cleanup_failed".to_string(),
                 },
                 match cache_outcome {
                     CacheOutcome::LookupFailed(e) => e.to_string(),
                     CacheOutcome::StoreFailed(e) => e.to_string(),
+                    CacheOutcome::TrimFailed(e) => e.to_string(),
                     CacheOutcome::CleanupFailed(e) => e.to_string(),
                     _ => "".to_string(),
                 },

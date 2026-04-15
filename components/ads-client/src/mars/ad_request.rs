@@ -8,13 +8,15 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
-use viaduct::Request;
+use viaduct::{Headers, Request};
 
-use crate::error::BuildRequestError;
+use super::error::BuildRequestError;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct AdRequest {
     pub context_id: String,
+    #[serde(skip)]
+    pub headers: Headers,
     pub placements: Vec<AdPlacementRequest>,
     /// Skipped to exclude from the request body
     #[serde(skip)]
@@ -23,6 +25,7 @@ pub struct AdRequest {
 
 /// Hash implementation intentionally excludes `context_id` as it rotates
 /// on client re-instantiation and should not invalidate cached responses.
+/// `headers` are also excluded as they are request metadata, not cache keys.
 impl Hash for AdRequest {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.url.as_str().hash(state);
@@ -33,7 +36,9 @@ impl Hash for AdRequest {
 impl From<AdRequest> for Request {
     fn from(ad_request: AdRequest) -> Self {
         let url = ad_request.url.clone();
-        Request::post(url).json(&ad_request)
+        let mut request = Request::post(url).json(&ad_request);
+        request.headers.extend(ad_request.headers);
+        request
     }
 }
 
@@ -49,6 +54,7 @@ impl AdRequest {
 
         let mut request = AdRequest {
             context_id,
+            headers: Headers::new(),
             placements: vec![],
             url,
         };
@@ -193,6 +199,7 @@ mod tests {
 
         let expected_request = AdRequest {
             context_id: TEST_CONTEXT_ID.to_string(),
+            headers: Headers::new(),
             placements: vec![
                 AdPlacementRequest {
                     content: Some(AdContentCategory {

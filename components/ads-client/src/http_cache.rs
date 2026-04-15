@@ -7,18 +7,24 @@ mod bytesize;
 mod cache_control;
 mod clock;
 mod connection_initializer;
+mod outcome;
 mod request_hash;
 mod store;
+mod strategy;
 
-use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCacheStore};
+use self::{
+    builder::HttpCacheBuilder,
+    store::HttpCacheStore,
+    strategy::{CacheFirst, NetworkFirst},
+};
 
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
 
 pub use self::builder::HttpCacheBuilderError;
 pub use self::bytesize::ByteSize;
+pub use self::outcome::CacheOutcome;
 pub use self::request_hash::RequestHash;
-use std::cmp;
 use std::path::Path;
 use std::time::Duration;
 
@@ -37,125 +43,70 @@ impl Default for CachePolicy {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum HttpCacheError {
-    #[error("Could not build cache: {0}")]
-    Builder(#[from] builder::HttpCacheBuilderError),
-
-    #[error("SQLite operation failed: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-}
-
-#[derive(Debug)]
-pub enum CacheOutcome {
-    Hit,
-    LookupFailed(rusqlite::Error), // cache miss path due to lookup error
-    NoCache,                       // send policy requested a cache bypass
-    MissNotCacheable,              // policy says "don't store"
-    MissStored,                    // stored successfully
-    StoreFailed(HttpCacheError),   // insert/upsert failed
-    CleanupFailed(HttpCacheError), // cleaning expired objects failed
-}
-
-pub struct HttpCache<T: Hash + Into<Request>> {
+pub struct HttpCache {
     default_ttl: Duration,
     max_size: ByteSize,
     store: HttpCacheStore,
-    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Hash + Into<Request>> HttpCache<T> {
-    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder<T> {
+impl HttpCache {
+    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
         HttpCacheBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), HttpCacheError> {
-        self.store.clear_all().map_err(HttpCacheError::from)?;
+    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+        self.store.clear_all()?;
         Ok(())
     }
 
-    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), HttpCacheError> {
-        self.store
-            .invalidate_by_hash(request_hash)
-            .map_err(HttpCacheError::from)?;
+    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
+        self.store.invalidate_by_hash(request_hash)?;
         Ok(())
     }
 
-    pub fn send_with_policy(
+    pub fn send_with_policy<T: Hash + Into<Request>>(
         &self,
         client: &Client,
         item: T,
-        cache_policy: &CachePolicy,
+        policy: &CachePolicy,
     ) -> HttpCacheSendResult {
+        let hash = RequestHash::new(&item);
+        let request = item.into();
         let mut outcomes = vec![];
-        let request_hash = RequestHash::new(&item);
-        let ttl = match cache_policy {
-            CachePolicy::CacheFirst { ttl: Some(d) }
-            | CachePolicy::NetworkFirst { ttl: Some(d) } => *d,
-            _ => self.default_ttl,
-        };
 
+        // Clean up expired entries before applying the policy
         if let Err(e) = self.store.delete_expired_entries() {
-            outcomes.push(CacheOutcome::CleanupFailed(e.into()));
+            outcomes.push(CacheOutcome::CleanupFailed(e));
         }
 
-        if matches!(cache_policy, CachePolicy::CacheFirst { .. }) {
-            match self.store.lookup(&request_hash) {
-                Ok(Some(response)) => {
-                    outcomes.push(CacheOutcome::Hit);
-                    return Ok((response, outcomes));
-                }
-                Err(e) => {
-                    outcomes.push(CacheOutcome::LookupFailed(e));
-                    let (response, mut fetch_outcomes) =
-                        self.fetch_and_cache(client, item, &ttl)?;
-                    outcomes.append(&mut fetch_outcomes);
-                    return Ok((response, outcomes));
-                }
-                Ok(None) => {}
+        // Apply the cache policy and collect outcomes
+        let (response, mut strategy_outcomes) = match policy {
+            CachePolicy::CacheFirst { ttl } => CacheFirst {
+                hash,
+                request,
+                ttl: ttl.unwrap_or(self.default_ttl),
+            }
+            .apply(client, &self.store),
+            CachePolicy::NetworkFirst { ttl } => NetworkFirst {
+                hash,
+                request,
+                ttl: ttl.unwrap_or(self.default_ttl),
+            }
+            .apply(client, &self.store),
+        }?;
+        outcomes.append(&mut strategy_outcomes);
+
+        // Trim the cache to the max size only when something was actually stored
+        if outcomes
+            .iter()
+            .any(|o| matches!(o, CacheOutcome::MissStored))
+        {
+            if let Err(e) = self.store.trim_to_max_size(&self.max_size) {
+                outcomes.push(CacheOutcome::TrimFailed(e));
             }
         }
 
-        let (response, mut fetch_outcomes) = self.fetch_and_cache(client, item, &ttl)?;
-        outcomes.append(&mut fetch_outcomes);
         Ok((response, outcomes))
-    }
-
-    fn cache_object(
-        &self,
-        request_hash: &RequestHash,
-        response: &Response,
-        ttl: &Duration,
-    ) -> Result<(), HttpCacheError> {
-        self.store.store_with_ttl(request_hash, response, ttl)?;
-        self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
-        Ok(())
-    }
-
-    fn fetch_and_cache(&self, client: &Client, item: T, ttl: &Duration) -> HttpCacheSendResult {
-        let request_hash = RequestHash::new(&item);
-        let request: Request = item.into();
-        let response = client.send_sync(request)?;
-        let cache_control = CacheControl::from(&response);
-        let cache_outcome = if cache_control.should_cache() {
-            let ttl = match cache_control.max_age {
-                Some(s) => cmp::min(*ttl, Duration::from_secs(s)),
-                None => *ttl,
-            };
-
-            if ttl.is_zero() {
-                return Ok((response, vec![CacheOutcome::NoCache]));
-            }
-
-            match self.cache_object(&request_hash, &response, &ttl) {
-                Ok(()) => CacheOutcome::MissStored,
-                Err(e) => CacheOutcome::StoreFailed(e),
-            }
-        } else {
-            CacheOutcome::MissNotCacheable
-        };
-
-        Ok((response, vec![cache_outcome]))
     }
 }
 
@@ -194,7 +145,7 @@ mod tests {
         TestRequest(Request::post(url).json(&serde_json::json!({"fake":"data"})))
     }
 
-    fn make_cache() -> HttpCache<TestRequest> {
+    fn make_cache() -> HttpCache {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
         HttpCache::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(60))
@@ -203,7 +154,7 @@ mod tests {
             .expect("cache build should succeed")
     }
 
-    fn make_cache_with_ttl(secs: u64) -> HttpCache<TestRequest> {
+    fn make_cache_with_ttl(secs: u64) -> HttpCache {
         // In tests our store uses an in-memory DB; filename is irrelevant.
         HttpCache::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(secs))
@@ -215,21 +166,20 @@ mod tests {
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let cache: Result<HttpCache<TestRequest>, _> = HttpCache::builder("test_cache.db").build();
+        let cache: Result<HttpCache, _> = HttpCache::builder("test_cache.db").build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let cache_with_config: Result<HttpCache<TestRequest>, _> =
-            HttpCache::builder("custom_test.db")
-                .max_size(ByteSize::mib(1))
-                .default_ttl(Duration::from_secs(60))
-                .build();
+        let cache_with_config: Result<HttpCache, _> = HttpCache::builder("custom_test.db")
+            .max_size(ByteSize::mib(1))
+            .default_ttl(Duration::from_secs(60))
+            .build();
         assert!(cache_with_config.is_ok());
     }
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache<TestRequest> = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder("test_clear.db").build().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
@@ -505,8 +455,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache<TestRequest> =
-            HttpCache::builder("test_invalidate.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder("test_invalidate.db").build().unwrap();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));

@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 use url::Url;
 
-use crate::client::{
-    ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
+use crate::mars::{
+    ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
     ad_response::{
         AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
     },
@@ -35,27 +35,6 @@ pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
             placement: "example_placement_2".to_string(),
         },
     ]
-}
-
-pub fn make_happy_ad_request() -> AdRequest {
-    let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
-    AdRequest::try_new(
-        TEST_CONTEXT_ID.to_string(),
-        vec![
-            AdPlacementRequest {
-                content: None,
-                count: 1,
-                placement: "example_placement_1".to_string(),
-            },
-            AdPlacementRequest {
-                content: None,
-                count: 1,
-                placement: "example_placement_2".to_string(),
-            },
-        ],
-        url,
-    )
-    .unwrap()
 }
 
 pub fn get_example_happy_image_response() -> AdResponse<AdImage> {

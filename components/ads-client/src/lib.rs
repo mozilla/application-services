@@ -5,17 +5,17 @@
 
 use std::collections::HashMap;
 
-use error::{CallbackRequestError, ComponentError};
+use client::error::ComponentError;
 use error_support::handle_error;
+use mars::error::CallbackRequestError;
 use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
-use client::ad_request::AdPlacementRequest;
 use client::AdsClient;
 use http_cache::CachePolicy;
+use mars::ad_request::AdPlacementRequest;
 
 mod client;
-mod error;
 mod ffi;
 pub mod http_cache;
 mod mars;
@@ -43,6 +43,48 @@ pub struct MozAdsClient {
 
 #[uniffi::export]
 impl MozAdsClient {
+    pub fn clear_cache(&self) -> AdsClientApiResult<()> {
+        let inner = self.inner.lock();
+        inner
+            .clear_cache()
+            .map_err(|e| MozAdsClientApiError::Other {
+                reason: format!("Failed to clear cache: {}", e),
+            })
+    }
+
+    #[handle_error(ComponentError)]
+    pub fn record_click(&self, click_url: String) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&click_url)
+            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
+        let inner = self.inner.lock();
+        inner.record_click(url).map_err(ComponentError::RecordClick)
+    }
+
+    #[handle_error(ComponentError)]
+    pub fn record_impression(&self, impression_url: String) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+        })?;
+        let inner = self.inner.lock();
+        inner
+            .record_impression(url)
+            .map_err(ComponentError::RecordImpression)
+    }
+
+    #[handle_error(ComponentError)]
+    pub fn report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&report_url)
+            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
+        let inner = self.inner.lock();
+        inner
+            .report_ad(url, reason.into())
+            .map_err(ComponentError::ReportAd)
+    }
+
     #[handle_error(ComponentError)]
     pub fn request_image_ads(
         &self,
@@ -89,47 +131,5 @@ impl MozAdsClient {
             .request_tile_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
-    }
-
-    #[handle_error(ComponentError)]
-    pub fn record_impression(&self, impression_url: String) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
-            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
-        })?;
-        let inner = self.inner.lock();
-        inner
-            .record_impression(url)
-            .map_err(ComponentError::RecordImpression)
-    }
-
-    #[handle_error(ComponentError)]
-    pub fn record_click(&self, click_url: String) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&click_url)
-            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
-        let inner = self.inner.lock();
-        inner.record_click(url).map_err(ComponentError::RecordClick)
-    }
-
-    #[handle_error(ComponentError)]
-    pub fn report_ad(
-        &self,
-        report_url: String,
-        reason: MozAdsReportReason,
-    ) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&report_url)
-            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
-        let inner = self.inner.lock();
-        inner
-            .report_ad(url, reason.into())
-            .map_err(ComponentError::ReportAd)
-    }
-
-    pub fn clear_cache(&self) -> AdsClientApiResult<()> {
-        let inner = self.inner.lock();
-        inner
-            .clear_cache()
-            .map_err(|_| MozAdsClientApiError::Other {
-                reason: "Failed to clear cache".to_string(),
-            })
     }
 }
