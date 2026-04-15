@@ -47,8 +47,8 @@ impl MozAdsClient {
         let inner = self.inner.lock();
         inner
             .clear_cache()
-            .map_err(|_| MozAdsClientApiError::Other {
-                reason: "Failed to clear cache".to_string(),
+            .map_err(|e| MozAdsClientApiError::Other {
+                reason: format!("Failed to clear cache: {}", e),
             })
     }
 

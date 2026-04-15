@@ -21,7 +21,7 @@ use self::{
     },
 };
 use crate::{
-    http_cache::{HttpCache, HttpCacheError, RequestHash},
+    http_cache::{HttpCache, RequestHash},
     telemetry::Telemetry,
     CachePolicy,
 };
@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
+    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }
@@ -93,7 +93,7 @@ where
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &crate::http_cache::RequestHash,
-    ) -> Result<(), HttpCacheError> {
+    ) -> Result<(), rusqlite::Error> {
         if let Some(cache) = &self.http_cache {
             cache.invalidate_by_hash(request_hash)?;
         }

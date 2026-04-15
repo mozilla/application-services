@@ -53,7 +53,7 @@ impl NetworkFirst {
             }
             match store.store_with_ttl(&self.hash, &response, &ttl) {
                 Ok(()) => CacheOutcome::MissStored,
-                Err(e) => CacheOutcome::StoreFailed(e.into()),
+                Err(e) => CacheOutcome::StoreFailed(e),
             }
         } else {
             CacheOutcome::MissNotCacheable

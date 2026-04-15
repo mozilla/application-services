@@ -31,15 +31,6 @@ use std::time::Duration;
 pub type HttpCacheSendResult =
     std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
-#[derive(Debug, thiserror::Error)]
-pub enum HttpCacheError {
-    #[error("Could not build cache: {0}")]
-    Builder(#[from] builder::HttpCacheBuilderError),
-
-    #[error("SQLite operation failed: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-}
-
 #[derive(Clone, Copy, Debug)]
 pub enum CachePolicy {
     CacheFirst { ttl: Option<Duration> },
@@ -63,15 +54,13 @@ impl HttpCache {
         HttpCacheBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), HttpCacheError> {
-        self.store.clear_all().map_err(HttpCacheError::from)?;
+    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+        self.store.clear_all()?;
         Ok(())
     }
 
-    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), HttpCacheError> {
-        self.store
-            .invalidate_by_hash(request_hash)
-            .map_err(HttpCacheError::from)?;
+    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
+        self.store.invalidate_by_hash(request_hash)?;
         Ok(())
     }
 
@@ -87,7 +76,7 @@ impl HttpCache {
 
         // Clean up expired entries before applying the policy
         if let Err(e) = self.store.delete_expired_entries() {
-            outcomes.push(CacheOutcome::CleanupFailed(e.into()));
+            outcomes.push(CacheOutcome::CleanupFailed(e));
         }
 
         // Apply the cache policy and collect outcomes
@@ -107,9 +96,14 @@ impl HttpCache {
         }?;
         outcomes.append(&mut strategy_outcomes);
 
-        // Trim the cache to the max size after applying the policy
-        if let Err(e) = self.store.trim_to_max_size(self.max_size.as_u64() as i64) {
-            outcomes.push(CacheOutcome::StoreFailed(e.into()));
+        // Trim the cache to the max size only when something was actually stored
+        if outcomes
+            .iter()
+            .any(|o| matches!(o, CacheOutcome::MissStored))
+        {
+            if let Err(e) = self.store.trim_to_max_size(&self.max_size) {
+                outcomes.push(CacheOutcome::TrimFailed(e));
+            }
         }
 
         Ok((response, outcomes))

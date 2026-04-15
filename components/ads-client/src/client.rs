@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::http_cache::{ByteSize, CachePolicy, HttpCache, HttpCacheError};
+use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::AdPlacementRequest;
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
@@ -94,7 +94,7 @@ where
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
+    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         self.client.clear_cache()
     }
 
