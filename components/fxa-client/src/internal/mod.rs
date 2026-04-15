@@ -325,8 +325,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_account_url("test").unwrap_err() {
-            Error::NoCachedToken(_) => {}
-            _ => panic!("error not NoCachedToken"),
+            Error::NoSessionToken => {}
+            _ => panic!("error not NoSessionToken"),
         };
         // With current user -> expected Url.
         fxa.add_cached_profile("123", "test@example.com");
@@ -361,8 +361,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_devices_url("test").unwrap_err() {
-            Error::NoCachedToken(_) => {}
-            _ => panic!("error not NoCachedToken"),
+            Error::NoSessionToken => {}
+            _ => panic!("error not NoSessionToken"),
         };
         // With current user -> expected Url.
         fxa.add_cached_profile("123", "test@example.com");

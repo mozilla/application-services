@@ -54,6 +54,12 @@ enum FxaError {
   /// or retry the operation with a freshly-generated token.
   "Authentication",
 
+  /// Thrown when an authenticated account isn't allowed to perform some operation. Unlike
+  /// `Authentication`, there's no problem with the account status. In some cases it
+  /// might be possible to request additional scopes, and once granted, the operation
+  /// may succeed.
+  "Forbidden",
+
   /// Thrown if an operation fails due to network access problems.
   /// The application may retry at a later time once connectivity is restored.
   "Network",
