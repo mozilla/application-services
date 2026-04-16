@@ -11,7 +11,7 @@ mod tests;
 use error_support::handle_error;
 use url::Url;
 
-pub use error::{ApiResult, Error, Result, SuggestApiError};
+pub use error::{ApiResult, Error, MerinoSuggestApiError, Result};
 pub use schema::{SuggestConfig, SuggestOptions};
 
 const DEFAULT_BASE_HOST: &str = "https://merino.services.mozilla.com";
@@ -103,15 +103,17 @@ impl<T: http::HttpClientTrait> SuggestClientInner<T> {
         options: SuggestOptions,
         endpoint_url: &Url,
     ) -> Result<viaduct::Response> {
+        let providers = options.providers.map(|v| v.join(","));
+        let client_variants = options.client_variants.map(|v| v.join(","));
         self.http_client.make_suggest_request(
             query,
             http::SuggestQueryParams {
-                providers: options.providers.as_deref(),
+                providers: providers.as_deref(),
                 source: options.source.as_deref(),
                 country: options.country.as_deref(),
                 region: options.region.as_deref(),
                 city: options.city.as_deref(),
-                client_variants: options.client_variants.as_deref(),
+                client_variants: client_variants.as_deref(),
                 request_type: options.request_type.as_deref(),
                 accept_language: options.accept_language.as_deref(),
             },
