@@ -12,7 +12,7 @@ use super::{
     util, FirefoxAccount,
 };
 use crate::auth::UserData;
-use crate::{warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
+use crate::{error, warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
@@ -71,10 +71,16 @@ impl FirefoxAccount {
                             new_refresh_token,
                             exchange_resp.scope,
                         ));
+                    } else {
+                        // A request for a new token succeeding but without a new token is unexpected.
+                        error!("successful response for a new refresh token with additional scopes, but no token was delivered");
+                        // at this stage we are almost certainly still going to fail to get a token...
                     }
                     // Get the updated refresh token from state.
                     refresh_token = match self.state.refresh_token() {
-                        None => return Err(Error::NoCachedToken(scope.to_string())),
+                        // We had a refresh token, we must either still have the original or maybe a new one,
+                        // but it's impossible for us to not have one at this point.
+                        None => unreachable!("lost the refresh token"),
                         Some(token) => token,
                     };
                 }
@@ -86,7 +92,11 @@ impl FirefoxAccount {
                         &[scope],
                     )?
                 } else {
-                    return Err(Error::NoCachedToken(scope.to_string()));
+                    // This should be impossible - if we don't have the scope we would have entered
+                    // the block where we try and get it, that succeeded and we got a new refresh token,
+                    // but still don't have the scope.
+                    error!("New refresh token doesn't have the scope we requested: {scope}");
+                    return Err(Error::UnexpectedServerResponse);
                 }
             }
             None => match self.state.session_token() {
@@ -95,7 +105,7 @@ impl FirefoxAccount {
                     session_token,
                     &[scope],
                 )?,
-                None => return Err(Error::NoCachedToken(scope.to_string())),
+                None => return Err(Error::NoSessionToken),
             },
         };
         let since_epoch = SystemTime::now()
