@@ -16,6 +16,7 @@ allow_empty_passwords = []
 # errors, allowing non-URL values (e.g. "email", "UserCode") that exist in some
 # Desktop databases to be saved regardless.
 ignore_form_action_origin_validation_errors = []
+perform_additional_origin_fixups = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
