@@ -53,9 +53,9 @@ enum Commands {
         #[arg(long)]
         query: String,
 
-        /// Comma-separated list of providers (e.g. "wikipedia,adm")
+        /// List of providers (e.g. --providers wikipedia --providers adm)
         #[arg(long)]
-        providers: Option<String>,
+        providers: Option<Vec<String>>,
 
         /// Source identifier sent to Merino (e.g urlbar, new tab. defaults to unknown)
         #[arg(long)]
@@ -73,9 +73,9 @@ enum Commands {
         #[arg(long)]
         city: Option<String>,
 
-        /// Client variants
+        /// Client variants (e.g. --client-variants control --client-variants treatment)
         #[arg(long)]
-        client_variants: Option<String>,
+        client_variants: Option<Vec<String>>,
 
         /// Request type (e.g location | weather)
         #[arg(long)]
