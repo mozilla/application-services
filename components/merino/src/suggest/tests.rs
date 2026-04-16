@@ -288,6 +288,30 @@ fn test_providers_and_client_variants_joined_as_comma_separated() {
 }
 
 #[test]
+fn test_empty_providers_and_client_variants_omitted() {
+    let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let client_inner = SuggestClientInner::new_with_client(FakeCapturingClientWithParams {
+        captured_url: captured_url.clone(),
+    });
+
+    let options = SuggestOptions {
+        providers: Some(vec![]),
+        client_variants: Some(vec![]),
+        ..default_options()
+    };
+
+    let endpoint = Url::parse("https://merino.services.mozilla.com/api/v1/suggest").unwrap();
+    let _ = client_inner.get_suggestions("apple", options, &endpoint);
+
+    let captured = captured_url.lock().unwrap();
+    let url = captured.as_ref().unwrap();
+    let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+
+    assert!(!params.contains_key("providers"));
+    assert!(!params.contains_key("client_variants"));
+}
+
+#[test]
 fn test_builder_fails_with_invalid_base_host() {
     let result = SuggestClientBuilder::new()
         .base_host("not a valid url".to_string())

@@ -103,8 +103,14 @@ impl<T: http::HttpClientTrait> SuggestClientInner<T> {
         options: SuggestOptions,
         endpoint_url: &Url,
     ) -> Result<viaduct::Response> {
-        let providers = options.providers.map(|v| v.join(","));
-        let client_variants = options.client_variants.map(|v| v.join(","));
+        let providers = options
+            .providers
+            .filter(|v| !v.is_empty())
+            .map(|v| v.join(","));
+        let client_variants = options
+            .client_variants
+            .filter(|v| !v.is_empty())
+            .map(|v| v.join(","));
         self.http_client.make_suggest_request(
             query,
             http::SuggestQueryParams {
