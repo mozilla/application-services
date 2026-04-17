@@ -11,8 +11,8 @@ pub struct SuggestConfig {
 /// All fields are optional — omitted fields are not sent to merino.
 #[derive(Clone, Debug, Record)]
 pub struct SuggestOptions {
-    /// Comma-separated list of suggestion providers to query (e.g. `"wikipedia,adm"`).
-    pub providers: Option<String>,
+    /// List of suggestion providers to query (e.g. `["wikipedia", "adm"]`).
+    pub providers: Option<Vec<String>>,
     /// Identifier of which part of firefox the request comes from (e.g. `"urlbar"`, `"newtab"`).
     pub source: Option<String>,
     /// ISO 3166-1 country code (e.g. `"US"`).
@@ -21,9 +21,9 @@ pub struct SuggestOptions {
     pub region: Option<String>,
     /// City name (e.g. `"San Francisco"`).
     pub city: Option<String>,
-    /// A comma-separated list of any experiments or rollouts that are affecting the client's Suggest experience.
+    /// List of any experiments or rollouts that are affecting the client's Suggest experience.
     /// If Merino recognizes any of them it will modify its behavior accordingly.
-    pub client_variants: Option<String>,
+    pub client_variants: Option<Vec<String>>,
     /// For AccuWeather provider, the request type should be either a "location" or "weather" string. For "location" it will get location completion suggestion. For "weather" it will return weather suggestions.
     /// If omitted, it defaults to weather suggestions.
     pub request_type: Option<String>,
