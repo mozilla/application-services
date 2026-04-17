@@ -66,6 +66,7 @@ members = [
     "tools/generate-rust-dashboards",
     "tools/start-bindings",
     "tools/uniffi-bindgen-library-mode",
+    "tools/validate-logins",
     "automation/swift-components-docs",
 
     "examples/*/",

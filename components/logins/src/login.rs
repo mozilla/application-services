@@ -285,7 +285,7 @@ use sync_guid::Guid;
 use url::Url;
 
 // LoginEntry fields that are stored in cleartext
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Deserialize)]
 pub struct LoginFields {
     pub origin: String,
     pub form_action_origin: Option<String>,
@@ -368,7 +368,7 @@ pub enum BulkResultEntry {
 }
 
 /// A login handed over to the store API; ie a login not yet persisted
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Deserialize)]
 pub struct LoginEntry {
     // login fields
     pub origin: String,
