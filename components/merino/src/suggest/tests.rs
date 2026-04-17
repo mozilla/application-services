@@ -126,6 +126,32 @@ impl http::HttpClientTrait for FakeCapturingClient {
     }
 }
 
+struct FakeCapturingClientWithParams {
+    captured_url: std::sync::Arc<std::sync::Mutex<Option<Url>>>,
+}
+
+impl http::HttpClientTrait for FakeCapturingClientWithParams {
+    fn make_suggest_request(
+        &self,
+        query: &str,
+        options: http::SuggestQueryParams<'_>,
+        mut endpoint_url: Url,
+    ) -> Result<Response> {
+        {
+            let mut params = endpoint_url.query_pairs_mut();
+            params.append_pair("q", query);
+            if let Some(v) = options.providers {
+                params.append_pair("providers", v);
+            }
+            if let Some(v) = options.client_variants {
+                params.append_pair("client_variants", v);
+            }
+        }
+        *self.captured_url.lock().unwrap() = Some(endpoint_url);
+        Ok(make_response(200, "{}"))
+    }
+}
+
 #[test]
 fn test_get_suggestions_success() {
     let client_inner = SuggestClientInner::new_with_client(FakeHttpClientSuccess);
@@ -231,6 +257,58 @@ fn test_builder_uses_custom_base_host() {
         captured.as_ref().unwrap().as_str(),
         "https://stage.merino.services.mozilla.com/api/v1/suggest"
     );
+}
+
+#[test]
+fn test_providers_and_client_variants_joined_as_comma_separated() {
+    let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let client_inner = SuggestClientInner::new_with_client(FakeCapturingClientWithParams {
+        captured_url: captured_url.clone(),
+    });
+
+    let options = SuggestOptions {
+        providers: Some(vec![
+            "wikipedia".to_string(),
+            "adm".to_string(),
+            "accuweather".to_string(),
+        ]),
+        client_variants: Some(vec!["control".to_string(), "treatment".to_string()]),
+        ..default_options()
+    };
+
+    let endpoint = Url::parse("https://merino.services.mozilla.com/api/v1/suggest").unwrap();
+    let _ = client_inner.get_suggestions("apple", options, &endpoint);
+
+    let captured = captured_url.lock().unwrap();
+    let url = captured.as_ref().unwrap();
+    let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+
+    assert_eq!(params["providers"], "wikipedia,adm,accuweather");
+    assert_eq!(params["client_variants"], "control,treatment");
+}
+
+#[test]
+fn test_empty_providers_and_client_variants_omitted() {
+    let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let client_inner = SuggestClientInner::new_with_client(FakeCapturingClientWithParams {
+        captured_url: captured_url.clone(),
+    });
+
+    let options = SuggestOptions {
+        providers: Some(vec![]),
+        client_variants: Some(vec![]),
+        ..default_options()
+    };
+
+    let endpoint = Url::parse("https://merino.services.mozilla.com/api/v1/suggest").unwrap();
+    let _ = client_inner.get_suggestions("apple", options, &endpoint);
+
+    let captured = captured_url.lock().unwrap();
+    let url = captured.as_ref().unwrap();
+    let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+
+    assert!(!params.contains_key("providers"));
+    assert!(!params.contains_key("client_variants"));
 }
 
 #[test]

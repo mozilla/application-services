@@ -7,10 +7,10 @@ use error_support::{ErrorHandling, GetErrorHandling};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type ApiResult<T> = std::result::Result<T, SuggestApiError>;
+pub type ApiResult<T> = std::result::Result<T, MerinoSuggestApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum SuggestApiError {
+pub enum MerinoSuggestApiError {
     /// A network-level failure.
     #[error("Suggest network error: {reason}")]
     Network { reason: String },
@@ -52,11 +52,11 @@ pub enum Error {
 }
 
 impl GetErrorHandling for Error {
-    type ExternalError = SuggestApiError;
+    type ExternalError = MerinoSuggestApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            Self::Request { .. } => ErrorHandling::convert(SuggestApiError::Network {
+            Self::Request { .. } => ErrorHandling::convert(MerinoSuggestApiError::Network {
                 reason: self.to_string(),
             })
             .log_warning(),
@@ -65,13 +65,15 @@ impl GetErrorHandling for Error {
             | Self::Server { code, .. }
             | Self::Unexpected { code, .. }
             | Self::BadRequest { code, .. }
-            | Self::NoContent { code, .. } => ErrorHandling::convert(SuggestApiError::Other {
-                code: Some(*code),
-                reason: self.to_string(),
-            })
-            .report_error("merino-http-error"),
+            | Self::NoContent { code, .. } => {
+                ErrorHandling::convert(MerinoSuggestApiError::Other {
+                    code: Some(*code),
+                    reason: self.to_string(),
+                })
+                .report_error("merino-http-error")
+            }
 
-            Self::UrlParse(_) => ErrorHandling::convert(SuggestApiError::Other {
+            Self::UrlParse(_) => ErrorHandling::convert(MerinoSuggestApiError::Other {
                 code: None,
                 reason: self.to_string(),
             })
