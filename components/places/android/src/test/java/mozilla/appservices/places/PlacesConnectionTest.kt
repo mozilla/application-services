@@ -7,9 +7,14 @@ package mozilla.appservices.places
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import mozilla.appservices.places.uniffi.BookmarkItem
+import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.places.uniffi.HistoryMetadataPageMissingBehavior
+import mozilla.appservices.places.uniffi.InsertableBookmark
+import mozilla.appservices.places.uniffi.InsertableBookmarkFolder
+import mozilla.appservices.places.uniffi.InsertableBookmarkItem
+import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
 import mozilla.appservices.places.uniffi.NoteHistoryMetadataObservationOptions
 import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.VisitObservation
@@ -229,7 +234,12 @@ class PlacesConnectionTest {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.DOWNLOAD))
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.EMBED))
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_PERMANENT))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_TEMPORARY))
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.example.com/1",
+                visitType = VisitType.REDIRECT_TEMPORARY,
+            ),
+        )
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.FRAMED_LINK))
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.RELOAD))
 
@@ -382,6 +392,73 @@ class PlacesConnectionTest {
         assertEquals(folder.f.title, "example folder")
         assertEquals(folder.f.position, 2u)
         assertEquals(folder.f.parentGuid, BookmarkRoot.Unfiled.id)
+    }
+
+    @Test
+    fun testInsertBookmarkTree() {
+        val tree = InsertableBookmarkFolder(
+            parentGuid = BookmarkRoot.Unfiled.id,
+            position = BookmarkPosition.Append,
+            title = "restored root",
+            children = listOf(
+                InsertableBookmarkItem.Bookmark(
+                    InsertableBookmark(
+                        parentGuid = "",
+                        position = BookmarkPosition.Append,
+                        url = "https://www.example.com/",
+                        title = "example bookmark",
+                    ),
+                ),
+                InsertableBookmarkItem.Separator(
+                    InsertableBookmarkSeparator(
+                        parentGuid = "",
+                        position = BookmarkPosition.Append,
+                    ),
+                ),
+                InsertableBookmarkItem.Folder(
+                    InsertableBookmarkFolder(
+                        parentGuid = "",
+                        position = BookmarkPosition.Append,
+                        title = "sub-folder",
+                        children = listOf(
+                            InsertableBookmarkItem.Bookmark(
+                                InsertableBookmark(
+                                    parentGuid = "",
+                                    position = BookmarkPosition.Append,
+                                    url = "https://www.nested.com/",
+                                    title = "nested bookmark",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val rootGuid = db.insertBookmarkTree(tree)
+
+        val root = db.getBookmarksTree(rootGuid, recursive = true)!! as BookmarkItem.Folder
+        assertEquals("restored root", root.f.title)
+        assertEquals(BookmarkRoot.Unfiled.id, root.f.parentGuid)
+        val rootChildren = root.f.childNodes!!
+        assertEquals(3, rootChildren.size)
+
+        val bm = rootChildren[0] as BookmarkItem.Bookmark
+        assertEquals("example bookmark", bm.b.title)
+        assertEquals("https://www.example.com/", bm.b.url)
+        assertEquals(rootGuid, bm.b.parentGuid)
+
+        assertTrue(rootChildren[1] is BookmarkItem.Separator)
+
+        val sub = rootChildren[2] as BookmarkItem.Folder
+        assertEquals("sub-folder", sub.f.title)
+        assertEquals(rootGuid, sub.f.parentGuid)
+        val subChildren = sub.f.childNodes!!
+        assertEquals(1, subChildren.size)
+
+        val nested = subChildren[0] as BookmarkItem.Bookmark
+        assertEquals("nested bookmark", nested.b.title)
+        assertEquals("https://www.nested.com/", nested.b.url)
     }
 
     @Test
