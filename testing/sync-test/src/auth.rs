@@ -44,17 +44,16 @@ impl TestClient {
     pub fn new(cli: Arc<CliFxa>, device_name: &str) -> Result<Self> {
         // XXX - not clear if/how this device gets cleaned up - we never disconnect from the account!
         // And this is messy - I think it reflects that the public device api should be improved?
-        let device = match cli
-            .account
+        let account = cli.account().expect("CliFxa must be logged in");
+        let device = match account
             .get_devices(false)?
             .into_iter()
             .find(|d| d.is_current_device)
         {
             Some(d) => d,
             None => {
-                cli.account
-                    .initialize_device(device_name, DeviceType::Desktop, vec![])?;
-                cli.account
+                account.initialize_device(device_name, DeviceType::Desktop, vec![])?;
+                account
                     .get_devices(true)?
                     .into_iter()
                     .find(|d| d.is_current_device)
@@ -94,6 +93,7 @@ impl TestClient {
         self.autofill_store.clone().register_with_sync_manager();
         self.tabs_store.clone().register_with_sync_manager();
         self.logins_store.clone().register_with_sync_manager();
+        let sync_info = self.cli.sync_info()?.expect("CliFxa must have SYNC_SCOPE");
         let params = SyncParams {
             reason: SyncReason::User,
             engines: SyncEngineSelection::Some {
@@ -101,7 +101,7 @@ impl TestClient {
             },
             enabled_changes: HashMap::new(),
             local_encryption_keys,
-            auth_info: self.cli.as_auth_info(),
+            auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
             device_settings: DeviceSettings {
                 fxa_device_id: self.device.id.clone(),
@@ -135,6 +135,7 @@ impl TestClient {
         self.autofill_store.clone().register_with_sync_manager();
         self.tabs_store.clone().register_with_sync_manager();
         self.logins_store.clone().register_with_sync_manager();
+        let sync_info = self.cli.sync_info()?.expect("CliFxa must have SYNC_SCOPE");
         let params = SyncParams {
             reason: SyncReason::User,
             engines: SyncEngineSelection::Some {
@@ -142,7 +143,7 @@ impl TestClient {
             },
             enabled_changes: HashMap::new(),
             local_encryption_keys,
-            auth_info: self.cli.as_auth_info(),
+            auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
             device_settings: DeviceSettings {
                 fxa_device_id: self.device.id.clone(),
@@ -163,7 +164,8 @@ impl TestClient {
     }
 
     pub fn fully_wipe_server(&mut self) -> Result<()> {
-        Sync15StorageClient::new(self.cli.client_init.clone())?.wipe_all_remote()?;
+        let sync_info = self.cli.sync_info()?.expect("CliFxa must have SYNC_SCOPE");
+        Sync15StorageClient::new(sync_info.client_init)?.wipe_all_remote()?;
         Ok(())
     }
 

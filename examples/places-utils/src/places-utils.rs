@@ -5,7 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use clap::{Parser, Subcommand};
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use interrupt_support::Interruptee;
 use places::storage::bookmarks::{
     json_tree::{
@@ -236,10 +236,12 @@ fn sync(
 ) -> Result<()> {
     viaduct_hyper::viaduct_init_backend_hyper()?;
 
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
+    let mut cli = CliFxa::new(get_default_fxa_config(), Some(&cred_file))?;
+    cli.ensure_logged_in(&[SYNC_SCOPE])?;
+    let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
 
     if wipe_all {
-        Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
+        Sync15StorageClient::new(sync.client_init.clone())?.wipe_all_remote()?;
     }
     // phew - working with traits is making markh's brain melt!
     // Note also that PlacesApi::sync() exists and ultimately we should
@@ -287,8 +289,8 @@ fn sync(
             &engines_to_sync,
             &mut global_state,
             &mut mem_cached_state,
-            &cli_fxa.client_init.clone(),
-            &cli_fxa.as_key_bundle()?,
+            &sync.client_init,
+            &sync.key_bundle,
             &interrupt_support::ShutdownInterruptee,
             None,
         );

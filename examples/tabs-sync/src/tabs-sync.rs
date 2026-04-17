@@ -4,11 +4,8 @@
 
 #![warn(rust_2018_idioms)]
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use clap::Parser;
-use cli_support::fxa_creds::{
-    get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
-};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
 use std::path::Path;
@@ -57,7 +54,7 @@ fn do_sync(
     store: Arc<TabsStore>,
     key_id: String,
     access_token: String,
-    sync_key: String,
+    root_sync_key: &KeyBundle,
     tokenserver_url: url::Url,
     local_id: String,
 ) -> Result<String> {
@@ -74,9 +71,8 @@ fn do_sync(
     let storage_init = &Sync15StorageClientInit {
         key_id,
         access_token,
-        tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+        tokenserver_url,
     };
-    let root_sync_key = &KeyBundle::from_ksync_base64(sync_key.as_str())?;
 
     let mut result = sync_multiple(
         &[&engine],
@@ -103,12 +99,10 @@ fn main() -> Result<()> {
     cli_support::init_logging();
     let opts = Opts::parse();
 
-    let (_, token_info) =
-        get_account_and_token(get_default_fxa_config(), &opts.creds_file, &[SYNC_SCOPE])?;
-    let sync_key = URL_SAFE_NO_PAD.encode(token_info.key.unwrap().key_bytes()?);
-
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file, &[SYNC_SCOPE])?;
-    let device_id = cli_fxa.account.get_current_device_id()?;
+    let mut cli = CliFxa::new(get_default_fxa_config(), Some(&opts.creds_file))?;
+    cli.ensure_logged_in(&[SYNC_SCOPE])?;
+    let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
+    let device_id = cli.account().unwrap().get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
 
@@ -180,10 +174,10 @@ fn main() -> Result<()> {
                 log::info!("Syncing!");
                 match do_sync(
                     Arc::clone(&store),
-                    cli_fxa.client_init.clone().key_id,
-                    cli_fxa.client_init.clone().access_token,
-                    sync_key.clone(),
-                    cli_fxa.client_init.tokenserver_url.clone(),
+                    sync.client_init.key_id.clone(),
+                    sync.client_init.access_token.clone(),
+                    &sync.key_bundle,
+                    sync.client_init.tokenserver_url.clone(),
                     device_id.clone(),
                 ) {
                     Err(e) => {

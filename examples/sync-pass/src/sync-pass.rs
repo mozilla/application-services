@@ -5,10 +5,7 @@
 #![recursion_limit = "4096"]
 #![warn(rust_2018_idioms)]
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use cli_support::fxa_creds::{
-    get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
-};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
 use logins::encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
@@ -326,7 +323,7 @@ fn do_sync(
     store: Arc<LoginStore>,
     key_id: String,
     access_token: String,
-    sync_key: String,
+    root_sync_key: &sync15::KeyBundle,
     tokenserver_url: url::Url,
 ) -> Result<String> {
     let engine = LoginsSyncEngine::new(Arc::clone(&store))?;
@@ -336,7 +333,6 @@ fn do_sync(
         access_token,
         tokenserver_url,
     };
-    let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
 
     // We don't track any state at all - this means every sync acts like a first sync.
     // We should consider supporting this - choices would be to re-open the database ourself and abuse the
@@ -496,18 +492,16 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                let (_, token_info) = get_account_and_token(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
-                let sync_key = URL_SAFE_NO_PAD.encode(
-                    token_info.key.unwrap().key_bytes()?,
-                );
                 // TODO: allow users to use stage/etc.
-                let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
+                let mut cli = CliFxa::new(get_default_fxa_config(), Some(&cred_file))?;
+                cli.ensure_logged_in(&[SYNC_SCOPE])?;
+                let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
                 match do_sync(
                     Arc::clone(&store),
-                    cli_fxa.client_init.key_id.clone(),
-                    cli_fxa.client_init.access_token.clone(),
-                    sync_key,
-                    cli_fxa.client_init.tokenserver_url.clone(),
+                    sync.client_init.key_id.clone(),
+                    sync.client_init.access_token.clone(),
+                    &sync.key_bundle,
+                    sync.client_init.tokenserver_url.clone(),
                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);

@@ -5,7 +5,7 @@
 use clap::{Args, Subcommand};
 use fxa_client::{FirefoxAccount, IncomingDeviceCommand};
 
-use crate::{persist_fxa_state, Result};
+use anyhow::Result;
 
 #[derive(Args)]
 pub struct SendTabArgs {
@@ -47,7 +47,6 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
     println!("Polling for send-tab events.  Ctrl-C to cancel");
     loop {
         let events = account.poll_device_commands().unwrap_or_default(); // Ignore 404 errors for now.
-        persist_fxa_state(account)?;
         if !events.is_empty() {
             for e in events {
                 match e {

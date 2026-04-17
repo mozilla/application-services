@@ -5,19 +5,16 @@
 mod devices;
 mod send_tab;
 
-use std::fs;
-
 use clap::{Parser, Subcommand, ValueEnum};
-use cli_support::{fxa_creds, init_logging_with};
-use fxa_client::{FirefoxAccount, FxaConfig, FxaServer};
+use cli_support::fxa_creds::{self, CliFxa, WELL_KNOWN_SCOPES};
+use fxa_client::{FxaConfig, FxaServer};
 
-static CREDENTIALS_FILENAME: &str = "credentials.json";
 static CLIENT_ID: &str = "a2270f727f45f648";
 
 use anyhow::{bail, Result};
 
 #[derive(Parser)]
-#[command(about, long_about = None)]
+#[command(about, long_about = None, after_help=format!("Some well known scopes:\n{WELL_KNOWN_SCOPES:#?}"))]
 struct Cli {
     /// The FxA server to use
     #[clap(long)]
@@ -27,28 +24,8 @@ struct Cli {
     #[clap(long)]
     custom_url: Option<String>,
 
-    /// Request a session scope
-    #[clap(long, short, action)]
-    session_scope: bool,
-
-    /// Print out log to the console.  The default level is WARN
-    #[clap(long, short, action)]
-    log: bool,
-
-    /// Set the logging level to INFO
-    #[clap(long, short, action)]
-    info: bool,
-
-    /// Set the logging level to DEBUG
-    #[clap(long, short, action)]
-    debug: bool,
-
-    /// Set the logging level to TRACE
-    #[clap(long, short, action)]
-    trace: bool,
-
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -76,15 +53,22 @@ enum Command {
     /// This can be used to test the token exchange API for relay
     /// (https://bugzilla.mozilla.org/show_bug.cgi?id=2012143).
     ///
-    /// * Start with a fresh account by using the `cargo fxa disconnect`
-    /// * Run `cargo fxa --log --trace get-access-token https://identity.mozilla.com/apps/relay`.
+    /// * Start with a fresh account by using `cargo run --example fxa-client disconnect`
+    /// * Log in to the account with `cargo run --example fxa-client login`
+    /// * Run `RUST_LOG=trace cargo run --example fxa-client fxa get-access-token https://identity.mozilla.com/apps/relay`.
     ///   * You should see a token exchange request in the trace logs.
-    /// * Run `cargo fxa --log --trace get-access-token https://identity.mozilla.com/apps/relay`
+    /// * Run `RUST_LOG=trace cargo run --example fxa-client https://identity.mozilla.com/apps/relay`
     ///   again.
     ///   * This time there shouldn't be a token exchange request, since the refresh token now has
     ///     the relay scope.
     GetAccessToken {
         scope: String,
+    },
+    /// Log in to FxA with the given scopes
+    Login {
+        /// OAuth scopes to request (repeatable), if not supplied, sync, session and profile scopes are requested.
+        #[clap(long = "scope", required = true)]
+        scopes: Vec<String>,
     },
     Disconnect,
 }
@@ -93,42 +77,49 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     nss::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper()?;
-    if cli.log {
-        if cli.trace {
-            init_logging_with("fxa_client=trace");
-        } else if cli.debug {
-            init_logging_with("fxa_client=debug");
-        } else if cli.info {
-            init_logging_with("fxa_client=info");
-        } else {
-            init_logging_with("fxa_client=warn");
-        }
-    }
-
-    let scopes: &[&str] = if cli.session_scope {
-        &[fxa_creds::SYNC_SCOPE, fxa_creds::SESSION_SCOPE]
-    } else {
-        &[fxa_creds::SYNC_SCOPE]
-    };
+    cli_support::init_logging_with("info");
 
     println!();
-    let account = load_account(&cli, scopes)?;
+    let mut fxa = make_cli_fxa(&cli)?;
+
     match cli.command {
-        Command::Devices(args) => devices::run(&account, args),
-        Command::SendTab(args) => send_tab::run(&account, args),
-        Command::GetAccessToken { scope } => {
-            println!("Requesting access token with scope: {scope}");
-            account.get_access_token(&scope, false)?;
-            println!("Saving account with updated token");
-            persist_fxa_state(&account)?;
-            println!("Success");
-            Ok(())
+        None => {
+            println!("A utility to help manage a Firefox account in a CLI environment");
+            println!("The account state managed by this utility can be used by many app-services demos and examples.");
+            println!("Run with `help` or `--help` for more");
+            print_status(&fxa);
+            return Ok(());
         }
-        Command::Disconnect => {
-            account.disconnect();
-            Ok(())
+        Some(Command::Login { scopes }) => {
+            let scope_refs: Vec<&str> = if scopes.is_empty() {
+                vec![fxa_creds::SYNC_SCOPE, fxa_creds::SESSION_SCOPE]
+            } else {
+                scopes.iter().map(|s| s.as_str()).collect()
+            };
+            fxa.ensure_logged_in(&scope_refs)?;
+            print_status(&fxa);
         }
-    }?;
+        Some(command) => {
+            let Some(account) = fxa.account() else {
+                println!("not logged in");
+                return Ok(());
+            };
+            match command {
+                Command::Devices(args) => devices::run(account, args)?,
+                Command::SendTab(args) => send_tab::run(account, args)?,
+                Command::GetAccessToken { scope } => {
+                    println!("Requesting access token with scope: {scope}");
+                    account.get_access_token(&scope, false)?;
+                    println!("Success");
+                }
+                Command::Disconnect => {
+                    account.disconnect();
+                }
+                Command::Login { .. } => unreachable!(),
+            }
+        }
+    }
+    fxa.persist()?;
 
     Ok(())
 }
@@ -152,7 +143,20 @@ impl Cli {
     }
 }
 
-fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
+fn print_status(fxa: &CliFxa) {
+    match fxa.account() {
+        None => println!("Not logged in"),
+        Some(account) => match account.check_authorization_status() {
+            Ok(status) if status.active => {
+                println!("Account is logged in and authorized by the server")
+            }
+            Ok(_) => println!("Account is logged in but not authorized by the server"),
+            Err(e) => println!("Account logged in but account status failed: {e}"),
+        },
+    }
+}
+
+fn make_cli_fxa(cli: &Cli) -> Result<CliFxa> {
     let server = cli.server()?;
     let redirect_uri = format!("{}/oauth/success/a2270f727f45f648", server.content_url());
     let config = FxaConfig {
@@ -161,14 +165,5 @@ fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };
-    fxa_creds::get_cli_fxa(config, &credentials_path(), scopes).map(|cli| cli.account)
-}
-
-pub fn persist_fxa_state(acct: &FirefoxAccount) -> Result<()> {
-    let json = acct.to_json().unwrap();
-    Ok(fs::write(credentials_path(), json)?)
-}
-
-fn credentials_path() -> String {
-    cli_support::cli_data_path(CREDENTIALS_FILENAME)
+    CliFxa::new(config, Some(fxa_creds::CREDENTIALS_FILENAME))
 }

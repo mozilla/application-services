@@ -9,7 +9,8 @@ logins.jwk
 *.db-wal
 *~
 .vscode/
-credentials.json
+credentials.json # no longer written to - new name below - so kinda deprecated.
+.fxa-cli-credentials.json
 .venv
 
 # Android stuff.

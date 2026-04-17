@@ -5,8 +5,13 @@ authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
 edition = "2021"
 publish = false
+autobins = false
 
-[dependencies]
+[[example]]
+name = "fxa-client"
+path = "src/main.rs"
+
+[dev-dependencies]
 nss = { path = "../../components/support/rc_crypto/nss" }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
@@ -16,4 +21,3 @@ cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
 url = "2.2"
-sync15 = { path = "../../components/sync15" }

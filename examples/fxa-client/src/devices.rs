@@ -5,7 +5,7 @@
 use clap::{Args, Subcommand};
 use fxa_client::FirefoxAccount;
 
-use crate::{persist_fxa_state, Result};
+use anyhow::Result;
 
 #[derive(Args)]
 pub struct DeviceArgs {
@@ -36,6 +36,5 @@ fn list(account: &FirefoxAccount) -> Result<()> {
 fn set_name(account: &FirefoxAccount, name: String) -> Result<()> {
     account.set_device_name(&name)?;
     println!("Display name set to {name}");
-    persist_fxa_state(account)?;
     Ok(())
 }
