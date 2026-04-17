@@ -8,6 +8,10 @@ exclude = ["/android", "/ios"]
 
 [features]
 default = []
+# Enables `NSSKeyManager`, which stores the logins encryption key in NSS's
+# `key4.db` (wrapped with a key derived from the primary password, if set).
+# Used on Desktop to integrate with the existing NSS key store and primary
+# password flow.
 keydb = ["nss/keydb", "dep:async-trait", "dep:futures"]
 # Allows logins with empty passwords to be imported. Used on Desktop during
 # migration to accept existing logins that have empty passwords.
@@ -16,6 +20,12 @@ allow_empty_passwords = []
 # errors, allowing non-URL values (e.g. "email", "UserCode") that exist in some
 # Desktop databases to be saved regardless.
 ignore_form_action_origin_validation_errors = []
+# Repairs `origin` values that fail URL parsing (bare domains, FireFTP quirks,
+# bare `https:` / `https://`, etc.) into parseable URLs instead of rejecting
+# them. Scoped to the `origin` field; `form_action_origin` keeps the stricter
+# behavior. Used on Desktop during migration to salvage legacy/addon-generated
+# entries that would otherwise be lost.
+perform_additional_origin_fixups = []
 
 [dependencies]
 sync15 = { path = "../sync15" }

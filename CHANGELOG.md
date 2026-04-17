@@ -10,6 +10,7 @@
 ### Logins
 - New `allow_empty_passwords` feature flag to allow storing logins with empty passwords. This feature is intended to be enabled on desktop during the migration.
 - Add `ignore_form_action_origin_validation_errors` feature flag that allows logins with non-URL `form_action_origin` values (e.g. "email", "UserCode") to be imported without error. URL normalization for valid URLs is still applied.
+- Add `perform_additional_origin_fixups` feature flag that repairs `origin` values which fail URL parsing (bare domains, FireFTP quirks, bare `https:` / `https://`, etc.) into parseable URLs instead of rejecting them. Scoped to the `origin` field only; `form_action_origin` keeps the stricter behavior, but can be disabled via `ignore_form_action_origin_validation_errors`. Intended to be enabled on desktop during migration to salvage legacy/addon-generated entries.
 
 ### Merino Client
 - Added a client for the merino suggest endpoint
