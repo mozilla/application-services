@@ -14,17 +14,17 @@ protobuf-plugin = "0.9.6"
 # Kotlin
 kotlin = "2.3.20"
 coroutines = "1.10.2"
-kotlinx-serialization = "1.10.0"
+kotlinx-serialization = "1.11.0"
 
 # Mozilla
-android-components = "148.0.2"
+android-components = "149.0.2"
 glean = "67.2.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
-annotation = "1.9.1"
+annotation = "1.10.0"
 core = "1.18.0"
-work = "2.11.1"
+work = "2.11.2"
 
 # JNA
 jna = "5.18.1"
