@@ -17,6 +17,8 @@ pub struct AdRequest {
     pub context_id: String,
     #[serde(skip)]
     pub headers: Headers,
+    #[serde(skip)]
+    pub ohttp: bool,
     pub placements: Vec<AdPlacementRequest>,
     /// Skipped to exclude from the request body
     #[serde(skip)]
@@ -30,6 +32,7 @@ impl Hash for AdRequest {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.url.as_str().hash(state);
         self.placements.hash(state);
+        self.ohttp.hash(state);
     }
 }
 
@@ -47,6 +50,7 @@ impl AdRequest {
         context_id: String,
         placements: Vec<AdPlacementRequest>,
         url: Url,
+        ohttp: bool,
     ) -> Result<Self, BuildRequestError> {
         if placements.is_empty() {
             return Err(BuildRequestError::EmptyConfig);
@@ -55,6 +59,7 @@ impl AdRequest {
         let mut request = AdRequest {
             context_id,
             headers: Headers::new(),
+            ohttp,
             placements: vec![],
             url,
         };
@@ -194,12 +199,14 @@ mod tests {
                 },
             ],
             url.clone(),
+            false,
         )
         .unwrap();
 
         let expected_request = AdRequest {
             context_id: TEST_CONTEXT_ID.to_string(),
             headers: Headers::new(),
+            ohttp: false,
             placements: vec![
                 AdPlacementRequest {
                     content: Some(AdContentCategory {
@@ -248,6 +255,7 @@ mod tests {
                 },
             ],
             url,
+            false,
         );
         assert!(request.is_err());
     }
@@ -255,7 +263,7 @@ mod tests {
     #[test]
     fn test_build_ad_request_fails_on_empty_request() {
         let url: Url = "https://example.com/ads".parse().unwrap();
-        let request = AdRequest::try_new(TEST_CONTEXT_ID.to_string(), vec![], url);
+        let request = AdRequest::try_new(TEST_CONTEXT_ID.to_string(), vec![], url, false);
         assert!(request.is_err());
     }
 
@@ -275,8 +283,8 @@ mod tests {
         let context_id_a = "aaaa-bbbb-cccc".to_string();
         let context_id_b = "dddd-eeee-ffff".to_string();
 
-        let req1 = AdRequest::try_new(context_id_a, make_placements(), url.clone()).unwrap();
-        let req2 = AdRequest::try_new(context_id_b, make_placements(), url).unwrap();
+        let req1 = AdRequest::try_new(context_id_a, make_placements(), url.clone(), false).unwrap();
+        let req2 = AdRequest::try_new(context_id_b, make_placements(), url, false).unwrap();
 
         assert_eq!(RequestHash::new(&req1), RequestHash::new(&req2));
     }
@@ -295,6 +303,7 @@ mod tests {
                 placement: "tile_1".to_string(),
             }],
             url.clone(),
+            false,
         )
         .unwrap();
 
@@ -306,9 +315,32 @@ mod tests {
                 placement: "tile_2".to_string(),
             }],
             url,
+            false,
         )
         .unwrap();
 
         assert_ne!(RequestHash::new(&req1), RequestHash::new(&req2));
+    }
+
+    #[test]
+    fn test_ohttp_flag_produces_different_hash() {
+        use crate::http_cache::RequestHash;
+
+        let url: Url = "https://example.com/ads".parse().unwrap();
+        let make_placements = || {
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "tile_1".to_string(),
+            }]
+        };
+
+        let req_direct =
+            AdRequest::try_new("same-id".to_string(), make_placements(), url.clone(), false)
+                .unwrap();
+        let req_ohttp =
+            AdRequest::try_new("same-id".to_string(), make_placements(), url, true).unwrap();
+
+        assert_ne!(RequestHash::new(&req_direct), RequestHash::new(&req_ohttp));
     }
 }

@@ -8,6 +8,20 @@ use std::hash::{Hash, Hasher};
 use url::Url;
 use viaduct::{Headers, Request};
 
+pub struct PreflightRequest(pub Url);
+
+impl Hash for PreflightRequest {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_str().hash(state);
+    }
+}
+
+impl From<PreflightRequest> for Request {
+    fn from(req: PreflightRequest) -> Self {
+        Request::get(req.0)
+    }
+}
+
 /// Response from the MARS `/v1/ads-preflight` endpoint.
 #[derive(Debug, Deserialize)]
 pub struct PreflightResponse {
@@ -29,19 +43,5 @@ impl From<PreflightResponse> for Headers {
                 .expect("valid header");
         }
         headers
-    }
-}
-
-pub(super) struct PreflightRequest(pub Url);
-
-impl Hash for PreflightRequest {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.as_str().hash(state);
-    }
-}
-
-impl From<PreflightRequest> for Request {
-    fn from(req: PreflightRequest) -> Self {
-        Request::get(req.0)
     }
 }
