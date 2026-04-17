@@ -383,68 +383,69 @@ pub struct LoginEntry {
 }
 
 #[cfg(feature = "perform_additional_origin_fixups")]
-fn looks_like_bare_ipv4(s: &str) -> bool {
-    let parts: Vec<&str> = s.split('.').collect();
-    parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok())
-}
-
-// Returns true if `s` looks like a bare domain name (e.g. `example.com`):
-// at least two dot-separated labels, each label only ASCII alphanumeric or hyphens.
-#[cfg(feature = "perform_additional_origin_fixups")]
-fn looks_like_bare_domain(s: &str) -> bool {
-    let parts: Vec<&str> = s.split('.').collect();
-    parts.len() >= 2
-        && parts.iter().all(|p| {
-            !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
-        })
-}
-
-// Returns true if `s` looks like a single hostname label (no dots),
-// e.g. addon-generated origins like "example".
-#[cfg(feature = "perform_additional_origin_fixups")]
-fn looks_like_bare_label(s: &str) -> bool {
-    !s.is_empty() && !s.contains('.') && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
-}
-
-// Attempts to repair origins that fail URL parsing:
-// - bare https: / https:/ / https:// → https://moz.pwmngr.fixed
-// - http://ftp.<IPv4>[:port] → ftp://<IPv4>[:port]  (FireFTP quirk)
-// - ftp.<IPv4>[:port] without a scheme → ftp://<IPv4>[:port]
-// - ftp.<domain> without a scheme → ftp://ftp.<domain>
-// - bare IPv4 address or bare domain → moz-pwmngr-fixed://<host>
-// - bare label (e.g. example) → moz-pwmngr-fixed://<label>
-#[cfg(feature = "perform_additional_origin_fixups")]
-fn perform_additional_origin_fixup(origin: &str) -> Option<String> {
-    // Bare https: with missing or incomplete authority.
-    if matches!(origin, "https:" | "https:/" | "https://") {
-        return Some("https://moz.pwmngr.fixed".to_string());
+mod origin_fixup {
+    fn looks_like_bare_ipv4(s: &str) -> bool {
+        let parts: Vec<&str> = s.split('.').collect();
+        parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok())
     }
 
-    // http://ftp.<IP>[:port] → ftp://<IP>[:port]
-    if let Some(rest) = origin.strip_prefix("http://ftp.") {
-        let host = rest.split(':').next().unwrap_or(rest);
-        if looks_like_bare_ipv4(host) {
-            return Some(format!("ftp://{rest}"));
+    // Returns true if `s` looks like a bare domain name (e.g. `example.com`):
+    // at least two dot-separated labels, each label only ASCII alphanumeric or hyphens.
+    fn looks_like_bare_domain(s: &str) -> bool {
+        let parts: Vec<&str> = s.split('.').collect();
+        parts.len() >= 2
+            && parts
+                .iter()
+                .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+    }
+
+    // Returns true if `s` looks like a single hostname label (no dots),
+    // e.g. addon-generated origins like "example".
+    fn looks_like_bare_label(s: &str) -> bool {
+        !s.is_empty()
+            && !s.contains('.')
+            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    }
+
+    // Attempts to repair origins that fail URL parsing:
+    // - bare https: / https:/ / https:// → https://moz.pwmngr.fixed
+    // - http://ftp.<IPv4>[:port] → ftp://<IPv4>[:port]  (FireFTP quirk)
+    // - ftp.<IPv4>[:port] without a scheme → ftp://<IPv4>[:port]
+    // - ftp.<domain> without a scheme → ftp://ftp.<domain>
+    // - bare IPv4 address or bare domain → moz-pwmngr-fixed://<host>
+    // - bare label (e.g. example) → moz-pwmngr-fixed://<label>
+    pub fn perform_additional_origin_fixup(origin: &str) -> Option<String> {
+        // Bare https: with missing or incomplete authority.
+        if matches!(origin, "https:" | "https:/" | "https://") {
+            return Some("https://moz.pwmngr.fixed".to_string());
         }
-    }
 
-    // ftp.<IPv4 or bare domain> without a scheme
-    if let Some(rest) = origin.strip_prefix("ftp.") {
-        if looks_like_bare_ipv4(rest) {
-            // ftp.<IP> → ftp://<IP> (strips ftp. prefix; ftp://ftp.<IP> would fail URL parsing)
-            return Some(format!("ftp://{rest}"));
-        } else if looks_like_bare_domain(rest) {
-            // ftp.<domain> → ftp://ftp.<domain>
-            return Some(format!("ftp://{origin}"));
+        // http://ftp.<IP>[:port] → ftp://<IP>[:port]
+        if let Some(rest) = origin.strip_prefix("http://ftp.") {
+            let host = rest.split(':').next().unwrap_or(rest);
+            if looks_like_bare_ipv4(host) {
+                return Some(format!("ftp://{rest}"));
+            }
         }
-    }
 
-    // bare domain, IPv4 address, or single-label hostname → moz-pwmngr-fixed://
-    if looks_like_bare_domain(origin) || looks_like_bare_label(origin) {
-        return Some(format!("moz-pwmngr-fixed://{origin}"));
-    }
+        // ftp.<IPv4 or bare domain> without a scheme
+        if let Some(rest) = origin.strip_prefix("ftp.") {
+            if looks_like_bare_ipv4(rest) {
+                // ftp.<IP> → ftp://<IP> (strips ftp. prefix; ftp://ftp.<IP> would fail URL parsing)
+                return Some(format!("ftp://{rest}"));
+            } else if looks_like_bare_domain(rest) {
+                // ftp.<domain> → ftp://ftp.<domain>
+                return Some(format!("ftp://{origin}"));
+            }
+        }
 
-    None
+        // bare domain, IPv4 address, or single-label hostname → moz-pwmngr-fixed://
+        if looks_like_bare_domain(origin) || looks_like_bare_label(origin) {
+            return Some(format!("moz-pwmngr-fixed://{origin}"));
+        }
+
+        None
+    }
 }
 
 impl LoginEntry {
@@ -461,9 +462,11 @@ impl LoginEntry {
         }
     }
 
-    /// Helper for validation and fixups of an "origin" provided as a string.
-    pub fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
-        // Check we can parse the origin, then use the normalized version of it.
+    /// Shared core logic for origin-like fields: parses `origin` as a URL and
+    /// normalizes it to origin-only form. Returns `Ok(None)` if the input is
+    /// already a valid, normalized origin, `Ok(Some(fixed))` if it needed
+    /// normalization, or `Err` if the input cannot be parsed as a URL.
+    fn parse_and_normalize_origin(origin: &str) -> Result<Option<String>> {
         match Url::parse(origin) {
             Ok(mut u) => {
                 // Presumably this is a faster path than always setting?
@@ -506,17 +509,50 @@ impl LoginEntry {
                     "Error parsing login origin: {e:?} ({})",
                     error_support::redact_url(origin)
                 );
-                #[cfg(feature = "perform_additional_origin_fixups")]
-                if let Some(fixed) = perform_additional_origin_fixup(origin) {
-                    if Url::parse(&fixed).is_ok() {
-                        return Ok(Some(fixed));
-                    }
-                }
                 Err(InvalidLogin::IllegalOrigin {
                     reason: e.to_string(),
                 }
                 .into())
             }
+        }
+    }
+
+    /// Validation and fixups for a login `origin`.
+    ///
+    /// When the `perform_additional_origin_fixups` feature is enabled, some
+    /// origins that fail URL parsing (bare domains, FireFTP quirks, etc.)
+    /// are repaired into parseable URLs.
+    pub fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
+        match Self::parse_and_normalize_origin(origin) {
+            Ok(result) => Ok(result),
+            Err(e) => {
+                #[cfg(feature = "perform_additional_origin_fixups")]
+                if let Some(fixed) = origin_fixup::perform_additional_origin_fixup(origin) {
+                    if Url::parse(&fixed).is_ok() {
+                        return Ok(Some(fixed));
+                    }
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// Validation and normalizations for a login `form_action_origin`.
+    ///
+    /// When the `ignore_form_action_origin_validation_errors` feature is
+    /// enabled, unparseable values are accepted as-is (returning `Ok(None)`
+    /// so callers keep the original string), allowing non-URL values such
+    /// as "email" or "UserCode" that exist in some Desktop databases to be
+    /// saved regardless.
+    pub fn validate_and_normalize_form_action_origin(
+        form_action_origin: &str,
+    ) -> Result<Option<String>> {
+        match Self::parse_and_normalize_origin(form_action_origin) {
+            Ok(result) => Ok(result),
+            #[cfg(feature = "ignore_form_action_origin_validation_errors")]
+            Err(_) => Ok(None),
+            #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
+            Err(e) => Err(e),
         }
     }
 }
@@ -830,7 +866,7 @@ impl ValidateAndFixup for LoginEntry {
                             .form_action_origin = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    match Self::validate_and_fixup_origin(href) {
+                    match Self::validate_and_normalize_form_action_origin(href) {
                         Ok(Some(fixed)) => {
                             get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                                 field_info: "form_action_origin is not normalized".into()
@@ -838,9 +874,6 @@ impl ValidateAndFixup for LoginEntry {
                             .form_action_origin = Some(fixed);
                         }
                         Ok(None) => {}
-                        #[cfg(feature = "ignore_form_action_origin_validation_errors")]
-                        Err(_) => {}
-                        #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
                         Err(e) => return Err(e),
                     }
                 }
@@ -957,7 +990,8 @@ mod tests {
         }
 
         // Finally, look at some invalid logins
-        for input in &["."] {
+        {
+            let input = &".";
             assert!(LoginEntry::validate_and_fixup_origin(input).is_err());
         }
         // With perform_additional_origin_fixups, bare domains/labels get a moz-pwmngr-fixed:// scheme
@@ -1058,6 +1092,62 @@ mod tests {
         assert!(LoginEntry::validate_and_fixup_origin(".").is_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_form_action_origin_normalizes_valid_urls() -> Result<()> {
+        // Already-normalized origins pass through.
+        assert_eq!(
+            LoginEntry::validate_and_normalize_form_action_origin("https://example.com")?,
+            None
+        );
+        // Full URLs get normalized to origin-only form, same as for `origin`.
+        assert_eq!(
+            LoginEntry::validate_and_normalize_form_action_origin("https://example.com/foo?x=1")?,
+            Some("https://example.com".into())
+        );
+        Ok(())
+    }
+
+    // The `perform_additional_origin_fixups` feature is intentionally scoped
+    // to the `origin` field. Inputs that it would repair for `origin` must
+    // NOT be repaired here.
+    #[cfg(feature = "perform_additional_origin_fixups")]
+    #[test]
+    fn test_form_action_origin_skips_additional_fixups() {
+        for input in &[
+            "example.com",
+            "example",
+            "1.2.3.4",
+            "https:",
+            "ftp.example.com",
+        ] {
+            let result = LoginEntry::validate_and_normalize_form_action_origin(input);
+            // The result depends on the other feature flag, but in no case
+            // should it be the moz-pwmngr-fixed:// / repaired form returned
+            // by `validate_and_fixup_origin`.
+            #[cfg(feature = "ignore_form_action_origin_validation_errors")]
+            assert_eq!(result.unwrap(), None, "input: {input}");
+            #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
+            assert!(result.is_err(), "input: {input}");
+        }
+    }
+
+    #[test]
+    #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
+    fn test_form_action_origin_rejects_invalid() {
+        assert!(LoginEntry::validate_and_normalize_form_action_origin("email").is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "ignore_form_action_origin_validation_errors")]
+    fn test_form_action_origin_accepts_invalid_with_feature() {
+        // With the feature on, unparseable values return Ok(None) — meaning
+        // "no fixup needed", so callers keep the original string as-is.
+        assert_eq!(
+            LoginEntry::validate_and_normalize_form_action_origin("email").unwrap(),
+            None
+        );
     }
 
     #[test]

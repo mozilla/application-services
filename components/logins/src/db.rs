@@ -167,7 +167,7 @@ impl LoginDb {
     }
 
     pub fn count_by_form_action_origin(&self, form_action_origin: &str) -> Result<i64> {
-        match LoginEntry::validate_and_fixup_origin(form_action_origin) {
+        match LoginEntry::validate_and_normalize_form_action_origin(form_action_origin) {
             Ok(result) => {
                 let form_action_origin = result.unwrap_or(form_action_origin.to_string());
                 let mut stmt = self.db.prepare_cached(&COUNT_BY_FORM_ACTION_ORIGIN_SQL)?;
@@ -177,16 +177,6 @@ impl LoginDb {
                 )?;
                 Ok(count)
             }
-            #[cfg(feature = "ignore_form_action_origin_validation_errors")]
-            Err(_) => {
-                let mut stmt = self.db.prepare_cached(&COUNT_BY_FORM_ACTION_ORIGIN_SQL)?;
-                let count: i64 = stmt.query_row(
-                    named_params! { ":form_action_origin": form_action_origin },
-                    |row| row.get(0),
-                )?;
-                Ok(count)
-            }
-            #[cfg(not(feature = "ignore_form_action_origin_validation_errors"))]
             Err(e) => {
                 // don't log the input string as it's PII.
                 warn!(
