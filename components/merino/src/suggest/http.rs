@@ -84,27 +84,22 @@ impl HttpClientTrait for HttpClient {
         match status {
             200 => Ok(Some(response)),
             204 => Ok(None),
-            _ => {
-                let message = response.text().to_string();
-                Err(match status {
-                    400 => Error::BadRequest {
-                        code: status,
-                        message,
-                    },
-                    422 => Error::Validation {
-                        code: status,
-                        message,
-                    },
-                    500..=599 => Error::Server {
-                        code: status,
-                        message,
-                    },
-                    _ => Error::Unexpected {
-                        code: status,
-                        message,
-                    },
-                })
-            }
+            400 => Err(Error::BadRequest {
+                code: status,
+                message: response.text().to_string(),
+            }),
+            422 => Err(Error::Validation {
+                code: status,
+                message: response.text().to_string(),
+            }),
+            500..=599 => Err(Error::Server {
+                code: status,
+                message: response.text().to_string(),
+            }),
+            _ => Err(Error::Unexpected {
+                code: status,
+                message: response.text().to_string(),
+            }),
         }
     }
 }
