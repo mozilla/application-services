@@ -154,10 +154,9 @@ impl RemoteSettingsClient {
     /// Returns the last_modified value for the collection as an unsigned int64.
     #[uniffi::method()]
     pub fn get_last_modified_timestamp(&self) -> Option<u64> {
-        match self.internal.get_last_modified_timestamp() {
-            Ok(ts) => ts,
-            Err(_) => None,
-        }
+        self.internal
+            .get_last_modified_timestamp()
+            .unwrap_or_default()
     }
 
     /// Get attachment data for a remote settings record
