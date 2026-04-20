@@ -34,9 +34,9 @@ val client = MozAdsClientBuilder()
 | Method                                                                                                                  | Return Type                                            | Description                                                                                                                                                                          |
 | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `clearCache()`                                                                                                          | `Unit`                                                 | Clears the client's HTTP cache. Throws on failure.                                                                                                                                   |
-| `recordClick(clickUrl: String)`                                                                                         | `Unit`                                                 | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
-| `recordImpression(impressionUrl: String)`                                                                               | `Unit`                                                 | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
-| `reportAd(reportUrl: String)`                                                                                           | `Unit`                                                 | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
+| `recordClick(clickUrl: String, options: MozAdsCallbackOptions?)`                                                                                         | `Unit`                                                 | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
+| `recordImpression(impressionUrl: String, options: MozAdsCallbackOptions?)`                                                                               | `Unit`                                                 | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
+| `reportAd(reportUrl: String, reason: MozAdsReportReason, options: MozAdsCallbackOptions?)`                                                                                           | `Unit`                                                 | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
 | `requestImageAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                          | `Map<String, MozAdsImage>`                             | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.                                              |
 | `requestSpocAds(mozAdRequests: List<MozAdsPlacementRequestWithCount>, options: MozAdsRequestOptions?)`                  | `Map<String, List<MozAdsSpoc>>`                        | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.  |
 | `requestTileAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                           | `Map<String, MozAdsTile>`                              | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.                                               |
@@ -219,13 +219,46 @@ Options passed when making a single ad request.
 
 ```kotlin
 data class MozAdsRequestOptions(
-    val cachePolicy: MozAdsRequestCachePolicy?
+    val cachePolicy: MozAdsRequestCachePolicy?,
+    val ohttp: Boolean = false
 )
 ```
 
 | Field          | Type                         | Description                                                                                    |
 | -------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
 | `cachePolicy`  | `MozAdsRequestCachePolicy?`  | Per-request caching policy. If `null`, uses the client's default TTL with a `CacheFirst` mode. |
+| `ohttp`        | `Boolean`                    | Whether to route this request through OHTTP. Defaults to `false`.                              |
+
+---
+
+## `MozAdsCallbackOptions`
+
+Options passed when making callback requests (click, impression, report).
+
+```kotlin
+data class MozAdsCallbackOptions(
+    val ohttp: Boolean = false
+)
+```
+
+| Field   | Type      | Description                                                        |
+| ------- | --------- | ------------------------------------------------------------------ |
+| `ohttp` | `Boolean` | Whether to route this callback through OHTTP. Defaults to `false`. |
+
+#### OHTTP Usage Example
+
+```kotlin
+// Request ads over OHTTP
+val ads = client.requestTileAds(placements, MozAdsRequestOptions(ohttp = true))
+
+// Record a click over OHTTP
+client.recordClick(ad.callbacks.click, MozAdsCallbackOptions(ohttp = true))
+
+// Record an impression over OHTTP
+client.recordImpression(ad.callbacks.impression, MozAdsCallbackOptions(ohttp = true))
+```
+
+> **Note:** OHTTP must be configured at the viaduct level before use. When `ohttp` is `true`, the client automatically performs a preflight request to obtain geo-location and user-agent headers, which are injected into the MARS request.
 
 ---
 
