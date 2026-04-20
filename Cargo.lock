@@ -1350,7 +1350,6 @@ dependencies = [
  "fxa-client",
  "log",
  "nss",
- "sync15",
  "url",
  "viaduct",
  "viaduct-hyper",

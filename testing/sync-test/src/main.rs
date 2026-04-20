@@ -5,7 +5,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![warn(rust_2018_idioms)]
 
 use clap::Parser;
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use nss::ensure_initialized;
 use std::sync::Arc;
 use std::{collections::HashSet, process};
@@ -80,9 +80,9 @@ pub fn run_test_group(opts: &Opts, group: TestGroup) {
     }
 
     let cfg = get_default_fxa_config();
-    let cli_fxa =
-        get_cli_fxa(cfg, &opts.credential_file, &[SYNC_SCOPE]).expect("can't initialize cli");
-    let acct = Arc::new(cli_fxa);
+    let mut cli = CliFxa::new(cfg, opts.credential_file.as_deref()).expect("can't create CliFxa");
+    cli.ensure_logged_in(&[SYNC_SCOPE]).expect("can't log in");
+    let acct = Arc::new(cli);
 
     let mut user = TestUser::new(acct, 2).expect("Failed to get test user.");
     let (c0, c1) = {
@@ -123,8 +123,8 @@ pub struct Opts {
     /// Either 'release', 'stage', 'stable-dev', or a URL.
     pub fxa_stack: FxaConfigUrl,
 
-    #[arg(long = "credentials", default_value = "./credentials.json")]
-    credential_file: String,
+    #[arg(long = "credentials")]
+    credential_file: Option<String>,
 
     #[arg(long = "helper-debug")]
     /// Run the helper browser as non-headless, and enable extra logging

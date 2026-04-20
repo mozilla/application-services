@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use clap::Parser;
 use cli_support::{
-    fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE},
+    fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE},
     remote_settings_service,
 };
 use env_logger::Builder;
@@ -17,8 +17,6 @@ use sync15::client::{sync_multiple, MemoryCachedState};
 use sync15::engine::SyncEngineId;
 
 use anyhow::{bail, Result};
-
-static CREDENTIALS_PATH: &str = ".cli-data/credentials.json";
 
 #[derive(Parser)]
 #[command(about, long_about = None)]
@@ -38,9 +36,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     nss::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper()?;
-    if let Some(dir) = std::path::PathBuf::from(CREDENTIALS_PATH).parent() {
-        std::fs::create_dir_all(dir)?;
-    }
+    cli_support::ensure_cli_data_dir_exists();
     let mut builder = Builder::new();
     builder.filter_level(log::LevelFilter::Info);
     if cli.verbose {
@@ -78,7 +74,9 @@ fn main() -> Result<()> {
 
 fn sync_places(places_api: &Arc<PlacesApi>) -> Result<()> {
     Arc::clone(places_api).register_with_sync_manager();
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), CREDENTIALS_PATH, &[SYNC_SCOPE])?;
+    let mut cli = CliFxa::new(get_default_fxa_config(), None)?;
+    cli.ensure_logged_in(&[SYNC_SCOPE])?;
+    let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
     let engine = places::get_registered_sync_engine(&SyncEngineId::History)
@@ -87,8 +85,8 @@ fn sync_places(places_api: &Arc<PlacesApi>) -> Result<()> {
         &[&*engine],
         &mut global_state,
         &mut mem_cached_state,
-        &cli_fxa.client_init.clone(),
-        &cli_fxa.as_key_bundle()?,
+        &sync.client_init,
+        &sync.key_bundle,
         &NeverInterrupts,
         None,
     );

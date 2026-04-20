@@ -12,7 +12,7 @@ use autofill::db::{
 use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
 use clap::{Parser, Subcommand};
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_string, prompt_usize};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
@@ -341,10 +341,12 @@ fn run_sync(
     wait: u64,
 ) -> Result<()> {
     // XXX - need to add interrupts
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
+    let mut cli = CliFxa::new(get_default_fxa_config(), Some(&cred_file))?;
+    cli.ensure_logged_in(&[SYNC_SCOPE])?;
+    let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
 
     if wipe_all {
-        Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
+        Sync15StorageClient::new(sync.client_init.clone())?.wipe_all_remote()?;
     }
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
@@ -375,8 +377,8 @@ fn run_sync(
             &engines_to_sync,
             &mut global_state,
             &mut mem_cached_state,
-            &cli_fxa.client_init.clone(),
-            &cli_fxa.as_key_bundle()?,
+            &sync.client_init,
+            &sync.key_bundle,
             &NeverInterrupts,
             None,
         );

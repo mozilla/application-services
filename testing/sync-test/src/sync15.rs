@@ -147,12 +147,17 @@ fn sync_client(c: &mut TestClient, desc: &str, engine: &dyn SyncEngine) {
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
+    let sync_info = c
+        .cli
+        .sync_info()
+        .unwrap()
+        .expect("CliFxa must have SYNC_SCOPE");
     let result = sync_multiple(
         &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,
-        &c.cli.client_init,
-        &c.cli.as_key_bundle().unwrap(),
+        &sync_info.client_init,
+        &sync_info.key_bundle,
         &NeverInterrupts,
         None,
     );

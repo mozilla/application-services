@@ -3,164 +3,267 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /// Utilities for command-line utilities which want to use fxa credentials.
-use std::{
-    collections::HashMap,
-    fs,
-    io::{Read, Write},
-};
+use std::{collections::HashMap, fs, io::Write};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use url::Url;
 
-// This crate awkardly uses some internal implementation details of the fxa-client crate,
-// because we haven't worked on exposing those test-only features via UniFFI.
-use fxa_client::{AccessTokenInfo, FirefoxAccount, FxaConfig, FxaError};
-use sync15::client::Sync15StorageClientInit;
-use sync15::KeyBundle;
+use fxa_client::{DeviceConfig, DeviceType, FirefoxAccount, FxaConfig, FxaEvent, FxaState};
+use sync15::{client::Sync15StorageClientInit, KeyBundle};
 
-use crate::prompt::prompt_string;
+use crate::{prompt::prompt_string, workspace_root_dir};
 
-// Defaults - not clear they are the best option, but they are a currently
-// working option.
+// Defaults for the release FxA server
 const CLIENT_ID: &str = "3c49430b43dfba77";
 const REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/3c49430b43dfba77";
+
+pub const CREDENTIALS_FILENAME: &str = ".fxa-cli-credentials.json";
+pub const PROFILE_SCOPE: &str = "profile";
 pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 pub const SESSION_SCOPE: &str = "https://identity.mozilla.com/tokens/session";
+pub const RELAY_SCOPE: &str = "https://identity.mozilla.com/apps/relay";
+pub const VPN_SCOPE: &str = "https://identity.mozilla.com/apps/vpn";
+pub const MONITOR_SCOPE: &str = "https://identity.mozilla.com/apps/monitor";
+pub const SUBSCRIPTIONS_SCOPE: &str = "https://identity.mozilla.com/account/subscriptions";
 
-fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
-    let mut file = fs::File::open(path)?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    Ok(FirefoxAccount::from_json(&s)?)
-}
+pub const WELL_KNOWN_SCOPES: [&str; 7] = [
+    PROFILE_SCOPE,
+    SYNC_SCOPE,
+    SESSION_SCOPE,
+    RELAY_SCOPE,
+    VPN_SCOPE,
+    MONITOR_SCOPE,
+    SUBSCRIPTIONS_SCOPE,
+];
 
-fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {
-    match load_fxa_creds(path) {
-        Ok(account) => {
-            if !account.matches_server(&cfg.server)? {
-                bail!("Stored credentials don't match configured server.\nDelete {path} to start over or specify a different server arg")
-            }
-            Ok(account)
-        }
-        Err(e) => {
-            log::info!(
-                "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
-                path,
-                e
-            );
-            create_fxa_creds(path, cfg, scopes)
-        }
-    }
-}
+const DEVICE_NAME: &str = "app-services example cli client";
+const OAUTH_ENTRYPOINT: &str = "fxa_creds";
 
-fn create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {
-    let acct = FirefoxAccount::new(cfg);
-    handle_oauth_flow(path, &acct, scopes)?;
-    Ok(acct)
-}
-
-fn handle_oauth_flow(path: &str, acct: &FirefoxAccount, scopes: &[&str]) -> Result<()> {
-    let oauth_uri = acct.begin_oauth_flow(scopes, "fxa_creds")?;
-
-    if open::that(&oauth_uri).is_err() {
-        log::warn!("Failed to open a web browser D:");
-        println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
-        println!("\n    {}\n", oauth_uri);
-    } else {
-        println!("Please paste the final URL below:\n");
-    }
-
-    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
-    let query_params = final_url
-        .query_pairs()
-        .into_owned()
-        .collect::<HashMap<String, String>>();
-
-    acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
-    // Device registration.
-    acct.initialize_device("CLI Device", sync15::DeviceType::Desktop, vec![])?;
-    let mut file = fs::File::create(path)?;
-    write!(file, "{}", acct.to_json()?)?;
-    file.flush()?;
-    Ok(())
-}
-
-// Our public functions. It would be awesome if we could somehow integrate
-// better with clap, so we could automagically support various args (such as
-// the config to use or filenames to read), but this will do for now.
 pub fn get_default_fxa_config() -> FxaConfig {
     FxaConfig::release(CLIENT_ID, REDIRECT_URI)
 }
 
-pub fn get_account_and_token(
-    config: FxaConfig,
-    cred_file: &str,
-    scopes: &[&str],
-) -> Result<(FirefoxAccount, AccessTokenInfo)> {
-    // TODO: we should probably set a persist callback on acct?
-    let acct = load_or_create_fxa_creds(cred_file, config.clone(), scopes)?;
-    // `scope` could be a param, but I can't see it changing.
-    match acct.get_access_token(SYNC_SCOPE, true) {
-        Ok(t) => Ok((acct, t)),
-        Err(e) => {
-            match e {
-                // We can retry an auth error.
-                FxaError::Authentication => {
-                    println!("Saw an auth error using stored credentials - attempting to re-authenticate");
-                    println!("If fails, consider deleting {cred_file} to start from scratch");
-                    handle_oauth_flow(cred_file, &acct, scopes)?;
-                    let token = acct.get_access_token(SYNC_SCOPE, true)?;
-                    Ok((acct, token))
-                }
-                _ => Err(e.into()),
-            }
-        }
-    }
-}
-
-pub fn get_cli_fxa(config: FxaConfig, cred_file: &str, scopes: &[&str]) -> Result<CliFxa> {
-    let (account, token_info) = match get_account_and_token(config, cred_file, scopes) {
-        Ok(v) => v,
-        Err(e) => anyhow::bail!("Failed to use saved credentials. {}", e),
-    };
-    let tokenserver_url = Url::parse(&account.get_token_server_endpoint_url()?)?;
-
-    let client_init = Sync15StorageClientInit {
-        key_id: token_info.key.as_ref().unwrap().kid.clone(),
-        access_token: token_info.token.clone(),
-        tokenserver_url: tokenserver_url.clone(),
-    };
-
-    Ok(CliFxa {
-        account,
-        client_init,
-        tokenserver_url,
-        token_info,
-    })
-}
-
-pub struct CliFxa {
-    pub account: FirefoxAccount,
+/// Everything a sync consumer needs, built on demand by [`CliFxa::sync_info`].
+pub struct CliSyncInfo {
     pub client_init: Sync15StorageClientInit,
+    pub key_bundle: KeyBundle,
+    pub auth_info: sync_manager::SyncAuthInfo,
     pub tokenserver_url: Url,
-    pub token_info: AccessTokenInfo,
+}
+
+/// Manages FxA credentials for CLI examples and tests.
+///
+/// Typical usage:
+/// ```no_run
+/// let mut cli = CliFxa::new(get_default_fxa_config(), None)?;
+/// cli.ensure_logged_in(&[SYNC_SCOPE])?;
+/// let sync = cli.sync_info()?.expect("logged in with SYNC_SCOPE");
+/// ```
+pub struct CliFxa {
+    config: FxaConfig,
+    cred_path: String,
+    account: Option<FirefoxAccount>,
 }
 
 impl CliFxa {
-    // A helper for consumers who use this with the sync manager.
-    pub fn as_auth_info(&self) -> sync_manager::SyncAuthInfo {
-        let scoped_key = self.token_info.key.as_ref().unwrap();
-        sync_manager::SyncAuthInfo {
-            kid: scoped_key.kid.clone(),
-            sync_key: scoped_key.k.clone(),
-            fxa_access_token: self.token_info.token.clone(),
-            tokenserver_url: self.tokenserver_url.to_string(),
-        }
+    /// Create a `CliFxa`, loading saved credentials if they exist.
+    ///
+    /// `cred_path` defaults to `CREDENTIALS_FILENAME` in the workspace root.
+    pub fn new(config: FxaConfig, cred_path: Option<&str>) -> Result<Self> {
+        let cred_path = cred_path.map(|s| s.to_owned()).unwrap_or_else(|| {
+            workspace_root_dir()
+                .join(CREDENTIALS_FILENAME)
+                .to_string_lossy()
+                .to_string()
+        });
+
+        let account = match load_account(&cred_path, &config) {
+            Ok(acct) => {
+                log::info!("Loaded saved FxA credentials from {cred_path}");
+                match acct.check_authorization_status() {
+                    Ok(info) if info.active => {
+                        log::info!("fxa stored credentials are active");
+                        Some(acct)
+                    }
+                    Ok(_) => {
+                        log::warn!("fxa stored credentials are no longer active; re-login will be required");
+                        None
+                    }
+                    Err(e) => {
+                        log::warn!("FxA: could not verify authorization status ({e}); will attempt to use stored credentials");
+                        Some(acct)
+                    }
+                }
+            }
+            Err(e) => {
+                log::info!("No saved FxA credentials at {cred_path} ({e}); login required");
+                None
+            }
+        };
+
+        Ok(Self {
+            config,
+            cred_path,
+            account,
+        })
     }
 
-    // A helper for consumers who use this directly with sync15
-    pub fn as_key_bundle(&self) -> Result<KeyBundle> {
-        let scoped_key = self.token_info.key.as_ref().unwrap();
-        Ok(KeyBundle::from_ksync_bytes(&scoped_key.key_bytes()?)?)
+    /// Ensure the user is logged in, running interactive OAuth if needed.
+    ///
+    /// Uses the state machine: `Initialize` → `BeginOAuthFlow` if needed → `CompleteOAuthFlow`.
+    /// Persists credentials after a successful login.
+    pub fn ensure_logged_in(&mut self, scopes: &[&str]) -> Result<&FirefoxAccount> {
+        if self.account.is_none() {
+            log::info!("Creating new FxA account object");
+            self.account = Some(FirefoxAccount::new(self.config.clone()));
+        }
+
+        let device_config = DeviceConfig {
+            name: DEVICE_NAME.to_owned(),
+            device_type: DeviceType::Desktop,
+            capabilities: vec![],
+        };
+
+        let state = self
+            .account
+            .as_mut()
+            .unwrap()
+            .process_event(FxaEvent::Initialize { device_config })?;
+
+        match state {
+            FxaState::Connected => {
+                log::info!("FxA: already connected");
+                self.persist()?;
+            }
+            FxaState::Disconnected | FxaState::AuthIssues => {
+                log::info!("FxA: need to authenticate (state was {state:?})");
+                self.handle_oauth_flow(scopes)?;
+            }
+            other => {
+                anyhow::bail!("Unexpected FxA state after Initialize: {other:?}");
+            }
+        }
+
+        Ok(self.account.as_ref().unwrap())
     }
+
+    /// Get the account reference if logged in.
+    pub fn account(&self) -> Option<&FirefoxAccount> {
+        self.account.as_ref()
+    }
+
+    /// Get everything needed to sync, built fresh from the current access token.
+    ///
+    /// Returns `Ok(None)` if the sync scope key is not available (e.g., not logged in with
+    /// `SYNC_SCOPE`). Returns `Err` for real errors.
+    pub fn sync_info(&self) -> Result<Option<CliSyncInfo>> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("not logged in; call ensure_logged_in first"))?;
+
+        let token = account.get_access_token(SYNC_SCOPE, false)?;
+        let key = match token.key {
+            Some(k) => k,
+            None => {
+                log::info!("No sync key in token — not logged in with SYNC_SCOPE");
+                return Ok(None);
+            }
+        };
+
+        let tokenserver_url = Url::parse(&account.get_token_server_endpoint_url()?)?;
+        let client_init = Sync15StorageClientInit {
+            key_id: key.kid.clone(),
+            access_token: token.token.clone(),
+            tokenserver_url: tokenserver_url.clone(),
+        };
+        let key_bundle = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
+        let auth_info = sync_manager::SyncAuthInfo {
+            kid: key.kid.clone(),
+            sync_key: key.k.clone(),
+            fxa_access_token: token.token.clone(),
+            tokenserver_url: tokenserver_url.to_string(),
+        };
+
+        Ok(Some(CliSyncInfo {
+            client_init,
+            key_bundle,
+            auth_info,
+            tokenserver_url,
+        }))
+    }
+
+    /// Persist account state to disk.
+    ///
+    /// Called automatically after login. Call this explicitly after any direct
+    /// account operation (e.g. `set_device_name`, `poll_device_commands`) that
+    /// may update local state.
+    pub fn persist(&self) -> Result<()> {
+        if let Some(account) = &self.account {
+            let json = account.to_json()?;
+            let mut file = fs::File::create(&self.cred_path)?;
+            write!(file, "{json}")?;
+            file.flush()?;
+            log::info!("Saved FxA credentials to {}", self.cred_path);
+        }
+        Ok(())
+    }
+
+    /// Run the interactive browser OAuth flow and complete the login.
+    fn handle_oauth_flow(&mut self, scopes: &[&str]) -> Result<()> {
+        let scopes: Vec<String> = scopes.iter().map(|s| s.to_string()).collect();
+
+        let state = self
+            .account
+            .as_mut()
+            .unwrap()
+            .process_event(FxaEvent::BeginOAuthFlow {
+                scopes,
+                entrypoint: OAUTH_ENTRYPOINT.to_owned(),
+            })?;
+
+        let oauth_url = match state {
+            FxaState::Authenticating { oauth_url } => oauth_url,
+            other => anyhow::bail!("Unexpected FxA state after BeginOAuthFlow: {other:?}"),
+        };
+
+        println!("Trying to open the auth URL — if your browser doesn't open, please open this URL manually:");
+        println!("    {oauth_url}\n");
+        match open::that(&oauth_url) {
+            Ok(()) => println!("Opened in your browser."),
+            Err(e) => log::warn!("Could not open a browser: {e}"),
+        }
+
+        let final_url = Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
+        let query_params: HashMap<String, String> = final_url.query_pairs().into_owned().collect();
+
+        let state = self
+            .account
+            .as_mut()
+            .unwrap()
+            .process_event(FxaEvent::CompleteOAuthFlow {
+                code: query_params["code"].clone(),
+                state: query_params["state"].clone(),
+            })?;
+
+        match state {
+            FxaState::Connected => {
+                log::info!("FxA: OAuth flow complete, now connected");
+                self.persist()
+            }
+            other => anyhow::bail!("Unexpected FxA state after CompleteOAuthFlow: {other:?}"),
+        }
+    }
+}
+
+fn load_account(path: &str, config: &FxaConfig) -> Result<FirefoxAccount> {
+    let s = fs::read_to_string(path)?;
+    let account = FirefoxAccount::from_json(&s)?;
+    if !account.matches_server(&config.server)? {
+        anyhow::bail!(
+            "Stored credentials don't match configured server.\n\
+             Delete {path} to start over or use a different server arg"
+        )
+    }
+    Ok(account)
 }
