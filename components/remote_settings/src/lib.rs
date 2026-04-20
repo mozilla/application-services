@@ -156,7 +156,7 @@ impl RemoteSettingsClient {
     pub fn get_last_modified_timestamp(&self) -> Option<u64> {
         match self.internal.get_last_modified_timestamp() {
             Ok(ts) => ts,
-            Err(_) => None
+            Err(_) => None,
         }
     }
 
