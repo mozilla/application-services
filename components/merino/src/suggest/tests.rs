@@ -57,8 +57,8 @@ impl http::HttpClientTrait for FakeHttpClientSuccess {
         _query: &str,
         _options: http::SuggestQueryParams<'_>,
         _endpoint_url: Url,
-    ) -> Result<Response> {
-        Ok(make_response(200, SAMPLE_RESPONSE))
+    ) -> Result<Option<Response>> {
+        Ok(Some(make_response(200, SAMPLE_RESPONSE)))
     }
 }
 
@@ -70,7 +70,7 @@ impl http::HttpClientTrait for FakeHttpClientValidationError {
         _query: &str,
         _options: http::SuggestQueryParams<'_>,
         _endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         Err(Error::Validation {
             code: 422,
             message: "Invalid input".to_string(),
@@ -86,7 +86,7 @@ impl http::HttpClientTrait for FakeHttpClientServerError {
         _query: &str,
         _options: http::SuggestQueryParams<'_>,
         _endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         Err(Error::Server {
             code: 500,
             message: "Internal server error".to_string(),
@@ -102,11 +102,24 @@ impl http::HttpClientTrait for FakeHttpClientBadRequestError {
         _query: &str,
         _options: http::SuggestQueryParams<'_>,
         _endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         Err(Error::BadRequest {
             code: 400,
             message: "Bad request".to_string(),
         })
+    }
+}
+
+struct FakeHttpClientNoContent;
+
+impl http::HttpClientTrait for FakeHttpClientNoContent {
+    fn make_suggest_request(
+        &self,
+        _query: &str,
+        _options: http::SuggestQueryParams<'_>,
+        _endpoint_url: Url,
+    ) -> Result<Option<Response>> {
+        Ok(None)
     }
 }
 
@@ -120,9 +133,9 @@ impl http::HttpClientTrait for FakeCapturingClient {
         _query: &str,
         _options: http::SuggestQueryParams<'_>,
         endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         *self.captured_url.lock().unwrap() = Some(endpoint_url);
-        Ok(make_response(200, "{}"))
+        Ok(Some(make_response(200, "{}")))
     }
 }
 
@@ -136,7 +149,7 @@ impl http::HttpClientTrait for FakeCapturingClientWithParams {
         query: &str,
         options: http::SuggestQueryParams<'_>,
         mut endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         {
             let mut params = endpoint_url.query_pairs_mut();
             params.append_pair("q", query);
@@ -148,7 +161,7 @@ impl http::HttpClientTrait for FakeCapturingClientWithParams {
             }
         }
         *self.captured_url.lock().unwrap() = Some(endpoint_url);
-        Ok(make_response(200, "{}"))
+        Ok(Some(make_response(200, "{}")))
     }
 }
 
@@ -162,7 +175,20 @@ fn test_get_suggestions_success() {
     );
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().text(), SAMPLE_RESPONSE);
+    assert_eq!(result.unwrap().unwrap().text(), SAMPLE_RESPONSE);
+}
+
+#[test]
+fn test_get_suggestions_no_content() {
+    let client_inner = SuggestClientInner::new_with_client(FakeHttpClientNoContent);
+    let result = client_inner.get_suggestions(
+        "apple",
+        default_options(),
+        &Url::parse("https://merino.services.mozilla.com/api/v1/suggest").unwrap(),
+    );
+
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_none());
 }
 
 #[test]
