@@ -27,7 +27,7 @@ pub trait HttpClientTrait {
         query: &str,
         options: SuggestQueryParams<'_>,
         endpoint_url: Url,
-    ) -> Result<Response>;
+    ) -> Result<Option<Response>>;
 }
 
 fn build_suggest_url(query: &str, options: &SuggestQueryParams<'_>, endpoint_url: Url) -> Url {
@@ -67,7 +67,7 @@ impl HttpClientTrait for HttpClient {
         query: &str,
         options: SuggestQueryParams<'_>,
         endpoint_url: Url,
-    ) -> Result<Response> {
+    ) -> Result<Option<Response>> {
         let url = build_suggest_url(query, &options, endpoint_url);
 
         let client = Client::with_ohttp_channel("merino", ClientSettings::default())?;
@@ -81,28 +81,24 @@ impl HttpClientTrait for HttpClient {
 
         let response = client.send_sync(request)?;
         let status = response.status;
-        let message = response.text().to_string();
         match status {
-            200 => Ok(response),
-            204 => Err(Error::NoContent {
-                code: status,
-                message,
-            }),
+            200 => Ok(Some(response)),
+            204 => Ok(None),
             400 => Err(Error::BadRequest {
                 code: status,
-                message,
+                message: response.text().to_string(),
             }),
             422 => Err(Error::Validation {
                 code: status,
-                message,
+                message: response.text().to_string(),
             }),
             500..=599 => Err(Error::Server {
                 code: status,
-                message,
+                message: response.text().to_string(),
             }),
             _ => Err(Error::Unexpected {
                 code: status,
-                message,
+                message: response.text().to_string(),
             }),
         }
     }

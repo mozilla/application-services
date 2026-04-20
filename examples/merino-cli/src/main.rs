@@ -146,9 +146,13 @@ fn main() -> Result<()> {
                 request_type,
                 accept_language,
             };
-            let response = client.get_suggestions(query, options)?;
-            let json: serde_json::Value = serde_json::from_str(&response)?;
-            println!("{}", serde_json::to_string_pretty(&json)?);
+            match client.get_suggestions(query, options)? {
+                Some(response) => {
+                    let json: serde_json::Value = serde_json::from_str(&response)?;
+                    println!("{}", serde_json::to_string_pretty(&json)?);
+                }
+                None => println!("No suggestions available (204 No Content)"),
+            }
         }
     }
 

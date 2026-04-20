@@ -77,14 +77,19 @@ impl SuggestClient {
 
     /// Fetches suggestions from the merino suggest endpoint for the given query.
     ///
-    /// Returns the raw JSON response body as a string.
+    /// Returns the raw JSON response body as a string, or `None` if the server
+    /// returned HTTP 204 (no suggestions available for weather).
     #[handle_error(Error)]
-    pub fn get_suggestions(&self, query: String, options: SuggestOptions) -> ApiResult<String> {
+    pub fn get_suggestions(
+        &self,
+        query: String,
+        options: SuggestOptions,
+    ) -> ApiResult<Option<String>> {
         let response = self
             .inner
             .get_suggestions(query.as_str(), options, &self.endpoint_url)?;
 
-        Ok(response.text().to_string())
+        Ok(response.map(|r| r.text().to_string()))
     }
 }
 
@@ -102,7 +107,7 @@ impl<T: http::HttpClientTrait> SuggestClientInner<T> {
         query: &str,
         options: SuggestOptions,
         endpoint_url: &Url,
-    ) -> Result<viaduct::Response> {
+    ) -> Result<Option<viaduct::Response>> {
         let providers = options
             .providers
             .filter(|v| !v.is_empty())

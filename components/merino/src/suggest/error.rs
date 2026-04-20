@@ -30,10 +30,6 @@ pub enum Error {
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
 
-    /// The server returned no content (HTTP 204), meaning no suggestions were available.
-    #[error("No content ({code}): {message}")]
-    NoContent { code: u16, message: String },
-
     /// The server rejected the request due to malformed syntax (HTTP 400).
     #[error("Bad request ({code}): {message}")]
     BadRequest { code: u16, message: String },
@@ -64,8 +60,7 @@ impl GetErrorHandling for Error {
             Self::Validation { code, .. }
             | Self::Server { code, .. }
             | Self::Unexpected { code, .. }
-            | Self::BadRequest { code, .. }
-            | Self::NoContent { code, .. } => {
+            | Self::BadRequest { code, .. } => {
                 ErrorHandling::convert(MerinoSuggestApiError::Other {
                     code: Some(*code),
                     reason: self.to_string(),
