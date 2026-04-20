@@ -1,4 +1,8 @@
-# v151.0 (In progress)
+# v152.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️
 - It is now enforced by `nimbus-fml` that feature variables using gecko-pref must be have `type: Option<T>`, for `T` in `Boolean`, `Int`, and `String`.
@@ -21,7 +25,7 @@
 ### Merino Client
 - `merino-cli` now supports subcommands: `recommendations` for curated recommendations and `suggest` for the suggest endpoint.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v150.0...v151.0)
 
 # v150.0 (_2026-03-23_)
 
