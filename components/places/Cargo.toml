@@ -34,6 +34,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 thiserror = "2"
 anyhow = "1.0"
 uniffi = { version = "0.31" }
+glean-sym = { git = "https://github.com/mozilla/glean", rev = "85d08d6bb2a32e13c31a336bf032197bf39bec99" }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
@@ -42,3 +43,4 @@ sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 uniffi = { version = "0.31", features=["build"]}
+glean-build = { git = "https://github.com/mozilla/glean", rev = "85d08d6bb2a32e13c31a336bf032197bf39bec99" }
