@@ -11,6 +11,7 @@ use std::{
 };
 
 use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
+pub use tracing_support::{debug, error, info, warn};
 
 pub mod fxa_creds;
 pub mod prompt;

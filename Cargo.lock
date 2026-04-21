@@ -645,7 +645,6 @@ dependencies = [
  "anyhow",
  "dialoguer",
  "fxa-client",
- "log",
  "open",
  "remote_settings",
  "sync15",

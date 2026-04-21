@@ -11,7 +11,6 @@ fxa-client = { path = "../../components/fxa-client" }
 remote_settings = { path = "../../components/remote_settings" }
 sync_manager = { path = "../../components/sync_manager" }
 tracing-support = { path = "../../components/support/tracing" }
-log = "0.4"
 sync15 = { path = "../../components/sync15", features=["sync-client"] }
 url = "2"
 open = "5"
