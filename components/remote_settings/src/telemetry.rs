@@ -41,7 +41,6 @@ impl fmt::Display for SyncStatus {
 }
 
 #[derive(Debug, PartialEq, uniffi::Record, Default)]
-#[allow(non_snake_case)]
 pub struct UptakeEventExtras {
     /// Main sync status.
     pub value: Option<String>,
@@ -56,7 +55,7 @@ pub struct UptakeEventExtras {
     /// Duration of the sync operation in milliseconds, if available.
     pub duration: Option<String>,
     /// The name of the error that occurred, if available.
-    pub errorName: Option<String>,
+    pub error_name: Option<String>,
 }
 
 /// Trait implemented by consumers to record Remote Settings metrics with Glean.
@@ -117,7 +116,7 @@ impl RemoteSettingsTelemetryWrapper {
             trigger: None,
             timestamp: None,
             duration: duration.map(|d| d.to_string()),
-            errorName: None,
+            error_name: None,
         });
     }
 
@@ -129,7 +128,7 @@ impl RemoteSettingsTelemetryWrapper {
             trigger: None,
             timestamp: None,
             duration: duration.map(|d| d.to_string()),
-            errorName: None,
+            error_name: None,
         });
     }
 
@@ -151,7 +150,7 @@ impl RemoteSettingsTelemetryWrapper {
             trigger: None,
             timestamp: None,
             duration: None,
-            errorName: Some(error_name),
+            error_name: Some(error_name),
         });
     }
 }

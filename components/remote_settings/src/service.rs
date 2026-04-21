@@ -272,7 +272,7 @@ mod test {
                 ..Default::default()
             },
         );
-        let telemetry = Arc::new(FakeTelemetry::new());
+        let telemetry: Arc<FakeTelemetry> = Arc::new(FakeTelemetry::new());
         service.set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry.clone()));
         (service, telemetry)
     }
@@ -328,8 +328,8 @@ mod test {
             Some("settings-changes-monitoring".to_string())
         );
         assert_eq!(events[0].value, Some("network_error".to_string()));
-        assert_eq!(events[0].errorName, Some("ResponseError".to_string()));
-        assert!(events[0].errorName.is_some());
+        assert_eq!(events[0].error_name, Some("ResponseError".to_string()));
+        assert!(events[0].error_name.is_some());
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod test {
         assert_eq!(events[0].value, Some("success".to_string()));
         assert_eq!(events[1].source, Some(format!("main/{collection}")));
         assert_eq!(events[1].value, Some("network_error".to_string()));
-        assert_eq!(events[1].errorName, Some("ResponseError".to_string()));
+        assert_eq!(events[1].error_name, Some("ResponseError".to_string()));
     }
 
     #[cfg(feature = "signatures")]
@@ -454,7 +454,7 @@ mod test {
         assert_eq!(events[1].source, Some(format!("main/{collection}")));
         assert_eq!(events[1].value, Some("signature_error".to_string()));
         assert_eq!(
-            events[1].errorName,
+            events[1].error_name,
             Some("IncompleteSignatureDataError".to_string())
         );
     }
