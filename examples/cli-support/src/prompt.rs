@@ -30,7 +30,7 @@ pub fn prompt_password<S: AsRef<str>>(prompt: S) -> Option<String> {
     match result {
         Ok(p) => Some(p),
         Err(e) => {
-            log::warn!("Error getting password: {e}");
+            crate::warn!("Error getting password: {e}");
             None
         }
     }

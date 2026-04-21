@@ -79,24 +79,24 @@ impl CliFxa {
 
         let account = match load_account(&cred_path, &config) {
             Ok(acct) => {
-                log::info!("Loaded saved FxA credentials from {cred_path}");
+                crate::info!("Loaded saved FxA credentials from {cred_path}");
                 match acct.check_authorization_status() {
                     Ok(info) if info.active => {
-                        log::info!("fxa stored credentials are active");
+                        crate::info!("fxa stored credentials are active");
                         Some(acct)
                     }
                     Ok(_) => {
-                        log::warn!("fxa stored credentials are no longer active; re-login will be required");
+                        crate::warn!("fxa stored credentials are no longer active; re-login will be required");
                         None
                     }
                     Err(e) => {
-                        log::warn!("FxA: could not verify authorization status ({e}); will attempt to use stored credentials");
+                        crate::warn!("FxA: could not verify authorization status ({e}); will attempt to use stored credentials");
                         Some(acct)
                     }
                 }
             }
             Err(e) => {
-                log::info!("No saved FxA credentials at {cred_path} ({e}); login required");
+                crate::info!("No saved FxA credentials at {cred_path} ({e}); login required");
                 None
             }
         };
@@ -114,7 +114,7 @@ impl CliFxa {
     /// Persists credentials after a successful login.
     pub fn ensure_logged_in(&mut self, scopes: &[&str]) -> Result<&FirefoxAccount> {
         if self.account.is_none() {
-            log::info!("Creating new FxA account object");
+            crate::info!("Creating new FxA account object");
             self.account = Some(FirefoxAccount::new(self.config.clone()));
         }
 
@@ -132,11 +132,11 @@ impl CliFxa {
 
         match state {
             FxaState::Connected => {
-                log::info!("FxA: already connected");
+                crate::info!("FxA: already connected");
                 self.persist()?;
             }
             FxaState::Disconnected | FxaState::AuthIssues => {
-                log::info!("FxA: need to authenticate (state was {state:?})");
+                crate::info!("FxA: need to authenticate (state was {state:?})");
                 self.handle_oauth_flow(scopes)?;
             }
             other => {
@@ -166,7 +166,7 @@ impl CliFxa {
         let key = match token.key {
             Some(k) => k,
             None => {
-                log::info!("No sync key in token — not logged in with SYNC_SCOPE");
+                crate::info!("No sync key in token — not logged in with SYNC_SCOPE");
                 return Ok(None);
             }
         };
@@ -204,7 +204,7 @@ impl CliFxa {
             let mut file = fs::File::create(&self.cred_path)?;
             write!(file, "{json}")?;
             file.flush()?;
-            log::info!("Saved FxA credentials to {}", self.cred_path);
+            crate::info!("Saved FxA credentials to {}", self.cred_path);
         }
         Ok(())
     }
@@ -231,7 +231,7 @@ impl CliFxa {
         println!("    {oauth_url}\n");
         match open::that(&oauth_url) {
             Ok(()) => println!("Opened in your browser."),
-            Err(e) => log::warn!("Could not open a browser: {e}"),
+            Err(e) => crate::warn!("Could not open a browser: {e}"),
         }
 
         let final_url = Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
@@ -248,7 +248,7 @@ impl CliFxa {
 
         match state {
             FxaState::Connected => {
-                log::info!("FxA: OAuth flow complete, now connected");
+                crate::info!("FxA: OAuth flow complete, now connected");
                 self.persist()
             }
             other => anyhow::bail!("Unexpected FxA state after CompleteOAuthFlow: {other:?}"),
