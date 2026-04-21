@@ -381,6 +381,10 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         return this.doInsert(InsertableBookmarkItem.Bookmark(bm))
     }
 
+    override fun insertBookmarkTree(folder: InsertableBookmarkFolder): Guid {
+        return this.doInsert(InsertableBookmarkItem.Folder(folder))
+    }
+
     override fun updateBookmark(guid: Guid, parentGuid: Guid?, position: UInt?, title: String?, url: Url?) {
         val p: UInt? = if (position == null) {
             null

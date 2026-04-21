@@ -23,6 +23,9 @@
 - Added a client for the merino suggest endpoint
 - Added a `suggest` subcommand to `merino-cli` for locally testing the suggest endpoint.
 
+### Places
+- Adds ability to insert a tree of bookmarks with `insertBookmarkTree`.
+
 ## ✨ What's Changed ✨
 
 ### Merino Client

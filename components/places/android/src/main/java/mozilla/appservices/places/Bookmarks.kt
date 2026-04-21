@@ -5,6 +5,7 @@
 package mozilla.appservices.places
 
 import mozilla.appservices.places.uniffi.BookmarkItem
+import mozilla.appservices.places.uniffi.InsertableBookmarkFolder
 
 /**
  * Enumeration of the ids of the roots of the bookmarks tree.
@@ -242,4 +243,20 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * folder node.
      */
     fun updateBookmark(guid: Guid, parentGuid: Guid?, position: UInt?, title: String?, url: Url?)
+
+    /**
+     * Insert an entire bookmark folder tree, returning the GUID of the root folder.
+     *
+     * This is intended for restoring from a parsed backup. The [folder] may contain
+     * arbitrarily nested children (bookmarks, separators, and sub-folders), and the
+     * entire tree is inserted in a single transaction.
+     *
+     * @param folder The folder tree to insert, including all descendants.
+     * @return The GUID of the newly inserted root folder.
+     *
+     * @throws CannotUpdateRoot If [folder]'s `parentGuid` is [BookmarkRoot.Root].
+     * @throws UnknownBookmarkItem If [folder]'s `parentGuid` does not refer to a known bookmark.
+     * @throws InvalidParent If [folder]'s `parentGuid` does not refer to a folder node.
+     */
+    fun insertBookmarkTree(folder: InsertableBookmarkFolder): Guid
 }
