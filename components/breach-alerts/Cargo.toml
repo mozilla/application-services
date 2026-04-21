@@ -1,0 +1,20 @@
+[package]
+name = "breach-alerts"
+edition = "2021"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+
+[dependencies]
+uniffi = { version = "0.31" }
+error-support = { path = "../support/error" }
+interrupt-support = { path = "../support/interrupt" }
+parking_lot = ">=0.11,<=0.12"
+rusqlite = { version = "0.37.0", features = ["functions", "bundled", "unlock_notify"] }
+sql-support = { path = "../support/sql" }
+thiserror = "2"
+url = { version = "2.1" }
+
+[dev-dependencies]
+error-support = { path = "../support/error", features = ["testing"] }
+tempfile = "3"

@@ -1,5 +1,8 @@
 # v152.0 (In progress)
 
+### Breach Alerts
+- New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
 [Full Changelog](In progress)
 
 # v151.0 (_2026-04-20_)
@@ -31,7 +34,10 @@
 ### Merino Client
 - `merino-cli` now supports subcommands: `recommendations` for curated recommendations and `suggest` for the suggest endpoint.
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v150.0...v151.0)
+### Breach Alerts
+- New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
+[Full Changelog](In progress)
 
 # v150.0 (_2026-03-23_)
 

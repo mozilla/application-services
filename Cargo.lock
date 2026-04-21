@@ -384,6 +384,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "breach-alerts"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "interrupt-support",
+ "parking_lot",
+ "rusqlite",
+ "sql-support",
+ "tempfile",
+ "thiserror 2.0.3",
+ "uniffi",
+ "url",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
