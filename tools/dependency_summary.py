@@ -718,6 +718,16 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
         },
     },
+    "glean-sym": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/glean/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
+        },
+    },
     "lmdb-rkv-sys": {
         "license_url": {
             "check": None,
