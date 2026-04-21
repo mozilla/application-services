@@ -13,7 +13,7 @@ use nimbus::metrics::{
 use nimbus::stateful::client::NimbusServerSettings;
 use nimbus::stateful::persistence::{Database, SingleStore};
 use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsService};
 use rkv::StoreOptions;
 use std::{path::Path, sync::Arc};
 
@@ -93,7 +93,7 @@ fn new_test_client_internal(
         ..Default::default()
     };
 
-    let config = RemoteSettingsConfig2 {
+    let config = RemoteSettingsConfig {
         server: Some(RemoteSettingsServer::Custom {
             url: url.as_str().to_string(),
         }),

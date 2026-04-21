@@ -5,6 +5,12 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Remote-Settings
+ * Removed legacy remote-settings client
+ * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
+
 # v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️

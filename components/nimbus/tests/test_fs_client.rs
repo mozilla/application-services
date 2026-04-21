@@ -15,7 +15,7 @@ use url::Url;
 use nimbus::error::Result;
 use nimbus::stateful::client::NimbusServerSettings;
 use nimbus::{NimbusClient, RemoteSettingsServer};
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsService};
 
 use crate::common::NoopMetricsHandler;
 
@@ -30,7 +30,7 @@ fn test_simple() -> Result<()> {
 
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
-    let config = RemoteSettingsConfig2 {
+    let config = RemoteSettingsConfig {
         server: Some(RemoteSettingsServer::Custom {
             url: url.as_str().to_string(),
         }),

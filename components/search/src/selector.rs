@@ -161,7 +161,7 @@ mod tests {
     use crate::test_helpers::{EngineRecord, ExpectedEngine, SubVariant, Variant};
     use crate::{test_helpers, types::*, SearchApiError};
     use mockito::mock;
-    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsServer};
+    use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer};
     use serde_json::json;
 
     #[test]
@@ -870,7 +870,7 @@ mod tests {
         error_support::init_for_tests();
         viaduct_dev::init_backend_dev();
 
-        let config = RemoteSettingsConfig2 {
+        let config = RemoteSettingsConfig {
             server: Some(RemoteSettingsServer::Custom {
                 url: mockito::server_url(),
             }),
