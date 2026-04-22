@@ -239,7 +239,7 @@ struct ChangesCollection {
 mod test {
     use super::*;
     use crate::telemetry::UptakeEventExtras;
-    use crate::{RemoteSettingsConfig2, RemoteSettingsServer};
+    use crate::{RemoteSettingsConfig, RemoteSettingsServer};
     use mockito::{mock, Matcher};
     use std::sync::Arc;
 
@@ -265,7 +265,7 @@ mod test {
     fn make_service(server_url: &str) -> (RemoteSettingsService, Arc<FakeTelemetry>) {
         let service = RemoteSettingsService::new(
             ":memory:".into(),
-            RemoteSettingsConfig2 {
+            RemoteSettingsConfig {
                 server: Some(RemoteSettingsServer::Custom {
                     url: server_url.into(),
                 }),
