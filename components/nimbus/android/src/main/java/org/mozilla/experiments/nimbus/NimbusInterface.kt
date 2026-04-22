@@ -196,7 +196,7 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     fun unenrollForGeckoPref(
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
-    ): List<EnrollmentChangeEvent> = listOf()
+    ) = Unit
 
     /**
      * Add a list of previous states with the original Gecko pref values on each involved enrollment.
