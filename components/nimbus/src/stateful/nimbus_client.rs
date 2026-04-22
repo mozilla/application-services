@@ -790,6 +790,7 @@ impl NimbusClient {
         pref_state: GeckoPrefState,
         pref_unenroll_reason: PrefUnenrollReason,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
+        let mut events = Vec::new();
         if let Some(prefs) = self.gecko_prefs.clone() {
             {
                 let mut pref_store_state = prefs.get_mutable_pref_state();
@@ -802,18 +803,17 @@ impl NimbusClient {
             let db = self.db()?;
             let mut writer = db.write()?;
 
-            let mut results = Vec::new();
             if let Some(enrollments) = enrollments {
                 for experiment_slug in enrollments {
-                    let result = unenroll_for_pref(
+                    unenroll_for_pref(
                         db,
                         &mut writer,
                         &experiment_slug,
                         pref_unenroll_reason,
                         &pref_state.gecko_pref.pref,
                         self.gecko_prefs.as_deref(),
+                        &mut events,
                     )?;
-                    results.push(result);
                 }
             } else {
                 warn!(
@@ -823,9 +823,8 @@ impl NimbusClient {
 
             let mut state = self.mutable_state.lock().unwrap();
             self.end_initialize(db, writer, &mut state)?;
-            return Ok(results.concat());
         }
-        Ok(Vec::new())
+        Ok(events)
     }
 
     pub fn register_previous_gecko_pref_states(
