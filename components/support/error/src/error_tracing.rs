@@ -9,6 +9,8 @@ use std::{
 
 use parking_lot::Mutex;
 
+use crate::breadcrumb;
+
 static GLOBALS: Mutex<Globals> = Mutex::new(Globals::new());
 
 pub fn report_error_to_app(type_name: String, details: String) {
@@ -161,7 +163,9 @@ impl RateLimiter {
                 // with NTP, if users manually adjust their clocks, etc.  Letting an extra event
                 // through seems okay in this case. We should get back into a good state soon
                 // after.
-                _ => (),
+                _ => {
+                    breadcrumb!("error_support: checked_duration_since failed");
+                }
             }
         }
         last_report.insert(component.to_string(), now);
