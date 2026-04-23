@@ -1,0 +1,61 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# This file defines the metrics that will be gathered for the Remote Settings
+# component.  Changes to these metrics require data review.
+#
+# We can't record metrics from Rust directly.  To work around that we:
+#   - Define the metrics in application-services
+#   - Define API calls in application-services that return the metrics
+#     alongside the normal results.
+#   - Record the metrics with Glean in the consumer code
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+
+remote_settings:
+  uptake_remotesettings:
+    type: event
+    disabled: true # To be controlled by server knobs due to expected high volume
+    description: >
+      Was the remote content successfully pulled? This uptake telemetry
+      allows to monitor the behaviour of our clients when it comes to
+      fetching data from remote servers.
+      See https://searchfox.org/firefox-main/rev/1427c8863/services/common/metrics.yaml
+    extra_keys:
+      value:
+        description: The synchronization status (success, up_to_date, sync_error, ...)
+        type: string
+      source:
+        description: >
+          A label to distinguish what is being pulled or updated in the component (eg. recipe id, settings collection name, ...).
+        type: string
+      duration:
+        description: The duration of the synchronization process in milliseconds.
+        type: string
+      errorName:
+        description: An optional string with the error name attribute in case of failure.
+        type: string
+      trigger:
+        description: >
+          A label to distinguish what triggered the polling/fetching of remote content (eg. "broadcast", "timer", "forced", "manual")
+        type: string
+      age:
+        description: >
+          The age of pulled data in seconds (ie. difference between publication time and fetch time).
+        type: string
+      timestamp:
+        description: >
+          The current timestamp, received during synchronization.
+        type: string
+    bugs: &uptake_remotecontent_result_uptake_bugs
+      - https://bugzil.la/1517469
+      - https://bugzil.la/1617133
+    data_reviews: *uptake_remotecontent_result_uptake_bugs
+    notification_emails: &uptake_remotecontent_result_uptake_emails
+      - mleplatre@mozilla.com
+      - acottner@mozilla.com
+    data_sensitivity:
+      - technical
+    expires: never

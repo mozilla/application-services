@@ -15,6 +15,7 @@ pub mod service;
 #[cfg(feature = "signatures")]
 pub(crate) mod signatures;
 pub mod storage;
+pub mod telemetry;
 
 pub(crate) mod jexl_filter;
 mod macros;
@@ -23,9 +24,11 @@ pub use client::{Attachment, RemoteSettingsRecord, RsJsonObject};
 pub use config::{BaseUrl, RemoteSettingsConfig, RemoteSettingsServer};
 pub use context::RemoteSettingsContext;
 pub use error::{trace, ApiResult, RemoteSettingsError, Result};
+pub use telemetry::{RemoteSettingsTelemetry, SyncStatus, UptakeEventExtras};
 
 use error::Error;
 use storage::Storage;
+use telemetry::RemoteSettingsTelemetryWrapper;
 
 uniffi::setup_scaffolding!("remote_settings");
 
@@ -56,6 +59,14 @@ impl RemoteSettingsService {
         Self {
             internal: service::RemoteSettingsService::new(storage_dir, config),
         }
+    }
+
+    /// Set the telemetry implementation used to record Glean metrics.
+    /// This should be set to a real implementation (eg. Kotlin, Swift).
+    /// If not set, all metric recording is a no-op.
+    pub fn set_telemetry(&self, telemetry: Arc<dyn RemoteSettingsTelemetry>) {
+        self.internal
+            .set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry));
     }
 
     /// Create a new Remote Settings client

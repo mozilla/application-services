@@ -11,6 +11,11 @@
  * Removed legacy remote-settings client
  * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
 
+## ✨ What's New ✨
+
+### Remote Settings
+* Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
+
 # v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️

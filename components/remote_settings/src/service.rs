@@ -15,8 +15,9 @@ use url::Url;
 use viaduct::Request;
 
 use crate::{
-    client::RemoteState, config::BaseUrl, error::Error, storage::Storage, RemoteSettingsClient,
-    RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer, Result,
+    client::RemoteState, config::BaseUrl, error::Error, storage::Storage,
+    telemetry::RemoteSettingsTelemetryWrapper, RemoteSettingsClient, RemoteSettingsConfig,
+    RemoteSettingsContext, RemoteSettingsServer, Result,
 };
 
 /// Internal Remote settings service API
@@ -30,6 +31,7 @@ struct RemoteSettingsServiceInner {
     bucket_name: String,
     app_context: Option<RemoteSettingsContext>,
     remote_state: RemoteState,
+    telemetry: RemoteSettingsTelemetryWrapper,
     /// Weakrefs for all clients that we've created.  Note: this stores the
     /// top-level/public `RemoteSettingsClient` structs rather than `client::RemoteSettingsClient`.
     /// The reason for this is that we return Arcs to the public struct to the foreign code, so we
@@ -57,9 +59,14 @@ impl RemoteSettingsService {
                 bucket_name,
                 app_context: config.app_context,
                 remote_state: RemoteState::default(),
+                telemetry: RemoteSettingsTelemetryWrapper::noop(),
                 clients: vec![],
             }),
         }
+    }
+
+    pub fn set_telemetry(&self, telemetry: RemoteSettingsTelemetryWrapper) {
+        self.inner.lock().telemetry = telemetry;
     }
 
     pub fn make_client(&self, collection_name: String) -> Arc<RemoteSettingsClient> {
@@ -99,18 +106,27 @@ impl RemoteSettingsService {
         for client in inner.active_clients() {
             let client = &client.internal;
             let collection_name = client.collection_name();
+            let cid = format!("{bucket_name}/{collection_name}");
             if let Some(client_last_modified) = client.get_last_modified_timestamp()? {
                 if let Some(server_last_modified) = change_map.get(&(collection_name, &bucket_name))
                 {
                     if client_last_modified == *server_last_modified {
                         trace!("skipping up-to-date collection: {collection_name}");
+                        inner.telemetry.report_uptake_up_to_date(&cid, None);
                         continue;
                     }
                 }
             }
             if synced_collections.insert(collection_name.to_string()) {
                 trace!("syncing collection: {collection_name}");
-                client.sync()?;
+                let start_time = std::time::Instant::now();
+                let sync_result = client.sync();
+                let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
+                match &sync_result {
+                    Ok(()) => inner.telemetry.report_uptake_success(&cid, Some(duration)),
+                    Err(e) => inner.telemetry.report_uptake_error(e, &cid),
+                }
+                sync_result?;
             }
         }
         Ok(synced_collections.into_iter().collect())
@@ -182,18 +198,24 @@ impl RemoteSettingsServiceInner {
         trace!("make_request: {url}");
         self.remote_state.ensure_no_backoff()?;
 
+        let start_time = std::time::Instant::now();
         let req = Request::get(url);
         let resp = req.send()?;
 
         self.remote_state.handle_backoff_hint(&resp)?;
 
+        const TELEMETRY_SOURCE_POLL: &str = "settings-changes-monitoring";
         if resp.is_success() {
-            Ok(resp.json()?)
+            let body = resp.json()?;
+            let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
+            self.telemetry
+                .report_uptake_success(TELEMETRY_SOURCE_POLL, Some(duration));
+            Ok(body)
         } else {
-            Err(Error::response_error(
-                &resp.url,
-                format!("status code: {}", resp.status),
-            ))
+            let e = Error::response_error(&resp.url, format!("status code: {}", resp.status));
+            self.telemetry
+                .report_uptake_error(&e, TELEMETRY_SOURCE_POLL);
+            Err(e)
         }
     }
 }
@@ -211,4 +233,229 @@ struct ChangesCollection {
     collection: String,
     bucket: String,
     last_modified: u64,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::telemetry::UptakeEventExtras;
+    use crate::{RemoteSettingsConfig, RemoteSettingsServer};
+    use mockito::{mock, Matcher};
+    use std::sync::Arc;
+
+    /// Telemetry implementation that records all events for later assertion.
+    struct FakeTelemetry {
+        events: std::sync::Mutex<Vec<UptakeEventExtras>>,
+    }
+
+    impl FakeTelemetry {
+        fn new() -> Self {
+            Self {
+                events: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl crate::telemetry::RemoteSettingsTelemetry for FakeTelemetry {
+        fn report_uptake(&self, extras: UptakeEventExtras) {
+            self.events.lock().unwrap().push(extras);
+        }
+    }
+
+    fn make_service(server_url: &str) -> (RemoteSettingsService, Arc<FakeTelemetry>) {
+        let service = RemoteSettingsService::new(
+            ":memory:".into(),
+            RemoteSettingsConfig {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: server_url.into(),
+                }),
+                ..Default::default()
+            },
+        );
+        let telemetry: Arc<FakeTelemetry> = Arc::new(FakeTelemetry::new());
+        service.set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry.clone()));
+        (service, telemetry)
+    }
+
+    fn mock_monitor_changes(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{"timestamp": {timestamp}, "changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
+            ))
+            .create()
+    }
+
+    fn mock_changeset(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{"changes": [], "timestamp": {timestamp}, "metadata": {{"bucket": "main", "signatures": []}}}}"#
+        ))
+        .create()
+    }
+
+    fn mock_changeset_error(bucket: &str, collection: &str) -> mockito::Mock {
+        mock(
+            "GET",
+            format!("/v1/buckets/{bucket}/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(500)
+        .with_body("server error")
+        .create()
+    }
+
+    #[test]
+    fn test_telemetry_network_error_on_changes_failure() {
+        viaduct_dev::init_backend_dev();
+        mock_changeset_error("monitor", "changes");
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("network_error".to_string()));
+        assert_eq!(events[0].error_name, Some("ResponseError".to_string()));
+        assert!(events[0].error_name.is_some());
+    }
+
+    #[test]
+    fn test_telemetry_on_changes_success() {
+        viaduct_dev::init_backend_dev();
+        let _changes = mock_monitor_changes("cid", 42);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert!(events[0].duration.is_some());
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_telemetry_on_collection_success() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("success".to_string()));
+        assert!(events[1].duration.is_some());
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_telemetry_on_collection_up_to_date() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+
+        // First sync: populates local storage with timestamp.
+        let _ = service.sync();
+        let events_before = telemetry.events.lock().unwrap().len();
+        // Second sync.
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len() - events_before, 2);
+        assert_eq!(
+            events[events_before].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(
+            events[events_before + 1].source,
+            Some(format!("main/{collection}"))
+        );
+        assert_eq!(
+            events[events_before + 1].value,
+            Some("up_to_date".to_string())
+        );
+    }
+
+    #[test]
+    fn test_telemetry_on_collection_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset_error("main", collection);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("network_error".to_string()));
+        assert_eq!(events[1].error_name, Some("ResponseError".to_string()));
+    }
+
+    #[cfg(feature = "signatures")]
+    #[test]
+    fn test_telemetry_on_collection_signature_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("signature_error".to_string()));
+        assert_eq!(
+            events[1].error_name,
+            Some("IncompleteSignatureDataError".to_string())
+        );
+    }
 }
