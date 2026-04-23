@@ -456,7 +456,9 @@ open class Nimbus(
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
     ): List<EnrollmentChangeEvent> {
-        return nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
+        val events = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
+        recordExperimentTelemetryEvents(events)
+        return events
     }
 
     override fun registerPreviousGeckoPrefStates(geckoPrefStates: List<GeckoPrefState>) {
