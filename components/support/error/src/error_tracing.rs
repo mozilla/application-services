@@ -11,7 +11,7 @@ use parking_lot::Mutex;
 
 static GLOBALS: Mutex<Globals> = Mutex::new(Globals::new());
 
-pub fn report_error_to_app(type_name: String, details: String) {
+pub fn report_error_to_app(type_name: String, message: String) {
     // First step: perform all actions that we need the lock for.
     let breadcrumbs = {
         let mut globals = GLOBALS.lock();
@@ -30,8 +30,8 @@ pub fn report_error_to_app(type_name: String, details: String) {
     // breadcrumbs will be sent in the `breadcrumbs` field as a single string, with each individual
     // breadcrumb joined by newlines.
     let breadcrumbs = breadcrumbs.join("\n");
-    let details = truncate_details(details);
-    tracing_support::error!(target: "app-services-error-reporter::error", details, type_name, breadcrumbs);
+    let message = truncate_message(message);
+    tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumbs);
 }
 
 pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32) {
@@ -103,7 +103,7 @@ impl BreadcrumbRingBuffer {
     }
 }
 
-fn truncate_details(details: String) -> String {
+fn truncate_message(details: String) -> String {
     // Limit details to 255 chars so that they fit in a Glean String list
     // (https://mozilla.github.io/glean/book/reference/metrics/string.html)
     truncate_string(details, 255)
