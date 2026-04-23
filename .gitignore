@@ -13,9 +13,6 @@ credentials.json # no longer written to - new name below - so kinda deprecated.
 .fxa-cli-credentials.json
 .venv
 
-# Test fixtures
-components/support/rc_crypto/nss/fixtures/profile/logins.db
-
 # Android stuff.
 *.iml
 .gradle
