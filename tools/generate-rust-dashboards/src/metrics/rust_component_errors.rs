@@ -85,7 +85,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
             },
             // Fixup the field names for better legend labels
             Transformation::RenameByRegex {
-                regex: "errors (.*)".into(),
+                regex: "error_count (.*)".into(),
                 rename_pattern: "$1".into(),
             },
         ],
