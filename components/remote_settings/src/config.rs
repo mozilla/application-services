@@ -31,8 +31,11 @@ pub struct RemoteSettingsConfig {
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum RemoteSettingsServer {
     Prod,
+    ProdV2,
     Stage,
+    StageV2,
     Dev,
+    DevV2,
     Custom { url: String },
 }
 
@@ -74,9 +77,17 @@ impl RemoteSettingsServer {
 
     fn raw_url(&self) -> &str {
         match self {
+            // v1 routes, current default
             Self::Prod => "https://firefox.settings.services.mozilla.com/v1",
             Self::Stage => "https://firefox.settings.services.allizom.org/v1",
             Self::Dev => "https://remote-settings-dev.allizom.org/v1",
+
+            // v2 routes, optional for now but will be default later
+            Self::ProdV2 => "https://firefox.settings.services.mozilla.com/v2",
+            Self::StageV2 => "https://firefox.settings.services.allizom.org/v2",
+            Self::DevV2 => "https://remote-settings-dev.allizom.org/v2",
+
+            // custom, not currently implemented in android or iOS
             Self::Custom { url } => url,
         }
     }
@@ -90,6 +101,9 @@ impl RemoteSettingsServer {
             Self::Prod => Url::parse("https://firefox.settings.services.mozilla.com/v1")?,
             Self::Stage => Url::parse("https://firefox.settings.services.allizom.org/v1")?,
             Self::Dev => Url::parse("https://remote-settings-dev.allizom.org/v1")?,
+            Self::ProdV2 => Url::parse("https://firefox.settings.services.mozilla.com/v2")?,
+            Self::StageV2 => Url::parse("https://firefox.settings.services.allizom.org/v2")?,
+            Self::DevV2 => Url::parse("https://remote-settings-dev.allizom.org/v2")?,
             Self::Custom { url } => {
                 let mut url = Url::parse(url)?;
                 // Custom URLs are weird and require a couple tricks for backwards compatibility.
