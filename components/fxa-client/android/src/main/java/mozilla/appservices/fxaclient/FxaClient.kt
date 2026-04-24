@@ -135,16 +135,36 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
-     * Sets user data from the web content.
-     * NOTE: this is only useful for applications that are user agents
-     *       and require the user's session token
-     * @param userData: The user data including session token, email and uid
+     * Stores anything necessary to login from a WebChannel login JSON payload. This includes the session
+     * token, but that is abstracted because the consuming apps should not be aware of the
+     * specific payload format returned, nor should they get access to the session token
+     * directly if possible.
+     *
+     * @param jsonPayload The `data` object from the `fxaccounts:login` WebChannel command.
      */
-    fun setUserData(
-        userData: UserData,
-    ) {
-        this.inner.setUserData(userData)
+    fun handleWebChannelLogin(jsonPayload: String) {
+        this.inner.handleWebChannelLogin(jsonPayload)
         tryPersistState()
+    }
+
+    /**
+     * Handle a WebChannel password-change notification by exchanging the new session token
+     * for a new refresh token via a network call.
+     *
+     * @param jsonPayload is the `data` object from the `fxaccounts:change_password` WebChannel command.
+     */
+    fun handleWebChannelPasswordChange(jsonPayload: String) {
+        this.inner.handleWebChannelPasswordChange(jsonPayload)
+        tryPersistState()
+    }
+
+    /**
+     * Returns a complete signedInUser JSON object for a WebChannel fxaccounts:fxa_status response.
+     *
+     * @return An opaque string which holds JSON data and can be directly supplied to the WebChannel.
+     */
+    fun getSignedInUserForWebChannel(): String? {
+        return this.inner.getSignedInUserForWebChannel()
     }
 
     /**
@@ -294,15 +314,6 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
 
     fun checkAuthorizationStatus(): AuthorizationInfo {
         return this.inner.checkAuthorizationStatus()
-    }
-
-    /**
-     * Tries to return a session token
-     *
-     * @throws FxaException Will send you an exception if there is no session token set
-     */
-    fun getSessionToken(): String {
-        return this.inner.getSessionToken()
     }
 
     /**

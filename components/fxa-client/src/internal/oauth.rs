@@ -11,7 +11,6 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-use crate::auth::UserData;
 use crate::{error, warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
@@ -124,12 +123,27 @@ impl FirefoxAccount {
         Ok(token_info)
     }
 
-    /// Sets the user data (session token, email, uid)
-    pub fn set_user_data(&mut self, user_data: UserData) {
-        // for now, we only have use for the session token
-        // if we'd like to implement a "Signed in but not verified" state
-        // we would also consume the other parts of the user data
-        self.state.set_session_token(user_data.session_token)
+    /// Extracts and stores the session token from a WebChannel login JSON payload.
+    /// The JSON payload is the `data` object from the `fxaccounts:login` WebChannel command.
+    pub fn handle_web_channel_login(&mut self, json_payload: &str) -> Result<()> {
+        let data: serde_json::Value = serde_json::from_str(json_payload)?;
+        let token = data
+            .get("sessionToken")
+            .and_then(|v| v.as_str())
+            .ok_or(Error::NoSessionToken)?;
+        self.state.set_session_token(token.to_string());
+        Ok(())
+    }
+
+    /// Extracts the session token from a WebChannel password change JSON payload and exchanges it
+    /// for a new refresh token via a network call.
+    pub fn handle_web_channel_password_change(&mut self, json_payload: &str) -> Result<()> {
+        let data: serde_json::Value = serde_json::from_str(json_payload)?;
+        let token = data
+            .get("sessionToken")
+            .and_then(|v| v.as_str())
+            .ok_or(Error::NoSessionToken)?;
+        self.handle_session_token_change(token)
     }
 
     /// Retrieve the current session token from state
@@ -138,6 +152,26 @@ impl FirefoxAccount {
             Some(session_token) => Ok(session_token.to_string()),
             None => Err(Error::NoSessionToken),
         }
+    }
+
+    /// Builds a complete `signedInUser` JSON object for a WebChannel `fxaccounts:fxa_status`
+    /// response. Returns `None` if no session token is stored.
+    /// `email` and `uid` are read from the cached profile; `verified` is always true because
+    /// the account state machine only completes authentication for verified accounts.
+    pub fn get_signed_in_user_for_web_channel(&self) -> Option<String> {
+        let token = self.state.session_token()?;
+        let profile = self.state.last_seen_profile();
+        let email = profile.map(|p| p.response.email.as_str());
+        let uid = profile.map(|p| p.response.uid.as_str());
+        Some(
+            serde_json::json!({
+                "sessionToken": token,
+                "email": email,
+                "uid": uid,
+                "verified": true,
+            })
+            .to_string(),
+        )
     }
 
     /// Check whether user is authorized using our refresh token.
@@ -1108,17 +1142,14 @@ mod tests {
     }
 
     #[test]
-    fn test_set_user_data_sets_session_token() {
+    fn test_handle_web_channel_login_sets_session_token() {
         nss::ensure_initialized();
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
-        let user_data = UserData {
-            session_token: String::from("mock_session_token"),
-            uid: String::from("mock_uid_unused"),
-            email: String::from("mock_email_usued"),
-            verified: true,
-        };
-        fxa.set_user_data(user_data);
+        fxa.handle_web_channel_login(
+            r#"{"sessionToken":"mock_session_token","uid":"mock_uid","email":"mock@example.com","verified":true}"#,
+        )
+        .unwrap();
         assert_eq!(fxa.get_session_token().unwrap(), "mock_session_token");
     }
 
@@ -1136,12 +1167,6 @@ mod tests {
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let state = url.query_pairs().find(|(name, _)| name == "state").unwrap();
-        let user_data = UserData {
-            session_token: String::from("mock_session_token"),
-            uid: String::from("mock_uid_unused"),
-            email: String::from("mock_email_usued"),
-            verified: true,
-        };
         let mut client = MockFxAClient::new();
 
         client
@@ -1166,8 +1191,7 @@ mod tests {
             .times(1)
             .returning(|_, _| Ok(()));
         fxa.set_client(Arc::new(client));
-
-        fxa.set_user_data(user_data);
+        fxa.set_session_token("mock_session_token");
 
         fxa.complete_oauth_flow("mock_code", state.1.as_ref())
             .unwrap();
