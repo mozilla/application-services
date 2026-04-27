@@ -15,6 +15,7 @@
 
 ### Remote Settings
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
+* Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
 
 # v151.0 (_2026-04-20_)
 
