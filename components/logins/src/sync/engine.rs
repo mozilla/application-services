@@ -293,8 +293,9 @@ impl LoginsSyncEngine {
     }
 
     fn get_last_sync(&self, db: &LoginDb) -> Result<Option<ServerTimestamp>> {
-        let millis = db.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?.unwrap();
-        Ok(Some(ServerTimestamp(millis)))
+        Ok(db
+            .get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
+            .map(ServerTimestamp))
     }
 
     fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
@@ -502,6 +503,17 @@ mod tests {
     fn run_fetch_outgoing(store: LoginStore) -> Vec<OutgoingBso> {
         let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine.fetch_outgoing().unwrap()
+    }
+
+    fn apply_incoming_payload(
+        engine: &LoginsSyncEngine,
+        server_timestamp: ServerTimestamp,
+        payload: serde_json::Value,
+    ) {
+        let bso = IncomingBso::from_test_content(payload);
+        let mut telem = sync15::telemetry::Engine::new(engine.collection_name());
+        engine.stage_incoming(vec![bso], &mut telem).unwrap();
+        engine.apply(server_timestamp, &mut telem).unwrap();
     }
 
     #[test]
@@ -959,15 +971,9 @@ mod tests {
     #[test]
     fn test_roundtrip_unknown() {
         ensure_initialized();
-        // A couple of helpers
-        fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
-            let bso = IncomingBso::from_test_content(payload);
-            let mut telem = sync15::telemetry::Engine::new(engine.collection_name());
-            engine.stage_incoming(vec![bso], &mut telem).unwrap();
-            engine
-                .apply(ServerTimestamp::from_millis(0), &mut telem)
-                .unwrap();
-        }
+        // The test itself...
+        let store = LoginStore::new_in_memory();
+        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         fn get_outgoing_payload(engine: &LoginsSyncEngine) -> serde_json::Value {
             // Edit it so it's considered outgoing.
@@ -989,12 +995,9 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&changeset[0].payload).unwrap()
         }
 
-        // The test itself...
-        let store = LoginStore::new_in_memory();
-        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-
         apply_incoming_payload(
             &engine,
+            ServerTimestamp::from_millis(0),
             serde_json::json!({
                 "id": "dummy_000001",
                 "formSubmitURL": "https://www.example.com/submit",
@@ -1019,6 +1022,7 @@ mod tests {
         // incoming with different unknown fields.
         apply_incoming_payload(
             &engine,
+            ServerTimestamp::from_millis(0),
             serde_json::json!({
                 "id": "dummy_000001",
                 "formSubmitURL": "https://www.example.com/submit",
@@ -1062,15 +1066,6 @@ mod tests {
 
     fn do_test_incoming_with_local_unmirrored_tombstone(local_newer: bool) {
         ensure_initialized();
-        fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
-            let bso = IncomingBso::from_test_content(payload);
-            let mut telem = sync15::telemetry::Engine::new(engine.collection_name());
-            engine.stage_incoming(vec![bso], &mut telem).unwrap();
-            engine
-                .apply(ServerTimestamp::from_millis(0), &mut telem)
-                .unwrap();
-        }
-
         // The test itself...
         let (local_timestamp, remote_timestamp) = if local_newer { (123, 0) } else { (0, 123) };
 
@@ -1080,6 +1075,7 @@ mod tests {
         // apply an incoming record - will be in the mirror.
         apply_incoming_payload(
             &engine,
+            ServerTimestamp::from_millis(0),
             serde_json::json!({
                 "id": "dummy_000001",
                 "formSubmitURL": "https://www.example.com/submit",
@@ -1116,6 +1112,7 @@ mod tests {
         // Now we assume we've been reconnected to sync and have an incoming change for the record.
         apply_incoming_payload(
             &engine,
+            ServerTimestamp::from_millis(0),
             serde_json::json!({
                 "id": "dummy_000001",
                 "formSubmitURL": "https://www.example.com/submit",
@@ -1153,5 +1150,144 @@ mod tests {
     #[test]
     fn test_incoming_non_mirror_tombstone_local_older() {
         do_test_incoming_with_local_unmirrored_tombstone(false);
+    }
+
+    #[test]
+    fn test_sync_after_wipe_local_login_data() {
+        ensure_initialized();
+
+        let store = Arc::new(LoginStore::new_in_memory());
+        let engine = LoginsSyncEngine::new(store.clone()).unwrap();
+
+        apply_incoming_payload(
+            &engine,
+            ServerTimestamp::from_millis(0),
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+            }),
+        );
+        // Wiping a local login means it's removed from the DB
+        store
+            .lock_db()
+            .unwrap()
+            .wipe_local_login_data("dummy_000001")
+            .unwrap();
+        assert!(store
+            .lock_db()
+            .unwrap()
+            .get_by_id("dummy_000001")
+            .unwrap()
+            .is_none());
+        // If we sync again with that login, the data should be restored
+        apply_incoming_payload(
+            &engine,
+            ServerTimestamp::from_millis(0),
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+            }),
+        );
+        // There should be no outgoing records, we do not want to send out a tombstone for the
+        // wiped login
+        assert_eq!(engine.fetch_outgoing().unwrap().len(), 0);
+        // The wiped login should be restored
+        assert!(store
+            .lock_db()
+            .unwrap()
+            .get_by_id("dummy_000001")
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn test_decryption_errors() {
+        ensure_initialized();
+
+        let store = Arc::new(LoginStore::new_in_memory());
+        let engine = LoginsSyncEngine::new(store.clone()).unwrap();
+        engine
+            .set_last_sync(&store.lock_db().unwrap(), ServerTimestamp::from_millis(0))
+            .unwrap();
+
+        // Simulate the initial sync where we get one login
+        apply_incoming_payload(
+            &engine,
+            ServerTimestamp::from_millis(100),
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+            }),
+        );
+        engine
+            .set_last_sync(&store.lock_db().unwrap(), ServerTimestamp::from_millis(100))
+            .unwrap();
+
+        // Simulate `secFields` being corrupted so that the login can't be decrypted
+        let db = store.lock_db().unwrap();
+        db.conn()
+            .execute(
+                "UPDATE loginsL SET secFields ='corrupted-data' WHERE guid = 'dummy_000001'",
+                (),
+            )
+            .unwrap();
+        db.conn()
+            .execute(
+                "UPDATE loginsM SET secFields ='corrupted-data' WHERE guid = 'dummy_000001'",
+                (),
+            )
+            .unwrap();
+        db.touch("dummy_000001").unwrap();
+        drop(db);
+
+        // On the next sync, we should notice that the login is undecryptable when
+        // preparing our outgoing payload.
+        assert!(matches!(
+            engine.fetch_outgoing(),
+            Err(Error::DecryptionFailed(_))
+        ));
+
+        // On the sync after that, we should request all the sync data again
+        assert_eq!(
+            engine
+                .get_collection_request(ServerTimestamp::from_millis(100))
+                .unwrap(),
+            Some(
+                CollectionRequest::new("passwords".into())
+                    .full()
+                    .newer_than(ServerTimestamp::from_millis(0)),
+            )
+        );
+        // And after applying the incoming payload, we should have the login back
+        apply_incoming_payload(
+            &engine,
+            ServerTimestamp::from_millis(100),
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+            }),
+        );
+        let db = store.lock_db().unwrap();
+        assert_eq!(
+            db.get_by_id("dummy_000001")
+                .unwrap()
+                .unwrap()
+                .decrypt(&db)
+                .unwrap()
+                .username,
+            "test"
+        );
     }
 }

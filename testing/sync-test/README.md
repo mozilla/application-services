@@ -1,3 +1,9 @@
+# WARNING
+
+These tests are currently failing and need to be fixed:
+https://bugzilla.mozilla.org/show_bug.cgi?id=2037859
+In the meantime, let's try to keep them compiling and passing clippy.
+
 # End-to-End Tests for Sync
 
 This package implements "end-to-end" integration tests for syncing various data types -
