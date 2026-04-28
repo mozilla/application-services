@@ -129,6 +129,19 @@ impl RemoteSettingsService {
                 sync_result?;
             }
         }
+
+        // Run SQLite maintenance after sync so SQLite can reclaim pages freed by
+        // attachment cleanup and enable/use incremental auto-vacuum.
+        for client in inner.active_clients() {
+            let client = &client.internal;
+            let collection_name = client.collection_name();
+
+            if synced_collections.contains(collection_name) {
+                trace!("running maintenance for collection: {collection_name}");
+                client.run_maintenance()?;
+            }
+        }
+
         Ok(synced_collections.into_iter().collect())
     }
 

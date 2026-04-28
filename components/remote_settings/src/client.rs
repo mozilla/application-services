@@ -399,6 +399,11 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         Ok(())
     }
 
+    pub fn run_maintenance(&self) -> Result<()> {
+        let mut inner = self.lock_inner()?;
+        inner.storage.run_maintenance()
+    }
+
     pub fn reset_storage(&self) -> Result<()> {
         trace!("{0}: reset local storage.", self.collection_name);
         let mut inner = self.lock_inner()?;
