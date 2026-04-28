@@ -293,12 +293,14 @@ impl LoginDb {
             "UPDATE loginsL
              SET timeLastUsed = :now_millis,
                  timesUsed = timesUsed + 1,
-                 local_modified = :now_millis
+                 local_modified = :now_millis,
+                 sync_status = :sync_status
              WHERE guid = :guid
                  AND is_deleted = 0",
             named_params! {
                 ":now_millis": now_ms,
                 ":guid": id,
+                ":sync_status": SyncStatus::Changed as u8,
             },
         )?;
         tx.commit()?;
@@ -1032,6 +1034,18 @@ impl LoginDb {
         Ok(row_count)
     }
 
+    /// Wipe local data for a single login
+    pub fn wipe_local_login_data(&self, guid: &str) -> Result<()> {
+        info!("Executing wipe_local on password engine!");
+        let tx = self.unchecked_transaction()?;
+        self.execute("DELETE FROM loginsL WHERE guid=?", [guid])?;
+        self.execute("DELETE FROM loginsM WHERE guid=?", [guid])?;
+        // Delete the LAST_SYNC_META_KEY so that we resync the logins data next time
+        self.delete_meta(schema::LAST_SYNC_META_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn shutdown(self) -> Result<()> {
         self.db.close().map_err(|(_, e)| Error::SqlError(e))
     }
@@ -1272,6 +1286,7 @@ mod tests {
     use crate::sync::merge::LocalLogin;
     use nss::ensure_initialized;
     use std::{thread, time};
+    use sync15::ServerTimestamp;
 
     #[test]
     fn test_username_dupe_semantics() {
@@ -1843,6 +1858,50 @@ mod tests {
         let sec_fields = login2.decrypt_fields(&db).unwrap();
         assert_eq!(sec_fields.username, "user2");
         assert_eq!(sec_fields.password, "password2");
+    }
+
+    #[test]
+    fn test_decryption_errors() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let entry = LoginEntry {
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
+        };
+        let mut enc_login = db.add(entry).unwrap();
+        // Also add a mirror entry to make sure that's also removed
+        test_utils::add_mirror(&db, &enc_login, &ServerTimestamp(0), false).unwrap();
+        // Mess with the `sec_fields` data so that the login is no longer decryptable
+        enc_login.sec_fields = "corrupted-data".into();
+        assert!(matches!(
+            enc_login.decrypt_fields(&db),
+            Err(Error::DecryptionFailed(_))
+        ));
+
+        // The login should have been wiped from the DB
+        assert_eq!(
+            db.conn()
+                .query_one(
+                    "SELECT COUNT(*) FROM loginsL WHERE guid=?",
+                    (&enc_login.meta.id,),
+                    |row| row.get::<_, usize>(0),
+                )
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            db.conn()
+                .query_one(
+                    "SELECT COUNT(*) FROM loginsM WHERE guid=?",
+                    (&enc_login.meta.id,),
+                    |row| row.get::<_, usize>(0),
+                )
+                .unwrap(),
+            0
+        );
     }
 
     #[test]

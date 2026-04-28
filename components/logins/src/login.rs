@@ -278,7 +278,7 @@
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!   fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
-use crate::{encryption::EncryptorDecryptor, error::*, LoginDb};
+use crate::{encryption::EncryptorDecryptor, error::*, warn, LoginDb};
 use rusqlite::Row;
 use serde_derive::*;
 use sync_guid::Guid;
@@ -674,7 +674,15 @@ impl EncryptedLogin {
     }
 
     pub fn decrypt_fields(&self, db: &LoginDb) -> Result<SecureLoginFields> {
-        SecureLoginFields::decrypt(&self.sec_fields, db.encdec.as_ref(), &self.meta.id)
+        SecureLoginFields::decrypt(&self.sec_fields, db.encdec.as_ref(), &self.meta.id).inspect_err(
+            |e| {
+                if matches!(e, Error::DecryptionFailed(_)) {
+                    if let Err(e) = db.wipe_local_login_data(&self.meta.id) {
+                        warn!("Failed to wipe login on decryption failure: {e}");
+                    }
+                }
+            },
+        )
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
