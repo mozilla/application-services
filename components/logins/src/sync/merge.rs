@@ -5,9 +5,9 @@
 // Merging for Sync.
 use super::{IncomingLogin, LoginPayload};
 use crate::encryption::EncryptorDecryptor;
-use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
+use crate::{error::*, LoginDb};
 use rusqlite::Row;
 use std::time::SystemTime;
 use sync15::bso::{IncomingBso, IncomingKind};
@@ -277,11 +277,7 @@ macro_rules! apply_metadata_field {
 }
 
 impl EncryptedLogin {
-    pub(crate) fn apply_delta(
-        &mut self,
-        mut delta: LoginDelta,
-        encdec: &dyn EncryptorDecryptor,
-    ) -> Result<()> {
+    pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta, db: &LoginDb) -> Result<()> {
         apply_field!(self, delta, origin);
 
         apply_metadata_field!(self, delta, time_created);
@@ -291,14 +287,14 @@ impl EncryptedLogin {
         apply_field!(self, delta, password_field);
         apply_field!(self, delta, username_field);
 
-        let mut sec_fields = self.decrypt_fields(encdec)?;
+        let mut sec_fields = self.decrypt_fields(db)?;
         if let Some(password) = delta.password.take() {
             sec_fields.password = password;
         }
         if let Some(username) = delta.username.take() {
             sec_fields.username = username;
         }
-        self.sec_fields = sec_fields.encrypt(encdec, &self.meta.id)?;
+        self.sec_fields = sec_fields.encrypt(db.encdec.as_ref(), &self.meta.id)?;
 
         // Use Some("") to indicate that it should be changed to be None (hacky...)
         if let Some(realm) = delta.http_realm.take() {
@@ -313,11 +309,7 @@ impl EncryptedLogin {
         Ok(())
     }
 
-    pub(crate) fn delta(
-        &self,
-        older: &EncryptedLogin,
-        encdec: &dyn EncryptorDecryptor,
-    ) -> Result<LoginDelta> {
+    pub(crate) fn delta(&self, older: &EncryptedLogin, db: &LoginDb) -> Result<LoginDelta> {
         let mut delta = LoginDelta::default();
 
         if self.fields.form_action_origin != older.fields.form_action_origin {
@@ -332,8 +324,8 @@ impl EncryptedLogin {
         if self.fields.origin != older.fields.origin {
             delta.origin = Some(self.fields.origin.clone());
         }
-        let older_sec_fields = older.decrypt_fields(encdec)?;
-        let self_sec_fields = self.decrypt_fields(encdec)?;
+        let older_sec_fields = older.decrypt_fields(db)?;
+        let self_sec_fields = self.decrypt_fields(db)?;
         if self_sec_fields.username != older_sec_fields.username {
             delta.username = Some(self_sec_fields.username.clone());
         }
