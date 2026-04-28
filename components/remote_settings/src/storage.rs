@@ -346,9 +346,6 @@ impl Storage {
     }
 
     pub fn run_maintenance(&mut self) -> Result<()> {
-        let tx = self.transaction()?;
-        tx.commit()?;
-
         if let ConnectionCell::Initialized(conn) = &self.conn {
             run_maintenance(conn)?;
         }

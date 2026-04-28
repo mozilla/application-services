@@ -104,7 +104,7 @@ impl RemoteSettingsService {
         let bucket_name = inner.bucket_name.clone();
 
         let active_clients = inner.active_clients();
-        for client in  &active_clients {
+        for client in &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
             let cid = format!("{bucket_name}/{collection_name}");
@@ -562,6 +562,7 @@ mod test {
             ))
             .create();
 
+        // Path matches `location: "attachments/big"` joined against the base URL above.
         let _attachment = mock("GET", "/attachments/big")
             .with_status(200)
             .with_body(attachment_data.clone())
@@ -591,6 +592,9 @@ mod test {
             "DB should contain the large attachment; size={size_with_attachment}"
         );
 
+        // Drop first-sync mocks explicitly so mockito doesn't re-match the second sync's
+        // changeset request against them. Mockito matches by registration order, so leftover
+        // mocks for the same URL would shadow the second-sync mocks.
         drop(_changes_1);
         drop(_changeset_1);
 
