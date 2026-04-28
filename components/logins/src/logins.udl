@@ -302,11 +302,16 @@ interface LoginStore {
     /// This is intended to be run during idle time and will take steps / to clean up / shrink the
     /// database.
     [Throws=LoginsApiError]
-    void run_maintenance();
+    void run_maintenance(optional RunMaintenanceOptions? options=null);
 
     [Self=ByArc]
     void register_with_sync_manager();
 
     [Self=ByArc]
     void shutdown();
+};
+
+dictionary RunMaintenanceOptions {
+    // Wipe un-decryptable logins.  These will hopefully come back on the next sync.
+    boolean delete_undecryptable_records_for_remote_replacement=true;
 };

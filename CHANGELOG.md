@@ -1,7 +1,12 @@
 # v152.0 (In progress)
 
+## ✨ What's New ✨
+
 ### Breach Alerts
-- New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+* New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
+### Logins
+* `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
 
 [Full Changelog](In progress)
 
