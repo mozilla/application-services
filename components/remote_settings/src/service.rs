@@ -253,9 +253,8 @@ struct ChangesCollection {
 mod test {
     use super::*;
     use crate::telemetry::UptakeEventExtras;
-    use crate::{RemoteSettingsConfig, RemoteSettingsRecord, RemoteSettingsServer};
+    use crate::{RemoteSettingsConfig, RemoteSettingsServer};
     use mockito::{mock, Matcher};
-    use sha2::Digest;
     use std::sync::Arc;
 
     /// Telemetry implementation that records all events for later assertion.
@@ -477,6 +476,8 @@ mod test {
     #[cfg(not(feature = "signatures"))]
     #[test]
     fn test_sync_maintenance_shrinks_db_after_attachment_cleanup() -> Result<()> {
+        use crate::RemoteSettingsRecord;
+        use sha2::Digest;
         viaduct_dev::init_backend_dev();
 
         let collection = "cid";
