@@ -96,7 +96,8 @@ impl RemoteSettingsService {
             .collect();
         let bucket_name = inner.bucket_name.clone();
 
-        for client in inner.active_clients() {
+        let active_clients = inner.active_clients();
+        for client in &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
             if let Some(client_last_modified) = client.get_last_modified_timestamp()? {
@@ -113,6 +114,19 @@ impl RemoteSettingsService {
                 client.sync()?;
             }
         }
+
+        // Run SQLite maintenance after sync so SQLite can reclaim pages freed by
+        // attachment cleanup and enable/use incremental auto-vacuum.
+        for client in &active_clients {
+            let client = &client.internal;
+            let collection_name = client.collection_name();
+
+            if synced_collections.contains(collection_name) {
+                trace!("running maintenance for collection: {collection_name}");
+                client.run_maintenance()?;
+            }
+        }
+
         Ok(synced_collections.into_iter().collect())
     }
 
@@ -212,3 +226,417 @@ struct ChangesCollection {
     bucket: String,
     last_modified: u64,
 }
+<<<<<<< HEAD
+=======
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::telemetry::UptakeEventExtras;
+    use crate::{RemoteSettingsConfig, RemoteSettingsServer};
+    use mockito::{mock, Matcher};
+    use std::sync::Arc;
+
+    /// Telemetry implementation that records all events for later assertion.
+    struct FakeTelemetry {
+        events: std::sync::Mutex<Vec<UptakeEventExtras>>,
+    }
+
+    impl FakeTelemetry {
+        fn new() -> Self {
+            Self {
+                events: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl crate::telemetry::RemoteSettingsTelemetry for FakeTelemetry {
+        fn report_uptake(&self, extras: UptakeEventExtras) {
+            self.events.lock().unwrap().push(extras);
+        }
+    }
+
+    fn make_service(server_url: &str) -> (RemoteSettingsService, Arc<FakeTelemetry>) {
+        let service = RemoteSettingsService::new(
+            ":memory:".into(),
+            RemoteSettingsConfig {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: server_url.into(),
+                }),
+                ..Default::default()
+            },
+        );
+        let telemetry: Arc<FakeTelemetry> = Arc::new(FakeTelemetry::new());
+        service.set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry.clone()));
+        (service, telemetry)
+    }
+
+    fn mock_monitor_changes(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{"timestamp": {timestamp}, "changes": [{{"collection": "{collection}", "bucket": "main", "last_modified": {timestamp}}}]}}"#
+            ))
+            .create()
+    }
+
+    fn mock_changeset(collection: &str, timestamp: u64) -> mockito::Mock {
+        mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{"changes": [], "timestamp": {timestamp}, "metadata": {{"bucket": "main", "signatures": []}}}}"#
+        ))
+        .create()
+    }
+
+    fn mock_changeset_error(bucket: &str, collection: &str) -> mockito::Mock {
+        mock(
+            "GET",
+            format!("/v1/buckets/{bucket}/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(500)
+        .with_body("server error")
+        .create()
+    }
+
+    #[test]
+    fn test_telemetry_network_error_on_changes_failure() {
+        viaduct_dev::init_backend_dev();
+        mock_changeset_error("monitor", "changes");
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("network_error".to_string()));
+        assert_eq!(events[0].error_name, Some("ResponseError".to_string()));
+        assert!(events[0].error_name.is_some());
+    }
+
+    #[test]
+    fn test_telemetry_on_changes_success() {
+        viaduct_dev::init_backend_dev();
+        let _changes = mock_monitor_changes("cid", 42);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert!(events[0].duration.is_some());
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_telemetry_on_collection_success() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("success".to_string()));
+        assert!(events[1].duration.is_some());
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_telemetry_on_collection_up_to_date() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+
+        // First sync: populates local storage with timestamp.
+        let _ = service.sync();
+        let events_before = telemetry.events.lock().unwrap().len();
+        // Second sync.
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len() - events_before, 2);
+        assert_eq!(
+            events[events_before].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(
+            events[events_before + 1].source,
+            Some(format!("main/{collection}"))
+        );
+        assert_eq!(
+            events[events_before + 1].value,
+            Some("up_to_date".to_string())
+        );
+    }
+
+    #[test]
+    fn test_telemetry_on_collection_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset_error("main", collection);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[0].value, Some("success".to_string()));
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("network_error".to_string()));
+        assert_eq!(events[1].error_name, Some("ResponseError".to_string()));
+    }
+
+    #[cfg(feature = "signatures")]
+    #[test]
+    fn test_telemetry_on_collection_signature_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock_changeset(collection, timestamp);
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].source,
+            Some("settings-changes-monitoring".to_string())
+        );
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("signature_error".to_string()));
+        assert_eq!(
+            events[1].error_name,
+            Some("IncompleteSignatureDataError".to_string())
+        );
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_sync_maintenance_shrinks_db_after_attachment_cleanup() -> Result<()> {
+        use crate::RemoteSettingsRecord;
+        use sha2::Digest;
+        viaduct_dev::init_backend_dev();
+
+        let collection = "cid";
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = temp_dir.path().join(format!("{collection}.sql"));
+
+        let attachment_data = vec![0x41; 5 * 1024 * 1024];
+        let attachment_hash = format!("{:x}", sha2::Sha256::digest(&attachment_data));
+
+        let attachment_record = format!(
+            r#"{{
+                "id": "record-with-attachment",
+                "last_modified": 100,
+                "attachment": {{
+                    "filename": "big.bin",
+                    "mimetype": "application/octet-stream",
+                    "location": "attachments/big.bin",
+                    "hash": "{attachment_hash}",
+                    "size": {}
+                }}
+            }}"#,
+            attachment_data.len()
+        );
+
+        // First sync creates a record that references the big attachment.
+        let _changes_1 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "timestamp": 100,
+                    "changes": [
+                        {{"collection": "{collection}", "bucket": "main", "last_modified": 100}}
+                    ]
+                }}"#
+            ))
+            .create();
+
+        let _changeset_1 = mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{
+                "changes": [{attachment_record}],
+                "timestamp": 100,
+                "metadata": {{"bucket": "main", "signatures": []}}
+            }}"#
+        ))
+        .create();
+
+        let service = RemoteSettingsService::new(
+            temp_dir.path().to_string_lossy().to_string(),
+            RemoteSettingsConfig {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: mockito::server_url(),
+                }),
+                ..Default::default()
+            },
+        );
+
+        let client = service.make_client(collection.into());
+
+        service.sync()?;
+
+        // Mock attachment discovery and download.
+        let _root = mock("GET", "/v1/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "capabilities": {{
+                        "attachments": {{
+                            "base_url": "{}/"
+                        }}
+                    }}
+                }}"#,
+                mockito::server_url()
+            ))
+            .create();
+
+        // Path matches `location: "attachments/big"` joined against the base URL above.
+        let _attachment = mock("GET", "/attachments/big")
+            .with_status(200)
+            .with_body(attachment_data.clone())
+            .create();
+
+        // Store the large attachment so the DB becomes bloated.
+        client.internal.get_attachment(&RemoteSettingsRecord {
+            id: "record-with-attachment".to_string(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(crate::Attachment {
+                filename: "big".to_string(),
+                mimetype: "application/octet-stream".to_string(),
+                location: "attachments/big".to_string(),
+                hash: attachment_hash.clone(),
+                size: attachment_data.len() as u64,
+            }),
+            fields: serde_json::Map::new(),
+        })?;
+
+        let size_with_attachment = std::fs::metadata(&db_path)
+            .expect("db exists after first sync")
+            .len();
+
+        assert!(
+            size_with_attachment > 4 * 1024 * 1024,
+            "DB should contain the large attachment; size={size_with_attachment}"
+        );
+
+        // Drop first-sync mocks explicitly so mockito doesn't re-match the second sync's
+        // changeset request against them. Mockito matches by registration order, so leftover
+        // mocks for the same URL would shadow the second-sync mocks.
+        drop(_changes_1);
+        drop(_changeset_1);
+
+        // Second sync tombstones the record. This deletes the attachment row, and
+        // post-sync maintenance should compact the database.
+        let _changes_2 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "timestamp": 200,
+                    "changes": [
+                        {{"collection": "{collection}", "bucket": "main", "last_modified": 200}}
+                    ]
+                }}"#
+            ))
+            .create();
+
+        let _changeset_2 = mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{
+                "changes": [
+                    {
+                        "id": "record-with-attachment",
+                        "last_modified": 200,
+                        "deleted": true
+                    }
+                ],
+                "timestamp": 200,
+                "metadata": {"bucket": "main", "signatures": []}
+            }"#,
+        )
+        .create();
+
+        service.sync()?;
+
+        let size_after_cleanup_and_maintenance = std::fs::metadata(&db_path)
+            .expect("db exists after second sync")
+            .len();
+
+        assert!(
+            size_after_cleanup_and_maintenance < size_with_attachment,
+            "maintenance should reclaim at least some space after deleting attachment; before={size_with_attachment}, after={size_after_cleanup_and_maintenance}"
+        );
+
+        // Sanity-check that maintenance enabled incremental auto-vacuum.
+        let conn = rusqlite::Connection::open(&db_path).expect("open collection db");
+        let auto_vacuum: u32 = conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .expect("query auto_vacuum");
+
+        assert_eq!(auto_vacuum, 2);
+
+        Ok(())
+    }
+}
+>>>>>>> 903526a2 ([RS] Run maintenance after each sync (#7342))
