@@ -103,7 +103,8 @@ impl RemoteSettingsService {
             .collect();
         let bucket_name = inner.bucket_name.clone();
 
-        for client in inner.active_clients() {
+        let active_clients = inner.active_clients();
+        for client in  &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
             let cid = format!("{bucket_name}/{collection_name}");
@@ -132,7 +133,7 @@ impl RemoteSettingsService {
 
         // Run SQLite maintenance after sync so SQLite can reclaim pages freed by
         // attachment cleanup and enable/use incremental auto-vacuum.
-        for client in inner.active_clients() {
+        for client in &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
 
