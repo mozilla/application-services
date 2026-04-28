@@ -379,24 +379,27 @@ fn test_delete_undecryptable_records_for_remote_replacement(
     )));
 
     log::info!("Add another login to client0");
+    // Store the login using the new/wrong encdec
+    //
+    // Note: this code has not actually been tested since the sync-tests were already failing when
+    // BDK made changes in #7373
+    let mut db = c0.logins_store.lock_db().expect("db lock retrieved");
+    let old_encdec = std::mem::replace(&mut db.encdec, new_encdec.clone());
 
-    let login1 = c0
-        .logins_store
-        .lock_db()
-        .expect("db lock retrieved")
-        .add(
-            LoginEntry {
-                origin: "http://www.example3.com".into(),
-                form_action_origin: Some("http://login.example3.com".into()),
-                username_field: "uname".into(),
-                password_field: "pword".into(),
-                username: "cool_username".into(),
-                password: "hunter2".into(),
-                ..Default::default()
-            },
-            &*new_encdec,
-        )
+    let login1 = db
+        .add(LoginEntry {
+            origin: "http://www.example3.com".into(),
+            form_action_origin: Some("http://login.example3.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
+        })
         .expect("add login1");
+    db.encdec = old_encdec;
+    drop(db);
+
     let l1id = login1.guid();
 
     // Check that the corrupted login exists on first device
