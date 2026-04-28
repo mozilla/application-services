@@ -11,7 +11,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
 use crate::SecureLoginFields;
-use crate::{EncryptedLogin, LoginEntry, LoginFields, LoginMeta};
+use crate::{EncryptedLogin, LoginDb, LoginEntry, LoginFields, LoginMeta};
 use serde_derive::*;
 use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
@@ -178,16 +178,12 @@ pub struct LoginPayload {
 
 // These probably should be on the payload itself, but one refactor at a time!
 impl EncryptedLogin {
-    pub fn into_bso(
-        self,
-        encdec: &dyn EncryptorDecryptor,
-        enc_unknown_fields: Option<String>,
-    ) -> Result<OutgoingBso> {
+    pub fn into_bso(self, db: &LoginDb, enc_unknown_fields: Option<String>) -> Result<OutgoingBso> {
         let unknown_fields = match enc_unknown_fields {
-            Some(s) => UnknownFields::decrypt(&s, encdec)?,
+            Some(s) => UnknownFields::decrypt(&s, db.encdec.as_ref())?,
             None => Default::default(),
         };
-        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec, &self.meta.id)?;
+        let sec_fields = self.decrypt_fields(db)?;
         Ok(OutgoingBso::from_content_with_id(
             crate::sync::LoginPayload {
                 guid: self.guid(),
@@ -263,7 +259,8 @@ mod tests {
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(login.fields.form_action_origin, None);
-        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
+        let db = LoginDb::open_in_memory();
+        let sec_fields = login.decrypt_fields(&db).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
     }
@@ -290,11 +287,13 @@ mod tests {
         assert_eq!(login.fields.form_action_origin, Some("".to_string()));
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
-        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
+        let db = LoginDb::open_in_memory();
+        let sec_fields = login.decrypt_fields(&db).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
 
-        let bso = login.into_bso(&*TEST_ENCDEC, None).unwrap();
+        let db = LoginDb::open_in_memory();
+        let bso = login.into_bso(&db, None).unwrap();
         assert_eq!(bso.envelope.id, "123412341234");
         let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
         assert_eq!(payload_data["httpRealm"], serde_json::Value::Null);
@@ -335,7 +334,8 @@ mod tests {
             .unwrap()
             .login;
         // The raw outgoing payload should have it back.
-        let outgoing = login.into_bso(&*TEST_ENCDEC, unknown).unwrap();
+        let db = LoginDb::open_in_memory();
+        let outgoing = login.into_bso(&db, unknown).unwrap();
         let json =
             serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&outgoing.payload)
                 .unwrap();
@@ -366,7 +366,8 @@ mod tests {
             Some("https://www.example.com".to_string())
         );
         assert_eq!(login.fields.username_field, "username-field");
-        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
+        let db = LoginDb::open_in_memory();
+        let sec_fields = login.decrypt_fields(&db).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
     }
@@ -388,7 +389,8 @@ mod tests {
                 password: "password".into(),
             }),
         };
-        let bso = login.into_bso(&*TEST_ENCDEC, None).unwrap();
+        let db = LoginDb::open_in_memory();
+        let bso = login.into_bso(&db, None).unwrap();
         assert_eq!(bso.envelope.id, "123412341234");
         let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
         assert_eq!(payload_data["httpRealm"], "test".to_string());
