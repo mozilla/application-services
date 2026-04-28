@@ -12,7 +12,7 @@ use serde_json;
 use sha2::{Digest, Sha256};
 use std::io;
 
-use sql_support::{open_database::open_database_with_flags, ConnExt};
+use sql_support::{open_database::open_database_with_flags, run_maintenance, ConnExt};
 
 /// Internal storage type
 ///
@@ -342,6 +342,14 @@ impl Storage {
              )",
             params![collection_url],
         )?;
+        Ok(())
+    }
+
+    pub fn run_maintenance(&mut self) -> Result<()> {
+        if let ConnectionCell::Initialized(conn) = &self.conn {
+            run_maintenance(conn)?;
+        }
+
         Ok(())
     }
 }

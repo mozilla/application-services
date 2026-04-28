@@ -103,7 +103,8 @@ impl RemoteSettingsService {
             .collect();
         let bucket_name = inner.bucket_name.clone();
 
-        for client in inner.active_clients() {
+        let active_clients = inner.active_clients();
+        for client in &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
             let cid = format!("{bucket_name}/{collection_name}");
@@ -129,6 +130,19 @@ impl RemoteSettingsService {
                 sync_result?;
             }
         }
+
+        // Run SQLite maintenance after sync so SQLite can reclaim pages freed by
+        // attachment cleanup and enable/use incremental auto-vacuum.
+        for client in &active_clients {
+            let client = &client.internal;
+            let collection_name = client.collection_name();
+
+            if synced_collections.contains(collection_name) {
+                trace!("running maintenance for collection: {collection_name}");
+                client.run_maintenance()?;
+            }
+        }
+
         Ok(synced_collections.into_iter().collect())
     }
 
@@ -457,5 +471,191 @@ mod test {
             events[1].error_name,
             Some("IncompleteSignatureDataError".to_string())
         );
+    }
+
+    #[cfg(not(feature = "signatures"))]
+    #[test]
+    fn test_sync_maintenance_shrinks_db_after_attachment_cleanup() -> Result<()> {
+        use crate::RemoteSettingsRecord;
+        use sha2::Digest;
+        viaduct_dev::init_backend_dev();
+
+        let collection = "cid";
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = temp_dir.path().join(format!("{collection}.sql"));
+
+        let attachment_data = vec![0x41; 5 * 1024 * 1024];
+        let attachment_hash = format!("{:x}", sha2::Sha256::digest(&attachment_data));
+
+        let attachment_record = format!(
+            r#"{{
+                "id": "record-with-attachment",
+                "last_modified": 100,
+                "attachment": {{
+                    "filename": "big.bin",
+                    "mimetype": "application/octet-stream",
+                    "location": "attachments/big.bin",
+                    "hash": "{attachment_hash}",
+                    "size": {}
+                }}
+            }}"#,
+            attachment_data.len()
+        );
+
+        // First sync creates a record that references the big attachment.
+        let _changes_1 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "timestamp": 100,
+                    "changes": [
+                        {{"collection": "{collection}", "bucket": "main", "last_modified": 100}}
+                    ]
+                }}"#
+            ))
+            .create();
+
+        let _changeset_1 = mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{
+                "changes": [{attachment_record}],
+                "timestamp": 100,
+                "metadata": {{"bucket": "main", "signatures": []}}
+            }}"#
+        ))
+        .create();
+
+        let service = RemoteSettingsService::new(
+            temp_dir.path().to_string_lossy().to_string(),
+            RemoteSettingsConfig {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: mockito::server_url(),
+                }),
+                ..Default::default()
+            },
+        );
+
+        let client = service.make_client(collection.into());
+
+        service.sync()?;
+
+        // Mock attachment discovery and download.
+        let _root = mock("GET", "/v1/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "capabilities": {{
+                        "attachments": {{
+                            "base_url": "{}/"
+                        }}
+                    }}
+                }}"#,
+                mockito::server_url()
+            ))
+            .create();
+
+        // Path matches `location: "attachments/big"` joined against the base URL above.
+        let _attachment = mock("GET", "/attachments/big")
+            .with_status(200)
+            .with_body(attachment_data.clone())
+            .create();
+
+        // Store the large attachment so the DB becomes bloated.
+        client.internal.get_attachment(&RemoteSettingsRecord {
+            id: "record-with-attachment".to_string(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(crate::Attachment {
+                filename: "big".to_string(),
+                mimetype: "application/octet-stream".to_string(),
+                location: "attachments/big".to_string(),
+                hash: attachment_hash.clone(),
+                size: attachment_data.len() as u64,
+            }),
+            fields: serde_json::Map::new(),
+        })?;
+
+        let size_with_attachment = std::fs::metadata(&db_path)
+            .expect("db exists after first sync")
+            .len();
+
+        assert!(
+            size_with_attachment > 4 * 1024 * 1024,
+            "DB should contain the large attachment; size={size_with_attachment}"
+        );
+
+        // Drop first-sync mocks explicitly so mockito doesn't re-match the second sync's
+        // changeset request against them. Mockito matches by registration order, so leftover
+        // mocks for the same URL would shadow the second-sync mocks.
+        drop(_changes_1);
+        drop(_changeset_1);
+
+        // Second sync tombstones the record. This deletes the attachment row, and
+        // post-sync maintenance should compact the database.
+        let _changes_2 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(format!(
+                r#"{{
+                    "timestamp": 200,
+                    "changes": [
+                        {{"collection": "{collection}", "bucket": "main", "last_modified": 200}}
+                    ]
+                }}"#
+            ))
+            .create();
+
+        let _changeset_2 = mock(
+            "GET",
+            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{
+                "changes": [
+                    {
+                        "id": "record-with-attachment",
+                        "last_modified": 200,
+                        "deleted": true
+                    }
+                ],
+                "timestamp": 200,
+                "metadata": {"bucket": "main", "signatures": []}
+            }"#,
+        )
+        .create();
+
+        service.sync()?;
+
+        let size_after_cleanup_and_maintenance = std::fs::metadata(&db_path)
+            .expect("db exists after second sync")
+            .len();
+
+        assert!(
+            size_after_cleanup_and_maintenance < size_with_attachment,
+            "maintenance should reclaim at least some space after deleting attachment; before={size_with_attachment}, after={size_after_cleanup_and_maintenance}"
+        );
+
+        // Sanity-check that maintenance enabled incremental auto-vacuum.
+        let conn = rusqlite::Connection::open(&db_path).expect("open collection db");
+        let auto_vacuum: u32 = conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .expect("query auto_vacuum");
+
+        assert_eq!(auto_vacuum, 2);
+
+        Ok(())
     }
 }
