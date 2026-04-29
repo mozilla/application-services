@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Performs a depth-first traversal over all possible chunk sequences in a slice, applies a filter-map function to each chunk in each sequence, and collects the filter-mapped sequences in a `Vec`."><title>filter_map_chunks in suggest::util - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="suggest" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">filter_map_chunks</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../suggest/index.html">suggest</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">filter_<wbr>map_<wbr>chunks</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In suggest::<wbr>util</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">suggest</a>::<wbr><a href="index.html">util</a></div><h1>Function <span class="fn">filter_<wbr>map_<wbr>chunks</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/suggest/util.rs.html#179-186">Source</a> </span></div><pre class="rust item-decl"><code>pub fn filter_map_chunks&lt;T: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>&gt;(
+    words: &amp;[&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>],
+    max_chunk_size: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>,
+    f: impl <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>, <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.slice.html">[T]</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T&gt;&gt;, <a class="enum" href="../enum.Error.html" title="enum suggest::Error">Error</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T&gt;&gt;, <a class="enum" href="../enum.Error.html" title="enum suggest::Error">Error</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Performs a depth-first traversal over all possible chunk sequences in a
+slice, applies a filter-map function to each chunk in each sequence, and
+collects the filter-mapped sequences in a <code>Vec</code>.</p>
+<p>“Chunks” are non-overlapping subslices of the parent slice as described in
+<a href="https://doc.rust-lang.org/1.91.0/std/primitive.slice.html#method.chunks" title="method slice::chunks"><code>slice::chunks()</code></a>.</p>
+<p>WARNING: This function potentially does an exponential amount of work! You
+should always be careful to prune the traversal space by returning <code>None</code>
+from your mappper function, as described further below, when a chunk does
+not match what you are searching for.</p>
+<p><code>max_chunk_size</code> controls the maximum chunk size (in number of words), which
+influences the branching factor at each step in the traversal.</p>
+<p>At each traversal step, the filter-map function is called like:
+<code>f(chunk, chunk_index, is_last_chunk, path)</code>.</p>
+<p><code>chunk</code> is the chunk at that step, <code>chunk_index</code> is its index in the parent
+<code>words</code> slice, and <code>is_last_chunk</code> is true if the chunk is at the end of
+<code>words</code>. The function can map the chunk to one or more values. Each value
+expands the branching factor at the current step by <code>max_chunk_size</code>. In
+other words, the branching factor at a given traversal step is
+<code>max_chunk_size</code> multiplied by the number of values returned by the
+filter-map function at that step. <code>path</code> is the path of mapped values that
+has been travsersed at that step: a sequence of mapped values corresponding
+to chunks in the parent <code>words</code> slice.</p>
+<p>The filter-map function can return <code>None</code> to halt traversal at the current
+step. Returning <code>None</code> sets the branching factor at that step to zero,
+pruning the subtree rooted at that step from the traversal space and
+discarding the path from the output. This is important for keeping traversal
+reasonably bounded.</p>
+<p>Traversal ends and the function returns when all paths have been visited.
+The returned <code>Vec</code> will contain all traversal paths that weren’t pruned.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Mapping chunks in <code>["a", "b", "c"]</code> to uppercase, up to a max chunk size of
+<code>3</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>paths = filter_map_chunks(<span class="kw-2">&amp;</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>], <span class="number">3</span>, |chunk, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| {
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[chunk.to_uppercase()]))
+});
+<span class="macro">assert_eq!</span>(paths.unwrap(), <span class="macro">vec!</span>[
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A B"</span>, <span class="string">"C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A B C"</span>]
+]);</code></pre></div>
+<p>Same as previous but using <code>chunk_index</code> in the filter-map function to prune
+paths that don’t start with <code>"a"</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>paths = filter_map_chunks(<span class="kw-2">&amp;</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>], <span class="number">3</span>, |chunk, chunk_index, <span class="kw">_</span>, <span class="kw">_</span>| {
+    <span class="kw">if </span>chunk_index &gt; <span class="number">0 </span>|| chunk == <span class="string">"a" </span>{
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[chunk.to_uppercase()]))
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+    }
+});
+<span class="macro">assert_eq!</span>(paths.unwrap(), <span class="macro">vec!</span>[
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B C"</span>],
+]);</code></pre></div>
+<p>Same as the first example but using <code>path</code> in the filter-map function to
+prune paths that include “A B”:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>paths = filter_map_chunks(<span class="kw-2">&amp;</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>], <span class="number">3</span>, |chunk, <span class="kw">_</span>, <span class="kw">_</span>, path| {
+    <span class="kw">if </span>path.iter().any(|value| value == <span class="string">"A B"</span>) {
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[chunk.to_uppercase()]))
+    }
+});
+<span class="macro">assert_eq!</span>(paths.unwrap(), <span class="macro">vec!</span>[
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B C"</span>],
+    <span class="macro">vec!</span>[<span class="string">"A B C"</span>],
+]);</code></pre></div>
+<p>Mapping each chunk to multiple values:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>paths = filter_map_chunks(<span class="kw-2">&amp;</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>], <span class="number">3</span>, |chunk, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| {
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"{chunk}0"</span>), <span class="macro">format!</span>(<span class="string">"{chunk}1"</span>)]))
+});
+<span class="macro">assert_eq!</span>(paths.unwrap(), <span class="macro">vec!</span>[
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b0"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b0"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b1"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b1"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a0"</span>, <span class="string">"b c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b0"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b0"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b1"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b1"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a1"</span>, <span class="string">"b c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b0"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b0"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b1"</span>, <span class="string">"c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b1"</span>, <span class="string">"c1"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b c0"</span>],
+    <span class="macro">vec!</span>[<span class="string">"a b c1"</span>]
+]);</code></pre></div></div></details></section></div></main></body></html>
