@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{
-    cli::{Cli, CliCommand, ExperimentArgs, ExperimentListArgs, ExperimentListSourceArgs},
-    config,
-    value_utils::{self, CliUtils},
-    USER_AGENT,
-};
-use anyhow::{bail, Result};
-use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-use super::{ExperimentListFilter, ExperimentSource};
+use anyhow::{bail, Result};
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
+use serde_json::Value;
+use tempfile::TempDir;
+
+use crate::cli::{Cli, CliCommand, ExperimentArgs, ExperimentListArgs, ExperimentListSourceArgs};
+use crate::sources::{ExperimentListFilter, ExperimentSource};
+use crate::value_utils::{self, CliUtils};
+use crate::{config, USER_AGENT};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ExperimentListSource {
@@ -219,36 +219,26 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use remote_settings::{
-                    RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService,
-                };
+                let tempdir = TempDir::new()?;
+
+                let rs_service = RemoteSettingsService::new(
+                    tempdir.path().to_string_lossy().to_string(),
+                    RemoteSettingsConfig {
+                        server: Some(RemoteSettingsServer::Custom {
+                            url: endpoint.clone(),
+                        }),
+                        ..Default::default()
+                    },
+                );
+
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
-                // taken from cli-support, since depending on it means it needs to link NSS
-                let cargo_output = std::process::Command::new(env!("CARGO"))
-                    .arg("locate-project")
-                    .arg("--workspace")
-                    .arg("--message-format=plain")
-                    .output()
-                    .unwrap()
-                    .stdout;
-                let cargo_toml_path = Path::new(std::str::from_utf8(&cargo_output).unwrap().trim());
-                let workspace_dir = cargo_toml_path.parent().unwrap().to_path_buf();
-                let rs_dir = workspace_dir.join("./cli-data/remote-settings");
-                let server = RemoteSettingsServer::Custom {
-                    url: endpoint.clone(),
-                };
-                let config = RemoteSettingsConfig {
-                    server: Some(server),
-                    ..Default::default()
-                };
-                let rs_service =
-                    RemoteSettingsService::new(rs_dir.to_string_lossy().to_string(), config);
 
                 let client = rs_service.make_client(collection_name);
+
                 let response = client.get_records(true);
                 serde_json::to_value(response)?
             }
