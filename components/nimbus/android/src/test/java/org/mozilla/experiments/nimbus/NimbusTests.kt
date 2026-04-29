@@ -934,7 +934,7 @@ class NimbusTests {
         assertEquals(1, handler.setValues?.size)
         assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
 
-        val events = nimbus.unenrollForGeckoPref(
+        val events = nimbus.unenrollForGeckoPrefOnThisThread(
             handler.internalMap["about_welcome"]?.get("number")!!,
             PrefUnenrollReason.FAILED_TO_SET,
         )
@@ -965,7 +965,7 @@ class NimbusTests {
         nimbus.registerPreviousGeckoPrefStates(handler.setValues!!)
         shadowOf(Looper.getMainLooper()).idle()
 
-        val previousStates = nimbus.getPreviousGeckoPrefStates("test-experiment")
+        val previousStates = nimbus.getPreviousGeckoPrefStatesOnThisThread("test-experiment")
         shadowOf(Looper.getMainLooper()).idle()
 
         assertNotNull(previousStates)

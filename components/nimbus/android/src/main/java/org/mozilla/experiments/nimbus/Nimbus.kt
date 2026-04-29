@@ -452,7 +452,21 @@ open class Nimbus(
         }
     }
 
+    @AnyThread
     override fun unenrollForGeckoPref(
+        geckoPrefState: GeckoPrefState,
+        prefUnenrollReason: PrefUnenrollReason,
+    ) {
+        dbScope.launch {
+            withCatchAll("unenrollForGeckoPref") {
+                unenrollForGeckoPrefOnThisThread(geckoPrefState, prefUnenrollReason)
+            }
+        }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun unenrollForGeckoPrefOnThisThread(
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
     ): List<EnrollmentChangeEvent> {
@@ -469,7 +483,9 @@ open class Nimbus(
         }
     }
 
-    override fun getPreviousGeckoPrefStates(experimentSlug: String): List<PreviousGeckoPrefState>? {
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getPreviousGeckoPrefStatesOnThisThread(experimentSlug: String): List<PreviousGeckoPrefState>? {
         return nimbusClient.getPreviousGeckoPrefStates(experimentSlug)
     }
 
