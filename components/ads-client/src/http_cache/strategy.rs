@@ -13,7 +13,8 @@ use viaduct::{Client, Request};
 pub struct CacheFirst {
     pub hash: RequestHash,
     pub request: Request,
-    pub ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
+    pub default_ttl: Duration,
 }
 
 impl CacheFirst {
@@ -28,7 +29,8 @@ impl CacheFirst {
         let network = NetworkFirst {
             hash: self.hash,
             request: self.request,
-            ttl: self.ttl,
+            explicit_ttl: self.explicit_ttl,
+            default_ttl: self.default_ttl,
         };
         let (response, mut network_outcomes) = network.apply(client, store)?;
         outcomes.append(&mut network_outcomes);
@@ -39,7 +41,8 @@ impl CacheFirst {
 pub struct NetworkFirst {
     pub hash: RequestHash,
     pub request: Request,
-    pub ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
+    pub default_ttl: Duration,
 }
 
 impl NetworkFirst {
@@ -47,7 +50,7 @@ impl NetworkFirst {
         let response = client.send_sync(self.request)?;
         let cache_control = CacheControl::from(&response);
         let outcome = if cache_control.should_cache() {
-            let ttl = cache_control.effective_ttl(self.ttl);
+            let ttl = cache_control.effective_ttl(self.explicit_ttl, self.default_ttl);
             if ttl.is_zero() {
                 return Ok((response, vec![CacheOutcome::NoCache]));
             }
