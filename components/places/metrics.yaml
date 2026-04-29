@@ -1,0 +1,49 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+
+places_manager:
+  run_maintenance_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `run_maintenance()`
+
+      Duplication of `run_maintenance_time` for glean-sys testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5115
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5122
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+    expires: "never"
+    data_sensitivity:
+      - technical
+    no_lint: [COMMON_PREFIX]
+
+  run_maintenance_prune_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `prune_older_visits()` inside `run_maintenance()`
+
+      Duplication of `run_maintenance_prune_time` for glean-sys testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+    expires: "never"
+    data_sensitivity:
+      - technical
+    no_lint: [COMMON_PREFIX]
