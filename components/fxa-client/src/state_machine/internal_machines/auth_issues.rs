@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{invalid_transition, Event, InternalStateMachine, State};
-use crate::{Error, FxaEvent, FxaState, Result};
+use crate::{Error, FxaEvent, FxaRustAuthState, FxaState, Result};
 use error_support::report_error;
 
 pub struct AuthIssuesStateMachine;
@@ -15,9 +15,15 @@ use State::*;
 impl InternalStateMachine for AuthIssuesStateMachine {
     fn initial_state(&self, event: FxaEvent) -> Result<State> {
         match event {
-            FxaEvent::BeginOAuthFlow { scopes, entrypoint } => Ok(BeginOAuthFlow {
+            FxaEvent::BeginOAuthFlow {
+                service,
+                scopes,
+                entrypoint,
+            } => Ok(BeginOAuthFlow {
+                service: service.clone(),
                 scopes: scopes.clone(),
                 entrypoint: entrypoint.clone(),
+                initial_state: FxaRustAuthState::AuthIssues,
             }),
             FxaEvent::Disconnect => Ok(Disconnect),
             e => Err(Error::InvalidStateTransition(format!("AuthIssues -> {e}"))),
@@ -34,7 +40,10 @@ impl InternalStateMachine for AuthIssuesStateMachine {
                 Complete(FxaState::Disconnected)
             }
             (BeginOAuthFlow { .. }, BeginOAuthFlowSuccess { oauth_url }) => {
-                Complete(FxaState::Authenticating { oauth_url })
+                Complete(FxaState::Authenticating {
+                    oauth_url,
+                    initial_state: FxaRustAuthState::AuthIssues,
+                })
             }
             (BeginOAuthFlow { .. }, CallError) => Cancel,
             (state, event) => return invalid_transition(state, event),
@@ -52,6 +61,7 @@ mod test {
         let tester = StateMachineTester::new(
             AuthIssuesStateMachine,
             FxaEvent::BeginOAuthFlow {
+                service: "service".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
             },
@@ -60,17 +70,20 @@ mod test {
         assert_eq!(
             tester.state,
             BeginOAuthFlow {
+                service: "service".to_owned(),
                 scopes: vec!["profile".to_owned()],
-                entrypoint: "test-entrypoint".to_owned()
+                entrypoint: "test-entrypoint".to_owned(),
+                initial_state: FxaRustAuthState::AuthIssues,
             }
         );
         assert_eq!(tester.peek_next_state(CallError), Cancel);
         assert_eq!(
             tester.peek_next_state(BeginOAuthFlowSuccess {
-                oauth_url: "http://example.com/oauth-start".to_owned()
+                oauth_url: "http://example.com/oauth-start".to_owned(),
             }),
             Complete(FxaState::Authenticating {
                 oauth_url: "http://example.com/oauth-start".to_owned(),
+                initial_state: FxaRustAuthState::AuthIssues,
             })
         );
     }

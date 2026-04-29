@@ -39,17 +39,24 @@ pub trait InternalStateMachine {
 pub enum State {
     GetAuthState,
     BeginOAuthFlow {
+        service: String,
         scopes: Vec<String>,
         entrypoint: String,
+        // The auth state of the account when beginning the flow.
+        initial_state: FxaRustAuthState,
     },
     BeginPairingFlow {
+        service: String,
         pairing_url: String,
         scopes: Vec<String>,
         entrypoint: String,
+        // The auth state of the account when beginning the flow.
+        initial_state: FxaRustAuthState,
     },
     CompleteOAuthFlow {
         code: String,
         state: String,
+        initial_state: FxaRustAuthState,
     },
     InitializeDevice,
     EnsureDeviceCapabilities,
@@ -124,23 +131,31 @@ impl State {
                 account.ensure_capabilities(&device_config.capabilities)?;
                 Event::EnsureDeviceCapabilitiesSuccess
             }
-            State::BeginOAuthFlow { scopes, entrypoint } => {
-                account.cancel_existing_oauth_flows();
-                let scopes: Vec<&str> = scopes.iter().map(String::as_str).collect();
-                let oauth_url = account.begin_oauth_flow(&scopes, entrypoint)?;
-                Event::BeginOAuthFlowSuccess { oauth_url }
-            }
-            State::BeginPairingFlow {
-                pairing_url,
+            State::BeginOAuthFlow {
+                service,
                 scopes,
                 entrypoint,
+                ..
             } => {
                 account.cancel_existing_oauth_flows();
                 let scopes: Vec<&str> = scopes.iter().map(String::as_str).collect();
-                let oauth_url = account.begin_pairing_flow(pairing_url, &scopes, entrypoint)?;
+                let oauth_url = account.begin_oauth_flow(service, &scopes, entrypoint)?;
+                Event::BeginOAuthFlowSuccess { oauth_url }
+            }
+            State::BeginPairingFlow {
+                service,
+                pairing_url,
+                scopes,
+                entrypoint,
+                ..
+            } => {
+                account.cancel_existing_oauth_flows();
+                let scopes: Vec<&str> = scopes.iter().map(String::as_str).collect();
+                let oauth_url =
+                    account.begin_pairing_flow(pairing_url, service, &scopes, entrypoint)?;
                 Event::BeginPairingFlowSuccess { oauth_url }
             }
-            State::CompleteOAuthFlow { code, state } => {
+            State::CompleteOAuthFlow { code, state, .. } => {
                 account.complete_oauth_flow(code, state)?;
                 Event::CompleteOAuthFlowSuccess
             }

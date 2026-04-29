@@ -195,12 +195,10 @@ interface FirefoxAccount {
   ///       - This parameter is used for metrics purposes, to identify the
   ///         UX entrypoint from which the user triggered the signin request.
   ///         For example, the application toolbar, on the onboarding flow.
-  ///   - `metrics` - optionally, additional metrics tracking parameters.
-  ///       - These will be included as query parameters in the resulting URL.
-  ///
+  ///   - `service` - The service being signed up for.
+  //        - The combination of service and entrypoint may impact the UI shown.  
   [Throws=FxaError]
-  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint);
-  
+  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint, [ByRef] optional string service = "");
 
   /// Get the URL at which to begin a device-pairing signin flow.
   ///
@@ -234,11 +232,10 @@ interface FirefoxAccount {
   ///       - This parameter is used for metrics purposes, to identify the
   ///         UX entrypoint from which the user triggered the signin request.
   ///         For example, the application toolbar, on the onboarding flow.
-  ///   - `metrics` - optionally, additional metrics tracking parameters.
-  ///       - These will be included as query parameters in the resulting URL.
-  ///
+  ///   - `service` - The service being signed up for.
+  //        - The combination of service and entrypoint may impact the UI shown.  
   [Throws=FxaError]
-  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint);
+  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint, [ByRef] optional string service = "");
   
 
   /// Complete an OAuth flow.
@@ -258,7 +255,6 @@ interface FirefoxAccount {
   [Throws=FxaError]
   void complete_oauth_flow([ByRef] string code, [ByRef] string state );
   
-
   /// Check authorization status for this application.
   ///
   /// **💾 This method alters the persisted account state.**
@@ -1003,7 +999,7 @@ dictionary Profile {
 interface FxaState {
   Uninitialized();
   Disconnected();
-  Authenticating(string oauth_url);
+  Authenticating(string oauth_url, FxaRustAuthState initial_state);
   Connected();
   AuthIssues();
 };
@@ -1011,8 +1007,8 @@ interface FxaState {
 [Enum]
 interface FxaEvent {
   Initialize(DeviceConfig device_config);
-  BeginOAuthFlow(sequence<string> scopes, string entrypoint);
-  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint);
+  BeginOAuthFlow(string service, sequence<string> scopes, string entrypoint);
+  BeginPairingFlow(string pairing_url, string service, sequence<string> scopes, string entrypoint);
   CompleteOAuthFlow(string code, string state);
   CancelOAuthFlow();
   CheckAuthorizationStatus();

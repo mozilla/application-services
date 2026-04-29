@@ -84,9 +84,12 @@ impl FirefoxAccount {
         // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
         scopes: &[T],
         entrypoint: &str,
+        service: &str,
     ) -> ApiResult<String> {
         let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
-        self.internal.lock().begin_oauth_flow(&scopes, entrypoint)
+        self.internal
+            .lock()
+            .begin_oauth_flow(service, &scopes, entrypoint)
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -129,12 +132,13 @@ impl FirefoxAccount {
         pairing_url: &str,
         scopes: &[String],
         entrypoint: &str,
+        service: &str,
     ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         self.internal
             .lock()
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint)
+            .begin_pairing_flow(pairing_url, service, &scopes, entrypoint)
     }
 
     /// Complete an OAuth flow.
@@ -220,7 +224,7 @@ pub struct AuthorizationInfo {
 ///
 /// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
 /// `FxaAuthState`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FxaRustAuthState {
     Disconnected,
     Connected,
@@ -236,13 +240,27 @@ pub enum FxaState {
     Uninitialized,
     /// User has not connected to FxA or has logged out
     Disconnected,
-    /// User is currently performing an OAuth flow
-    Authenticating { oauth_url: String },
+    /// User is currently performing an OAuth flow - our existing initial state
+    /// when we transition to this state will influence what this means exactly.
+    Authenticating {
+        oauth_url: String,
+        initial_state: FxaRustAuthState,
+    },
     /// User is currently connected to FxA
     Connected,
     /// User was connected to FxA, but we observed issues with the auth tokens.
     /// The user needs to reauthenticate before the account can be used.
     AuthIssues,
+}
+
+impl From<FxaRustAuthState> for FxaState {
+    fn from(value: FxaRustAuthState) -> Self {
+        match value {
+            FxaRustAuthState::Connected => FxaState::Connected,
+            FxaRustAuthState::Disconnected => FxaState::Disconnected,
+            FxaRustAuthState::AuthIssues => FxaState::AuthIssues,
+        }
+    }
 }
 
 /// Fxa event
@@ -261,6 +279,7 @@ pub enum FxaEvent {
     /// the state machine is in the `Authenticating` state, then this will forget the current OAuth
     /// flow and start a new one.
     BeginOAuthFlow {
+        service: String,
         scopes: Vec<String>,
         entrypoint: String,
     },
@@ -274,6 +293,7 @@ pub enum FxaEvent {
     /// flow and start a new one.
     BeginPairingFlow {
         pairing_url: String,
+        service: String,
         scopes: Vec<String>,
         entrypoint: String,
     },

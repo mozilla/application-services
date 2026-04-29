@@ -8,7 +8,9 @@ use std::{collections::HashMap, fs, io::Write};
 use anyhow::Result;
 use url::Url;
 
-use fxa_client::{DeviceConfig, DeviceType, FirefoxAccount, FxaConfig, FxaEvent, FxaState};
+use fxa_client::{
+    DeviceConfig, DeviceType, FirefoxAccount, FxaConfig, FxaError, FxaEvent, FxaState,
+};
 use sync15::{client::Sync15StorageClientInit, KeyBundle};
 
 use crate::{prompt::prompt_string, workspace_root_dir};
@@ -113,6 +115,7 @@ impl CliFxa {
     /// Uses the state machine: `Initialize` → `BeginOAuthFlow` if needed → `CompleteOAuthFlow`.
     /// Persists credentials after a successful login.
     pub fn ensure_logged_in(&mut self, scopes: &[&str]) -> Result<&FirefoxAccount> {
+        let service = ""; // TODO: expose this.
         if self.account.is_none() {
             crate::info!("Creating new FxA account object");
             self.account = Some(FirefoxAccount::new(self.config.clone()));
@@ -124,20 +127,36 @@ impl CliFxa {
             capabilities: vec![],
         };
 
-        let state = self
-            .account
-            .as_mut()
-            .unwrap()
-            .process_event(FxaEvent::Initialize { device_config })?;
+        let account = self.account.as_mut().unwrap();
+
+        let state = account.process_event(FxaEvent::Initialize { device_config })?;
 
         match state {
             FxaState::Connected => {
-                crate::info!("FxA: already connected");
+                crate::info!("FxA: already connected - checking if we have all the scopes.");
+                let mut have_all_scopes = true;
+                for scope in scopes {
+                    match account.get_access_token(scope, true) {
+                        Ok(_) => crate::debug!("Do already have the {scope:?} scope"),
+                        Err(FxaError::Forbidden) => {
+                            crate::info!("Don't have the {scope:?} scope, re-authenticating");
+                            have_all_scopes = false;
+                            break;
+                        }
+                        Err(e) => {
+                            crate::error!("Error checking for the {scope:?} scope: {e}");
+                            return Err(e.into());
+                        }
+                    }
+                }
+                if !have_all_scopes {
+                    self.handle_oauth_flow(service, scopes)?;
+                }
                 self.persist()?;
             }
             FxaState::Disconnected | FxaState::AuthIssues => {
                 crate::info!("FxA: need to authenticate (state was {state:?})");
-                self.handle_oauth_flow(scopes)?;
+                self.handle_oauth_flow(service, scopes)?;
             }
             other => {
                 anyhow::bail!("Unexpected FxA state after Initialize: {other:?}");
@@ -210,7 +229,7 @@ impl CliFxa {
     }
 
     /// Run the interactive browser OAuth flow and complete the login.
-    fn handle_oauth_flow(&mut self, scopes: &[&str]) -> Result<()> {
+    fn handle_oauth_flow(&mut self, service: &str, scopes: &[&str]) -> Result<()> {
         let scopes: Vec<String> = scopes.iter().map(|s| s.to_string()).collect();
 
         let state = self
@@ -218,12 +237,13 @@ impl CliFxa {
             .as_mut()
             .unwrap()
             .process_event(FxaEvent::BeginOAuthFlow {
+                service: service.to_owned(),
                 scopes,
                 entrypoint: OAUTH_ENTRYPOINT.to_owned(),
             })?;
 
         let oauth_url = match state {
-            FxaState::Authenticating { oauth_url } => oauth_url,
+            FxaState::Authenticating { oauth_url, .. } => oauth_url,
             other => anyhow::bail!("Unexpected FxA state after BeginOAuthFlow: {other:?}"),
         };
 
@@ -249,6 +269,10 @@ impl CliFxa {
         match state {
             FxaState::Connected => {
                 crate::info!("FxA: OAuth flow complete, now connected");
+                self.persist()
+            }
+            FxaState::Disconnected => {
+                crate::warn!("FxA: OAuth flow failed to complete, account is not connected");
                 self.persist()
             }
             other => anyhow::bail!("Unexpected FxA state after CompleteOAuthFlow: {other:?}"),

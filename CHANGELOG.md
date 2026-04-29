@@ -23,6 +23,7 @@
 - It is now enforced by `nimbus-fml` that feature variables using gecko-pref must be have `type: Option<T>`, for `T` in `Boolean`, `Int`, and `String`.
 - `nimbus-fml` commands now all have a `--lax-gecko-pref-validation` flag to bypass the above restriction, as well as the restriction that `gecko-pref` and `default` are mutually exclusive.
 - The `FmlLoaderConfig` now has a `lax_gecko_pref_validation` field to allow `FmlClient` consumers (i.e., Experimenter) to opt-in to lax validation.
+- The `fxa-client` crate's events for signing in now accept a "service" parameter. Specifying an empty string or "sync" are both suitable for now.
 
 ## ✨ What's New ✨
 

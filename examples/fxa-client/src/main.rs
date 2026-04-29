@@ -109,8 +109,8 @@ fn main() -> Result<()> {
                 Command::SendTab(args) => send_tab::run(account, args)?,
                 Command::GetAccessToken { scope } => {
                     println!("Requesting access token with scope: {scope}");
-                    account.get_access_token(&scope, false)?;
-                    println!("Success");
+                    let tok = account.get_access_token(&scope, false)?;
+                    println!("Success: {tok:?}");
                 }
                 Command::Disconnect => {
                     account.disconnect();
