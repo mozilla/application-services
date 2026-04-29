@@ -240,7 +240,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 let client = rs_service.make_client(collection_name);
 
                 let response = client.get_records(true);
-                serde_json::to_value(response)?
+                serde_json::json!({ "data": response} )
             }
             ExperimentListSource::FromFile { file } => {
                 let v: Value = value_utils::read_from_file(file)?;
