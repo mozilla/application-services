@@ -11,6 +11,7 @@ use merino::curated_recommendations::models::request::{
 };
 use merino::curated_recommendations::CuratedRecommendationsClient;
 use merino::suggest::{SuggestClient, SuggestConfig, SuggestOptions};
+use merino::worldcup::{WorldCupClient, WorldCupConfig, WorldCupOptions};
 use viaduct::{configure_ohttp_channel, OhttpConfig};
 
 #[derive(Debug, Parser)]
@@ -85,6 +86,29 @@ enum Commands {
         #[arg(long)]
         accept_language: Option<String>,
     },
+    /// Fetch World Cup data
+    WorldCup {
+        /// Maximum number of results to return
+        #[arg(long)]
+        limit: Option<u32>,
+
+        /// Filter by team codes (e.g. --teams FRA --teams ENG)
+        #[arg(long)]
+        teams: Option<Vec<String>>,
+
+        #[command(subcommand)]
+        endpoint: WorldCupEndpoint,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum WorldCupEndpoint {
+    /// Fetch teams
+    Teams,
+    /// Fetch matches
+    Matches,
+    /// Fetch live match data
+    Live,
 }
 
 fn main() -> Result<()> {
@@ -152,6 +176,28 @@ fn main() -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&json)?);
                 }
                 None => println!("No suggestions available (204 No Content)"),
+            }
+        }
+        Commands::WorldCup {
+            limit,
+            teams,
+            endpoint,
+        } => {
+            let client = WorldCupClient::new(WorldCupConfig {
+                base_host: cli.base_host,
+            })?;
+            let options = WorldCupOptions { limit, teams };
+            let result = match endpoint {
+                WorldCupEndpoint::Teams => client.get_teams(options),
+                WorldCupEndpoint::Matches => client.get_matches(options),
+                WorldCupEndpoint::Live => client.get_live(options),
+            };
+            match result? {
+                Some(response) => {
+                    let json: serde_json::Value = serde_json::from_str(&response)?;
+                    println!("{}", serde_json::to_string_pretty(&json)?);
+                }
+                None => println!("No data available (204 No Content)"),
             }
         }
     }
