@@ -11,6 +11,7 @@ mod outcome;
 mod request_hash;
 mod store;
 mod strategy;
+mod ttl;
 
 use self::{
     builder::HttpCacheBuilder,

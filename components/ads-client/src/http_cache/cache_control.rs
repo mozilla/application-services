@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use viaduct::{header_names, Response};
 
-use super::MAX_TTL;
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CacheControl {
     pub max_age: Option<u64>,
@@ -53,23 +51,8 @@ impl CacheControl {
         !self.no_store
     }
 
-    /// Resolve the TTL to use when storing a response in the cache.
-    ///
-    /// Priority (highest to lowest):
-    /// 1. `explicit_ttl` — caller-provided per-request override.
-    /// 2. Server `Cache-Control: max-age` from this response.
-    /// 3. `default_ttl` — the cache's configured default.
-    ///
-    /// The resulting TTL is capped at [`MAX_TTL`] for safety.
-    pub fn effective_ttl(
-        &self,
-        explicit_ttl: Option<Duration>,
-        default_ttl: Duration,
-    ) -> Duration {
-        let chosen = explicit_ttl
-            .or_else(|| self.max_age.map(Duration::from_secs))
-            .unwrap_or(default_ttl);
-        std::cmp::min(chosen, MAX_TTL)
+    pub fn max_age_duration(&self) -> Option<Duration> {
+        self.max_age.map(Duration::from_secs)
     }
 }
 
@@ -117,55 +100,5 @@ mod tests {
         assert!(!directives.no_cache);
         assert!(!directives.no_store);
         assert!(directives.should_cache());
-    }
-
-    #[test]
-    fn effective_ttl_explicit_overrides_max_age_and_default() {
-        let directives = from_header(Some("max-age=3600"));
-        let ttl = directives.effective_ttl(
-            Some(Duration::from_secs(60)),
-            Duration::from_secs(300),
-        );
-        assert_eq!(ttl, Duration::from_secs(60));
-    }
-
-    #[test]
-    fn effective_ttl_falls_back_to_max_age_when_no_explicit() {
-        let directives = from_header(Some("max-age=3600"));
-        let ttl = directives.effective_ttl(None, Duration::from_secs(300));
-        assert_eq!(ttl, Duration::from_secs(3600));
-    }
-
-    #[test]
-    fn effective_ttl_falls_back_to_default_when_no_max_age_and_no_explicit() {
-        let directives = from_header(None);
-        let ttl = directives.effective_ttl(None, Duration::from_secs(300));
-        assert_eq!(ttl, Duration::from_secs(300));
-    }
-
-    #[test]
-    fn effective_ttl_caps_max_age_at_max_ttl() {
-        // 30 days, well over MAX_TTL (7 days)
-        let directives = from_header(Some("max-age=2592000"));
-        let ttl = directives.effective_ttl(None, Duration::from_secs(300));
-        assert_eq!(ttl, MAX_TTL);
-    }
-
-    #[test]
-    fn effective_ttl_caps_explicit_at_max_ttl() {
-        let directives = from_header(None);
-        let ttl = directives.effective_ttl(
-            Some(Duration::from_secs(60 * 60 * 24 * 30)),
-            Duration::from_secs(300),
-        );
-        assert_eq!(ttl, MAX_TTL);
-    }
-
-    #[test]
-    fn effective_ttl_zero_max_age_yields_zero() {
-        // max-age=0 should propagate as zero so the strategy emits NoCache.
-        let directives = from_header(Some("max-age=0"));
-        let ttl = directives.effective_ttl(None, Duration::from_secs(300));
-        assert_eq!(ttl, Duration::ZERO);
     }
 }
