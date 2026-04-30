@@ -7,18 +7,16 @@ use crate::http_cache::HttpCache;
 use super::bytesize::ByteSize;
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
+use super::{DEFAULT_TTL, MAX_TTL, MIN_TTL};
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
 use std::time::Duration;
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
-const DEFAULT_TTL: Duration = Duration::from_secs(300);
 
 const MIN_CACHE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_CACHE_SIZE: ByteSize = ByteSize::mib(100);
-const MIN_TTL: Duration = Duration::from_secs(1);
-const MAX_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
 #[derive(Debug, thiserror::Error)]
 pub enum HttpCacheBuilderError {
