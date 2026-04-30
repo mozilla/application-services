@@ -20,4 +20,5 @@
 
 pub mod curated_recommendations;
 pub mod suggest;
+pub mod wcs;
 uniffi::setup_scaffolding!("merino");

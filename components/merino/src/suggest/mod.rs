@@ -16,6 +16,8 @@ pub use schema::{SuggestConfig, SuggestOptions};
 
 const DEFAULT_BASE_HOST: &str = "https://merino.services.mozilla.com";
 
+pub const WORLDCUP_PROVIDER: &str = "worldcup";
+
 /// A client for the merino suggest endpoint.
 ///
 /// Use [`SuggestClient::new`] to create an instance, then call
