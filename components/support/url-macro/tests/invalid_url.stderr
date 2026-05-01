@@ -1,0 +1,5 @@
+error: relative URL without a base
+ --> invalid_url.rs:8:18
+  |
+8 |     let _ = url!("not a url");
+  |                  ^^^^^^^^^^^

@@ -35,6 +35,7 @@ dependencies = [
  "thiserror 2.0.3",
  "uniffi",
  "url",
+ "url-macro",
  "uuid",
  "viaduct",
  "viaduct-dev",
@@ -5099,6 +5100,25 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+]
+
+[[package]]
+name = "url-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+ "url",
+]
+
+[[package]]
+name = "url-macro-tests"
+version = "0.1.0"
+dependencies = [
+ "trybuild",
+ "url",
+ "url-macro",
 ]
 
 [[package]]

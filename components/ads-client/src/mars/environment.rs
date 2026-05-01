@@ -5,12 +5,11 @@
 
 use once_cell::sync::Lazy;
 use url::Url;
+use url_macro::url;
 
-static MARS_API_ENDPOINT_PROD: Lazy<Url> =
-    Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
+static MARS_API_ENDPOINT_PROD: Lazy<Url> = Lazy::new(|| url!("https://ads.mozilla.org/v1/"));
 
-static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
-    Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
+static MARS_API_ENDPOINT_STAGING: Lazy<Url> = Lazy::new(|| url!("https://ads.allizom.org/v1/"));
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Environment {
