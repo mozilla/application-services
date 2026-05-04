@@ -214,7 +214,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
 
         let body = r#"{"ok":true}"#;
-        let _m = mock("POST", "/ads")
+        let m = mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body)
@@ -237,24 +237,19 @@ mod tests {
             .unwrap();
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
         assert_eq!(response.status, 200);
+        m.assert();
     }
 
     #[test]
     fn test_refresh_policy_always_uses_network_then_caches() {
         viaduct_dev::init_backend_dev();
 
-        let body1 = r#"{"ok":true,"n":1}"#;
-        let body2 = r#"{"ok":true,"n":2}"#;
-        // Two live responses expected on refresh
-        let _m1 = mock("POST", "/ads")
+        let body = r#"{"ok":true}"#;
+        let m = mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(body1)
-            .create();
-        let _m2 = mock("POST", "/ads")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(body2)
+            .with_body(body)
+            .expect(2)
             .create();
 
         let cache = make_cache();
@@ -271,24 +266,25 @@ mod tests {
             .unwrap();
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
-        // Second refresh: live again (different body), still MissStored
+        // Second refresh: live again, still MissStored
         let (response, outcomes) = cache
             .send_with_policy(&client, req, &CachePolicy::NetworkFirst { ttl: None })
             .unwrap();
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
         assert_eq!(response.status, 200);
+        m.assert();
     }
 
     #[test]
     fn test_not_cacheable_no_store() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mock("POST", "/ads")
+        let m = mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("cache-control", "no-store") // should block caching
             .with_body(r#"{"ok":true}"#)
-            .expect(1)
+            .expect(2) // both calls should hit the network since the response isn't cacheable
             .create();
 
         let cache = make_cache();
@@ -304,27 +300,21 @@ mod tests {
         ));
 
         // Next call should hit network again (since we didn't cache)
-        let _m2 = mock("POST", "/ads")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"ok":true}"#)
-            .expect(1)
-            .create();
         let (_, outcomes) = cache
             .send_with_policy(&client, req, &CachePolicy::default())
             .unwrap();
-        // Either MissStored (if headers differ) or MissNotCacheable if still no-store
         assert!(matches!(
             outcomes.last().unwrap(),
-            CacheOutcome::MissStored | CacheOutcome::MissNotCacheable
+            CacheOutcome::MissNotCacheable
         ));
+        m.assert();
     }
 
     #[test]
     fn ttl_resolution_min_of_server_request_default() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("cache-control", "max-age=1") // Set max age to 1 second
@@ -349,13 +339,14 @@ mod tests {
         cache.store.delete_expired_entries().unwrap();
 
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
     }
 
     #[test]
     fn ttl_resolution_request_overrides_default_when_smaller() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"ok":true}"#)
@@ -383,13 +374,14 @@ mod tests {
         cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
     }
 
     #[test]
     fn ttl_resolution_uses_default_when_no_server_and_no_request_override() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             // No response policy ttl
             .with_header("content-type", "application/json")
@@ -416,21 +408,18 @@ mod tests {
         cache.store.get_clock().advance(3);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
     }
 
     #[test]
     fn test_expired_entry_is_a_miss_on_next_send() {
         viaduct_dev::init_backend_dev();
 
-        let _m1 = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"{"ok":true,"n":1}"#)
-            .create();
-        let _m2 = mockito::mock("POST", "/ads")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"ok":true,"n":2}"#)
+            .with_body(r#"{"ok":true}"#)
+            .expect(2) // both calls should hit the network — second after the entry expires
             .create();
 
         let cache = make_cache_with_ttl(2);
@@ -451,6 +440,7 @@ mod tests {
             .send_with_policy(&client, req, &CachePolicy::default())
             .unwrap();
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+        m.assert();
     }
 
     #[test]
