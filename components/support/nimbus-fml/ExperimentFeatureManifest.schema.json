@@ -43,6 +43,18 @@
                     "description": {
                       "type": "string",
                       "description": "Explain how this value is being used"
+                    },
+                    "setPref": {
+                      "type": "object",
+                      "properties": {
+                        "branch": {
+                          "type": "string",
+                          "enum": ["user", "default"],
+                        },
+                        "pref": {
+                          "type": "string"
+                        }
+                      }
                     }
                   },
                   "required": ["type", "description"],
