@@ -17,7 +17,8 @@ use serde_json::Map;
 use serde_json::{Value, json};
 
 use crate::enrollment::{
-    EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+    EnrolledFeatureConfig, EnrolledReason, EnrollmentChangeEvent, ExperimentEnrollment,
+    NotEnrolledReason,
 };
 #[cfg(feature = "stateful")]
 use crate::json::JsonObject;
@@ -506,7 +507,10 @@ pub fn get_single_feature_rollout(slug: &str, feature_id: &str, config: Value) -
 }
 
 pub fn get_bucketed_rollout(slug: &str, count: i64) -> Experiment {
-    let feature_id = "a-feature";
+    get_bucketed_rollout_with_feature(slug, count, "a-feature")
+}
+
+pub fn get_bucketed_rollout_with_feature(slug: &str, count: i64, feature_id: &str) -> Experiment {
     serde_json::from_value(json!(
         {
         "schemaVersion": "1.0.0",
@@ -618,19 +622,40 @@ where
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub fn get_targeted_experiment(slug: &str, targeting: &str) -> serde_json::Value {
+    get_targeted_experiment_with_feature(slug, targeting, "some-feature-1")
+}
+
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
+pub fn get_targeted_experiment_with_feature(
+    slug: &str,
+    targeting: &str,
+    feature_id: &str,
+) -> serde_json::Value {
     json!({
         "schemaVersion": "1.0.0",
         "slug": slug,
         "endDate": null,
-        "featureIds": ["some-feature-1"],
+        "featureIds": [feature_id],
         "branches": [
             {
-            "slug": "control",
-            "ratio": 1
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
             },
             {
-            "slug": "treatment",
-            "ratio": 1
+                "slug": "treatment",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
             }
         ],
         "channel": "nightly",
@@ -822,4 +847,13 @@ mod detail {
             state.nimbus_user_id = nimbus_user_id;
         }
     }
+}
+
+/// Return the given enrollments in a sorted order.
+pub fn sorted_enrollment_change_events(
+    mut events: Vec<EnrollmentChangeEvent>,
+) -> Vec<EnrollmentChangeEvent> {
+    events.sort_by(|e1, e2| e1.experiment_slug.cmp(&e2.experiment_slug));
+
+    events
 }

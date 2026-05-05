@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -75,11 +75,13 @@ impl Experiment {
             .flat_map(|b| {
                 b.get_feature_configs()
                     .iter()
-                    .map(|f| f.to_owned().feature_id)
+                    .map(|f| f.feature_id.clone())
                     .collect::<Vec<_>>()
             })
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
+        // Using a BTreeSet generates the feature IDs in a sorted order, which helps
+        // make testing easier.
         feature_ids.into_iter().collect()
     }
 

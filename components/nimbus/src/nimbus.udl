@@ -73,6 +73,7 @@ dictionary EnrollmentChangeEvent {
     string branch_slug;
     string? reason;
     EnrollmentChangeEventType change;
+    sequence<string> feature_ids;
 };
 
 enum EnrollmentChangeEventType {

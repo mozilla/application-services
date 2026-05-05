@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use std::iter;
+
 use crate::enrollment::Participation;
 use crate::enrollment::{
     EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
@@ -128,10 +130,32 @@ pub fn opt_in_with_branch(
             branch_slug: branch.to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: vec![],
         });
     }
 
     Ok(events)
+}
+
+fn get_enrollment_and_experiment(
+    db: &Database,
+    writer: &mut Writer,
+    experiment_slug: &str,
+) -> Result<(Option<ExperimentEnrollment>, Option<Experiment>)> {
+    // TODO(bug 2038055): Compute this using the database cache.
+    let maybe_enrollment: Option<ExperimentEnrollment> = db
+        .get_store(StoreId::Enrollments)
+        .get(writer, experiment_slug)?;
+    let maybe_experiment: Option<Experiment> = db
+        .get_store(StoreId::Experiments)
+        .get(writer, experiment_slug)?;
+
+    // We are technically guaranteed at this time that if an active enrollment
+    // exists in the enrollments store that the corresponding experiment must
+    // also exist in the experiment store.
+    //
+    // This is only not true during apply_pending_experiments.
+    Ok((maybe_enrollment, maybe_experiment))
 }
 
 pub fn opt_out(
@@ -141,19 +165,28 @@ pub fn opt_out(
     gecko_prefs: Option<&GeckoPrefStore>,
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
-    let enr_store = db.get_store(StoreId::Enrollments);
-    if let Ok(Some(existing_enrollment)) =
-        enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
-    {
-        let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events, gecko_prefs);
-        enr_store.put(writer, experiment_slug, updated_enrollment)?;
-    } else {
-        events.push(EnrollmentChangeEvent {
-            experiment_slug: experiment_slug.to_string(),
-            branch_slug: "N/A".to_string(),
-            reason: Some("does-not-exist".to_string()),
-            change: EnrollmentChangeEventType::UnenrollFailed,
-        });
+
+    match get_enrollment_and_experiment(db, writer, experiment_slug) {
+        Ok((Some(existing_enrollment), maybe_experiment)) => {
+            let updated_enrollment = &existing_enrollment.on_explicit_opt_out(
+                maybe_experiment.as_ref(),
+                &mut events,
+                gecko_prefs,
+            );
+
+            db.get_store(StoreId::Enrollments)
+                .put(writer, experiment_slug, updated_enrollment)?;
+        }
+
+        _ => {
+            events.push(EnrollmentChangeEvent {
+                experiment_slug: experiment_slug.to_string(),
+                branch_slug: "N/A".to_string(),
+                reason: Some("does-not-exist".to_string()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![],
+            });
+        }
     }
 
     Ok(events)
@@ -169,22 +202,29 @@ pub fn unenroll_for_pref(
     gecko_pref_store: Option<&GeckoPrefStore>,
     events: &mut Vec<EnrollmentChangeEvent>,
 ) -> Result<()> {
-    let enr_store = db.get_store(StoreId::Enrollments);
-    if let Ok(Some(existing_enrollment)) =
-        enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
-    {
-        existing_enrollment
-            .maybe_revert_unchanged_gecko_pref_states(triggering_pref_name, gecko_pref_store);
+    match get_enrollment_and_experiment(db, writer, experiment_slug) {
+        Ok((Some(existing_enrollment), maybe_experiment)) => {
+            existing_enrollment
+                .maybe_revert_unchanged_gecko_pref_states(triggering_pref_name, gecko_pref_store);
 
-        let updated_enrollment = &existing_enrollment.on_pref_unenroll(unenroll_reason, events);
-        enr_store.put(writer, experiment_slug, updated_enrollment)?;
-    } else {
-        events.push(EnrollmentChangeEvent {
-            experiment_slug: experiment_slug.to_string(),
-            branch_slug: "N/A".to_string(),
-            reason: Some("does-not-exist".to_string()),
-            change: EnrollmentChangeEventType::UnenrollFailed,
-        });
+            let updated_enrollment = &existing_enrollment.on_pref_unenroll(
+                unenroll_reason,
+                maybe_experiment.as_ref(),
+                events,
+            );
+            db.get_store(StoreId::Enrollments)
+                .put(writer, experiment_slug, updated_enrollment)?;
+        }
+
+        _ => {
+            events.push(EnrollmentChangeEvent {
+                experiment_slug: experiment_slug.to_string(),
+                branch_slug: "N/A".to_string(),
+                reason: Some("does-not-exist".to_string()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![],
+            });
+        }
     }
 
     Ok(())
@@ -236,9 +276,19 @@ pub fn reset_telemetry_identifiers(
     let mut events = vec![];
     let store = db.get_store(StoreId::Enrollments);
     let enrollments: Vec<ExperimentEnrollment> = store.collect_all(writer)?;
-    let updated_enrollments = enrollments
+    // TODO(bug 2038055): Compute this using the database cache.
+    let experiments: Vec<Option<Experiment>> = enrollments
         .iter()
-        .map(|enrollment| enrollment.reset_telemetry_identifiers(&mut events));
+        .map(|enrollment| {
+            db.get_store(StoreId::Experiments)
+                .get::<Experiment, _>(writer, &enrollment.slug)
+        })
+        .collect::<Result<_>>()?;
+
+    let updated_enrollments =
+        iter::zip(enrollments, experiments).map(|(enrollment, experiment)| {
+            enrollment.reset_telemetry_identifiers(experiment.as_ref(), &mut events)
+        });
     store.clear(writer)?;
     for enrollment in updated_enrollments {
         store.put(writer, &enrollment.slug, &enrollment)?;

@@ -1,5 +1,10 @@
 # v153.0 (In progress)
 
+### Nimbus
+
+- Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+- Fixed a bug where enrollment change events were not emitted for rollouts that re-enrolled after previously unenrolling. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+
 [Full Changelog](In progress)
 
 # v152.0 (_2026-05-18_)

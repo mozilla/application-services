@@ -155,18 +155,21 @@ class NimbusTests {
                 branchSlug = "test-branch",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.ENROLLMENT,
+                featureIds = listOf(),
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.UNENROLLMENT,
+                featureIds = listOf(),
             ),
             EnrollmentChangeEvent(
                 experimentSlug = "test-experiment",
                 branchSlug = "test-branch",
                 reason = "test-reason",
                 change = EnrollmentChangeEventType.DISQUALIFICATION,
+                featureIds = listOf(),
             ),
         )
 
