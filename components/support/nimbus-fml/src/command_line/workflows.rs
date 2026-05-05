@@ -32,6 +32,11 @@ pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
     let filename = &cmd.manifest;
     let input = files.file_path(filename)?;
 
+    validate(&ValidateCmd {
+        manifest: cmd.manifest.clone(),
+        loader: cmd.loader.clone(),
+    })?;
+
     match (&input, &cmd.output.is_dir()) {
         (FilePath::Remote(_), _) => generate_struct_single(&files, input, cmd),
         (FilePath::Local(file), _) if !file.exists() => Err(FMLError::CliError(format!(
@@ -612,6 +617,28 @@ mod test {
             "default",
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_catches_invalid_feature() -> Result<(), FMLError> {
+        let manifest = join(
+            pkg_dir(),
+            "fixtures/fe/invalid/invalid_default_value_for_one_channel.fml.yaml",
+        );
+        let output = NamedTempFile::new()?;
+
+        let cmd: GenerateStructCmd = GenerateStructCmd {
+            manifest,
+            output: output.path().into(),
+            language: TargetLanguage::ExperimenterYAML,
+            load_from_ir: false,
+            channel: "app-debug".to_string(),
+            loader: Default::default(),
+        };
+
+        let result = generate_struct(&cmd);
+        assert!(result.is_err());
         Ok(())
     }
 
