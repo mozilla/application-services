@@ -26,6 +26,7 @@ thiserror = "2"
 once_cell = "1.5"
 uniffi = { version = "0.31" }
 url = { version = "2", features = ["serde"] }
+url-macro = { path = "../support/url-macro" }
 uuid = { version = "1.3", features = ["v4"] }
 viaduct = { path = "../viaduct", features = ["ohttp"] }
 sql-support = { path = "../support/sql" }
