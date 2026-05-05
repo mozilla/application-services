@@ -211,7 +211,6 @@ const CREATE_LOCAL_BREACHES_TABLE_SQL: &str = "
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
 pub(crate) static GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
-pub(crate) static CHECKPOINT_KEY: &str = "checkpoint";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.conn_ext_query_one::<i64>("PRAGMA user_version")?;
