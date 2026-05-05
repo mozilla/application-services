@@ -93,6 +93,7 @@ impl AdRequest {
 
 #[derive(Debug, Hash, PartialEq, Serialize)]
 pub struct AdPlacementRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<AdContentCategory>,
     pub count: u32,
     pub placement: String,
@@ -287,6 +288,93 @@ mod tests {
         let req2 = AdRequest::try_new(context_id_b, make_placements(), url, false).unwrap();
 
         assert_eq!(RequestHash::new(&req1), RequestHash::new(&req2));
+    }
+
+    /// Validate serialized requests against the MARS OpenAPI spec.
+    mod contract {
+        use super::*;
+        use crate::test_utils::{mars_schema, validate_against_mars_schema};
+        use serde_json::to_value;
+
+        fn ad_request_schema() -> serde_json::Value {
+            mars_schema("AdRequest")
+        }
+
+        #[test]
+        fn test_minimal_request_validates_against_spec() {
+            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
+            let request = AdRequest::try_new(
+                "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
+                vec![AdPlacementRequest {
+                    placement: "newtab_tile_1".to_string(),
+                    count: 1,
+                    content: None,
+                }],
+                url,
+                false,
+            )
+            .unwrap();
+
+            validate_against_mars_schema(&ad_request_schema(), &to_value(&request).unwrap());
+        }
+
+        #[test]
+        fn test_full_request_with_content_validates_against_spec() {
+            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
+            let request = AdRequest::try_new(
+                "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
+                vec![
+                    AdPlacementRequest {
+                        placement: "newtab_tile_1".to_string(),
+                        count: 2,
+                        content: Some(AdContentCategory {
+                            taxonomy: IABContentTaxonomy::IAB2_1,
+                            categories: vec!["technology".to_string()],
+                        }),
+                    },
+                    AdPlacementRequest {
+                        placement: "pocket_billboard".to_string(),
+                        count: 1,
+                        content: None,
+                    },
+                ],
+                url,
+                false,
+            )
+            .unwrap();
+
+            validate_against_mars_schema(&ad_request_schema(), &to_value(&request).unwrap());
+        }
+
+        #[test]
+        fn test_all_taxonomy_variants_validate_against_spec() {
+            let schema = ad_request_schema();
+            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
+
+            for taxonomy in [
+                IABContentTaxonomy::IAB1_0,
+                IABContentTaxonomy::IAB2_0,
+                IABContentTaxonomy::IAB2_1,
+                IABContentTaxonomy::IAB2_2,
+                IABContentTaxonomy::IAB3_0,
+            ] {
+                let request = AdRequest::try_new(
+                    "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
+                    vec![AdPlacementRequest {
+                        placement: "test".to_string(),
+                        count: 1,
+                        content: Some(AdContentCategory {
+                            taxonomy,
+                            categories: vec!["cat".to_string()],
+                        }),
+                    }],
+                    url.clone(),
+                    false,
+                )
+                .unwrap();
+                validate_against_mars_schema(&schema, &to_value(&request).unwrap());
+            }
+        }
     }
 
     #[test]
