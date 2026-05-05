@@ -12,7 +12,7 @@ pub use crate::metrics::detail::*;
 
 use crate::enrollment::NotEnrolledReason;
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Debug, Default, Eq, PartialEq))]
 pub struct EnrollmentStatusExtraDef {
     pub branch: Option<String>,
     pub conflict_slug: Option<String>,

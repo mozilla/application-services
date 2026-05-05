@@ -734,7 +734,12 @@ pub(crate) fn get_experiment_with_published_date(
 }
 
 #[allow(unused)]
-pub(crate) fn get_firefox_labs(slug: &str) -> Experiment {
+pub(crate) fn get_firefox_lab(slug: &str) -> Experiment {
+    get_firefox_lab_with_feature(slug, "labs-feature")
+}
+
+#[allow(unused)]
+pub(crate) fn get_firefox_lab_with_feature(slug: &str, feature_id: &str) -> Experiment {
     serde_json::from_value(json!({
         "schemaVersion": "1.0.0",
         "appName": "fenix",
@@ -747,22 +752,23 @@ pub(crate) fn get_firefox_labs(slug: &str) -> Experiment {
                 "ratio": 1,
                 "features": [
                     {
-                        "featureId": "labs-feature",
+                        "featureId": feature_id,
                         "value": {}
                     }
                 ]
             }
         ],
-        "featureIds": ["labs-feature"],
+        "featureIds": [feature_id],
         "isRollout": true,
         "isEnrollmentPaused": false,
         "isFirefoxLabsOptIn": true,
         "firefoxLabsTitle": "labs-title",
         "firefoxLabsDescription": "labs-description",
         "firefoxLabsDescriptionLinks": {
-            "connect": "https://example.com/#connect",
+            "feedback": "https://example.com/#feedback",
             "learn-more": "https://example.com/#learn-more",
         },
+        "requiresRestart": false,
         "userFacingName": "Test Firefox Labs",
         "userFacingDescription": "Test Firefox Labs",
         "bucketConfig": {

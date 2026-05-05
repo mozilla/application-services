@@ -41,6 +41,9 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureUpdateDispatcher
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsEnrollStatus
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsMetadata
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsUnenrollStatus
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.MalformedFeatureConfigExtraDef
@@ -701,6 +704,69 @@ open class Nimbus(
         withCatchAll("recordMalformedConfiguration") {
             nimbusClient.recordMalformedFeatureConfig(featureId, partId)
         }
+
+    override fun getAvailableFirefoxLabs(): Deferred<List<FirefoxLabsMetadata>> {
+        return dbScope.async { getAvailableFirefoxLabsOnThisThread() }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getAvailableFirefoxLabsOnThisThread(): List<FirefoxLabsMetadata> {
+        return withCatchAll("getAvailableFirefoxLabs") {
+            nimbusClient.getAvailableFirefoxLabs()
+        } ?: emptyList()
+    }
+
+    override fun enrollInFirefoxLab(slug: String): Deferred<FirefoxLabsEnrollStatus> {
+        return dbScope.async { enrollInFirefoxLabOnThisThread(slug) }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun enrollInFirefoxLabOnThisThread(slug: String): FirefoxLabsEnrollStatus {
+        return withCatchAll("enrollInFirefoxLab") {
+            val result = nimbusClient.enrollInFirefoxLab(slug)
+            if (result.enrollmentChangeEvents.isNotEmpty()) {
+                recordExperimentTelemetryEvents(result.enrollmentChangeEvents)
+                postEnrolmentCalculation()
+                updateDispatcher.notifyChanged(result.enrollmentChangeEvents)
+            }
+
+            result.status
+        } ?: FirefoxLabsEnrollStatus.ERROR
+    }
+
+    override fun unenrollFromFirefoxLab(slug: String): Deferred<FirefoxLabsUnenrollStatus> {
+        return dbScope.async { unenrollFromFirefoxLabOnThisThread(slug) }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun unenrollFromFirefoxLabOnThisThread(slug: String): FirefoxLabsUnenrollStatus {
+        return withCatchAll("unenrollFromFirefoxLab") {
+            val result = nimbusClient.unenrollFromFirefoxLab(slug)
+            if (result.enrollmentChangeEvents.isNotEmpty()) {
+                recordExperimentTelemetryEvents(result.enrollmentChangeEvents)
+                postEnrolmentCalculation()
+                updateDispatcher.notifyChanged(result.enrollmentChangeEvents)
+            }
+
+            result.status
+        } ?: FirefoxLabsUnenrollStatus.ERROR
+    }
+
+    override fun unenrollFromAllFirefoxLabs() {
+        dbScope.launch { unenrollFromAllFirefoxLabsOnThisThread() }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun unenrollFromAllFirefoxLabsOnThisThread() {
+        withCatchAll("unenrollFromAllFirefoxLabs") {
+            val enrollmentChangeEvents = nimbusClient.unenrollFromAllFirefoxLabs()
+            if (enrollmentChangeEvents.isNotEmpty()) {
+                recordExperimentTelemetryEvents(enrollmentChangeEvents)
+                postEnrolmentCalculation()
+                updateDispatcher.notifyChanged(enrollmentChangeEvents)
+            }
+        }
+    }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun buildExperimentContext(

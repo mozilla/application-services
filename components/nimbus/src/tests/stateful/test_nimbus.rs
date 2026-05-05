@@ -17,10 +17,14 @@ use crate::enrollment::{
 };
 use crate::error::{Result, info};
 use crate::json::PrefValue;
-use crate::metrics::MalformedFeatureConfigExtraDef;
+use crate::metrics::{EnrollmentStatusExtraDef, MalformedFeatureConfigExtraDef};
 use crate::schema::{Branch, FeatureConfig};
 use crate::stateful::behavior::{
     EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use crate::stateful::firefox_labs::{
+    FirefoxLabsEnrollResult, FirefoxLabsEnrollStatus, FirefoxLabsMetadata,
+    FirefoxLabsUnenrollResult, FirefoxLabsUnenrollStatus,
 };
 use crate::stateful::gecko_prefs::{
     GeckoPrefState, OriginalGeckoPref, PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
@@ -30,10 +34,10 @@ use crate::stateful::persistence::{Database, StoreId};
 use crate::stateful::targeting::RecordedContext;
 use crate::tests::helpers::{
     TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
-    get_bucketed_rollout_with_feature, get_ios_rollout_experiment, get_multi_feature_experiment,
-    get_single_feature_experiment, get_single_feature_rollout, get_targeted_experiment,
-    get_targeted_experiment_with_feature, sorted_enrollment_change_events,
-    to_local_experiments_string,
+    get_bucketed_rollout_with_feature, get_firefox_lab, get_firefox_lab_with_feature,
+    get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
+    get_single_feature_rollout, get_targeted_experiment, get_targeted_experiment_with_feature,
+    sorted_enrollment_change_events, to_local_experiments_string,
 };
 use crate::{
     AppContext, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE, Experiment, NimbusClient,
@@ -2520,6 +2524,470 @@ fn test_opt_in_with_branch_events() -> Result<()> {
             feature_ids: vec!["some-feature-1".into()],
         },]
     );
+
+    Ok(())
+}
+
+fn setup_firefox_labs_test(
+    recipes: &[Experiment],
+) -> Result<(tempfile::TempDir, NimbusClient, Arc<TestMetrics>)> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    client.set_experiments_locally(to_local_experiments_string(recipes)?)?;
+    client.apply_pending_experiments()?;
+
+    Ok((temp_dir, client, metrics))
+}
+
+fn assert_enrolled_experiment_slugs(client: &NimbusClient, expected_slugs: &[&str]) {
+    let mut slugs = client
+        .get_active_experiments()
+        .unwrap()
+        .iter()
+        .map(|e| e.slug.clone())
+        .collect::<Vec<_>>();
+
+    slugs.sort();
+
+    assert_eq!(&slugs, expected_slugs);
+}
+
+fn assert_enrolled_reason(client: &NimbusClient, slug: &str, reason: EnrolledReason) {
+    assert!(
+        &client
+            .get_experiment_enrollment(slug)
+            .unwrap()
+            .unwrap()
+            .status
+            .is_enrolled_with_reason(reason),
+    );
+}
+
+fn assert_disqualified_reason(
+    client: &NimbusClient,
+    slug: &str,
+    expected_reason: DisqualifiedReason,
+) {
+    let status = client
+        .get_experiment_enrollment(slug)
+        .unwrap()
+        .unwrap()
+        .status;
+
+    assert!(matches!(
+        &status,
+        EnrollmentStatus::Disqualified { reason, .. }
+        if *reason == expected_reason
+    ));
+}
+
+#[test]
+fn test_firefox_labs_enroll_unenroll() -> Result<()> {
+    // This tests the basic cases for enrollment and unenrollment.
+    let (_temp_dir, client, metrics) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("experiment", "feature-id", json!({})),
+        get_single_feature_experiment("rollout", "feature-id", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab_with_feature("lab", "lab-feature-1"),
+        get_firefox_lab_with_feature("lab-requires-restart", "lab-feature-2")
+            .patch(json!({ "requiresRestart": true })),
+        get_firefox_lab_with_feature("lab-links", "lab-feature-3")
+            .patch(json!({ "firefoxLabsDescriptionLinks": { "feedback": "https://example.com" } })),
+        get_firefox_lab_with_feature("lab-not-rollout", "lab-feature-4")
+            .patch(json!({ "isRollout": false })),
+        get_firefox_lab_with_feature("lab-no-title", "lab-feature-5")
+            .patch(json!({ "firefoxLabsTitle": null })),
+        get_firefox_lab_with_feature("lab-no-description", "lab-feature-6")
+            .patch(json!({ "firefoxLabsDescription": null })),
+        get_firefox_lab_with_feature("lab-different-channel", "lab-feature-7")
+            .patch(json!({ "channel": "mystery" })),
+    ])?;
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    assert_eq!(
+        &metrics.get_enrollment_statuses(),
+        &[
+            EnrollmentStatusExtraDef {
+                slug: Some("experiment".into()),
+                status: Some("Enrolled".into()),
+                reason: Some("Qualified".into()),
+                branch: Some("control".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-links".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-no-description".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-no-title".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-not-rollout".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-requires-restart".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("rollout".into()),
+                status: Some("Enrolled".into()),
+                reason: Some("Qualified".into()),
+                branch: Some("control".into()),
+                ..Default::default()
+            },
+        ],
+    );
+
+    metrics.clear();
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+
+    // Enroll in a lab and see the change reported in get_available_firefox_labs()
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::Enrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["lab-feature-1".into()]
+            }],
+        }
+    );
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "lab", "rollout"]);
+    assert_enrolled_reason(&client, "lab", EnrolledReason::FirefoxLabsOptIn);
+
+    // Opt in does not trigger enrollment status.
+    assert_eq!(metrics.get_enrollment_statuses(), &[]);
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: true,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    // Attempting to re-enroll does nothing.
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::AlreadyEnrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("already-enrolled".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Unenrolling also should update get_available_firefox_labs()
+    assert_eq!(
+        client.unenroll_from_firefox_lab("lab")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::Unenrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "control".into(),
+                reason: Some("FirefoxLabsOptOut".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["lab-feature-1".into()]
+            }],
+        }
+    );
+
+    // Opt out does not trigger enrollment status.
+    assert_eq!(metrics.get_enrollment_statuses(), &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+    assert_disqualified_reason(&client, "lab", DisqualifiedReason::FirefoxLabsOptOut);
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    // Attempting to re-unenroll does nothing.
+    assert_eq!(
+        client.unenroll_from_firefox_lab("lab")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::AlreadyUnenrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("already-unenrolled".into()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempting to enroll in a non-existant lab.
+    assert_eq!(
+        client.enroll_in_firefox_lab("unknown")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::NoExperiment,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "unknown".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("lab-does-not-exist".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempting to enroll in a non-lab.
+    assert_eq!(
+        client.enroll_in_firefox_lab("experiment")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::NotFirefoxLabsOptIn,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("not-lab".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempt to unenroll from a non-lab as a lab.
+    assert_eq!(
+        client.unenroll_from_firefox_lab("experiment")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::NotFirefoxLabsOptIn,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("not-lab".into()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![],
+            }],
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_feature_conflict() -> Result<()> {
+    // This tests the basic cases for enrollment and unenrollment.
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("rollout", "labs-feature", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab("lab"),
+    ])?;
+
+    assert_eq!(&client.get_available_firefox_labs()?, &[]);
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::FeatureConflict,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![],
+            }],
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_rollout_opt_out_does_not_unenroll() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[get_firefox_lab("lab")])?;
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?.status,
+        FirefoxLabsEnrollStatus::Enrolled
+    );
+
+    let events = client.set_rollout_participation(false)?;
+    assert_eq!(&events, &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["lab"]);
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_reset_telemetry_does_not_unenroll() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[get_firefox_lab("lab")])?;
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?.status,
+        FirefoxLabsEnrollStatus::Enrolled
+    );
+
+    let events = client.reset_telemetry_identifiers()?;
+    assert_eq!(&events, &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["lab"]);
+
+    Ok(())
+}
+
+#[test]
+fn test_unenroll_from_all_firefox_labs() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("experiment", "feature-id", json!({})),
+        get_single_feature_experiment("rollout", "feature-id", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab_with_feature("lab-1", "feature-1"),
+        get_firefox_lab_with_feature("lab-2", "feature-2"),
+        get_firefox_lab_with_feature("lab-3", "feature-3"),
+    ])?;
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+
+    client.enroll_in_firefox_lab("lab-1")?;
+    client.enroll_in_firefox_lab("lab-2")?;
+    client.enroll_in_firefox_lab("lab-3")?;
+
+    assert_enrolled_experiment_slugs(
+        &client,
+        &["experiment", "lab-1", "lab-2", "lab-3", "rollout"],
+    );
+
+    client.unenroll_from_all_firefox_labs()?;
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+    assert_disqualified_reason(&client, "lab-1", DisqualifiedReason::FirefoxLabsOptOut);
+    assert_disqualified_reason(&client, "lab-2", DisqualifiedReason::FirefoxLabsOptOut);
+    assert_disqualified_reason(&client, "lab-3", DisqualifiedReason::FirefoxLabsOptOut);
 
     Ok(())
 }
