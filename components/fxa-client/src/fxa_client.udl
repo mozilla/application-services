@@ -168,12 +168,25 @@ interface FirefoxAccount {
   ///
   [Throws=FxaError]
   string to_json();
-  
-  /// Sets the users information based on the web content's login information
-  /// This is intended to only be used by user agents (eg: Firefox) to set the users
-  /// session token and tie it to the refresh token that will be issued at the end of the
-  /// oauth flow.
-  void set_user_data(UserData user_data);
+
+  /// Stores anything necessary from a WebChannel login JSON payload. This includes the session
+  /// token, but that is abstracted because the consuming apps should not be aware of the
+  /// specific payload format returned, nor should they get access to the session token
+  /// directly if possible.
+  /// The [json_payload] is the `data` object from the `fxaccounts:login` WebChannel command.
+  [Throws=FxaError]
+  void handle_web_channel_login(string json_payload);
+
+  /// Handle a WebChannel password-change notification by exchanging the new session token
+  /// for a new refresh token via a network call.
+  /// The [json_payload] is the `data` object from the `fxaccounts:change_password` WebChannel command.
+  [Throws=FxaError]
+  void handle_web_channel_password_change(string json_payload);
+
+  /// Returns a complete signedInUser JSON object for a WebChannel fxaccounts:fxa_status response,
+  /// embedding the session token privately. Email and uid come from the cached profile in internal
+  /// state. Returns null if no session token is set.
+  string? get_signed_in_user_for_web_channel();
 
   /// Initiate a web-based OAuth sign-in flow.
   ///
@@ -650,43 +663,6 @@ interface FirefoxAccount {
   [Throws=FxaError]
   AccessTokenInfo get_access_token([ByRef] string scope, optional boolean use_cache = true);
 
-  /// Get the session token for the user's account, if one is available.
-  ///
-  /// **💾 This method alters the persisted account state.**
-  ///
-  /// Applications that function as a web browser may need to hold on to a session token
-  /// on behalf of Firefox Accounts web content. This method exists so that they can retrieve
-  /// it an pass it back to said web content when required.
-  ///
-  /// # Notes
-  ///
-  ///    - Please do not attempt to use the resulting token to directly make calls to the
-  ///      Firefox Accounts servers! All account management functionality should be performed
-  ///      in web content.
-  ///    - A session token is only available to applications that have requested the
-  ///      `https:///identity.mozilla.com/tokens/session` scope.
-  ///
-  [Throws=FxaError]
-  string get_session_token();
-  
-
-  /// Update the stored session token for the user's account.
-  ///
-  /// **💾 This method alters the persisted account state.**
-  ///
-  /// Applications that function as a web browser may need to hold on to a session token
-  /// on behalf of Firefox Accounts web content. This method exists so that said web content
-  /// signals that it has generated a new session token, the stored value can be updated
-  /// to match.
-  ///
-  /// # Arguments
-  ///
-  ///    - `session_token` - the new session token value provided from web content.
-  ///
-  [Throws=FxaError]
-  void handle_session_token_change([ByRef] string session_token );
-  
-
   /// Create a new OAuth authorization code using the stored session token.
   ///
   /// When a signed-in application receives an incoming device pairing request, it can
@@ -1109,11 +1085,4 @@ interface IncomingDeviceCommand {
 
   /// Indicates that the sender wants to close one or more tabs on this device.
   TabsClosed(Device? sender, CloseTabsPayload payload);
-};
-
-dictionary UserData {
-  string session_token;
-  string uid;
-  string email;
-  boolean verified;
 };
