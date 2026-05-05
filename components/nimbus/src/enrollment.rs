@@ -30,6 +30,8 @@ pub enum EnrolledReason {
     Qualified,
     /// Explicit opt-in.
     OptIn,
+    /// Opted-in via Firefox Labs
+    FirefoxLabsOptIn,
 }
 
 impl Display for EnrolledReason {
@@ -38,6 +40,7 @@ impl Display for EnrolledReason {
             match self {
                 EnrolledReason::Qualified => "Qualified",
                 EnrolledReason::OptIn => "OptIn",
+                EnrolledReason::FirefoxLabsOptIn => "FirefoxLabsOptIn",
             },
             f,
         )
@@ -67,6 +70,9 @@ pub enum NotEnrolledReason {
     ExperimentsOptOut,
     /// The user opted-out of rollouts before we ever got enrolled to this one.
     RolloutsOptOut,
+
+    /// This is a Firefox Labs opt-in and we have not opted-in.
+    FirefoxLabs,
 
     /// This state represents several cases:
     ///
@@ -99,6 +105,7 @@ impl Display for NotEnrolledReason {
                 NotEnrolledReason::NotTargeted => "NotTargeted",
                 NotEnrolledReason::ExperimentsOptOut => "ExperimentsOptOut",
                 NotEnrolledReason::RolloutsOptOut => "RolloutsOptOut",
+                NotEnrolledReason::FirefoxLabs => "FirefoxLabs",
                 NotEnrolledReason::OptOut => "OptOut",
             },
             f,
@@ -230,6 +237,18 @@ impl ExperimentEnrollment {
         targeting_helper: &NimbusTargetingHelper,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
+        // The rollout opt-out does not apply to Firefox Labs, since the user
+        // must consent to each opt-in.
+        #[cfg(feature = "stateful")]
+        if experiment.is_firefox_labs_opt_in {
+            return Ok(Self {
+                slug: experiment.slug.clone(),
+                status: EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::FirefoxLabs,
+                },
+            });
+        }
+
         Ok(if !is_user_participating {
             Self {
                 slug: experiment.slug.clone(),
@@ -306,6 +325,16 @@ impl ExperimentEnrollment {
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
+        #[cfg(feature = "stateful")]
+        if updated_experiment.is_firefox_labs_opt_in && !self.status.is_enrolled() {
+            return Ok(self.clone());
+        }
+
+        // Users can globally opt out of rollouts, but not out of Firefox Labs.
+        #[cfg(feature = "stateful")]
+        let is_user_participating =
+            is_user_participating || updated_experiment.is_firefox_labs_opt_in;
+
         Ok(match &self.status {
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
@@ -822,9 +851,7 @@ impl EnrollmentStatus {
         }
         .into()
     }
-}
 
-impl EnrollmentStatus {
     // Note that for now, we only support a single feature_id per experiment,
     // so this code is expected to shift once we start supporting multiple.
     pub fn new_enrolled(reason: EnrolledReason, branch: &str) -> Self {
@@ -836,8 +863,6 @@ impl EnrollmentStatus {
         }
     }
 
-    // This is used in examples, but not in the main dylib, and
-    // triggers a dead code warning when building with `--release`.
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
@@ -1181,11 +1206,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> Result<Option<ExperimentEnrollment>> {
-        let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
-            enrollment.status.is_enrolled()
-        } else {
-            false
-        };
+        let is_already_enrolled = prev_enrollment
+            .map(|e| e.status.is_enrolled())
+            .unwrap_or_default();
 
         // XXX This is not pretty, however, we need to re-write the way sticky targeting strings are generated in
         // experimenter. Once https://github.com/mozilla/experimenter/issues/8661 is fixed, we can remove the calculation

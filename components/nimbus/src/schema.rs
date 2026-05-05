@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -55,6 +55,20 @@ pub struct Experiment {
     pub published_date: Option<chrono::DateTime<chrono::Utc>>,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
+    #[serde(default)]
+    pub is_firefox_labs_opt_in: bool,
+
+    #[serde(default)]
+    pub firefox_labs_title: Option<String>,
+
+    #[serde(default)]
+    pub firefox_labs_description: Option<String>,
+
+    #[serde(default)]
+    pub firefox_labs_description_links: Option<HashMap<String, String>>,
+
+    #[serde(default)]
+    pub requires_restart: bool,
 }
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
