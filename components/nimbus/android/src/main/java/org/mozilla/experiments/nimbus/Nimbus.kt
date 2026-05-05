@@ -179,6 +179,65 @@ open class Nimbus(
             }
         }
 
+    public val updates = object {
+        private val lock = ReentrantLock()
+        private val callbackMap: MutableMap<String, MutableSet<() -> Unit>> = mutableSetOf()
+
+        @AnyThread
+        public fun register(featureId: String, callback: () -> Unit) {
+            lock.runBlock {
+                callbackMap
+                    .getOrPut(featureId, arrayListOf)
+                    .add(callback)
+            }
+        }
+
+        @AnyThread
+        public fun unregister(featureId: String, callback: () -> Unit) {
+            lock.runBlock {
+                callbackMap.get(featureId)?.run { remove(callback) }
+            }
+        }
+
+        @AnyThread
+        public fun notifyChanged(events: List<EnrollmentChangeEvent>) {
+            if (events.isEmpty()) {
+                return
+            }
+
+            val featureIds: MutableSet<String> = mutableSetOf()
+
+            for (event in events) {
+                for (featureId in event.featureIds) {
+                    featureIds.add(featureId)
+                }
+            }
+
+            notifyFeatures(featureIds)
+        }
+
+        @AnyThread
+        public fun notifyFeatures(featureIds: Set<String>) {
+            val toUpdate = arrayListOf()
+
+            lock.runBlock {
+                for (featureId in featureIds) {
+                    callbackMap.get(featureId)?.also { callbacks ->
+                        for (callback of callbacks) {
+                            toUpdate.add(callback)
+                        }
+                    }
+                }
+            }
+
+            scope.launch(Dispatchers.Main) {
+                for (callback of toUpdate) {
+                    callback()
+                }
+            }
+        }
+    }
+
     init {
         NullVariables.instance.setContext(context)
 
@@ -279,7 +338,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll("initialize") {
         nimbusClient.initialize()
-        postEnrolmentCalculation()
+        postEnrolmentCalculation(true)
     }
 
     override fun fetchExperiments() {
@@ -344,7 +403,8 @@ open class Nimbus(
             NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
             recordExperimentTelemetryEvents(events!!)
             // Get the experiments to record in telemetry
-            postEnrolmentCalculation()
+            postEnrolmentCalculation(false)
+            updates.notifyChanged(events!!)
         } catch (e: NimbusException.InvalidExperimentFormat) {
             reportError("Invalid experiment format", e)
         }
@@ -379,11 +439,22 @@ open class Nimbus(
         }
 
     @WorkerThread
-    private fun postEnrolmentCalculation() {
-        nimbusClient.getActiveExperiments().let {
-            recordExperimentTelemetry(it)
+    private fun postEnrolmentCalculation(initial: Bool) {
+        nimbusClient.getActiveExperiments().also { experiments ->
+            recordExperimentTelemetry(experiments)
             updateObserver { observer ->
-                observer.onUpdatesApplied(it)
+                observer.onUpdatesApplied(experiments)
+            }
+
+            if (initial) {
+                val featureIds = mutableSetOf()
+                for (experiment in experiments) {
+                    for (featureId in experiment.featureIds) {
+                        featureIds.add(featureId)
+                    }
+                }
+
+                updates.notifyFeatures(featureIds)
             }
         }
     }
@@ -431,7 +502,8 @@ open class Nimbus(
             val enrolmentChanges = nimbusClient.setExperimentParticipation(active)
             if (enrolmentChanges.isNotEmpty()) {
                 recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
+                postEnrolmentCalculation(false)
+                updates.notifyChanged(enrolmentChanges)
             }
         }
 
@@ -442,7 +514,8 @@ open class Nimbus(
             val enrolmentChanges = nimbusClient.setRolloutParticipation(active)
             if (enrolmentChanges.isNotEmpty()) {
                 recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
+                postEnrolmentCalculation(false)
+                updates.notifyChanged(enrolmentChanges)
             }
         }
 

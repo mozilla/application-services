@@ -128,6 +128,7 @@ pub fn opt_in_with_branch(
             branch_slug: branch.to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: exp.get_feature_ids(),
         });
     }
 
@@ -153,6 +154,7 @@ pub fn opt_out(
             branch_slug: "N/A".to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::UnenrollFailed,
+            feature_ids: vec![],
         });
     }
 
@@ -184,6 +186,7 @@ pub fn unenroll_for_pref(
             branch_slug: "N/A".to_string(),
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::UnenrollFailed,
+            feature_ids: vec![],
         });
     }
 
