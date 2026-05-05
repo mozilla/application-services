@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     command_line::commands::GenerateExperimenterManifestCmd,
     error::{FMLError, Result},
-    intermediate_representation::{FeatureDef, FeatureManifest, PropDef, TargetLanguage, TypeRef},
+    intermediate_representation::{
+        FeatureDef, FeatureManifest, GeckoPrefDef, PropDef, TargetLanguage, TypeRef,
+    },
 };
 
 pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
@@ -36,6 +38,10 @@ pub(crate) struct ExperimenterFeatureProperty {
     #[serde(rename = "enum")]
     #[serde(skip_serializing_if = "Option::is_none")]
     variants: Option<BTreeSet<String>>,
+
+    #[serde(rename = "setPref")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    set_pref: Option<GeckoPrefDef>,
 }
 
 impl TryFrom<FeatureManifest> for ExperimenterManifest {
@@ -71,30 +77,32 @@ impl FeatureManifest {
         props.iter().try_for_each(|prop| -> Result<()> {
             let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
 
-            let yaml_prop = if let TypeRef::Enum(e) = prop.typ() {
-                let enum_def = self
-                    .find_enum(&e)
-                    .ok_or(FMLError::InternalError("Found enum with no definition"))?;
+            let variants = match prop.typ() {
+                TypeRef::Enum(e) => {
+                    let enum_def = self
+                        .find_enum(&e)
+                        .ok_or(FMLError::InternalError("Found enum with no definition"))?;
 
-                let variants = enum_def
-                    .variants
-                    .iter()
-                    .map(|variant| variant.name())
-                    .collect::<BTreeSet<String>>();
-
-                ExperimenterFeatureProperty {
-                    variants: Some(variants),
-                    description: prop.doc(),
-                    property_type: typ,
+                    Some(
+                        enum_def
+                            .variants
+                            .iter()
+                            .map(|variant| variant.name())
+                            .collect::<BTreeSet<String>>(),
+                    )
                 }
-            } else {
-                ExperimenterFeatureProperty {
-                    variants: None,
-                    description: prop.doc(),
-                    property_type: typ,
-                }
+                _ => None,
             };
-            map.insert(prop.name(), yaml_prop);
+
+            map.insert(
+                prop.name(),
+                ExperimenterFeatureProperty {
+                    variants,
+                    description: prop.doc(),
+                    property_type: typ,
+                    set_pref: prop.gecko_pref.clone(),
+                },
+            );
             Ok(())
         })?;
         Ok(map)
