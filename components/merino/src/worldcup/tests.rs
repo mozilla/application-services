@@ -10,12 +10,16 @@ const TEAMS_RESPONSE: &str = include_str!("fixtures/teams.json");
 const MATCH_RESPONSE: &str = include_str!("fixtures/matches.json");
 const LIVE_RESPONSE: &str = include_str!("fixtures/live.json");
 
-fn make_response(status: u16, body: &str, url: Url) -> Response {
+fn make_response(status: u16, body: &str, url: Url, accept_language: Option<String>) -> Response {
+    let mut headers = Headers::new();
+    if let Some(lang) = accept_language {
+        headers.insert("accept-language", lang).unwrap();
+    }
     Response {
         request_method: Method::Get,
         url,
         status,
-        headers: Headers::new(),
+        headers,
         body: body.as_bytes().to_vec(),
     }
 }
@@ -24,6 +28,7 @@ fn default_options() -> WorldCupOptions {
     WorldCupOptions {
         limit: None,
         teams: None,
+        accept_language: None,
     }
 }
 
@@ -31,15 +36,15 @@ fn base_url() -> Url {
     Url::parse(DEFAULT_BASE_URL).unwrap()
 }
 
-struct FakeHttpClient(fn() -> Result<Option<Response>>);
+struct FakeHttpClient(fn(http::WorldCupQueryParams) -> Result<Option<Response>>);
 
 impl http::HttpClientTrait for FakeHttpClient {
     fn make_request(
         &self,
         _url: Url,
-        _params: http::WorldCupQueryParams,
+        params: http::WorldCupQueryParams,
     ) -> Result<Option<Response>> {
-        (self.0)()
+        (self.0)(params)
     }
 }
 
@@ -54,17 +59,18 @@ impl http::HttpClientTrait for FakeCapturingClient {
         params: http::WorldCupQueryParams,
     ) -> Result<Option<Response>> {
         *self.captured_url.lock().unwrap() = Some(http::build_url(url.clone(), &params));
-        Ok(Some(make_response(200, "{}", url)))
+        Ok(Some(make_response(200, "{}", url, None)))
     }
 }
 
 #[test]
 fn test_get_teams_success() {
-    fn response() -> Result<Option<Response>> {
+    fn response(_params: http::WorldCupQueryParams) -> Result<Option<Response>> {
         Ok(Some(make_response(
             200,
             TEAMS_RESPONSE,
             Url::parse("https://merino.services.mozilla.com/api/v1/wcs/").unwrap(),
+            None,
         )))
     }
     let client = WorldCupClientInner::new_with_client(FakeHttpClient(response));
@@ -75,11 +81,12 @@ fn test_get_teams_success() {
 
 #[test]
 fn test_get_matches_success() {
-    fn response() -> Result<Option<Response>> {
+    fn response(_params: http::WorldCupQueryParams) -> Result<Option<Response>> {
         Ok(Some(make_response(
             200,
             MATCH_RESPONSE,
             Url::parse("https://merino.services.mozilla.com/api/v1/wcs/").unwrap(),
+            None,
         )))
     }
     let client = WorldCupClientInner::new_with_client(FakeHttpClient(response));
@@ -90,11 +97,12 @@ fn test_get_matches_success() {
 
 #[test]
 fn test_get_live_success() {
-    fn response() -> Result<Option<Response>> {
+    fn response(_params: http::WorldCupQueryParams) -> Result<Option<Response>> {
         Ok(Some(make_response(
             200,
             LIVE_RESPONSE,
             Url::parse("https://merino.services.mozilla.com/api/v1/wcs/").unwrap(),
+            None,
         )))
     }
     let client = WorldCupClientInner::new_with_client(FakeHttpClient(response));
@@ -105,7 +113,7 @@ fn test_get_live_success() {
 
 #[test]
 fn test_no_content_returns_none() {
-    fn response() -> Result<Option<Response>> {
+    fn response(_params: http::WorldCupQueryParams) -> Result<Option<Response>> {
         Ok(None)
     }
     let client = WorldCupClientInner::new_with_client(FakeHttpClient(response));
@@ -122,7 +130,7 @@ fn test_no_content_returns_none() {
 
 #[test]
 fn test_server_error() {
-    fn response() -> Result<Option<Response>> {
+    fn response(_params: http::WorldCupQueryParams) -> Result<Option<Response>> {
         Err(Error::Server {
             code: 500,
             message: "Internal server error".to_string(),
@@ -135,6 +143,29 @@ fn test_server_error() {
         result.unwrap_err(),
         Error::Server { code: 500, .. }
     ));
+}
+
+#[test]
+fn test_accept_language_is_passed_as_header() {
+    fn response(params: http::WorldCupQueryParams) -> Result<Option<Response>> {
+        Ok(Some(make_response(
+            200,
+            "",
+            Url::parse("https://merino.services.mozilla.com/api/v1/wcs/").unwrap(),
+            params.accept_language,
+        )))
+    }
+    let client = WorldCupClientInner::new_with_client(FakeHttpClient(response));
+    let result = client.make_request(
+        base_url().join("teams").unwrap(),
+        WorldCupOptions {
+            limit: None,
+            teams: None,
+            accept_language: Some("en-US".to_string()),
+        },
+    );
+    let response = result.unwrap().unwrap();
+    assert_eq!(response.headers.get("accept-language"), Some("en-US"));
 }
 
 #[test]
@@ -180,6 +211,7 @@ fn test_matches_endpoint_url_with_limit() {
         WorldCupOptions {
             limit: Some(2),
             teams: None,
+            accept_language: None,
         },
     );
     let captured = captured_url.lock().unwrap();

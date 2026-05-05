@@ -96,6 +96,10 @@ enum Commands {
         #[arg(long)]
         teams: Option<Vec<String>>,
 
+        /// Language for results (e.g. "en-US")
+        #[arg(long)]
+        accept_language: Option<String>,
+
         #[command(subcommand)]
         endpoint: WorldCupEndpoint,
     },
@@ -181,12 +185,17 @@ fn main() -> Result<()> {
         Commands::WorldCup {
             limit,
             teams,
+            accept_language,
             endpoint,
         } => {
             let client = WorldCupClient::new(WorldCupConfig {
                 base_host: cli.base_host,
             })?;
-            let options = WorldCupOptions { limit, teams };
+            let options = WorldCupOptions {
+                limit,
+                teams,
+                accept_language,
+            };
             let result = match endpoint {
                 WorldCupEndpoint::Teams => client.get_teams(options),
                 WorldCupEndpoint::Matches => client.get_matches(options),

@@ -116,6 +116,7 @@ impl<T: http::HttpClientTrait> WorldCupClientInner<T> {
         http::WorldCupQueryParams {
             limit: options.limit,
             teams,
+            accept_language: options.accept_language,
         }
     }
 

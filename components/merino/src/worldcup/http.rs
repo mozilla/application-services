@@ -13,6 +13,7 @@ pub struct HttpClient;
 pub struct WorldCupQueryParams {
     pub limit: Option<u32>,
     pub teams: Option<String>,
+    pub accept_language: Option<String>,
 }
 
 pub trait HttpClientTrait {
@@ -21,7 +22,7 @@ pub trait HttpClientTrait {
 
 impl HttpClientTrait for HttpClient {
     fn make_request(&self, url: Url, params: WorldCupQueryParams) -> Result<Option<Response>> {
-        send_get(build_url(url, &params))
+        send_get(build_url(url, &params), params.accept_language)
     }
 }
 
@@ -42,10 +43,12 @@ pub fn build_url(endpoint_url: Url, params: &WorldCupQueryParams) -> Url {
     url
 }
 
-fn send_get(url: Url) -> Result<Option<Response>> {
-    let response = Request::get(url)
-        .header("accept", "application/json")?
-        .send()?;
+fn send_get(url: Url, accept_language: Option<String>) -> Result<Option<Response>> {
+    let mut request = Request::get(url).header("accept", "application/json")?;
+    if let Some(lang) = accept_language {
+        request = request.header("accept-language", lang)?;
+    }
+    let response = request.send()?;
     let status = response.status;
     match status {
         200 => Ok(Some(response)),
@@ -108,6 +111,7 @@ mod tests {
         let options = WorldCupQueryParams {
             limit: Some(5),
             teams: Some("FRA,ENG".to_string()),
+            accept_language: Some("en-GB".to_string()),
         };
         let url = build_url(base_url(), &options);
         assert!(has_param(&url, "limit", "5"));
@@ -126,6 +130,7 @@ mod tests {
         let options = WorldCupQueryParams {
             limit: Some(3),
             teams: Some("FRA".to_string()),
+            accept_language: Some("en-US".to_string()),
         };
         let url = build_url(base_url(), &options);
         assert_eq!(

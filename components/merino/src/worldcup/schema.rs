@@ -13,4 +13,6 @@ pub struct WorldCupOptions {
     pub limit: Option<u32>,
     /// Filter results by team(s) (e.g. `["FRA", "ENG"]`).
     pub teams: Option<Vec<String>>,
+    /// Language for results (e.g. `"en-US"`). (Not supported yet)
+    pub accept_language: Option<String>,
 }
