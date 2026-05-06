@@ -7,6 +7,10 @@
 
 ## ⚠️ Breaking Changes ⚠️
 
+### Logins
+
+- **BREAKING**: Removed deprecated checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()`
+
 ### Remote-Settings
  * Removed legacy remote-settings client
  * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.

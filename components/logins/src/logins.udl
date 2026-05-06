@@ -291,12 +291,6 @@ interface LoginStore {
     [Throws=LoginsApiError]
     Login? get([ByRef] string id);
 
-    [Throws=LoginsApiError]
-    void set_checkpoint([ByRef] string checkpoint);
-
-    [Throws=LoginsApiError]
-    string? get_checkpoint();
-
     /// Run maintenance on the DB
     ///
     /// This is intended to be run during idle time and will take steps / to clean up / shrink the
