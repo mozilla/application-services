@@ -280,7 +280,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_image_response();
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
@@ -291,6 +291,7 @@ mod tests {
 
         let result = ads_client.request_image_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
+        m.assert();
     }
 
     #[test]
@@ -298,7 +299,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_spoc_response();
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
@@ -309,6 +310,7 @@ mod tests {
 
         let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
+        m.assert();
     }
 
     #[test]
@@ -316,7 +318,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_uatile_response();
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
@@ -327,6 +329,7 @@ mod tests {
 
         let result = ads_client.request_tile_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
+        m.assert();
     }
 
     #[test]
@@ -341,7 +344,7 @@ mod tests {
         }
 
         let expected_response = get_example_happy_image_response();
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .match_body(mockito::Matcher::PartialJsonString(
                 r#"{"context_id":"custom-context-id-12345"}"#.to_string(),
             ))
@@ -362,6 +365,7 @@ mod tests {
 
         let result = client.request_image_ads(make_happy_placement_requests(), None, false);
         assert!(result.is_ok());
+        m.assert();
     }
 
     #[test]
@@ -380,7 +384,7 @@ mod tests {
 
         let response = get_example_happy_image_response();
 
-        let _m1 = mockito::mock("POST", "/ads")
+        let m1 = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(serde_json::to_string(&response.data).unwrap())
@@ -392,7 +396,7 @@ mod tests {
             .unwrap();
         let callback_url = response.values().next().unwrap().callbacks.click.clone();
 
-        let _m2 = mockito::mock("GET", callback_url.path())
+        let m2 = mockito::mock("GET", callback_url.path())
             .with_status(200)
             .create();
 
@@ -409,5 +413,8 @@ mod tests {
                 false,
             )
             .unwrap();
+
+        m1.assert();
+        m2.assert();
     }
 }
