@@ -11,6 +11,7 @@ mod outcome;
 mod request_hash;
 mod store;
 mod strategy;
+mod ttl;
 
 use self::{
     builder::HttpCacheBuilder,
@@ -84,13 +85,15 @@ impl HttpCache {
             CachePolicy::CacheFirst { ttl } => CacheFirst {
                 hash,
                 request,
-                ttl: ttl.unwrap_or(self.default_ttl),
+                explicit_ttl: *ttl,
+                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
             CachePolicy::NetworkFirst { ttl } => NetworkFirst {
                 hash,
                 request,
-                ttl: ttl.unwrap_or(self.default_ttl),
+                explicit_ttl: *ttl,
+                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
         }?;
@@ -321,13 +324,13 @@ mod tests {
     }
 
     #[test]
-    fn ttl_resolution_min_of_server_request_default() {
+    fn ttl_resolution_explicit_overrides_server_max_age() {
         viaduct_dev::init_backend_dev();
 
         let _m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_header("cache-control", "max-age=1") // Set max age to 1 second
+            .with_header("cache-control", "max-age=1") // Server says 1 second
             .with_body(r#"{"ok":true}"#)
             .expect(1)
             .create();
@@ -336,23 +339,61 @@ mod tests {
         let req = make_post_request();
         let hash = RequestHash::new(&req);
         let policy = CachePolicy::CacheFirst {
-            ttl: Some(Duration::from_secs(20)), // 20 second ttl specified vs the cache's default of 300s
+            ttl: Some(Duration::from_secs(20)), // Caller asked for 20s
         };
 
         let client = make_client();
-        // Store ttl should resolve to 1s as specified by response headers
+        // Caller's explicit TTL wins over the server's max-age.
         let (_, outcomes) = cache.send_with_policy(&client, req, &policy).unwrap();
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
-        // After ~>1s, cleanup should remove it
+        // Past the server max-age (1s) but still under the explicit TTL (20s) — entry is still there.
         cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
 
+        // Past the explicit TTL — entry should be expired.
+        cache.store.get_clock().advance(20);
+        cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
     }
 
     #[test]
-    fn ttl_resolution_request_overrides_default_when_smaller() {
+    fn ttl_resolution_uses_server_max_age_when_no_explicit_override() {
+        viaduct_dev::init_backend_dev();
+
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "max-age=2") // Server says 2 seconds
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        // Configured default is 300s — should be ignored in favor of server max-age.
+        let cache = make_cache_with_ttl(300);
+        let req = make_post_request();
+        let hash = RequestHash::new(&req);
+
+        let client = make_client();
+        let (_, outcomes) = cache
+            .send_with_policy(&client, req, &CachePolicy::default())
+            .unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+
+        // Still cached at ~1s.
+        cache.store.get_clock().advance(1);
+        cache.store.delete_expired_entries().unwrap();
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
+
+        // Expired after exceeding server max-age.
+        cache.store.get_clock().advance(2);
+        cache.store.delete_expired_entries().unwrap();
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
+    }
+
+    #[test]
+    fn ttl_resolution_explicit_overrides_default() {
         viaduct_dev::init_backend_dev();
 
         let _m = mockito::mock("POST", "/ads")

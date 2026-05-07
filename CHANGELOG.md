@@ -13,6 +13,9 @@
 
 ## ✨ What's New ✨
 
+### Ads Client
+* HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
+
 ### Remote Settings
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
 * Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
