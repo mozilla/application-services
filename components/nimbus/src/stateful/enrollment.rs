@@ -167,18 +167,16 @@ pub fn unenroll_for_pref(
     unenroll_reason: PrefUnenrollReason,
     triggering_pref_name: &str,
     gecko_pref_store: Option<&GeckoPrefStore>,
-) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut events = vec![];
+    events: &mut Vec<EnrollmentChangeEvent>,
+) -> Result<()> {
     let enr_store = db.get_store(StoreId::Enrollments);
     if let Ok(Some(existing_enrollment)) =
         enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
     {
-        #[cfg(feature = "stateful")]
         existing_enrollment
             .maybe_revert_unchanged_gecko_pref_states(triggering_pref_name, gecko_pref_store);
 
-        let updated_enrollment =
-            &existing_enrollment.on_pref_unenroll(unenroll_reason, &mut events);
+        let updated_enrollment = &existing_enrollment.on_pref_unenroll(unenroll_reason, events);
         enr_store.put(writer, experiment_slug, updated_enrollment)?;
     } else {
         events.push(EnrollmentChangeEvent {
@@ -189,7 +187,7 @@ pub fn unenroll_for_pref(
         });
     }
 
-    Ok(events)
+    Ok(())
 }
 
 pub fn get_experiment_participation<'r>(
