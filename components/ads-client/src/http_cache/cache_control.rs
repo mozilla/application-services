@@ -51,11 +51,8 @@ impl CacheControl {
         !self.no_store
     }
 
-    pub fn effective_ttl(&self, requested_ttl: Duration) -> Duration {
-        match self.max_age {
-            Some(s) => std::cmp::min(requested_ttl, Duration::from_secs(s)),
-            None => requested_ttl,
-        }
+    pub fn max_age_duration(&self) -> Option<Duration> {
+        self.max_age.map(Duration::from_secs)
     }
 }
 
