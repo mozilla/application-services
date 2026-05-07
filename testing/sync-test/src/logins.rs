@@ -4,11 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{
-    encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager},
-    ApiResult as LoginResult, Login, LoginEntry, LoginStore,
-};
-use std::sync::Arc;
+use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
 use std::{collections::hash_map::RandomState, collections::HashMap};
 
 // helpers...
@@ -373,45 +369,33 @@ fn test_delete_undecryptable_records_for_remote_replacement(
 
     // Add a login with a different EncryptorDecryptor to replicate having a stored login that cannot be decrypted
     // with the EncryptorDecryptor property of the store
-    let key = create_key().unwrap();
-    let new_encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
-        StaticKeyManager::new(key.clone()),
-    )));
-
     log::info!("Add another login to client0");
 
-    let login1 = c0
-        .logins_store
-        .lock_db()
-        .expect("db lock retrieved")
-        .add(
-            LoginEntry {
-                origin: "http://www.example3.com".into(),
-                form_action_origin: Some("http://login.example3.com".into()),
-                username_field: "uname".into(),
-                password_field: "pword".into(),
-                username: "cool_username".into(),
-                password: "hunter2".into(),
-                ..Default::default()
-            },
-            &*new_encdec,
-        )
+    let db = c0.logins_store.lock_db().unwrap();
+    let login1 = db
+        .add(LoginEntry {
+            origin: "http://www.example3.com".into(),
+            form_action_origin: Some("http://login.example3.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
+        })
         .expect("add login1");
     let l1id = login1.guid();
 
     // Check that the corrupted login exists on first device
     // The db retrieval function is being used instead of the store function so that we
     // can provided our own EncryptorDecryptor.
-    let retrieved_login = c0
-        .logins_store
-        .lock_db()
-        .expect("db lock retrieved")
+    let retrieved_login = db
         .get_by_id(&l1id)
         .expect("get_by_id returns successfully")
         .expect("login to be retrieved")
-        .decrypt(&*new_encdec)
+        .decrypt(&db)
         .expect("decryption to succeed");
     assert_eq!(retrieved_login.guid(), l1id);
+    drop(db);
 
     // Check that syncing after adding a corrupted login fails with a decryption error
     let failures = sync_logins_with_failure(c0).expect("sync to complete with failures");

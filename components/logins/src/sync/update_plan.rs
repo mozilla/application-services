@@ -4,9 +4,8 @@
 
 use super::merge::{LocalLogin, MirrorLogin};
 use super::{IncomingLogin, SyncStatus};
-use crate::encryption::EncryptorDecryptor;
-use crate::error::*;
 use crate::util;
+use crate::{error::*, LoginDb};
 use interrupt_support::SqlInterruptScope;
 use rusqlite::{named_params, Connection};
 use std::time::SystemTime;
@@ -54,7 +53,7 @@ impl UpdatePlan {
         upstream: IncomingLogin,
         upstream_time: ServerTimestamp,
         server_now: ServerTimestamp,
-        encdec: &dyn EncryptorDecryptor,
+        db: &LoginDb,
     ) -> Result<()> {
         let local_age = SystemTime::now()
             .duration_since(local.local_modified())
@@ -62,7 +61,7 @@ impl UpdatePlan {
         let remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
 
         let delta = {
-            let upstream_delta = upstream.login.delta(&shared.login, encdec)?;
+            let upstream_delta = upstream.login.delta(&shared.login, db)?;
             match local {
                 LocalLogin::Tombstone { .. } => {
                     // If the login was deleted locally, the merged delta is the
@@ -78,7 +77,7 @@ impl UpdatePlan {
                     upstream_delta
                 }
                 LocalLogin::Alive { login, .. } => {
-                    let local_delta = login.delta(&shared.login, encdec)?;
+                    let local_delta = login.delta(&shared.login, db)?;
                     local_delta.merge(upstream_delta, remote_age < local_age)
                 }
             }
@@ -89,7 +88,7 @@ impl UpdatePlan {
             .push((upstream, upstream_time.as_millis()));
         let mut new = shared;
 
-        new.login.apply_delta(delta, encdec)?;
+        new.login.apply_delta(delta, db)?;
         new.server_modified = upstream_time;
         self.local_updates.push(new);
         Ok(())
@@ -325,7 +324,6 @@ mod tests {
         get_server_modified, insert_encrypted_login, insert_login,
     };
     use crate::db::LoginDb;
-    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
 
     fn inc_login(id: &str, password: &str) -> crate::sync::IncomingLogin {
@@ -477,7 +475,7 @@ mod tests {
                 upstream_login,
                 server_record_timestamp.try_into().unwrap(),
                 server_timestamp.try_into().unwrap(),
-                &*TEST_ENCDEC,
+                &db,
             )
             .unwrap();
         update_plan
@@ -544,7 +542,7 @@ mod tests {
                 upstream_login,
                 server_record_timestamp.try_into().unwrap(),
                 server_timestamp.try_into().unwrap(),
-                &*TEST_ENCDEC,
+                &db,
             )
             .unwrap();
         update_plan
@@ -616,7 +614,7 @@ mod tests {
                 upstream_login,
                 server_record_timestamp.try_into().unwrap(),
                 server_timestamp.try_into().unwrap(),
-                &*TEST_ENCDEC,
+                &db,
             )
             .unwrap();
         update_plan
