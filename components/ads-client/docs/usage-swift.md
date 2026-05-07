@@ -509,7 +509,8 @@ resolved by priority (highest to lowest):
 3. `client_default_ttl` — configured on `MozAdsCacheConfig`.
 
 If the effective TTL resolves to 0 seconds (e.g. `Cache-Control: max-age=0`),
-the response is not cached.
+the response is not cached. The resolved TTL is capped at 7 days regardless
+of source.
 
 ### Configuring The Cache
 

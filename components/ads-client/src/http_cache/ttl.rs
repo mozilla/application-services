@@ -5,6 +5,11 @@
 
 use std::time::Duration;
 
+/// Hard ceiling on any resolved TTL, regardless of source. Guards against a
+/// misconfigured server (e.g. `Cache-Control: max-age=315360000`) pinning
+/// responses in the cache for far longer than is reasonable.
+pub const MAX_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
 /// The TTL to use when storing a response in the cache, computed from
 /// three possible sources.
 ///
@@ -24,10 +29,14 @@ impl EffectiveTtl {
     /// 1. `explicit` — caller-provided per-request override.
     /// 2. `server_max_age` — value of `Cache-Control: max-age` on the response.
     /// 3. `default` — the cache's configured default.
+    ///
+    /// The result is capped at [`MAX_TTL`].
     pub fn resolve(&self) -> Duration {
-        self.explicit
+        let chosen = self
+            .explicit
             .or(self.server_max_age)
-            .unwrap_or(self.default)
+            .unwrap_or(self.default);
+        chosen.min(MAX_TTL)
     }
 }
 
@@ -78,5 +87,38 @@ mod tests {
         }
         .resolve();
         assert_eq!(ttl, Duration::ZERO);
+    }
+
+    #[test]
+    fn server_max_age_is_capped_at_max_ttl() {
+        let ttl = EffectiveTtl {
+            explicit: None,
+            server_max_age: Some(Duration::from_secs(365 * 24 * 60 * 60)),
+            default: Duration::from_secs(300),
+        }
+        .resolve();
+        assert_eq!(ttl, MAX_TTL);
+    }
+
+    #[test]
+    fn explicit_ttl_is_capped_at_max_ttl() {
+        let ttl = EffectiveTtl {
+            explicit: Some(Duration::from_secs(30 * 24 * 60 * 60)),
+            server_max_age: None,
+            default: Duration::from_secs(300),
+        }
+        .resolve();
+        assert_eq!(ttl, MAX_TTL);
+    }
+
+    #[test]
+    fn default_ttl_is_capped_at_max_ttl() {
+        let ttl = EffectiveTtl {
+            explicit: None,
+            server_max_age: None,
+            default: Duration::from_secs(30 * 24 * 60 * 60),
+        }
+        .resolve();
+        assert_eq!(ttl, MAX_TTL);
     }
 }
