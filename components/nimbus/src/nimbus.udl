@@ -73,6 +73,8 @@ dictionary EnrollmentChangeEvent {
     string branch_slug;
     string? reason;
     EnrollmentChangeEventType change;
+
+    sequence<string> feature_ids;
 };
 
 enum EnrollmentChangeEventType {
@@ -234,7 +236,7 @@ interface NimbusClient {
         string dbpath,
         MetricsHandler metrics_handler,
         GeckoPrefHandler? gecko_pref_handler,
-        NimbusServerSettings? remote_settings_info
+        NimbusServerSettings? remote_settings_info,
     );
 
     /// Initializes the database and caches enough information so that the
