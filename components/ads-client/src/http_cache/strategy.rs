@@ -6,6 +6,7 @@
 use super::cache_control::CacheControl;
 use super::request_hash::RequestHash;
 use super::store::HttpCacheStore;
+use super::ttl::EffectiveTtl;
 use super::{CacheOutcome, HttpCacheSendResult};
 use std::time::Duration;
 use viaduct::{Client, Request};
@@ -13,7 +14,8 @@ use viaduct::{Client, Request};
 pub struct CacheFirst {
     pub hash: RequestHash,
     pub request: Request,
-    pub ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
+    pub default_ttl: Duration,
 }
 
 impl CacheFirst {
@@ -28,7 +30,8 @@ impl CacheFirst {
         let network = NetworkFirst {
             hash: self.hash,
             request: self.request,
-            ttl: self.ttl,
+            explicit_ttl: self.explicit_ttl,
+            default_ttl: self.default_ttl,
         };
         let (response, mut network_outcomes) = network.apply(client, store)?;
         outcomes.append(&mut network_outcomes);
@@ -39,7 +42,8 @@ impl CacheFirst {
 pub struct NetworkFirst {
     pub hash: RequestHash,
     pub request: Request,
-    pub ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
+    pub default_ttl: Duration,
 }
 
 impl NetworkFirst {
@@ -47,7 +51,12 @@ impl NetworkFirst {
         let response = client.send_sync(self.request)?;
         let cache_control = CacheControl::from(&response);
         let outcome = if cache_control.should_cache() {
-            let ttl = cache_control.effective_ttl(self.ttl);
+            let ttl = EffectiveTtl {
+                explicit: self.explicit_ttl,
+                server_max_age: cache_control.max_age_duration(),
+                default: self.default_ttl,
+            }
+            .resolve();
             if ttl.is_zero() {
                 return Ok((response, vec![CacheOutcome::NoCache]));
             }

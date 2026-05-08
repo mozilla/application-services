@@ -544,19 +544,16 @@ It reduces redundant network traffic and improves latency for repeated or identi
 
 ### Cache Lifecycle
 
-Each network response can be stored in the cache with an associated effective TTL, computed as:
+Each network response can be stored in the cache with an associated effective TTL,
+resolved by priority (highest to lowest):
 
-```
-effective_ttl = min(server_max_age, client_default_ttl, per_request_ttl)
-```
+1. `per_request_ttl` — caller-provided override on `MozAdsRequestCachePolicy`.
+2. `server_max_age` — value of the HTTP `Cache-Control: max-age=N` header on the response.
+3. `client_default_ttl` — configured on `MozAdsCacheConfig`.
 
-where:
-
-- `server_max_age` comes from the HTTP `Cache-Control: max-age=N` header (if present),
-- `client_default_ttl` is set in `MozAdsCacheConfig`,
-- `per_request_ttl` is an optional override set in `MozAdsRequestCachePolicy`.
-
-If the effective TTL resolves to 0 seconds, the response is not cached.
+If the effective TTL resolves to 0 seconds (e.g. `Cache-Control: max-age=0`),
+the response is not cached. The resolved TTL is capped at 7 days regardless
+of source.
 
 ### Configuring The Cache
 
