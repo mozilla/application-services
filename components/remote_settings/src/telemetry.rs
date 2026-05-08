@@ -79,7 +79,7 @@ pub struct UptakeEventExtras {
 ///
 /// service.setTelemetry(GleanTelemetry())
 /// ```
-#[uniffi::export(with_foreign)]
+#[cfg_attr(feature = "telemetry-submission", uniffi::export(with_foreign))]
 pub trait RemoteSettingsTelemetry: Send + Sync {
     /// Report uptake event.
     fn report_uptake(&self, extras: UptakeEventExtras);

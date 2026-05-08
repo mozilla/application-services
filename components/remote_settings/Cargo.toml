@@ -11,6 +11,8 @@ exclude = ["/android", "/ios"]
 [features]
 default = []
 signatures = ["dep:canonical_json", "dep:rc_crypto"]
+# submitting glean telemetry is tricky on desktop for now.
+telemetry-submission = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -61,14 +61,6 @@ impl RemoteSettingsService {
         }
     }
 
-    /// Set the telemetry implementation used to record Glean metrics.
-    /// This should be set to a real implementation (eg. Kotlin, Swift).
-    /// If not set, all metric recording is a no-op.
-    pub fn set_telemetry(&self, telemetry: Arc<dyn RemoteSettingsTelemetry>) {
-        self.internal
-            .set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry));
-    }
-
     /// Create a new Remote Settings client
     ///
     /// This method performs no IO or network requests and is safe to run in a main thread that can't be blocked.
@@ -99,6 +91,17 @@ impl RemoteSettingsService {
 
     pub fn client_url(&self) -> String {
         self.internal.client_url().to_string()
+    }
+}
+
+#[cfg_attr(feature = "telemetry-submission", uniffi::export)]
+impl RemoteSettingsService {
+    /// Set the telemetry implementation used to record Glean metrics.
+    /// This should be set to a real implementation (eg. Kotlin, Swift).
+    /// If not set, all metric recording is a no-op.
+    pub fn set_telemetry(&self, telemetry: Arc<dyn RemoteSettingsTelemetry>) {
+        self.internal
+            .set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry));
     }
 }
 

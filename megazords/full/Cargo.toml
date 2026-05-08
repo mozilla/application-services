@@ -18,7 +18,7 @@ sync_manager = { path = "../../components/sync_manager/" }
 # webext-storage = { path = "../../components/webext-storage/" }
 places = { path = "../../components/places" }
 push = { path = "../../components/push" }
-remote_settings = { path = "../../components/remote_settings" }
+remote_settings = { path = "../../components/remote_settings", features=["telemetry-submission"] }
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
 nimbus-sdk = { path = "../../components/nimbus" }
