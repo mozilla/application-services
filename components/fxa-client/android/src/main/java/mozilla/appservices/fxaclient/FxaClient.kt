@@ -295,7 +295,9 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * caller should indicate to the user that there are authentication issues and allow them to
      * re-login by starting a new OAuth flow.
      *
-     * @param scope Single OAuth scope (no spaces) for which the client wants access
+     * @param scope Space-separated list of OAuth scopes for which the client wants access.
+     * Scope order is not significant. When a single scope is requested and it has an associated
+     * scoped key, [AccessTokenInfo.key] will be populated; for multi-scope requests it is null.
      * @param useCache set to false to force a new token request.  The fetched token will still be
      * cached for later `get_access_token` calls.
      * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete

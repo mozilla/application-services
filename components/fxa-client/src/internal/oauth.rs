@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub mod access_token;
 pub mod attached_clients;
 use super::scopes;
 use super::{
@@ -11,119 +12,20 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-use crate::{
-    debug, error, info, warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey,
-};
+use crate::{debug, info, warn, AuthorizationParameters, Error, FxaServer, Result};
+pub use access_token::AccessTokenInfo;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
 use serde_derive::*;
-use std::{
-    collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, HashSet};
 use url::Url;
-// If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
-// it will be considered already expired.
-const OAUTH_MIN_TIME_LEFT: u64 = 60;
 // Special redirect urn based on the OAuth native spec, signals that the
 // WebChannel flow is used
 pub const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
 
 impl FirefoxAccount {
-    /// Fetch a short-lived access token using the saved refresh token.
-    /// If there is no refresh token held or if it is not authorized for some of the requested
-    /// scopes, this method will error-out and a login flow will need to be initiated
-    /// using `begin_oauth_flow`.
-    ///
-    /// * `scopes` - Space-separated list of requested scopes.
-    /// * `use_cache` - optionally set to false to force a new token request.  The fetched
-    ///   token will still be cached for later `get_access_token` calls.
-    ///
-    /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str, use_cache: bool) -> Result<AccessTokenInfo> {
-        if scope.contains(' ') {
-            return Err(Error::MultipleScopesRequested);
-        }
-        if use_cache {
-            if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
-                if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
-                    // If the cached key is missing the required sync scoped key, try to fetch it again
-                    if oauth_info.check_missing_sync_scoped_key().is_ok() {
-                        return Ok(oauth_info.clone());
-                    }
-                }
-            }
-        }
-        let resp = match self.state.refresh_token() {
-            Some(mut refresh_token) => {
-                if !refresh_token.scopes.contains(scope) {
-                    // We don't currently have this scope - try token exchange to upgrade.
-                    let exchange_resp = self.client.exchange_token_for_scope(
-                        self.state.config(),
-                        &refresh_token.token,
-                        scope,
-                    )?;
-                    // Update state with the new refresh token that has combined scopes.
-                    if let Some(new_refresh_token) = exchange_resp.refresh_token {
-                        self.state.update_refresh_token(RefreshToken::new(
-                            new_refresh_token,
-                            exchange_resp.scope,
-                        ));
-                    } else {
-                        // A request for a new token succeeding but without a new token is unexpected.
-                        error!("successful response for a new refresh token with additional scopes, but no token was delivered");
-                        // at this stage we are almost certainly still going to fail to get a token...
-                    }
-                    // Get the updated refresh token from state.
-                    refresh_token = match self.state.refresh_token() {
-                        // We had a refresh token, we must either still have the original or maybe a new one,
-                        // but it's impossible for us to not have one at this point.
-                        None => unreachable!("lost the refresh token"),
-                        Some(token) => token,
-                    };
-                }
-                if refresh_token.scopes.contains(scope) {
-                    self.client.create_access_token_using_refresh_token(
-                        self.state.config(),
-                        &refresh_token.token,
-                        None,
-                        &[scope],
-                    )?
-                } else {
-                    // This should be impossible - if we don't have the scope we would have entered
-                    // the block where we try and get it, that succeeded and we got a new refresh token,
-                    // but still don't have the scope.
-                    error!("New refresh token doesn't have the scope we requested: {scope}");
-                    return Err(Error::UnexpectedServerResponse);
-                }
-            }
-            None => match self.state.session_token() {
-                Some(session_token) => self.client.create_access_token_using_session_token(
-                    self.state.config(),
-                    session_token,
-                    &[scope],
-                )?,
-                None => return Err(Error::NoSessionToken),
-            },
-        };
-        let since_epoch = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| Error::IllegalState("Current date before Unix Epoch."))?;
-        let expires_at = since_epoch.as_secs() + resp.expires_in;
-        let token_info = AccessTokenInfo {
-            scope: resp.scope,
-            token: resp.access_token,
-            key: self.state.get_scoped_key(scope).cloned(),
-            expires_at,
-        };
-        self.state
-            .add_cached_access_token(scope, token_info.clone());
-        token_info.check_missing_sync_scoped_key()?;
-        Ok(token_info)
-    }
-
     /// Extracts and stores the session token from a WebChannel login JSON payload.
     /// The JSON payload is the `data` object from the `fxaccounts:login` WebChannel command.
     pub fn handle_web_channel_login(&mut self, json_payload: &str) -> Result<()> {
@@ -601,11 +503,6 @@ impl FirefoxAccount {
         self.clear_devices_and_attached_clients_cache();
         Ok(())
     }
-
-    /// **💾 This method may alter the persisted account state.**
-    pub fn clear_access_token_cache(&mut self) {
-        self.state.clear_access_token_cache();
-    }
 }
 
 const AUTH_CIRCUIT_BREAKER_CAPACITY: u8 = 5;
@@ -682,7 +579,10 @@ impl RefreshToken {
     pub fn new(token: String, scopes: String) -> Self {
         Self {
             token,
-            scopes: scopes.split(' ').map(ToString::to_string).collect(),
+            scopes: scopes
+                .split_ascii_whitespace()
+                .map(ToString::to_string)
+                .collect(),
         }
     }
 }
@@ -700,49 +600,16 @@ pub struct OAuthFlow {
     pub code_verifier: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct AccessTokenInfo {
-    pub scope: String,
-    pub token: String,
-    pub key: Option<ScopedKey>,
-    pub expires_at: u64, // seconds since epoch
-}
-
-impl AccessTokenInfo {
-    pub fn check_missing_sync_scoped_key(&self) -> Result<()> {
-        if self.scope == scopes::OLD_SYNC && self.key.is_none() {
-            Err(Error::SyncScopedKeyMissingInServerResponse)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl TryFrom<AccessTokenInfo> for crate::AccessTokenInfo {
-    type Error = Error;
-    fn try_from(info: AccessTokenInfo) -> Result<Self> {
-        Ok(crate::AccessTokenInfo {
-            scope: info.scope,
-            token: info.token,
-            key: info.key,
-            expires_at: info.expires_at.try_into()?,
-        })
-    }
-}
-
-impl std::fmt::Debug for AccessTokenInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AccessTokenInfo")
-            .field("scope", &self.scope)
-            .field("key", &self.key)
-            .field("expires_at", &self.expires_at)
-            .finish()
-    }
-}
-
 impl From<IntrospectInfo> for crate::AuthorizationInfo {
     fn from(r: IntrospectInfo) -> Self {
         crate::AuthorizationInfo { active: r.active }
+    }
+}
+
+#[cfg(test)]
+impl FirefoxAccount {
+    pub fn set_session_token(&mut self, session_token: &str) {
+        self.state.set_session_token(session_token.to_owned());
     }
 }
 
@@ -755,16 +622,6 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
-
-    impl FirefoxAccount {
-        pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
-            self.state.add_cached_access_token(scope, token_info);
-        }
-
-        pub fn set_session_token(&mut self, session_token: &str) {
-            self.state.set_session_token(session_token.to_owned());
-        }
-    }
 
     #[test]
     fn test_oauth_flow_url() {
