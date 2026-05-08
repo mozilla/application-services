@@ -73,9 +73,6 @@ pub enum Error {
     #[error("Unknown OAuth State")]
     UnknownOAuthState,
 
-    #[error("Multiple OAuth scopes requested")]
-    MultipleScopesRequested,
-
     #[error("No cached scoped keys for scope {0}")]
     NoScopedKey(String),
 
