@@ -15,6 +15,7 @@
 
 ### Ads Client
 * HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. The resolved TTL is capped at 7 days as a safety net against misconfigured server values. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
+* Callback requests (`recordImpression`, `recordClick`, `reportAd`) now retry once after a short delay on transient transport-level failures (timeouts, connection resets, DNS), to better survive flaky mobile networks. HTTP status errors are not retried.
 
 ### Remote Settings
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
