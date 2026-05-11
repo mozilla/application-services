@@ -806,17 +806,14 @@ impl<'a> EnrollmentsEvolver<'a> {
         }
     }
 
-    pub(crate) fn evolve_enrollments<E>(
+    pub(crate) fn evolve_enrollments(
         &mut self,
         participation: Participation,
-        prev_experiments: &[E],
+        prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
-    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
-    where
-        E: ExperimentMetadata + Clone,
-    {
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
         let mut events: Vec<EnrollmentChangeEvent> = Default::default();
 
@@ -872,17 +869,14 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
-    pub(crate) fn evolve_enrollment_recipes<E>(
+    pub(crate) fn evolve_enrollment_recipes(
         &mut self,
         is_user_participating: bool,
-        prev_experiments: &[E],
+        prev_experiments: &[Experiment],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
-    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
-    where
-        E: ExperimentMetadata + Clone,
-    {
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
         let prev_experiments_map = map_experiments(prev_experiments);
         let next_experiments_map = map_experiments(next_experiments);
@@ -1115,18 +1109,15 @@ impl<'a> EnrollmentsEvolver<'a> {
     ///
     /// Returns an Option-wrapped version of the updated enrollment.  None
     /// means that the enrollment has been/should be discarded.
-    pub(crate) fn evolve_enrollment<E>(
+    pub(crate) fn evolve_enrollment(
         &mut self,
         is_user_participating: bool,
-        prev_experiment: Option<&E>,
+        prev_experiment: Option<&Experiment>,
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
-    ) -> Result<Option<ExperimentEnrollment>>
-    where
-        E: ExperimentMetadata + Clone,
-    {
+    ) -> Result<Option<ExperimentEnrollment>> {
         let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
             enrollment.status.is_enrolled()
         } else {

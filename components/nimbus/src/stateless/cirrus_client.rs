@@ -143,13 +143,12 @@ impl CirrusClient {
         );
         let state = self.state.lock().unwrap();
 
-        let (enrollments, events) = enrollments_evolver
-            .evolve_enrollments::<EnrolledFeatureConfig>(
-                Default::default(),
-                Default::default(),
-                &state.experiments,
-                prev_enrollments,
-            )?;
+        let (enrollments, events) = enrollments_evolver.evolve_enrollments(
+            Default::default(),
+            Default::default(),
+            &state.experiments,
+            prev_enrollments,
+        )?;
 
         self.metrics_handler.record_enrollment_statuses_v2(
             enrollments

@@ -436,7 +436,7 @@ fn test_ios_rollout_experiment() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             true,
             None,
             Some(exp),
@@ -463,7 +463,7 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             true,
             None,
             Some(exp),
@@ -493,7 +493,7 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             true,
             None,
             Some(&exp),
@@ -522,7 +522,7 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             false,
             None,
             Some(&exp),
@@ -552,7 +552,7 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             true,
             None,
             Some(&exp),
@@ -905,7 +905,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &recipes,
@@ -924,7 +924,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let ro = get_bucketed_rollout(slug, 10_000);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -942,7 +942,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -977,7 +977,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &recipes,
@@ -996,7 +996,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 10_000);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1014,7 +1014,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1038,7 +1038,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 10_000);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1071,7 +1071,7 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
         get_single_feature_experiment(slug_2, "feature_2", Value::Object(Default::default()));
     let recipes = [exp_1, exp_2];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &recipes,
         &recipes,
@@ -1447,7 +1447,7 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &test_experiments,
@@ -1515,7 +1515,7 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     let mut targeting_attributes = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &test_experiments,
@@ -1561,7 +1561,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
     let mut targeting_attributes = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &test_experiments,
@@ -1632,7 +1632,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     // 1. we have two experiments that use one feature each. There's no conflicts.
     let next_experiments = vec![aboutwelcome_experiment.clone(), newtab_experiment.clone()];
 
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &next_experiments,
@@ -1794,7 +1794,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let prev_enrollments = vec![];
     let prev_experiments = vec![];
     let next_experiments = vec![mixed_experiment.clone()];
-    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_experiments,
         &next_experiments,
@@ -2477,7 +2477,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
 
     // Test that evolve_enrollments correctly handles the case where a
     // record with a previous enrollment gets dropped
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &test_experiments,
@@ -2515,7 +2515,7 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     let test_experiments = &[test_experiment];
     // The user should get enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
     // and the 'is_already_enrolled'
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         test_experiments,
@@ -2716,7 +2716,7 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
             experiment_ended_at: now_secs(),
         },
     };
-    let enrollment = evolver.evolve_enrollment::<Experiment>(
+    let enrollment = evolver.evolve_enrollment(
         true,
         None,
         None,
@@ -2744,7 +2744,7 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
             experiment_ended_at: now_secs() - PREVIOUS_ENROLLMENTS_GC_TIME.as_secs() - 60,
         },
     };
-    let enrollment = evolver.evolve_enrollment::<Experiment>(
+    let enrollment = evolver.evolve_enrollment(
         true,
         None,
         None,
@@ -2772,7 +2772,7 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let res = evolver.evolve_enrollment::<Experiment>(
+    let res = evolver.evolve_enrollment(
         true,
         None,
         Some(&exp),
@@ -2811,7 +2811,7 @@ fn test_evolver_no_experiments_no_enrollment() {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     evolver
-        .evolve_enrollment::<Experiment>(
+        .evolve_enrollment(
             true,
             None,
             None,
@@ -2860,7 +2860,7 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         recipes,
@@ -2927,7 +2927,7 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         recipes,
@@ -3163,7 +3163,7 @@ fn test_rollouts_end_to_end() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
-    let (enrollments, _events) = evolver.evolve_enrollments::<Experiment>(
+    let (enrollments, _events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         recipes,
