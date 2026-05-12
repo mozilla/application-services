@@ -117,6 +117,7 @@ impl<T: http::HttpClientTrait> WorldCupClientInner<T> {
             limit: options.limit,
             teams,
             accept_language: options.accept_language,
+            date: options.date,
         }
     }
 

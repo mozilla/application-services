@@ -14,6 +14,7 @@ pub struct WorldCupQueryParams {
     pub limit: Option<u32>,
     pub teams: Option<String>,
     pub accept_language: Option<String>,
+    pub date: Option<String>,
 }
 
 pub trait HttpClientTrait {
@@ -27,7 +28,7 @@ impl HttpClientTrait for HttpClient {
 }
 
 pub fn build_url(endpoint_url: Url, params: &WorldCupQueryParams) -> Url {
-    if params.limit.is_none() && params.teams.is_none() {
+    if params.limit.is_none() && params.teams.is_none() && params.date.is_none() {
         return endpoint_url;
     }
     let mut url = endpoint_url;
@@ -38,6 +39,9 @@ pub fn build_url(endpoint_url: Url, params: &WorldCupQueryParams) -> Url {
         }
         if let Some(v) = &params.teams {
             pairs.append_pair("teams", v);
+        }
+        if let Some(v) = &params.date {
+            pairs.append_pair("date", v);
         }
     }
     url
@@ -112,6 +116,7 @@ mod tests {
             limit: Some(5),
             teams: Some("FRA,ENG".to_string()),
             accept_language: Some("en-GB".to_string()),
+            date: None,
         };
         let url = build_url(base_url(), &options);
         assert!(has_param(&url, "limit", "5"));
@@ -131,6 +136,7 @@ mod tests {
             limit: Some(3),
             teams: Some("FRA".to_string()),
             accept_language: Some("en-US".to_string()),
+            date: None,
         };
         let url = build_url(base_url(), &options);
         assert_eq!(

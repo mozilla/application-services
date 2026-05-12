@@ -99,6 +99,9 @@ enum Commands {
         /// Language for results (e.g. "en-US")
         #[arg(long)]
         accept_language: Option<String>,
+        /// Date to filter matches by, in `YYYY-MM-DD` format (e.g. "2026-06-14")
+        #[arg(long)]
+        date: Option<String>,
 
         #[command(subcommand)]
         endpoint: WorldCupEndpoint,
@@ -182,6 +185,7 @@ fn main() -> Result<()> {
             limit,
             teams,
             accept_language,
+            date,
             endpoint,
         } => {
             let client = WorldCupClient::new(WorldCupConfig {
@@ -191,6 +195,7 @@ fn main() -> Result<()> {
                 limit,
                 teams,
                 accept_language,
+                date,
             };
             let result = match endpoint {
                 WorldCupEndpoint::Teams => client.get_teams(options),
