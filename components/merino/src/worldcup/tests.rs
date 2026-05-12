@@ -29,6 +29,7 @@ fn default_options() -> WorldCupOptions {
         limit: None,
         teams: None,
         accept_language: None,
+        date: None,
     }
 }
 
@@ -162,6 +163,7 @@ fn test_accept_language_is_passed_as_header() {
             limit: None,
             teams: None,
             accept_language: Some("en-US".to_string()),
+            date: None,
         },
     );
     let response = result.unwrap().unwrap();
@@ -212,6 +214,7 @@ fn test_matches_endpoint_url_with_limit() {
             limit: Some(2),
             teams: None,
             accept_language: None,
+            date: None,
         },
     );
     let captured = captured_url.lock().unwrap();
@@ -245,4 +248,26 @@ fn test_builder_fails_with_invalid_base_host() {
         Err(other) => panic!("Expected UrlParse error, got: {:?}", other),
         Ok(_) => panic!("Expected error for invalid base_host"),
     }
+}
+
+#[test]
+fn test_matches_endpoint_url_with_date() {
+    let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None::<Url>));
+    let client_inner = WorldCupClientInner::new_with_client(FakeCapturingClient {
+        captured_url: captured_url.clone(),
+    });
+    let _ = client_inner.make_request(
+        base_url().join("matches").unwrap(),
+        WorldCupOptions {
+            limit: None,
+            teams: None,
+            accept_language: None,
+            date: Some("2026-06-14".to_string()),
+        },
+    );
+    let captured = captured_url.lock().unwrap();
+    assert_eq!(
+        captured.as_ref().unwrap().as_str(),
+        "https://merino.services.mozilla.com/api/v1/wcs/matches?date=2026-06-14"
+    );
 }
