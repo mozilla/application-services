@@ -61,7 +61,7 @@ pub enum NotEnrolledReason {
     /// The experiment enrollment is paused.
     EnrollmentsPaused,
     /// The experiment used a feature that was already under experiment.
-    FeatureConflict,
+    FeatureConflict { conflict_slug: Option<String> },
     /// The evaluator bucketing did not choose us.
     NotSelected,
     /// We are not being targeted for this experiment.
@@ -100,7 +100,7 @@ impl Display for NotEnrolledReason {
                 NotEnrolledReason::DifferentAppName => "DifferentAppName",
                 NotEnrolledReason::DifferentChannel => "DifferentChannel",
                 NotEnrolledReason::EnrollmentsPaused => "EnrollmentsPaused",
-                NotEnrolledReason::FeatureConflict => "FeatureConflict",
+                NotEnrolledReason::FeatureConflict { .. } => "FeatureConflict",
                 NotEnrolledReason::NotSelected => "NotSelected",
                 NotEnrolledReason::NotTargeted => "NotTargeted",
                 NotEnrolledReason::ExperimentsOptOut => "ExperimentsOptOut",
@@ -984,10 +984,11 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         for prev_enrollment in prev_enrollments {
             if matches!(
-                prev_enrollment.status,
+                &prev_enrollment.status,
                 EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::FeatureConflict
+                    reason: NotEnrolledReason::FeatureConflict { conflict_slug },
                 }
+                if conflict_slug.is_some()
             ) {
                 continue;
             }
@@ -1066,7 +1067,9 @@ impl<'a> EnrollmentsEvolver<'a> {
                     next_enrollments.push(ExperimentEnrollment {
                         slug: slug.clone(),
                         status: EnrollmentStatus::NotEnrolled {
-                            reason: NotEnrolledReason::FeatureConflict,
+                            reason: NotEnrolledReason::FeatureConflict {
+                                conflict_slug: Some(needed_features_in_use[0].slug.clone()),
+                            },
                         },
                     });
 
@@ -1094,10 +1097,11 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             if prev_enrollment.is_none()
                 || matches!(
-                    prev_enrollment.unwrap().status,
+                    &prev_enrollment.unwrap().status,
                     EnrollmentStatus::NotEnrolled {
-                        reason: NotEnrolledReason::FeatureConflict
+                        reason: NotEnrolledReason::FeatureConflict { conflict_slug }
                     }
+                    if conflict_slug.is_some()
                 )
             {
                 let next_enrollment = match self.evolve_enrollment(

@@ -2042,10 +2042,11 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         .iter()
         .filter(|&e| {
             matches!(
-                e.status,
+                &e.status,
                 EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::FeatureConflict
+                    reason: NotEnrolledReason::FeatureConflict { conflict_slug: Some(conflict_slug) }
                 }
+                if conflict_slug == "secure-gold"
             )
         })
         .count();
