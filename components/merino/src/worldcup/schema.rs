@@ -15,4 +15,6 @@ pub struct WorldCupOptions {
     pub teams: Option<Vec<String>>,
     /// Language for results (e.g. `"en-US"`). (Not supported yet)
     pub accept_language: Option<String>,
+    /// ISO 8601 date string to filter matches by date (e.g. `"2026-06-14"`).
+    pub date: Option<String>,
 }
