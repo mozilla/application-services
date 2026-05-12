@@ -116,6 +116,7 @@ mod tests {
             limit: Some(5),
             teams: Some("FRA,ENG".to_string()),
             accept_language: Some("en-GB".to_string()),
+            date: None,
         };
         let url = build_url(base_url(), &options);
         assert!(has_param(&url, "limit", "5"));
@@ -135,6 +136,7 @@ mod tests {
             limit: Some(3),
             teams: Some("FRA".to_string()),
             accept_language: Some("en-US".to_string()),
+            date: None,
         };
         let url = build_url(base_url(), &options);
         assert_eq!(
