@@ -80,7 +80,7 @@ pub(crate) fn decrypt_jwe(jwe: &CompactJwe, jwk: Jwk) -> Result<String> {
 fn test_simple_roundtrip() {
     // We should be able to round-trip data.
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 
@@ -102,7 +102,7 @@ fn test_simple_roundtrip() {
 fn test_modified_ciphertext() {
     // Modifying the ciphertext will fail.
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use std::str::FromStr;
 
     ensure_initialized();
@@ -163,7 +163,7 @@ fn test_iv() {
     // Encrypting the same thing twice should give different payloads due to
     // different IV.
     use super::{encrypt_to_jwe, EncryptionParameters};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 
@@ -212,7 +212,7 @@ fn test_jose() {
     // `Nonce::try_assume_unique_for_key()` to allow a longer key, but we don't
     // want to do that until we have evidence it's actually spec compliant.)
     use super::{decrypt_jwe, DecryptionParameters};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 
@@ -226,7 +226,7 @@ fn test_jose() {
 fn test_bad_key() {
     use super::{decrypt_jwe, DecryptionParameters};
     use crate::error::JwCryptoError;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 
@@ -242,7 +242,7 @@ fn test_bad_key() {
 fn test_bad_key_type() {
     use super::{encrypt_to_jwe, EncryptionParameters};
     use crate::error::JwCryptoError;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 
@@ -263,7 +263,7 @@ fn test_bad_key_type() {
 #[test]
 fn test_bad_key_type_direct() {
     use super::{EncryptionAlgorithm, EphemeralKeyPair};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use rc_crypto::agreement;
 
     use crate::error::JwCryptoError;

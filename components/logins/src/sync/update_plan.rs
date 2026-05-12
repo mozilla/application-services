@@ -316,7 +316,7 @@ impl UpdatePlan {
 #[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use std::time::Duration;
 
     use super::*;

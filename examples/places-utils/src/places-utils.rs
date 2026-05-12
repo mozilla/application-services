@@ -445,7 +445,7 @@ enum Command {
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
-    nss::ensure_initialized();
+    nss_as::ensure_initialized();
     if !opts.no_logging {
         cli_support::init_trace_logging();
     }

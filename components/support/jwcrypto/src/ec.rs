@@ -177,7 +177,7 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
 #[test]
 fn test_encrypt_decrypt_jwe_ecdh_es() {
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use rc_crypto::agreement;
 
     ensure_initialized();
@@ -207,7 +207,7 @@ fn test_encrypt_decrypt_jwe_ecdh_es() {
 fn test_bad_key_type() {
     use super::{encrypt_to_jwe, EncryptionParameters};
     use crate::error::JwCryptoError;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
 

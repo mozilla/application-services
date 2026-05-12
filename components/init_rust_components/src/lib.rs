@@ -4,9 +4,9 @@
  */
 
 #[cfg(not(feature = "keydb"))]
-use nss::ensure_initialized as ensure_nss_initialized;
+use nss_as::ensure_initialized as ensure_nss_initialized;
 #[cfg(feature = "keydb")]
-use nss::ensure_initialized_with_profile_dir as ensure_nss_initialized_with_profile_dir;
+use nss_as::ensure_initialized_with_profile_dir as ensure_nss_initialized_with_profile_dir;
 #[cfg(feature = "ohttp")]
 use viaduct::ohttp::configure_default_ohttp_channels;
 uniffi::setup_scaffolding!();

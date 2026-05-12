@@ -12,7 +12,7 @@ path = "src/dump/lib.rs"
 [dependencies]
 cli-support = { path = "../cli-support" }
 remote_settings = { features = ["signatures"], path = "../../components/remote_settings" }
-nss = { path = "../../components/support/rc_crypto/nss" }
+nss-as = { path = "../../components/support/rc_crypto/nss" }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 log = "0.4"

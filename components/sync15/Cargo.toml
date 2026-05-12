@@ -48,4 +48,4 @@ viaduct = { path = "../viaduct", optional = true }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
-nss = { path = "../support/rc_crypto/nss" }
+nss-as = { path = "../support/rc_crypto/nss" }

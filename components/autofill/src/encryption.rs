@@ -56,7 +56,7 @@ pub fn create_autofill_key() -> ApiResult<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_encrypt() {

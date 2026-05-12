@@ -21,7 +21,7 @@ clap = { version = "4.2", default-features = false, features = ["std", "derive"]
 cli-support = { path = "../cli-support" }
 url = "2.2"
 interrupt-support = { path = "../../components/support/interrupt" }
-nss = { version = "0.1.0", path = "../../components/support/rc_crypto/nss" }
+nss-as = { version = "0.1.0", path = "../../components/support/rc_crypto/nss" }
 sync15 = { path = "../../components/sync15", features = ["sync-engine"] }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper"}

@@ -8,10 +8,10 @@ exclude = ["/android"]
 
 [features]
 default = []
-keydb = ["nss/keydb"]
+keydb = ["nss-as/keydb"]
 ohttp = ["dep:viaduct", "viaduct/ohttp"]
 
 [dependencies]
 uniffi = { version = "0.31" }
-nss = { path = "../support/rc_crypto/nss" }
+nss-as = { path = "../support/rc_crypto/nss" }
 viaduct = { path = "../viaduct", optional = true }

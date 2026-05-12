@@ -263,7 +263,7 @@ impl<'a> TryFrom<&'a HashMap<String, String>> for PushPayload<'a> {
 #[cfg(test)]
 mod crypto_tests {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     // generate unit test key
     fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {

@@ -5,7 +5,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
     #[error("NSS error: {0}")]
-    NSSError(#[from] nss::Error),
+    NSSError(#[from] nss_as::Error),
     #[error("Internal crypto error")]
     InternalError,
     #[error("Conversion error: {0}")]
@@ -33,6 +33,6 @@ pub enum ErrorKind {
 error_support::define_error! {
     ErrorKind {
         (ConversionError, std::num::TryFromIntError),
-        (NSSError, nss::Error),
+        (NSSError, nss_as::Error),
     }
 }

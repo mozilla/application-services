@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use nss::pbkdf2::pbkdf2_key_derive;
-pub use nss::pbkdf2::HashAlgorithm;
+use nss_as::pbkdf2::pbkdf2_key_derive;
+pub use nss_as::pbkdf2::HashAlgorithm;
 /// Extend passwords using pbkdf2, based on the following [rfc](https://www.ietf.org/rfc/rfc2898.txt) it runs the NSS implementation
 /// # Arguments
 ///
@@ -18,7 +18,7 @@ pub use nss::pbkdf2::HashAlgorithm;
 ///
 /// ```
 /// use rc_crypto::pbkdf2;
-/// use nss::ensure_initialized;
+/// use nss_as::ensure_initialized;
 /// ensure_initialized();
 /// let password = b"password";
 /// let salt = b"salt";
@@ -46,7 +46,7 @@ pub fn derive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_generate_correct_out() {

@@ -255,7 +255,7 @@ mod tests {
     use crate::db::schema::create_empty_sync_temp_tables;
     use crate::encryption::EncryptorDecryptor;
     use crate::sync::{IncomingBso, UnknownFields};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use sql_support::ConnExt;
 
     impl InternalCreditCard {

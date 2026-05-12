@@ -254,7 +254,7 @@ mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
     use crate::encryption::EncryptorDecryptor;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_autofill_meta() -> Result<()> {

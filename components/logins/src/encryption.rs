@@ -58,9 +58,9 @@ use futures::executor::block_on;
 use async_trait::async_trait;
 
 #[cfg(feature = "keydb")]
-use nss::assert_initialized as assert_nss_initialized;
+use nss_as::assert_initialized as assert_nss_initialized;
 #[cfg(feature = "keydb")]
-use nss::pk11::sym_key::{
+use nss_as::pk11::sym_key::{
     authenticate_with_primary_password, authentication_with_primary_password_is_needed,
     get_or_create_aes256_key,
 };
@@ -262,7 +262,7 @@ static KEY_NAME: &str = "as-logins-key";
 // wrapp `authentication_with_primary_password_is_needed` into an ApiResult
 #[cfg(feature = "keydb")]
 fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
-    authentication_with_primary_password_is_needed().map_err(|e: nss::Error| {
+    authentication_with_primary_password_is_needed().map_err(|e: nss_as::Error| {
         LoginsApiError::NSSAuthenticationError {
             reason: e.to_string(),
         }
@@ -272,7 +272,7 @@ fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
 // wrapp `authenticate_with_primary_password` into an ApiResult
 #[cfg(feature = "keydb")]
 fn api_authenticate_with_primary_password(primary_password: &str) -> ApiResult<bool> {
-    authenticate_with_primary_password(primary_password).map_err(|e: nss::Error| {
+    authenticate_with_primary_password(primary_password).map_err(|e: nss_as::Error| {
         LoginsApiError::NSSAuthenticationError {
             reason: e.to_string(),
         }
@@ -362,7 +362,7 @@ pub mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_static_key_manager() {
@@ -456,7 +456,7 @@ mod tests {
 #[cfg(test)]
 mod tests_keydb {
     use super::*;
-    use nss::ensure_initialized_with_profile_dir;
+    use nss_as::ensure_initialized_with_profile_dir;
     use std::path::PathBuf;
 
     struct MockPrimaryPasswordAuthenticator {

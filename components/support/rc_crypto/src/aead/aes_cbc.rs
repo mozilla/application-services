@@ -21,7 +21,7 @@
 
 use crate::{aead, digest, error::*, hmac};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use nss::aes;
+use nss_as::aes;
 
 /// AES-256 in CBC mode with HMAC-SHA256 tags and 128 bit nonces.
 /// This is a Sync 1.5 specific encryption scheme, do not use for new
@@ -105,7 +105,7 @@ fn aes_cbc(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     // These are the test vectors used by the sync15 crate, but concatenated
     // together rather than split into individual pieces.

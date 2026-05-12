@@ -381,7 +381,7 @@ impl EncryptedLogin {
 mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_invalid_payload_timestamps() {

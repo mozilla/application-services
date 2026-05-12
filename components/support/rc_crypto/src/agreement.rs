@@ -23,7 +23,7 @@ use crate::error::*;
 use core::marker::PhantomData;
 
 pub use ec::{Curve, EcKey};
-use nss::{ec, ecdh};
+use nss_as::{ec, ecdh};
 
 pub type EphemeralKeyPair = KeyPair<Ephemeral>;
 
@@ -254,7 +254,7 @@ impl InputKeyMaterial {
 mod tests {
     use super::*;
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     // Test vectors copied from:
     // https://chromium.googlesource.com/chromium/src/+/56f1232/components/test/data/webcrypto/ecdh.json#5

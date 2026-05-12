@@ -164,7 +164,7 @@ mod tests {
     use std::{collections::HashSet, sync::Arc};
 
     use mockall::predicate::{always, eq};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use serde_json::json;
 
     use crate::{

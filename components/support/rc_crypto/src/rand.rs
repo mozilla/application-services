@@ -23,13 +23,13 @@ use crate::error::*;
 
 /// Fill a buffer with cryptographically secure pseudo-random data.
 pub fn fill(dest: &mut [u8]) -> Result<()> {
-    Ok(nss::pk11::slot::generate_random(dest)?)
+    Ok(nss_as::pk11::slot::generate_random(dest)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn random_fill() {
