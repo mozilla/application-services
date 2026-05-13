@@ -56,6 +56,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store() 
         &experiments,
         &experiment_enrollments,
         &experiments_by_slug,
+        true,
     );
 
     let handler = unsafe {
@@ -147,6 +148,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
         &experiments,
         &experiment_enrollments,
         &experiments_by_slug,
+        true,
     );
 
     let handler = unsafe {
