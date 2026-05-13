@@ -486,6 +486,10 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: toml</name>
+    <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml</name>
     <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
   </license>
   <license>

@@ -3099,7 +3099,7 @@ dependencies = [
 [[package]]
 name = "ohttp"
 version = "0.7.2"
-source = "git+https://github.com/martinthomson/ohttp#324f876e79394c9b815dcacda3fd4f48f105fdf2"
+source = "git+https://github.com/martinthomson/ohttp?rev=324f876e79394c9b815dcacda3fd4f48f105fdf2#324f876e79394c9b815dcacda3fd4f48f105fdf2"
 dependencies = [
  "bindgen",
  "byteorder",
@@ -3109,7 +3109,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror 2.0.3",
- "toml 0.9.6",
+ "toml 0.5.9",
 ]
 
 [[package]]

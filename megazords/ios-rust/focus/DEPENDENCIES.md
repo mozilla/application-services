@@ -554,6 +554,7 @@ The following text applies to code linked from these dependencies:
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
 [thread_local](https://github.com/Amanieu/thread_local-rs),
+[toml](https://github.com/alexcrichton/toml-rs),
 [toml](https://github.com/toml-rs/toml),
 [toml_datetime](https://github.com/toml-rs/toml),
 [toml_parser](https://github.com/toml-rs/toml),
