@@ -8,6 +8,7 @@ use crate::api::matcher::{self, search_frecent, SearchParams};
 pub use crate::api::places_api::places_api_new;
 pub use crate::error::{warn, Result};
 pub use crate::error::{ApiResult, PlacesApiError};
+#[cfg(target_os = "android")]
 use crate::glean_metrics::places_manager;
 pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
@@ -112,7 +113,9 @@ pub struct PlacesConnection {
 
 impl PlacesConnection {
     pub fn new(db: PlacesDb) -> Self {
+        #[cfg(target_os = "android")]
         places_manager::connection_initialized.add(1);
+
         Self {
             interrupt_handle: db.new_interrupt_handle(),
             db: Mutex::new(db),
@@ -386,10 +389,12 @@ impl PlacesConnection {
         db_size_limit: u32,
         prune_limit: u32,
     ) -> ApiResult<RunMaintenanceMetrics> {
+        #[cfg(target_os = "android")]
         let timer_id = places_manager::run_maintenance_prune_time_temp.start();
         let res =
             self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit, prune_limit));
 
+        #[cfg(target_os = "android")]
         places_manager::run_maintenance_prune_time_temp.stop_and_accumulate(timer_id);
 
         res
@@ -397,9 +402,11 @@ impl PlacesConnection {
 
     #[handle_error(crate::Error)]
     pub fn run_maintenance_vacuum(&self) -> ApiResult<()> {
+        #[cfg(target_os = "android")]
         let timer_id = places_manager::run_maintenance_vacuum_time_temp.start();
         let res = self.with_conn(storage::run_maintenance_vacuum);
 
+        #[cfg(target_os = "android")]
         places_manager::run_maintenance_vacuum_time_temp.stop_and_accumulate(timer_id);
 
         res
@@ -407,9 +414,11 @@ impl PlacesConnection {
 
     #[handle_error(crate::Error)]
     pub fn run_maintenance_optimize(&self) -> ApiResult<()> {
+        #[cfg(target_os = "android")]
         let timer_id = places_manager::run_maintenance_optimize_time_temp.start();
         let res = self.with_conn(storage::run_maintenance_optimize);
 
+        #[cfg(target_os = "android")]
         places_manager::run_maintenance_optimize_time_temp.stop_and_accumulate(timer_id);
 
         res
@@ -417,9 +426,11 @@ impl PlacesConnection {
 
     #[handle_error(crate::Error)]
     pub fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
+        #[cfg(target_os = "android")]
         let timer_id = places_manager::run_maintenance_chk_pnt_time_temp.start();
         let res = self.with_conn(storage::run_maintenance_checkpoint);
 
+        #[cfg(target_os = "android")]
         places_manager::run_maintenance_chk_pnt_time_temp.stop_and_accumulate(timer_id);
 
         res
