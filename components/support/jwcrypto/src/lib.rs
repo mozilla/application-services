@@ -237,7 +237,7 @@ pub fn decrypt_jwe(jwe: &str, decryption_params: DecryptionParameters) -> Result
 
 #[test]
 fn test_jwk_ec_deser_with_kid() {
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
     let jwk = Jwk {
@@ -260,7 +260,7 @@ fn test_jwk_ec_deser_with_kid() {
 
 #[test]
 fn test_jwk_deser_no_kid() {
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
     let jwk = Jwk {
@@ -280,7 +280,7 @@ fn test_jwk_deser_no_kid() {
 
 #[test]
 fn test_jwk_direct_deser_with_kid() {
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
     let jwk = Jwk::new_direct_from_bytes(Some("key-id".to_string()), &[0, 1, 2, 3]);
@@ -293,7 +293,7 @@ fn test_jwk_direct_deser_with_kid() {
 
 #[test]
 fn test_compact_jwe_roundtrip() {
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     ensure_initialized();
     let mut iv = [0u8; 16];

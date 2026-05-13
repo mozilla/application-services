@@ -759,7 +759,7 @@ mod tests {
 
     #[test]
     fn test_state_machine_ready_from_empty() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         error_support::init_for_tests();
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
@@ -817,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_from_previous_state_declined() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         error_support::init_for_tests();
         // The state-machine sequence where we didn't use the previous state
         // (ie, where the state machine restarted)

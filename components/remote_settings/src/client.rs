@@ -1205,7 +1205,7 @@ mod test_signatures {
     use crate::RemoteSettingsContext;
 
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     const VALID_CERTIFICATE: &str = "\
 -----BEGIN CERTIFICATE-----

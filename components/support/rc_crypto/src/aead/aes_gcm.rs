@@ -20,7 +20,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use crate::{aead, error::*};
-use nss::aes;
+use nss_as::aes;
 
 /// AES-128 in GCM mode with 128-bit tags and 96 bit nonces.
 pub static AES_128_GCM: aead::Algorithm = aead::Algorithm {
@@ -83,7 +83,7 @@ fn aes_gcm(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     // Test vector from the AES-GCM spec.
     const NONCE_HEX: &str = "cafebabefacedbaddecaf888";

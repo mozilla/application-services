@@ -25,7 +25,7 @@ mod aes_gcm;
 use crate::error::*;
 pub use aes_cbc::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256;
 pub use aes_gcm::{AES_128_GCM, AES_256_GCM};
-use nss::aes;
+use nss_as::aes;
 
 pub fn open(
     key: &OpeningKey,
@@ -191,7 +191,7 @@ impl Direction {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     static ALL_ALGORITHMS: &[&Algorithm] = &[
         &LEGACY_SYNC_AES_256_CBC_HMAC_SHA256,

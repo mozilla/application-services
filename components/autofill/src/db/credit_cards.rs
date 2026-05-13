@@ -291,7 +291,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
     use crate::encryption::EncryptorDecryptor;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use sync15::bso::IncomingBso;
 
     pub fn get_all(

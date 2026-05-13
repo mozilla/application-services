@@ -34,7 +34,7 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    nss::ensure_initialized();
+    nss_as::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper()?;
     cli_support::ensure_cli_data_dir_exists();
     let mut builder = Builder::new();

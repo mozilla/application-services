@@ -12,7 +12,7 @@ name = "fxa-client"
 path = "src/main.rs"
 
 [dev-dependencies]
-nss = { path = "../../components/support/rc_crypto/nss" }
+nss-as = { path = "../../components/support/rc_crypto/nss" }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 log = "0.4"

@@ -268,7 +268,7 @@ mod tests {
 
     use error_support::{info, trace};
     use interrupt_support::NeverInterrupts;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 

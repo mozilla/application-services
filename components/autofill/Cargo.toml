@@ -28,7 +28,7 @@ url = { version = "2.2", features = ["serde"] }
 
 [dev-dependencies]
 libsqlite3-sys = { version = "0.35.0" }
-nss = { path = "../support/rc_crypto/nss" }
+nss-as = { path = "../support/rc_crypto/nss" }
 error-support = { path = "../support/error", features=["testing"] }
 
 [build-dependencies]

@@ -6,7 +6,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use clap::Parser;
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
-use nss::ensure_initialized;
+use nss_as::ensure_initialized;
 use std::sync::Arc;
 use std::{collections::HashSet, process};
 

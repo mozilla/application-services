@@ -84,7 +84,7 @@ pub fn verify_with_own_key(key: &SigningKey, data: &[u8], signature: &[u8]) -> R
 
 /// Calculate the HMAC of `data` using `key`.
 pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
-    let value = nss::pk11::context::hmac_sign(key.digest_alg, &key.key_value, data)?;
+    let value = nss_as::pk11::context::hmac_sign(key.digest_alg, &key.key_value, data)?;
     Ok(Signature(digest::Digest {
         value,
         algorithm: *key.digest_alg,
@@ -94,7 +94,7 @@ pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     const KEY: &[u8] = b"key";
     const MESSAGE: &[u8] = b"The quick brown fox jumps over the lazy dog";

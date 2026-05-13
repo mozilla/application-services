@@ -21,7 +21,7 @@
 
 use crate::error::*;
 
-pub use nss::pk11::context::HashAlgorithm::{self as Algorithm, *};
+pub use nss_as::pk11::context::HashAlgorithm::{self as Algorithm, *};
 
 /// A calculated digest value.
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl AsRef<[u8]> for Digest {
 
 /// Returns the digest of data using the given digest algorithm.
 pub fn digest(algorithm: &Algorithm, data: &[u8]) -> Result<Digest> {
-    let value = nss::pk11::context::hash_buf(algorithm, data)?;
+    let value = nss_as::pk11::context::hash_buf(algorithm, data)?;
     Ok(Digest {
         value,
         algorithm: *algorithm,
@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn sha256_digest() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert_eq!(hex::encode(digest(&SHA256, MESSAGE).unwrap()), DIGEST_HEX);
         assert_ne!(
             hex::encode(digest(&SHA256, b"notbobo").unwrap()),
@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn digest_cleanly_rejects_gigantic_messages() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let message = vec![0; (i32::MAX as usize) + 1];
         assert!(digest(&SHA256, &message).is_err());
     }

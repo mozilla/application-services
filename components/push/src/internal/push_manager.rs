@@ -387,7 +387,7 @@ mod test {
     use lazy_static::lazy_static;
     use std::sync::{Mutex, MutexGuard};
 
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     use crate::Store;
 

@@ -55,7 +55,7 @@ pub use crate::error::{Error, ErrorKind, Result};
 /// Only required to be called if you intend to use this library in conjunction
 /// with the `hawk` or the `ece` crate.
 pub fn ensure_initialized() {
-    nss::assert_initialized();
+    nss_as::assert_initialized();
 
     #[cfg(any(feature = "hawk", feature = "ece"))]
     {

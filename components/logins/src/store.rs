@@ -370,7 +370,7 @@ mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
@@ -589,7 +589,7 @@ mod tests_keydb {
     use super::*;
     use crate::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
     use async_trait::async_trait;
-    use nss::ensure_initialized_with_profile_dir;
+    use nss_as::ensure_initialized_with_profile_dir;
     use std::path::PathBuf;
 
     struct MockPrimaryPasswordAuthenticator {

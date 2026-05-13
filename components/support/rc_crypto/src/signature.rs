@@ -20,7 +20,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use crate::Result;
-use nss::{ec::Curve, ec::PublicKey, pbkdf2::HashAlgorithm};
+use nss_as::{ec::Curve, ec::PublicKey, pbkdf2::HashAlgorithm};
 
 /// A signature verification algorithm.
 pub struct VerificationAlgorithm {
@@ -70,7 +70,7 @@ impl<'a> UnparsedPublicKey<'a> {
 mod tests {
     use super::*;
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn test_ecdsa_p384_sha384_verify() {

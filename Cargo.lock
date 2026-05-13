@@ -213,7 +213,7 @@ dependencies = [
  "jwcrypto",
  "lazy_static",
  "libsqlite3-sys",
- "nss",
+ "nss-as",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -1214,7 +1214,7 @@ dependencies = [
  "fxa-client",
  "interrupt-support",
  "log",
- "nss",
+ "nss-as",
  "rusqlite",
  "serde_json",
  "sql-support",
@@ -1271,7 +1271,7 @@ dependencies = [
  "fxa-client",
  "interrupt-support",
  "log",
- "nss",
+ "nss-as",
  "places",
  "serde",
  "serde_derive",
@@ -1334,7 +1334,7 @@ dependencies = [
  "cli-support",
  "interrupt-support",
  "log",
- "nss",
+ "nss-as",
  "serde_json",
  "sync15",
  "tabs",
@@ -1364,7 +1364,7 @@ dependencies = [
  "cli-support",
  "fxa-client",
  "log",
- "nss",
+ "nss-as",
  "url",
  "viaduct",
  "viaduct-hyper",
@@ -1407,7 +1407,7 @@ dependencies = [
  "env_logger",
  "interrupt-support",
  "log",
- "nss",
+ "nss-as",
  "places",
  "relevancy",
  "sync15",
@@ -1425,7 +1425,7 @@ dependencies = [
  "futures",
  "indicatif",
  "log",
- "nss",
+ "nss-as",
  "remote_settings",
  "serde",
  "serde_json",
@@ -1446,7 +1446,7 @@ dependencies = [
  "clap",
  "cli-support",
  "log",
- "nss",
+ "nss-as",
  "remote_settings",
  "suggest",
  "viaduct",
@@ -1715,7 +1715,7 @@ dependencies = [
  "log",
  "mockall",
  "mockito",
- "nss",
+ "nss-as",
  "parking_lot",
  "payload-support",
  "rate-limiter",
@@ -2243,7 +2243,7 @@ dependencies = [
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
- "nss",
+ "nss-as",
  "uniffi",
  "viaduct",
 ]
@@ -2396,7 +2396,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.2",
  "error-support",
- "nss",
+ "nss-as",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -2547,7 +2547,7 @@ dependencies = [
  "interrupt-support",
  "jwcrypto",
  "lazy_static",
- "nss",
+ "nss-as",
  "parking_lot",
  "rusqlite",
  "serde",
@@ -2996,7 +2996,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nss"
+name = "nss-as"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.2",
@@ -3500,7 +3500,7 @@ dependencies = [
  "lazy_static",
  "mockall",
  "mockito",
- "nss",
+ "nss-as",
  "rc_crypto",
  "rusqlite",
  "serde",
@@ -3610,7 +3610,7 @@ dependencies = [
  "error-support",
  "hawk",
  "hex",
- "nss",
+ "nss-as",
  "thiserror 2.0.3",
 ]
 
@@ -3741,7 +3741,7 @@ dependencies = [
  "jexl-eval",
  "mockall",
  "mockito",
- "nss",
+ "nss-as",
  "parking_lot",
  "rc_crypto",
  "regex",
@@ -4378,7 +4378,7 @@ dependencies = [
  "lazy_static",
  "log",
  "logins",
- "nss",
+ "nss-as",
  "rand",
  "restmail-client",
  "serde",
@@ -4403,7 +4403,7 @@ dependencies = [
  "error-support",
  "interrupt-support",
  "lazy_static",
- "nss",
+ "nss-as",
  "payload-support",
  "rc_crypto",
  "serde",

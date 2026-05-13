@@ -1324,7 +1324,7 @@ mod tests {
     use crate::db::test_utils::{get_local_guids, get_mirror_guids};
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::sync::merge::LocalLogin;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use std::{thread, time};
 
     #[test]

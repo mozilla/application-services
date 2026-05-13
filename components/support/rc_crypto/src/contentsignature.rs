@@ -100,22 +100,22 @@ pub fn verify(
 
     let root_hash_bytes = decode_root_hash(root_sha256_hash)?;
 
-    nss::pkixc::verify_code_signing_certificate_chain(
+    nss_as::pkixc::verify_code_signing_certificate_chain(
         certificates_slices,
         seconds_since_epoch,
         &root_hash_bytes,
         hostname,
     )
     .map_err(|err| match err.kind() {
-        nss::ErrorKind::CertificateIssuerError => ErrorKind::CertificateIssuerError,
-        nss::ErrorKind::CertificateValidityError => ErrorKind::CertificateValidityError,
-        nss::ErrorKind::CertificateSubjectError => ErrorKind::CertificateSubjectError,
+        nss_as::ErrorKind::CertificateIssuerError => ErrorKind::CertificateIssuerError,
+        nss_as::ErrorKind::CertificateValidityError => ErrorKind::CertificateValidityError,
+        nss_as::ErrorKind::CertificateSubjectError => ErrorKind::CertificateSubjectError,
         _ => ErrorKind::CertificateChainError(err.to_string()),
     })?;
 
     let leaf_cert = certificates.first().unwrap(); // PEM parse fails if len == 0.
 
-    let public_key_bytes = match nss::cert::extract_ec_public_key(leaf_cert) {
+    let public_key_bytes = match nss_as::cert::extract_ec_public_key(leaf_cert) {
         Ok(bytes) => bytes,
         Err(err) => return Err(ErrorKind::CertificateContentError(err.to_string()).into()),
     };
@@ -283,7 +283,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_decode_root_hash() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(decode_root_hash("meh!").is_err());
         assert!(decode_root_hash("3C:rr:44").is_err());
 
@@ -330,7 +330,7 @@ BAUG
 
     #[test]
     fn test_verify_fails_if_invalid() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             b"msg",
             b"sig",
@@ -346,7 +346,7 @@ fdfeff
 
     #[test]
     fn test_verify_fails_if_cert_has_expired() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             VALID_INPUT,
             VALID_SIGNATURE,
@@ -360,7 +360,7 @@ fdfeff
 
     #[test]
     fn test_verify_fails_if_bad_certificate_chain() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             VALID_INPUT,
             VALID_SIGNATURE,
@@ -374,7 +374,7 @@ fdfeff
 
     #[test]
     fn test_verify_fails_if_mismatch() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             b"msg",
             VALID_SIGNATURE,
@@ -388,7 +388,7 @@ fdfeff
 
     #[test]
     fn test_verify_fails_if_bad_hostname() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             VALID_INPUT,
             VALID_SIGNATURE,
@@ -402,7 +402,7 @@ fdfeff
 
     #[test]
     fn test_verify_fails_if_bad_root_hash() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         assert!(verify(
             VALID_INPUT,
             VALID_SIGNATURE,
@@ -416,7 +416,7 @@ fdfeff
 
     #[test]
     fn test_verify_succeeds_if_valid() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         verify(
             VALID_INPUT,
             VALID_SIGNATURE,

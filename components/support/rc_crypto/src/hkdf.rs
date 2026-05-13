@@ -39,7 +39,7 @@ pub fn extract(salt: &hmac::SigningKey, secret: &[u8]) -> Result<hmac::SigningKe
 
 pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()> {
     let mut derived =
-        nss::pk11::sym_key::hkdf_expand(prk.digest_alg, &prk.key_value, info, out.len())?;
+        nss_as::pk11::sym_key::hkdf_expand(prk.digest_alg, &prk.key_value, info, out.len())?;
     out.swap_with_slice(&mut derived[0..out.len()]);
     Ok(())
 }
@@ -48,7 +48,7 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
 mod tests {
     use super::*;
     use crate::digest;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     #[test]
     fn hkdf_produces_correct_result() {

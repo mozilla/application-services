@@ -12,7 +12,7 @@ default = []
 # `key4.db` (wrapped with a key derived from the primary password, if set).
 # Used on Desktop to integrate with the existing NSS key store and primary
 # password flow.
-keydb = ["nss/keydb", "dep:async-trait", "dep:futures"]
+keydb = ["nss-as/keydb", "dep:async-trait", "dep:futures"]
 # Allows logins with empty passwords to be imported. Used on Desktop during
 # migration to accept existing logins that have empty passwords.
 allow_empty_passwords = []
@@ -37,7 +37,7 @@ lazy_static = "1.4"
 url = "2.2"
 sql-support = { path = "../support/sql" }
 jwcrypto = { path = "../support/jwcrypto" }
-nss = { path = "../support/rc_crypto/nss", default-features = false }
+nss-as = { path = "../support/rc_crypto/nss", default-features = false }
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 rusqlite = { version = "0.37.0", features = ["limits", "unlock_notify"] }
@@ -54,4 +54,4 @@ uniffi = { version = "0.31", features = ["build"] }
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
 tempfile = "3.2.0"
-nss = { path = "../support/rc_crypto/nss" }
+nss-as = { path = "../support/rc_crypto/nss" }

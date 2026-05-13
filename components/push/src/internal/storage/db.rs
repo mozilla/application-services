@@ -254,7 +254,7 @@ mod test {
     use super::PushDb;
     use crate::internal::crypto::get_random_bytes;
     use crate::internal::storage::{db::Storage, record::PushRecord};
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 

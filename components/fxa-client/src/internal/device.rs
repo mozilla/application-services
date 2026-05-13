@@ -440,7 +440,7 @@ mod tests {
     use crate::ScopedKey;
     use mockall::predicate::always;
     use mockall::predicate::eq;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use std::collections::HashSet;
     use std::sync::Arc;
 

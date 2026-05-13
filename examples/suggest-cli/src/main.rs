@@ -111,7 +111,7 @@ fn main() -> Result<()> {
     } else {
         DEFAULT_LOG_FILTER
     });
-    nss::ensure_initialized();
+    nss_as::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper()?;
     let store = build_store(&cli)?;
     match cli.command {

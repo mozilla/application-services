@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_gat_empty_scope_errors() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         assert!(matches!(
             fxa.get_access_token("", true),
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_gat_no_tokens_errors() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         assert!(matches!(
             fxa.get_access_token("profile", false),
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_gat_cache_hit() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         fxa.add_cached_token("profile", token_info("profile"));
         let client = MockFxAClient::new(); // no expectations — asserts zero calls
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_gat_cache_hit_order_insensitive() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         fxa.add_cached_token("a b", token_info("a b")); // cached under normalized key
         let client = MockFxAClient::new();
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_gat_single_scope_from_refresh_token() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &["profile"]);
         let mut client = MockFxAClient::new();
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_gat_single_scope_exchange() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &["profile"]);
         let mut client = MockFxAClient::new();
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_gat_old_sync_key_populated() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &[scopes::OLD_SYNC]);
         fxa.state
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_gat_old_sync_missing_key_errors() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &[scopes::OLD_SYNC]);
         let mut client = MockFxAClient::new();
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_gat_multi_scope_from_refresh_token() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &["profile", "sync"]);
         let mut client = MockFxAClient::new();
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_gat_multi_scope_exchange_missing() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &["profile"]);
         let mut client = MockFxAClient::new();
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_gat_multi_scope_session_token() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         fxa.set_session_token("st");
         let mut client = MockFxAClient::new();
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_gat_multi_scope_old_sync_key_is_none() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         let combined = format!("{} profile", scopes::OLD_SYNC);
         seed_refresh_token(&mut fxa, "rt", &[scopes::OLD_SYNC, "profile"]);
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_gat_duplicate_scopes_deduped() {
-        nss::ensure_initialized();
+        nss_as::ensure_initialized();
         let mut fxa = make_fxa();
         seed_refresh_token(&mut fxa, "rt", &["profile"]);
         let mut client = MockFxAClient::new();

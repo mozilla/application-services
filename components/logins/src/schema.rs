@@ -298,7 +298,7 @@ mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::LoginDb;
-    use nss::ensure_initialized;
+    use nss_as::ensure_initialized;
     use rusqlite::Connection;
 
     // Snapshot of the schema in version 1.  We use this to test that we can migrate from there to the
