@@ -1,3 +1,33 @@
+<<<<<<< HEAD
+=======
+# v152.0 (In progress)
+
+## ✨ What's New ✨
+
+### Breach Alerts
+* New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
+### Logins
+* `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
+
+[Full Changelog](In progress)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Remote-Settings
+ * Removed legacy remote-settings client
+ * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
+
+## ✨ What's New ✨
+
+### Ads Client
+* HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. The resolved TTL is capped at 7 days as a safety net against misconfigured server values. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
+
+### Remote Settings
+* Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
+* Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
+
+>>>>>>> 6b2684e6 (Bug 2007416 - wipe individual logins on DecryptionErrors (#7343))
 # v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️
