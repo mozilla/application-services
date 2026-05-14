@@ -96,6 +96,44 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
+    fun testAddMany() {
+        val store = getTestStore()
+        val loginsToAdd = listOf(
+            LoginEntry(
+                origin = "https://www.example.org",
+                httpRealm = "",
+                formActionOrigin = "https://www.example.org/login",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                password = "MyVeryCoolPassword",
+                username = "Foobar2001",
+            ),
+            LoginEntry(
+                origin = "https://www.example.org",
+                httpRealm = "",
+                formActionOrigin = "https://www.example.org/login",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                password = "MyVeryCoolPassword",
+                username = "Foobar2002",
+            ),
+            LoginEntry(
+                origin = "https://www.example.org",
+                httpRealm = "",
+                formActionOrigin = "https://www.example.org/login",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                password = "MyVeryCoolPassword",
+                username = "Foobar2003",
+            ),
+        )
+
+        assertEquals(store.list().size, 2)
+        store.addMany(loginsToAdd)
+        assertEquals(store.list().size, 5)
+    }
+
+    @Test
     fun testDelete() {
         val store = getTestStore()
         val login = store.list()[0]

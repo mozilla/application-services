@@ -7,6 +7,7 @@
 
 ### Logins
 * `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
+* Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
 
 [Full Changelog](In progress)
 

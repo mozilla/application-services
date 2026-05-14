@@ -95,6 +95,16 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
         return store.add(entry)
     }
 
+    /**
+     * Adds multiple logins.
+     *
+     * @return a list of inserted logins.
+     */
+    @Throws(LoginsApiException::class)
+    fun addMany(entries: List<LoginEntry>): List<BulkResultEntry> {
+        return store.addMany(entries)
+    }
+
     @Throws(LoginsApiException::class)
     fun update(id: String, entry: LoginEntry): Login {
         return store.update(id, entry)
