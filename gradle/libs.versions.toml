@@ -13,7 +13,7 @@ protobuf-plugin = "0.10.0"
 
 # Kotlin
 kotlin = "2.3.21"
-coroutines = "1.10.2"
+coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 
 # Mozilla
