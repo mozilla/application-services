@@ -330,9 +330,13 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn run_maintenance(&self) -> ApiResult<()> {
+    pub fn run_maintenance(&self, options: Option<RunMaintenanceOptions>) -> ApiResult<()> {
         let conn = self.lock_db()?;
+        let options = options.unwrap_or_default();
         run_maintenance(&conn)?;
+        if options.delete_undecryptable_records_for_remote_replacement {
+            conn.delete_undecryptable_records_for_remote_replacement(conn.encdec.as_ref())?;
+        }
         Ok(())
     }
 
@@ -361,6 +365,18 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn create_logins_sync_engine(self: Arc<Self>) -> ApiResult<Box<dyn SyncEngine>> {
         Ok(Box::new(LoginsSyncEngine::new(self)?) as Box<dyn SyncEngine>)
+    }
+}
+
+pub struct RunMaintenanceOptions {
+    pub delete_undecryptable_records_for_remote_replacement: bool,
+}
+
+impl Default for RunMaintenanceOptions {
+    fn default() -> Self {
+        Self {
+            delete_undecryptable_records_for_remote_replacement: true,
+        }
     }
 }
 
