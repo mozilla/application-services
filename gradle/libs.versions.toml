@@ -9,16 +9,16 @@ android-gradle-plugin = "8.13.2"
 
 # Google
 protobuf = "4.34.1"
-protobuf-plugin = "0.9.6"
+protobuf-plugin = "0.10.0"
 
 # Kotlin
-kotlin = "2.3.20"
-coroutines = "1.10.2"
+kotlin = "2.3.21"
+coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 
 # Mozilla
-android-components = "149.0.2"
-glean = "67.2.0"
+android-components = "150.0.3"
+glean = "67.3.1"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
