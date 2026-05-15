@@ -67,8 +67,7 @@ where
     where
         A: AdResponseValue,
     {
-        let url = self.environment.into_url("ads");
-        let mut ad_request = AdRequest::try_new(context_id, placements, url, ohttp)?;
+        let mut ad_request = AdRequest::try_new(context_id, self.environment, ohttp, placements)?;
         let request_hash = RequestHash::new(&ad_request);
 
         if ohttp {

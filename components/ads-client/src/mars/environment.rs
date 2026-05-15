@@ -11,7 +11,7 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> = Lazy::new(|| url!("https://ads.mozill
 
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> = Lazy::new(|| url!("https://ads.allizom.org/v1/"));
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Environment {
     #[default]
     Prod,
@@ -22,14 +22,12 @@ pub enum Environment {
 
 impl Environment {
     pub fn into_url(self, path: &str) -> Url {
-        let mut base = self.base_url();
-        // Ensure the path has a trailing slash so that `join` appends
-        // rather than replacing the last segment.
-        if !base.path().ends_with('/') {
-            base.set_path(&format!("{}/", base.path()));
-        }
-        base.join(path)
-            .expect("joining a path to a valid base URL must succeed")
+        let mut url = self.base_url();
+        url.path_segments_mut()
+            .expect("base URL must be hierarchical")
+            .pop_if_empty()
+            .extend(path.split('/').filter(|segment| !segment.is_empty()));
+        url
     }
 
     fn base_url(self) -> Url {
@@ -68,5 +66,17 @@ mod tests {
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.host(), Some(Host::Domain("ads.allizom.org")));
         assert_eq!(url.path(), "/v1/ads");
+    }
+
+    #[test]
+    fn into_url_normalizes_slash() {
+        assert_eq!(
+            Environment::Prod.into_url("/ads"),
+            Environment::Prod.into_url("ads"),
+        );
+        assert_eq!(
+            Environment::Prod.into_url("//ads/with/extra//slashes//"),
+            Environment::Prod.into_url("ads/with/extra/slashes"),
+        );
     }
 }
