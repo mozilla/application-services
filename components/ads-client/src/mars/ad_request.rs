@@ -13,7 +13,7 @@ use crate::mars::Environment;
 
 use super::error::BuildRequestError;
 
-const ENDPOINT: &str = "ads";
+const ENDPOINT: &str = "/ads";
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct AdRequest {
@@ -34,6 +34,7 @@ pub struct AdRequest {
 /// If response shape ever varies, add a version to this hash for variant tracking.
 impl Hash for AdRequest {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        ENDPOINT.hash(state);
         self.environment.hash(state);
         self.ohttp.hash(state);
         self.placements.hash(state);
@@ -355,5 +356,36 @@ mod tests {
         .unwrap();
 
         assert_ne!(RequestHash::new(&req_direct), RequestHash::new(&req_ohttp));
+    }
+
+    #[test]
+    fn test_endpoint_const_participates_in_hash() {
+        use std::collections::hash_map::DefaultHasher;
+
+        let request = AdRequest::try_new(
+            TEST_CONTEXT_ID.to_string(),
+            Environment::Test,
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "tile_1".to_string(),
+            }],
+        )
+        .unwrap();
+
+        let mut full = DefaultHasher::new();
+        request.hash(&mut full);
+
+        let mut without_endpoint = DefaultHasher::new();
+        request.environment.hash(&mut without_endpoint);
+        request.ohttp.hash(&mut without_endpoint);
+        request.placements.hash(&mut without_endpoint);
+
+        assert_ne!(
+            full.finish(),
+            without_endpoint.finish(),
+            "ENDPOINT must contribute to AdRequest hash",
+        );
     }
 }
