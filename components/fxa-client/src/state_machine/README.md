@@ -1,85 +1,58 @@
-# The Public FxA State Machine
+# The FxA State Machine
 
-The public FxA state machine tracks a user's authentication state as they perform operations on their account.
-The state machine, its states, and its events are visible to the consumer applications.
-Applications generally track the state and update the UI based on it, for example providing a login button for the `Disconnected` state and link to the FxA account management page for the `Connected` state.
+The FxA state machine tracks a user's authentication state as they perform operations on their account.
+The state machine, its states, and its events are visible to consumer applications (Firefox iOS, Firefox Android).
+Apps generally watch the state and update the UI based on it - e.g. showing a login button for `Disconnected`, or a link to the FxA account management page for `Connected`.
 
-The public state machine events correspond to user actions, for example clicking the login button or completing the OAuth flow.
-The public state machine is non-deterministic -- from a given state and event, there are multiple possibilities for the next state.
-Usually there are two possible transitions: one for a successful operation and one for a failed one.
-For example, when completing an oauth flow, if the operation is successful the state machine transitions to the `Connected` state, while if it fails it stays in the `Authenticating` state.
+Events correspond to user actions or runtime triggers (clicking the login button, completing OAuth, recovering from an auth error). From a given state and event, the FSM may produce multiple possible next states depending on the result of underlying network calls, usually one for success and one for failure.
 
-Here is an overview containing some of the states and transitions:
+For example, when completing an OAuth flow: a successful `CompleteOAuthFlow` transitions from `Authenticating` to `Connected`; a failed one transitions back to the state we were authenticating from.
+
+## High-level
+
+There are two layers:
+
+1. **`transitions.rs`** — Each `match` arm reads as: do the work (calling methods on the `RetryingAccount` wrapper), attach the target state for the error path with `.to_state_machine_err(|| target)?`, return the success state. Returns `Result<FxaState, StateMachineErr>`, the `Err` variant carries both the error cause (for logging) and the target state to land in.
+2. **`helpers.rs`** — the supporting types:
+   - [`RetryingAccount`] wraps a `&mut FirefoxAccount` and exposes only the methods the FSM uses, with retry policy applied automatically. Holding a `&mut RetryingAccount` instead of a `&mut FirefoxAccount` makes it hard to call a network method without retry.
+   - [`StateMachineErr`] + [`ResultExt::to_state_machine_err()`] extension trait give the `?` ergonomics for "on error, transition to this state".
+   - [`RetryPolicy`] holds the network-retry count and auth-recovery flag.
+
+The driver in `mod.rs` validates the `Initialize` invariant, builds a `RetryingAccount`, calls `transition()` once, routes the error (if any) through `convert_log_report_error` for logging/Sentry, commits the new state, and fires `on_auth_issues()` if applicable.
+
+Adding a new event is straightforward: add a `match` arm in `transition()`. If the event needs a new account method, add a one-line wrapper to `RetryingAccount` — that's the moment to think about retry semantics for the new operation.
+
+## State diagram
 
 ```mermaid
 graph LR;
-    Disconnected --> |"BeginOAuthFlow(Success)"| Authenticating
-    Disconnected --> |"BeginOAuthFlow(Failure)"| Disconnected
-    Disconnected --> |"BeginPairingFlow(Success)"| Authenticating
-    Disconnected --> |"BeginPairingFlow(Failure)"| Disconnected
-    Authenticating --> |"CompleteOAuthFlow(Success)"| Connected
-    Authenticating --> |"CompleteOAuthFlow(Failure)"| Authenticating
-    Authenticating --> |"CancelOAuthFlow"| Disconnected
-    Connected --> |"Disconnect"| Disconnected
+    Uninitialized -->|"Initialize"| Disconnected
+    Uninitialized -->|"Initialize"| Connected
+    Uninitialized -->|"Initialize"| AuthIssues
+    Disconnected -->|"BeginOAuthFlow / BeginPairingFlow (Ok)"| Authenticating
+    Disconnected -->|"BeginOAuthFlow / BeginPairingFlow (Err)"| Disconnected
+    Authenticating -->|"CompleteOAuthFlow (Ok)"| Connected
+    Authenticating -->|"CompleteOAuthFlow / Begin*Flow (Err) → initial_state"| InitialState[Disconnected / Connected / AuthIssues]
+    Authenticating -->|"CancelOAuthFlow → initial_state"| InitialState
+    Authenticating -->|"InitializeDevice (Err)"| Disconnected
+    Authenticating -->|"Disconnect"| Disconnected
+    Connected -->|"Disconnect"| Disconnected
+    Connected -->|"BeginOAuthFlow (Ok) — new OAuth flow"| Authenticating
+    Connected -->|"CheckAuthorizationStatus (inactive / Err)"| AuthIssues
+    Connected -->|"CallGetProfile (Err)"| AuthIssues
+    AuthIssues -->|"BeginOAuthFlow (Ok)"| Authenticating
+    AuthIssues -->|"Disconnect"| Disconnected
 
     classDef default fill:#0af, color:black, stroke:black
 ```
 
-# The Internal State Machines
+`Authenticating { initial_state }` tracks where the user came from. Error and cancel paths from `Authenticating` return to `initial_state.into()` (not always `Disconnected`) — so a re-auth attempt from `AuthIssues` that the user cancels lands back at `AuthIssues`, and an OAuth flow started from `Connected` that errors out keeps the user at `Connected`. The exception is `InitializeDevice` errors, which always land at `Disconnected`. A `CompleteOAuthFlow` success from `Authenticating { initial_state: Connected }` skips `InitializeDevice` because the device is already initialized.
 
-For each public state, we also define an internal state machine that represents the process of transitioning out of that state.
-Internal state machine states correspond to `FirefoxAccount` method calls and events correspond to call results.
-Unlike the public state machine, the internal state machines are deterministic meaning that each `(state, event)` pair always results in the same next state.
+## Retry behavior
 
-There are two terminal states for the internal state machines:
-  - `Complete(new_state)`: Complete the process and transition the public state machine to a new state
-  - `Cancel`: Cancel the process and don't change the current public state.
+`RetryingAccount` applies this policy:
 
-Here are some example internal state machines:
+- **Network errors** retry up to 3 times.
+- **Auth errors** trigger a single recovery attempt: clear the access token cache, call `check_authorization_status`, and (if still active) retry the operation once.
 
-## Disconnected
-
-```mermaid
-graph TD;
-    Authenticating["Complete(Authenticating)"]:::terminal
-    BeginOAuthFlow --> |BeginOAuthFlowSuccess| Authenticating
-    BeginPairingFlow --> |BeginPairingFlowSuccess| Authenticating
-    BeginOAuthFlow --> |Error| Cancel:::terminal
-    BeginPairingFlow --> |Error| Cancel:::terminal
-
-    classDef default fill:#0af, color:black, stroke:black
-    classDef terminal fill:#FC766A, stroke: black;
-```
-
-## Authenticating
-
-```mermaid
-graph TD;
-    Connected["Complete(Connected)"]:::terminal
-    CompleteOAuthFlow --> |CompleteOAuthFlowSuccess| InitializeDevice
-    CompleteOAuthFlow --> |Error| Cancel:::terminal
-    InitializeDevice --> |InitializeDeviceSuccess| Connected
-    InitializeDevice --> |Error| Cancel:::terminal
-
-    classDef default fill:#0af, color:black, stroke:black
-    classDef terminal fill:#FC766A, stroke: black;
-```
-
-## Uninitialized
-
-This is the initial state for the public state machine (not shown in the diagram above).
-
-```mermaid
-graph TD;
-    Disconnected["Complete(Disconnected)"]:::terminal
-    Connected["Complete(Connected)"]:::terminal
-    AuthIssues["Complete(AuthIssues)"]:::terminal
-    GetAuthState --> |"GetAuthStateSuccess(Disconnected)"| Disconnected:::terminal
-    GetAuthState --> |"GetAuthStateSuccess(AuthIssues)"| AuthIssues:::terminal
-    GetAuthState --> |"GetAuthStateSuccess(Connected)"| EnsureCapabilities
-    EnsureCapabilities --> |EnsureCapabilitiesSuccess| Connected:::terminal
-    EnsureCapabilities --> |Error| AuthIssues:::terminal
-
-    classDef default fill:#0af, color:black, stroke:black
-    classDef terminal fill:#FC766A, stroke: black;
-```
+Methods that auto-recover from auth errors: `complete_oauth_flow`, `begin_oauth_flow`, `begin_pairing_flow`, `get_profile`. Methods that don't (auth errors are FSM-recoverable, not operation-recoverable): `initialize_device`, `ensure_capabilities`, `check_authorization_status`. The `EnsureDeviceCapabilities` auth-error case is handled at the FSM level — the transition arm matches on the error and dispatches to `CheckAuthorizationStatus`.
