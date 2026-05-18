@@ -1,4 +1,4 @@
-# v152.0 (In progress)
+# v152.0 (_2026-05-18_)
 
 ## ✨ What's New ✨
 
@@ -9,7 +9,7 @@
 * `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
 * Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v151.0...v152.0)
 
 ## ⚠️ Breaking Changes ⚠️
 
