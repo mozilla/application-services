@@ -4,17 +4,6 @@
 
 # v152.0 (_2026-05-18_)
 
-## ✨ What's New ✨
-
-### Breach Alerts
-* New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
-
-### Logins
-* `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
-* Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v151.0...v152.0)
-
 ## ⚠️ Breaking Changes ⚠️
 
 ### Remote-Settings
@@ -26,9 +15,18 @@
 ### Ads Client
 * HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. The resolved TTL is capped at 7 days as a safety net against misconfigured server values. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
 
+### Breach Alerts
+* New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
+### Logins
+* `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
+* Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
+
 ### Remote Settings
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
 * Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v151.0...v152.0)
 
 # v151.0 (_2026-04-20_)
 
