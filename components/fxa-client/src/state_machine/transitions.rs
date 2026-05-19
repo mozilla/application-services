@@ -203,6 +203,14 @@ pub fn transition(
             account.disconnect();
             Ok(S::Disconnected)
         }
+        (S::AuthIssues, FxaEvent::CheckAuthorizationStatus) => {
+            // Recovery path after a password-change swaps in a
+            // fresh refresh token. Stays in AuthIssues on introspect failure.
+            let active = account
+                .check_authorization_status()
+                .to_state_machine_err(|| S::AuthIssues)?;
+            Ok(if active { S::Connected } else { S::AuthIssues })
+        }
 
         // ── Invalid (state, event) pair ─────────────────────────────────
         (state, event) => Err(StateMachineErr::Fatal(Box::new(
@@ -304,5 +312,26 @@ mod tests {
         let mut wrapper = RetryingAccount::new(&mut account);
         let result = transition(&mut wrapper, FxaState::Disconnected, FxaEvent::Disconnect);
         assert_fatal_invalid_transition(result);
+    }
+
+    #[test]
+    fn auth_issues_check_authorization_status_is_a_valid_transition() {
+        nss_as::ensure_initialized();
+        let mut account = mock_account();
+        let mut wrapper = RetryingAccount::new(&mut account);
+        let result = transition(
+            &mut wrapper,
+            FxaState::AuthIssues,
+            FxaEvent::CheckAuthorizationStatus,
+        );
+        match result {
+            Err(StateMachineErr::Handled { target, .. }) => {
+                assert_eq!(target, FxaState::AuthIssues);
+            }
+            Err(StateMachineErr::Fatal(cause)) => {
+                panic!("expected Handled, got Fatal({cause:?})")
+            }
+            Ok(s) => panic!("expected Handled, got Ok({s:?})"),
+        }
     }
 }
