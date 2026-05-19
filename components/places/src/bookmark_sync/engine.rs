@@ -2114,6 +2114,80 @@ mod tests {
         Ok(())
     }
 
+    // Bug 2039791.
+    // Verifies that fetch_remote_tree fails with MissingParentForUnknownChild when
+    // moz_bookmarks_synced_structure has a row whose child and parent are both
+    // tombstoned (isDeleted=1, needsMerge=0). The FK on parentGuid is
+    // satisfied because tombstoned rows still exist in moz_bookmarks_synced.
+    #[test]
+    fn test_fetch_remote_tree_with_tombstoned_structure_endpoints() -> Result<()> {
+        let api = new_mem_api();
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
+
+        conn.execute_batch(&format!(
+            "INSERT INTO moz_bookmarks_synced(guid, isDeleted, needsMerge, kind)
+             VALUES ('Pppppppppppp', 1, 0, {folder}),
+                    ('Cccccccccccc', 1, 0, {bookmark});
+             INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+             VALUES ('Cccccccccccc', 'Pppppppppppp', 0);",
+            folder = SyncedBookmarkKind::Folder as u8,
+            bookmark = SyncedBookmarkKind::Bookmark as u8,
+        ))?;
+
+        let merger = Merger::new(&conn, &interrupt_scope, ServerTimestamp(0));
+        let result = merger.fetch_remote_tree();
+
+        assert!(
+            matches!(
+                result,
+                Err(Error::MergeError(ref e))
+                    if matches!(e.kind(), dogear::ErrorKind::MissingParentForUnknownChild(..))
+            ),
+            "expected MissingParentForUnknownChild, got {:?}",
+            result
+        );
+        Ok(())
+    }
+
+    // Bug 2039791.
+    // Verifies that fetch_remote_tree fails with InvalidParent when
+    // moz_bookmarks_synced_structure has a row whose parentGuid refers to a
+    // non-folder (eg, kind=Bookmark). Both endpoints are inserted into the dogear
+    // builder, but dogear's by_children rejects a non-folder parent.
+    #[test]
+    fn test_fetch_remote_tree_with_non_folder_parent_in_structure() -> Result<()> {
+        let api = new_mem_api();
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
+
+        conn.execute_batch(&format!(
+            "INSERT INTO moz_bookmarks_synced(guid, isDeleted, needsMerge, kind, validity)
+             VALUES ('Pppppppppppp', 0, 0, {bookmark}, {valid}),
+                    ('Cccccccccccc', 0, 0, {bookmark}, {valid});
+             INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+             VALUES ('Cccccccccccc', 'Pppppppppppp', 0);",
+            bookmark = SyncedBookmarkKind::Bookmark as u8,
+            valid = SyncedBookmarkValidity::Valid as u8,
+        ))?;
+
+        let merger = Merger::new(&conn, &interrupt_scope, ServerTimestamp(0));
+        let result = merger.fetch_remote_tree();
+
+        assert!(
+            matches!(
+                result,
+                Err(Error::MergeError(ref e))
+                    if matches!(e.kind(), dogear::ErrorKind::InvalidParent(..))
+            ),
+            "expected InvalidParent, got {:?}",
+            result
+        );
+        Ok(())
+    }
+
     #[test]
     fn test_fetch_local_tree() -> Result<()> {
         let now = SystemTime::now();
