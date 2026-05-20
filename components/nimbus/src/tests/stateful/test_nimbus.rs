@@ -2174,8 +2174,27 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         gecko_pref_state_2.clone(),
         gecko_pref_state_3.clone(),
     ];
+
+    let call_count_before = client
+        .get_gecko_pref_store()
+        .state
+        .lock()
+        .unwrap()
+        .set_gecko_prefs_state_call_count;
+
     let registration = client.register_previous_gecko_pref_states(&gecko_pref_states);
     assert!(registration.is_ok());
+
+    // Registration must not send pref values to Gecko.
+    assert_eq!(
+        call_count_before,
+        client
+            .get_gecko_pref_store()
+            .state
+            .lock()
+            .unwrap()
+            .set_gecko_prefs_state_call_count
+    );
 
     let db = client.db()?;
     let reader = db.read()?;

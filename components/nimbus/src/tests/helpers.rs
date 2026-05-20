@@ -177,6 +177,7 @@ impl TestMetrics {
 pub struct TestGeckoPrefHandlerState {
     pub prefs_set: Option<Vec<GeckoPrefState>>,
     pub original_prefs_state: Option<Vec<OriginalGeckoPref>>,
+    pub set_gecko_prefs_state_call_count: u32,
 }
 
 #[cfg(feature = "stateful")]
@@ -193,6 +194,7 @@ impl TestGeckoPrefHandler {
             state: Mutex::new(TestGeckoPrefHandlerState {
                 prefs_set: None,
                 original_prefs_state: None,
+                set_gecko_prefs_state_call_count: 0,
             }),
         }
     }
@@ -205,10 +207,12 @@ impl GeckoPrefHandler for TestGeckoPrefHandler {
     }
 
     fn set_gecko_prefs_state(&self, new_prefs_state: Vec<GeckoPrefState>) {
-        self.state
+        let mut state = self
+            .state
             .lock()
-            .expect("Unable to lock TestGeckoPrefHandler state")
-            .prefs_set = Some(new_prefs_state);
+            .expect("Unable to lock TestGeckoPrefHandler state");
+        state.prefs_set = Some(new_prefs_state);
+        state.set_gecko_prefs_state_call_count += 1;
     }
 
     fn set_gecko_prefs_original_values(&self, original_prefs_state: Vec<OriginalGeckoPref>) {
