@@ -114,6 +114,10 @@ impl<'a> RetryingAccount<'a> {
         self.with_auth_recovery(|a| a.complete_oauth_flow(code, state))
     }
 
+    pub fn handle_web_channel_password_change(&mut self, json_payload: &str) -> Result<()> {
+        self.with_auth_recovery(|a| a.handle_web_channel_password_change(json_payload))
+    }
+
     /// Cancels any existing OAuth flow before starting a new one.
     pub fn begin_oauth_flow(
         &mut self,

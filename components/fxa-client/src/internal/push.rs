@@ -68,7 +68,9 @@ impl FirefoxAccount {
             }
             PushPayload::PasswordChanged | PushPayload::PasswordReset => {
                 self.clear_devices_and_attached_clients_cache();
-                // Send the event here and let the state machine decide next steps
+                // Emit the event and let the
+                // CheckAuthorizationStatus arm verify with the
+                // server before committing to AuthIssues.
                 Ok(AccountEvent::AccountAuthStateChanged)
             }
             PushPayload::Unknown => {

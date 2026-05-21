@@ -142,6 +142,9 @@ pub fn transition(
                 initial_state,
             })
         }
+        // A WebChannel password change while an OAuth flow is in progress
+        // is a no-op; let the flow finish.
+        (s @ S::Authenticating { .. }, FxaEvent::HandleWebChannelPasswordChange { .. }) => Ok(s),
 
         // ── From Connected ──────────────────────────────────────────────
         (S::Connected, FxaEvent::Disconnect) => {
@@ -180,6 +183,17 @@ pub fn transition(
                 initial_state: FxaRustAuthState::Connected,
             })
         }
+        (S::Connected, FxaEvent::HandleWebChannelPasswordChange { json_payload }) => {
+            account
+                .handle_web_channel_password_change(&json_payload)
+                .to_state_machine_err(|| S::AuthIssues)?;
+            // Token swap succeeded; auth is valid.
+            let dc = account.device_config().clone();
+            if let Err(e) = account.initialize_device(&dc.name, dc.device_type, &dc.capabilities) {
+                crate::warn!("initialize_device failed after password change; device record may be stale: {e}");
+            }
+            Ok(S::Connected)
+        }
 
         // ── From AuthIssues ─────────────────────────────────────────────
         (
@@ -203,13 +217,17 @@ pub fn transition(
             account.disconnect();
             Ok(S::Disconnected)
         }
-        (S::AuthIssues, FxaEvent::CheckAuthorizationStatus) => {
-            // Recovery path after a password-change swaps in a
-            // fresh refresh token. Stays in AuthIssues on introspect failure.
-            let active = account
-                .check_authorization_status()
+        (S::AuthIssues, FxaEvent::HandleWebChannelPasswordChange { json_payload }) => {
+            // A concurrent sync/401 may have pushed us here
+            // before the webchannel ran. The new session token still recovers us.
+            account
+                .handle_web_channel_password_change(&json_payload)
                 .to_state_machine_err(|| S::AuthIssues)?;
-            Ok(if active { S::Connected } else { S::AuthIssues })
+            let dc = account.device_config().clone();
+            if let Err(e) = account.initialize_device(&dc.name, dc.device_type, &dc.capabilities) {
+                crate::warn!("initialize_device failed after password change; device record may be stale: {e}");
+            }
+            Ok(S::Connected)
         }
 
         // ── Invalid (state, event) pair ─────────────────────────────────
@@ -314,24 +332,60 @@ mod tests {
         assert_fatal_invalid_transition(result);
     }
 
+    fn assert_handled_lands_at(
+        result: std::result::Result<FxaState, StateMachineErr>,
+        expected: FxaState,
+    ) {
+        match result {
+            Err(StateMachineErr::Handled { target, .. }) => assert_eq!(target, expected),
+            Err(StateMachineErr::Fatal(cause)) => panic!("expected Handled, got Fatal({cause:?})"),
+            Ok(s) => panic!("expected Handled, got Ok({s:?})"),
+        }
+    }
+
     #[test]
-    fn auth_issues_check_authorization_status_is_a_valid_transition() {
+    fn connected_handle_web_channel_password_change_is_valid_transition() {
+        nss_as::ensure_initialized();
+        let mut account = mock_account();
+        let mut wrapper = RetryingAccount::new(&mut account);
+        let result = transition(
+            &mut wrapper,
+            FxaState::Connected,
+            FxaEvent::HandleWebChannelPasswordChange {
+                json_payload: "{}".to_owned(),
+            },
+        );
+        assert_handled_lands_at(result, FxaState::AuthIssues);
+    }
+
+    #[test]
+    fn auth_issues_handle_web_channel_password_change_is_valid_transition() {
         nss_as::ensure_initialized();
         let mut account = mock_account();
         let mut wrapper = RetryingAccount::new(&mut account);
         let result = transition(
             &mut wrapper,
             FxaState::AuthIssues,
-            FxaEvent::CheckAuthorizationStatus,
+            FxaEvent::HandleWebChannelPasswordChange {
+                json_payload: "{}".to_owned(),
+            },
         );
-        match result {
-            Err(StateMachineErr::Handled { target, .. }) => {
-                assert_eq!(target, FxaState::AuthIssues);
-            }
-            Err(StateMachineErr::Fatal(cause)) => {
-                panic!("expected Handled, got Fatal({cause:?})")
-            }
-            Ok(s) => panic!("expected Handled, got Ok({s:?})"),
-        }
+        assert_handled_lands_at(result, FxaState::AuthIssues);
+    }
+
+    #[test]
+    fn authenticating_handle_web_channel_password_change_stays_in_authenticating() {
+        nss_as::ensure_initialized();
+        let mut account = mock_account();
+        let mut wrapper = RetryingAccount::new(&mut account);
+        let from = authenticating_from(FxaRustAuthState::Connected);
+        let result = transition(
+            &mut wrapper,
+            from.clone(),
+            FxaEvent::HandleWebChannelPasswordChange {
+                json_payload: "{}".to_owned(),
+            },
+        );
+        assert_eq!(result.unwrap(), from);
     }
 }
