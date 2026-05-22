@@ -143,8 +143,11 @@ pub fn transition(
             })
         }
         // A WebChannel password change while an OAuth flow is in progress
-        // is a no-op; let the flow finish.
-        (s @ S::Authenticating { .. }, FxaEvent::HandleWebChannelPasswordChange { .. }) => Ok(s),
+        // is a no-op; let the flow finish. Should be rare in practice.
+        (s @ S::Authenticating { .. }, FxaEvent::WebChannelPasswordChange { .. }) => {
+            crate::warn!("WebChannel password change received while Authenticating; ignoring");
+            Ok(s)
+        }
 
         // ── From Connected ──────────────────────────────────────────────
         (S::Connected, FxaEvent::Disconnect) => {
@@ -183,7 +186,7 @@ pub fn transition(
                 initial_state: FxaRustAuthState::Connected,
             })
         }
-        (S::Connected, FxaEvent::HandleWebChannelPasswordChange { json_payload }) => {
+        (S::Connected, FxaEvent::WebChannelPasswordChange { json_payload }) => {
             account
                 .handle_web_channel_password_change(&json_payload)
                 .to_state_machine_err(|| S::AuthIssues)?;
@@ -217,7 +220,7 @@ pub fn transition(
             account.disconnect();
             Ok(S::Disconnected)
         }
-        (S::AuthIssues, FxaEvent::HandleWebChannelPasswordChange { json_payload }) => {
+        (S::AuthIssues, FxaEvent::WebChannelPasswordChange { json_payload }) => {
             // A concurrent sync/401 may have pushed us here
             // before the webchannel ran. The new session token still recovers us.
             account
@@ -344,14 +347,14 @@ mod tests {
     }
 
     #[test]
-    fn connected_handle_web_channel_password_change_is_valid_transition() {
+    fn connected_web_channel_password_change_is_valid_transition() {
         nss_as::ensure_initialized();
         let mut account = mock_account();
         let mut wrapper = RetryingAccount::new(&mut account);
         let result = transition(
             &mut wrapper,
             FxaState::Connected,
-            FxaEvent::HandleWebChannelPasswordChange {
+            FxaEvent::WebChannelPasswordChange {
                 json_payload: "{}".to_owned(),
             },
         );
@@ -359,14 +362,14 @@ mod tests {
     }
 
     #[test]
-    fn auth_issues_handle_web_channel_password_change_is_valid_transition() {
+    fn auth_issues_web_channel_password_change_is_valid_transition() {
         nss_as::ensure_initialized();
         let mut account = mock_account();
         let mut wrapper = RetryingAccount::new(&mut account);
         let result = transition(
             &mut wrapper,
             FxaState::AuthIssues,
-            FxaEvent::HandleWebChannelPasswordChange {
+            FxaEvent::WebChannelPasswordChange {
                 json_payload: "{}".to_owned(),
             },
         );
@@ -374,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn authenticating_handle_web_channel_password_change_stays_in_authenticating() {
+    fn authenticating_web_channel_password_change_stays_in_authenticating() {
         nss_as::ensure_initialized();
         let mut account = mock_account();
         let mut wrapper = RetryingAccount::new(&mut account);
@@ -382,7 +385,7 @@ mod tests {
         let result = transition(
             &mut wrapper,
             from.clone(),
-            FxaEvent::HandleWebChannelPasswordChange {
+            FxaEvent::WebChannelPasswordChange {
                 json_payload: "{}".to_owned(),
             },
         );

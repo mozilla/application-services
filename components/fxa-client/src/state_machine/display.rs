@@ -35,7 +35,7 @@ impl fmt::Display for FxaEvent {
             Self::CompleteOAuthFlow { .. } => "CompleteOAthFlow",
             Self::CancelOAuthFlow => "CancelOAthFlow",
             Self::CheckAuthorizationStatus => "CheckAuthorizationStatus",
-            Self::HandleWebChannelPasswordChange { .. } => "HandleWebChannelPwdChange",
+            Self::WebChannelPasswordChange { .. } => "WebChannelPwdChange",
             Self::Disconnect => "Disconnect",
             Self::CallGetProfile => "CallGetProfile",
         };
