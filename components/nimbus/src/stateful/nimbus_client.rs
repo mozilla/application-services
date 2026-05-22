@@ -227,6 +227,7 @@ impl NimbusClient {
             writer,
             &coenrolling_ids,
             self.gecko_prefs.clone(),
+            true,
         )?;
         Ok(())
     }
@@ -846,7 +847,22 @@ impl NimbusClient {
             )?;
         }
 
-        writer.commit()?;
+        let coenrolling_ids = self
+            .coenrolling_feature_ids
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+
+        // Registering the Gecko original values does not require a Gecko update,
+        // but the cache does need to be refreshed.
+        self.database_cache.commit_and_update(
+            db,
+            writer,
+            &coenrolling_ids,
+            self.gecko_prefs.clone(),
+            false,
+        )?;
+
         Ok(())
     }
 

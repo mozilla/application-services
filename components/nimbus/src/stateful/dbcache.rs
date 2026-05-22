@@ -43,18 +43,21 @@ impl DatabaseCache {
     //
     // This function must be passed a `&Database` and a `Writer`, which it
     // will commit before updating the in-memory cache. This is a slightly weird
-    // API but it helps encorce two important properties:
+    // API but it helps enforce two important properties:
     //
     //  * By requiring a `Writer`, we ensure mutual exclusion of other db writers
     //    and thus prevent the possibility of caching stale data.
     //  * By taking ownership of the `Writer`, we ensure that the calling code
     //    updates the cache after all of its writes have been performed.
+    //  * `update_gecko_prefs` - Pass true for regular enrollment changes. Pass false
+    //     when the Gecko prefs do not need to be synced with Gecko.
     pub fn commit_and_update(
         &self,
         db: &Database,
         writer: Writer,
         coenrolling_ids: &HashSet<&str>,
         gecko_pref_store: Option<Arc<GeckoPrefStore>>,
+        update_gecko_prefs: bool,
     ) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
@@ -80,6 +83,7 @@ impl DatabaseCache {
                 &experiments,
                 &enrollments,
                 &experiments_by_slug,
+                update_gecko_prefs,
             )
         });
 
