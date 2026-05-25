@@ -1641,11 +1641,88 @@ impl dogear::Store for Merger<'_> {
             }
         }
 
+        // An "endpoint" here means the guid/parent in a `moz_bookmarks_synced_structure` row.
+        // There are *possibly* schema changes here which would make some of these states unrepresentable.
+        // eg, no FK relationship between `moz_bookmarks_synced_structure` and `moz_bookmarks_synced(guid)`,
+        // and a trigger to reject non-parent items. However, other existing code should already be
+        // enforcing these invariants.
+        // Working out which shape(s) are occurring in the wild might help us narrow down where the
+        // defect is.
+        //
+        // So we check for and report structure rows with bad endpoints before skipping them.
+        let folder_kind = SyncedBookmarkKind::Folder as u8;
+        let root_guid_str = BookmarkRootGuid::Root.as_guid();
+        let (child_tombstoned, child_absent, parent_tombstoned, parent_absent, non_folder_parent):
+            (bool, bool, bool, bool, bool) = self.db.query_row(
+            &format!(
+                "SELECT
+                    MAX(child.isDeleted IS 1),
+                    MAX(child.guid IS NULL),
+                    MAX(parent.isDeleted IS 1),
+                    MAX(parent.guid IS NULL),
+                    MAX(parent.isDeleted IS 0 AND parent.kind <> {folder_kind})
+                    FROM moz_bookmarks_synced_structure s
+                    LEFT JOIN moz_bookmarks_synced child  ON child.guid  = s.guid
+                    LEFT JOIN moz_bookmarks_synced parent ON parent.guid = s.parentGuid
+                    WHERE s.guid <> '{root_guid}'
+                ",
+                root_guid = root_guid_str.as_str(),
+                folder_kind = folder_kind,
+            ),
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )?;
+        if child_tombstoned {
+            // The child GUID exists, but is a tombstone.
+            error_support::report_error!(
+                "places-bookmarks-structure-child-tombstoned",
+                "moz_bookmarks_synced_structure has rows whose child guid is tombstoned"
+            );
+        }
+        if child_absent {
+            // The child GUID does not exist
+            error_support::report_error!("places-bookmarks-structure-child-absent",
+                "moz_bookmarks_synced_structure has rows whose child guid is absent from moz_bookmarks_synced");
+        }
+        if parent_tombstoned {
+            // The parent GUID exists, but is a tombstone.
+            error_support::report_error!(
+                "places-bookmarks-structure-parent-tombstoned",
+                "moz_bookmarks_synced_structure has rows whose parent guid is tombstoned"
+            );
+        }
+        if parent_absent {
+            // The parent GUID does not exist.
+            // This should be "impossible" because our "ON DELETE CASCADE" on `moz_bookmarks_synced_structure`.
+            error_support::report_error!("places-bookmarks-structure-parent-absent",
+                "moz_bookmarks_synced_structure has rows whose parent guid is absent from moz_bookmarks_synced");
+        }
+        if non_folder_parent {
+            // Both sides are OK other than the fact the parent isn't actually a folder.
+            error_support::report_error!(
+                "places-bookmarks-structure-non-folder-parent",
+                "moz_bookmarks_synced_structure has rows whose parent is a non-folder item"
+            );
+        }
+
+        // Only tell dogear about child/parent relationships where both endpoints are live,
+        // non-deleted items and the parent is a folder. Orphaned or mis-typed
+        // structure rows are silently skipped here; the items themselves are still
+        // inserted into the builder (or recorded as tombstones) by the pass above,
+        // so any stale structure rows simply produce no structural claim (so dogear
+        // might end up reparenting to 'unfiled' etc.)
         let sql = format!(
-            "SELECT guid, parentGuid FROM moz_bookmarks_synced_structure
-             WHERE guid <> '{root_guid}'
-             ORDER BY parentGuid, position",
-            root_guid = BookmarkRootGuid::Root.as_guid().as_str()
+            "SELECT s.guid, s.parentGuid
+             FROM moz_bookmarks_synced_structure s
+             JOIN moz_bookmarks_synced child
+               ON child.guid = s.guid AND NOT child.isDeleted
+             JOIN moz_bookmarks_synced parent
+               ON parent.guid = s.parentGuid AND NOT parent.isDeleted
+              AND parent.kind = {folder_kind}
+             WHERE s.guid <> '{root_guid}'
+             ORDER BY s.parentGuid, s.position",
+            folder_kind = folder_kind,
+            root_guid = root_guid_str.as_str()
         );
         let mut stmt = self.db.prepare(&sql)?;
         let mut results = stmt.query([])?;
@@ -2111,6 +2188,79 @@ mod tests {
 
         // We should have changes.
         assert!(db_has_changes(&conn).unwrap());
+        Ok(())
+    }
+
+    // Bug 2039791.
+    // Verifies that fetch_remote_tree fails with MissingParentForUnknownChild when
+    // moz_bookmarks_synced_structure has a row whose child and parent are both
+    // tombstoned (isDeleted=1, needsMerge=0). The FK on parentGuid is
+    // satisfied because tombstoned rows still exist in moz_bookmarks_synced.
+    #[test]
+    fn test_fetch_remote_tree_with_tombstoned_structure_endpoints() -> Result<()> {
+        let api = new_mem_api();
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
+
+        conn.execute_batch(&format!(
+            "INSERT INTO moz_bookmarks_synced(guid, isDeleted, needsMerge, kind)
+             VALUES ('Pppppppppppp', 1, 0, {folder}),
+                    ('Cccccccccccc', 1, 0, {bookmark});
+             INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+             VALUES ('Cccccccccccc', 'Pppppppppppp', 0);",
+            folder = SyncedBookmarkKind::Folder as u8,
+            bookmark = SyncedBookmarkKind::Bookmark as u8,
+        ))?;
+
+        let merger = Merger::new(&conn, &interrupt_scope, ServerTimestamp(0));
+        // With bug 2039791, fetch_remote_tree filters out orphaned structure rows and
+        // succeeds. Without that patch, this returned MissingParentForUnknownChild.
+        let tree = merger.fetch_remote_tree()?;
+        // The orphaned guids are skipped and do not appear in the tree.
+        assert!(tree.node_for_guid(&"Cccccccccccc".into()).is_none());
+        assert!(tree.node_for_guid(&"Pppppppppppp".into()).is_none());
+        Ok(())
+    }
+
+    // Bug 2039791.
+    // Verifies that fetch_remote_tree fails with InvalidParent when
+    // moz_bookmarks_synced_structure has a row whose parentGuid refers to a
+    // non-folder (eg, kind=Bookmark). Both endpoints are inserted into the dogear
+    // builder, but dogear's by_children rejects a non-folder parent.
+    #[test]
+    fn test_fetch_remote_tree_with_non_folder_parent_in_structure() -> Result<()> {
+        let api = new_mem_api();
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
+        let interrupt_scope = conn.begin_interrupt_scope()?;
+
+        conn.execute_batch(&format!(
+            "INSERT INTO moz_bookmarks_synced(guid, isDeleted, needsMerge, kind, validity)
+             VALUES ('Pppppppppppp', 0, 0, {bookmark}, {valid}),
+                    ('Cccccccccccc', 0, 0, {bookmark}, {valid});
+             INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+             VALUES ('Cccccccccccc', 'Pppppppppppp', 0);",
+            bookmark = SyncedBookmarkKind::Bookmark as u8,
+            valid = SyncedBookmarkValidity::Valid as u8,
+        ))?;
+
+        let merger = Merger::new(&conn, &interrupt_scope, ServerTimestamp(0));
+        // With bug 2039791, fetch_remote_tree filters out structure rows whose parent
+        // is not a folder and succeeds. Without that patch this returned InvalidParent.
+        let tree = merger.fetch_remote_tree()?;
+        // Both items are still in the tree (inserted as live items by pass 2), but
+        // without the bad structural relationship: Cccccccccccc is not a child of
+        // Pppppppppppp. Both items are orphans reparented to unfiled.
+        let c_node = tree
+            .node_for_guid(&"Cccccccccccc".into())
+            .expect("Cccccccccccc should be in tree as orphan");
+        let c_parent_guid = c_node.parent().map(|p| p.item().guid.clone());
+        assert_ne!(
+            c_parent_guid.as_deref(),
+            Some("Pppppppppppp"),
+            "Cccccccccccc should not be parented to the non-folder Pppppppppppp"
+        );
         Ok(())
     }
 
