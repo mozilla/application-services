@@ -106,10 +106,7 @@ impl ClientSettings {
 impl Default for ClientSettings {
     fn default() -> Self {
         Self {
-            #[cfg(target_os = "ios")]
-            timeout: 7000,
-            #[cfg(not(target_os = "ios"))]
-            timeout: 10000,
+            timeout: 60000,
             redirect_limit: 10,
             user_agent: None,
             #[cfg(feature = "ohttp")]
