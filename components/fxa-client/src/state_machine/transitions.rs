@@ -187,14 +187,11 @@ pub fn transition(
             })
         }
         (S::Connected, FxaEvent::WebChannelPasswordChange { json_payload }) => {
+            // The inner call swaps the session token for a new refresh token and re-registers
+            // the device record (push subscription, commands, etc) against the new token.
             account
                 .handle_web_channel_password_change(&json_payload)
                 .to_state_machine_err(|| S::AuthIssues)?;
-            // Token swap succeeded; auth is valid.
-            let dc = account.device_config().clone();
-            if let Err(e) = account.initialize_device(&dc.name, dc.device_type, &dc.capabilities) {
-                crate::warn!("initialize_device failed after password change; device record may be stale: {e}");
-            }
             Ok(S::Connected)
         }
 
@@ -221,15 +218,11 @@ pub fn transition(
             Ok(S::Disconnected)
         }
         (S::AuthIssues, FxaEvent::WebChannelPasswordChange { json_payload }) => {
-            // A concurrent sync/401 may have pushed us here
-            // before the webchannel ran. The new session token still recovers us.
+            // A concurrent sync/401 may have pushed us here before the webchannel ran. The new
+            // session token recovers us; device re-registration will be handled inside the inner call.
             account
                 .handle_web_channel_password_change(&json_payload)
                 .to_state_machine_err(|| S::AuthIssues)?;
-            let dc = account.device_config().clone();
-            if let Err(e) = account.initialize_device(&dc.name, dc.device_type, &dc.capabilities) {
-                crate::warn!("initialize_device failed after password change; device record may be stale: {e}");
-            }
             Ok(S::Connected)
         }
 
