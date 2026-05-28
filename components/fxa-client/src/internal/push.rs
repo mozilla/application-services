@@ -67,15 +67,11 @@ impl FirefoxAccount {
                 })
             }
             PushPayload::PasswordChanged | PushPayload::PasswordReset => {
-                let status = self.check_authorization_status()?;
-                // clear any device or client data due to password change.
                 self.clear_devices_and_attached_clients_cache();
-                Ok(if !status.active {
-                    AccountEvent::AccountAuthStateChanged
-                } else {
-                    info!("Password change event, but no action required");
-                    AccountEvent::Unknown
-                })
+                // Emit the event and let the
+                // CheckAuthorizationStatus arm verify with the
+                // server before committing to AuthIssues.
+                Ok(AccountEvent::AccountAuthStateChanged)
             }
             PushPayload::Unknown => {
                 info!("Unknown Push command.");
@@ -138,14 +134,8 @@ pub struct AccountDestroyedPushPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::internal::http_client::IntrospectResponse;
-    use crate::internal::http_client::MockFxAClient;
-    use crate::internal::oauth::RefreshToken;
     use crate::internal::CachedResponse;
     use crate::internal::Config;
-    use mockall::predicate::always;
-    use mockall::predicate::eq;
-    use std::sync::Arc;
 
     #[test]
     fn test_deserialize_send_tab_command() {
@@ -196,26 +186,12 @@ mod tests {
     fn test_push_password_reset() {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
-        let mut client = MockFxAClient::new();
-        client
-            .expect_check_refresh_token_status()
-            .with(always(), eq("refresh_token"))
-            .times(1)
-            .returning(|_, _| Ok(IntrospectResponse { active: false }));
-        fxa.set_client(Arc::new(client));
-        let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.force_refresh_token(RefreshToken {
-            token: "refresh_token".to_owned(),
-            scopes: refresh_token_scopes,
-        });
-        fxa.state.force_current_device_id("my_id");
         fxa.devices_cache = Some(CachedResponse {
             response: vec![],
             cached_at: 0,
             etag: "".to_string(),
         });
         let json = "{\"version\":1,\"command\":\"fxaccounts:password_reset\"}";
-        assert!(fxa.devices_cache.is_some());
         let event = fxa.handle_push_message(json).unwrap();
         assert!(matches!(event, AccountEvent::AccountAuthStateChanged));
         assert!(fxa.devices_cache.is_none());
@@ -225,28 +201,14 @@ mod tests {
     fn test_push_password_change() {
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
-        let mut client = MockFxAClient::new();
-        client
-            .expect_check_refresh_token_status()
-            .with(always(), eq("refresh_token"))
-            .times(1)
-            .returning(|_, _| Ok(IntrospectResponse { active: true }));
-        fxa.set_client(Arc::new(client));
-        let refresh_token_scopes = std::collections::HashSet::new();
-        fxa.state.force_refresh_token(RefreshToken {
-            token: "refresh_token".to_owned(),
-            scopes: refresh_token_scopes,
-        });
-        fxa.state.force_current_device_id("my_id");
         fxa.devices_cache = Some(CachedResponse {
             response: vec![],
             cached_at: 0,
             etag: "".to_string(),
         });
         let json = "{\"version\":1,\"command\":\"fxaccounts:password_changed\"}";
-        assert!(fxa.devices_cache.is_some());
         let event = fxa.handle_push_message(json).unwrap();
-        assert!(matches!(event, AccountEvent::Unknown));
+        assert!(matches!(event, AccountEvent::AccountAuthStateChanged));
         assert!(fxa.devices_cache.is_none());
     }
     #[test]
