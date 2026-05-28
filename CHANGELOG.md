@@ -26,6 +26,10 @@
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
 * Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
 
+### Viaduct
+
+* Viaduct has a default timeout of 60 seconds on all platforms (was previously 10 seconds on Android, 7 seconds on iOS)
+
 # v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️
