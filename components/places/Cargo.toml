@@ -8,6 +8,8 @@ exclude = ["/android", "/ios"]
 
 [features]
 default = []
+# Enable metric recording through glean-sym (Android only)
+glean-sym = ["dep:glean-sym"]
 
 [dependencies]
 sync15 = { path = "../sync15" }
@@ -32,7 +34,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 thiserror = "2"
 anyhow = "1.0"
 uniffi = { version = "0.31" }
-glean-sym = { git = "https://github.com/mozilla/glean", rev = "0401cd87c365fd8356e5d3bb6d72a67c8940c934" }
+glean-sym = { git = "https://github.com/mozilla/glean", rev = "0401cd87c365fd8356e5d3bb6d72a67c8940c934", optional = true }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
