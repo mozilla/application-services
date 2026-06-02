@@ -8,8 +8,8 @@ use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::fmt;
 // TODO: remove blanket import
-use uniffi_bindgen::bindings::*;
 use uniffi_bindgen::pipeline::initial;
+use uniffi_bindgen::{bindings::*, GlobalConfig};
 use uniffi_pipeline::PrintOptions;
 
 /// TargetLanguage uniffi_bindgen, with a `clap::ValueEnum` derive.
@@ -177,6 +177,7 @@ pub fn run_main() -> anyhow::Result<()> {
                     crate_filter: crate_name,
                     metadata_no_deps,
                     format: !no_format,
+                    ..GenerateOptions::default()
                 },
                 paths,
             )?;
@@ -197,9 +198,19 @@ pub fn run_main() -> anyhow::Result<()> {
             paths.add_layer(crate::config_supplier::NoCargoConfigSupplier);
 
             let initial_root = if args.library_mode {
-                initial::Root::from_library(paths, &args.source, args.crate_name)?
+                initial::Root::from_library(
+                    &paths,
+                    &GlobalConfig::default(),
+                    &args.source,
+                    args.crate_name,
+                )?
             } else {
-                initial::Root::from_udl(paths, &args.source, args.crate_name)?
+                initial::Root::from_udl(
+                    &paths,
+                    &GlobalConfig::default(),
+                    &args.source,
+                    args.crate_name,
+                )?
             };
 
             let opts = PrintOptions {

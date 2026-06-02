@@ -13,7 +13,7 @@ serde_json = "1"
 thiserror = "2"
 url = "2"
 viaduct = { path = "../viaduct" }
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542" }
 
 [dev-dependencies]
 expect-test = "1.4"
@@ -21,4 +21,4 @@ mockito = { version = "0.31", default-features = false}
 viaduct-dev = { path = "../support/viaduct-dev"}
 
 [build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features=["build"]}
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542", features=["build"]}

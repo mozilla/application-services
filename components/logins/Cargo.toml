@@ -44,12 +44,12 @@ rusqlite = { version = "0.37.0", features = ["limits", "unlock_notify"] }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "2"
 anyhow = "1.0"
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542" }
 async-trait = { version = "0.1", optional = true }
 futures = { version = "0.3", optional = true, features = ["executor"] }
 
 [build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542", features = ["build"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }

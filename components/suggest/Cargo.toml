@@ -28,7 +28,7 @@ sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
 tempfile = { version = "3.2.0", optional = true }
 thiserror = "2"
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542" }
 url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
@@ -39,7 +39,7 @@ itertools = "0.14"
 rc_crypto = { path = "../support/rc_crypto" }
 
 [build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542", features = ["build"] }
 
 [features]
 # Required for the benchmarks to work, wasted bytes otherwise.

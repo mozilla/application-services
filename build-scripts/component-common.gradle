@@ -116,40 +116,27 @@ ext.configureUniFFIBindgen = { crateName ->
     if (gradle.hasProperty("mozconfig")) {
         // in moz-central we can use an `Exec` task because we can assume the bindgen tool has already been built.
         generateUniffiBindings = tasks.register("generateUniffiBindings", Exec) {
-            def libraryPath = "${gradle.mozconfig.topobjdir}/dist/bin/libmegazord.so"
             def bindgen = gradle.ext.mozconfig.substs.EMBEDDED_UNIFFI_BINDGEN
 
             workingDir project.rootDir
             commandLine bindgen
-            args 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
+            args 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', 'src:megazord'
 
             outputs.dir uniffiOutDir
-            // Re-generate when the native megazord library is rebuilt
-            inputs.files libraryPath
             // Re-generate if our uniffi-bindgen tooling changes.
             inputs.files bindgen
         }
     } else {
         // In app-services we can't use `Exec` because the megazord target isn't built yet, which we force via `doFirst`
         generateUniffiBindings = tasks.register("generateUniffiBindings") {
-            def megazordNative = configurations.getByName("megazordNative")
             doFirst {
-                def libraryPath = megazordNative.asFileTree.matching {
-                    include "${nativeRustTarget}/libmegazord.*"
-                }.singleFile
-
-                if (libraryPath == null) {
-                    throw new GradleException("libmegazord dynamic library path not found")
-                }
                 exec {
                     workingDir project.rootDir
-                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
+                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', 'src:megazord'
                 }
             }
 
             outputs.dir uniffiOutDir
-            // Re-generate when the native megazord library is rebuilt
-            inputs.files megazordNative
             // Re-generate if our uniffi-bindgen tooling changes.
             inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
         }

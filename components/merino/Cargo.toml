@@ -5,7 +5,7 @@ edition = "2021"
 exclude = ["/android"]
 
 [dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"
@@ -14,4 +14,4 @@ error-support = { path = "../support/error" }
 thiserror = "2"
 
 [build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "33469c071119ac884a93682b132e8f661a080542", features = ["build"] }
