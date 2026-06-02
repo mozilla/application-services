@@ -2,6 +2,11 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's New ✨
+
+### Ads Client
+- Add support for IAB content categories and the `flags.contextual_placement` request flag on ad requests. Callers can attach an `iabContent` (taxonomy + category IDs) to each `MozAdsPlacementRequest`, and set `contextualPlacement: true` on `MozAdsRequestOptions` to opt the request into contextual placement on the server side (AC-109).
+
 # v152.0 (_2026-05-18_)
 
 ## ⚠️ Breaking Changes ⚠️
