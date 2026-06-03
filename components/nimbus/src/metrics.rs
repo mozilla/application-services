@@ -11,6 +11,7 @@ use crate::enrollment::PreviousGeckoPrefState;
 pub use crate::metrics::detail::*;
 
 #[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub struct EnrollmentStatusExtraDef {
     pub branch: Option<String>,
     pub conflict_slug: Option<String>,

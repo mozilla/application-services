@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::defaults::Defaults;
 use crate::enrollment::*;
-use crate::error::{Result, debug};
+use crate::error::Result;
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::{
     GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
@@ -451,6 +451,16 @@ fn test_ios_rollout_experiment() -> Result<()> {
         enrollment.status,
         EnrollmentStatus::Enrolled { .. }
     ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "ios-coordinators-rollout".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["coordinators-refactor-feature".into()],
+        }],
+    );
     Ok(())
 }
 
@@ -477,9 +487,16 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
         enrollment.status,
         EnrollmentStatus::Enrolled { .. }
     ));
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "treatment".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some_control".into()],
+        },],
+    );
     Ok(())
 }
 
@@ -509,7 +526,7 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
             reason: NotEnrolledReason::NotSelected
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(&events, &[], "no change in enrollments (not bucketed)");
     Ok(())
 }
 
@@ -538,7 +555,11 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
             reason: NotEnrolledReason::OptOut
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (no previous enrollment, opted out)"
+    );
     Ok(())
 }
 
@@ -568,7 +589,7 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
             reason: NotEnrolledReason::EnrollmentsPaused
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(&events, &[], "no change in enrollments (paused)");
     Ok(())
 }
 
@@ -598,7 +619,11 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
-    assert!(events.is_empty());
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (previous unenrolled (optout) enrollment, opted out)"
+    );
     Ok(())
 }
 
@@ -629,7 +654,11 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
-    assert!(events.is_empty());
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (existing enrollment, paused)"
+    );
     Ok(())
 }
 
@@ -642,6 +671,9 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
+
+    // TODO(bug 2044504): This test implies the existence of a enrollment paused ->
+    // enrollment unpaused workflow, which does not exist in practice.
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -665,7 +697,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
             reason: NotEnrolledReason::NotSelected
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -701,9 +733,17 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
             ..
         }
     ));
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: exp.slug.clone(),
+            branch_slug: exp.branches[1].slug.clone(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some_control".into()],
+        }]
+    );
+
     Ok(())
 }
 
@@ -742,13 +782,15 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             ..
         }
     ));
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].branch_slug, "control");
-    assert_eq!(events[0].reason, Some("optout".to_owned()));
     assert_eq!(
-        events[0].change,
-        EnrollmentChangeEventType::Disqualification
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: exp.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("optout".to_owned()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some_control".into()],
+        }]
     );
     Ok(())
 }
@@ -795,7 +837,11 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     } else {
         panic!("Wrong variant!");
     }
-    assert!(events.is_empty());
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (existing enrollment became paused)"
+    );
     Ok(())
 }
 
@@ -839,13 +885,15 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
     } else {
         panic!("Wrong variant! \n{:#?}", enrollment.status);
     }
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].branch_slug, "control");
-    assert_eq!(events[0].reason, Some("targeting".to_owned()));
     assert_eq!(
-        events[0].change,
-        EnrollmentChangeEventType::Disqualification
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: exp.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("targeting".to_owned()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some_control".into()],
+        }]
     );
     Ok(())
 }
@@ -888,7 +936,16 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             ..
         }
     ));
-    assert_eq!(1, events.len());
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: exp.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("bucketing".to_owned()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["a-feature".into()],
+        }]
+    );
     Ok(())
 }
 
@@ -977,7 +1034,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &recipes,
@@ -991,12 +1048,14 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::NotEnrolled { .. }));
 
+    assert_eq!(&events, &[]);
+
     // Up to 100%
     let prev_recipes = recipes;
     let ro = get_bucketed_rollout(slug, 10_000);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1009,12 +1068,23 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
 
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "my-rollout".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["a-feature".into()],
+        }]
+    );
+
     // Back to zero again
     let prev_recipes = recipes;
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1033,12 +1103,23 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         }
     ));
 
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "my-rollout".into(),
+            branch_slug: "control".into(),
+            reason: Some("bucketing".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["a-feature".into()],
+        }]
+    );
+
     // Back up to 100%
     let prev_recipes = recipes;
     let ro = get_bucketed_rollout(slug, 10_000);
     let recipes = [ro];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_recipes,
         &recipes,
@@ -1050,6 +1131,17 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let enr = enrollments.first().unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
+
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "my-rollout".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["a-feature".into()],
+        }]
+    );
 
     Ok(())
 }
@@ -1071,7 +1163,7 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
         get_single_feature_experiment(slug_2, "feature_2", Value::Object(Default::default()));
     let recipes = [exp_1, exp_2];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &recipes,
         &recipes,
@@ -1104,6 +1196,8 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
     let enr = enrollments.get(1).unwrap();
     assert_eq!(&enr.slug, slug_2);
     assert!(matches!(&enr.status, EnrollmentStatus::Disqualified { .. }));
+
+    assert_eq!(&events, &[]);
 
     Ok(())
 }
@@ -1151,19 +1245,16 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
 #[test]
 fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()> {
     let mut exp = get_test_experiments()[0].clone();
-    exp.branches = vec![Branch {
-        slug: "bobo-branch".to_owned(),
-        ratio: 1,
-        feature: None,
-        features: None,
-    }];
+    exp.branches[0].slug = "bobo-branch".into();
+    exp.branches.remove(1);
+
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
@@ -1196,13 +1287,16 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
             ..
         }
     ));
-    assert_eq!(events.len(), 1);
     assert_eq!(
-        events[0].change,
-        EnrollmentChangeEventType::Disqualification
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: Some("error".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some_control".into()],
+        }]
     );
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].branch_slug, "control");
     Ok(())
 }
 
@@ -1239,7 +1333,7 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
             ..
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -1270,7 +1364,7 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -1286,7 +1380,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let existing_experiments: Vec<Experiment> = vec![];
     let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
     let updated_experiments = get_feature_conflict_test_experiments();
-    let (enrollments, _events) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &existing_experiments,
         &updated_experiments,
@@ -1296,6 +1390,25 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     )?;
 
     assert_eq!(2, enrollments.len());
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["about_welcome".into()],
+            },
+        ]
+    );
 
     let enrolled: Vec<ExperimentEnrollment> = enrollments
         .clone()
@@ -1328,7 +1441,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let existing_experiments: Vec<Experiment> = updated_experiments;
     let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
     let updated_experiments = get_feature_conflict_test_experiments();
-    let (enrollments, _events) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &existing_experiments,
         &updated_experiments,
@@ -1336,6 +1449,16 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-silver".into(),
+            branch_slug: "N/A".into(),
+            reason: Some("feature-conflict".into()),
+            change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: vec!["about_welcome".into()],
+        },]
+    );
 
     assert_eq!(2, enrollments.len());
 
@@ -1357,7 +1480,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let existing_experiments: Vec<Experiment> = updated_experiments;
     let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
     let updated_experiments = get_feature_conflict_test_experiments();
-    let (enrollments, _events) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &existing_experiments,
         &updated_experiments,
@@ -1365,6 +1488,17 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-silver".into(),
+            branch_slug: "N/A".into(),
+            reason: Some("feature-conflict".into()),
+            change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: vec!["about_welcome".into()],
+        }]
+    );
 
     assert_eq!(2, enrollments.len());
 
@@ -1382,7 +1516,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let existing_experiments: Vec<Experiment> = updated_experiments;
     let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
     let updated_experiments: Vec<Experiment> = vec![];
-    let (enrollments, _events) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &existing_experiments,
         &updated_experiments,
@@ -1390,6 +1524,17 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "treatment".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Unenrollment,
+            feature_ids: vec!["about_welcome".into()],
+        }]
+    );
 
     // There should be one WasEnrolled; the NotEnrolled will have been
     // discarded.
@@ -1487,21 +1632,31 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         "exactly two enrollments should have Enrolled status"
     );
 
-    debug!("events: {:?}", events);
-
     assert_eq!(
-        3,
-        events.len(),
-        "There should be exactly 3 enrollment_change_events (Enroll/Enroll/EnrollFailed)"
-    );
-
-    let enrolled_events = events
-        .iter()
-        .filter(|&e| matches!(e.change, EnrollmentChangeEventType::Enrollment))
-        .count();
-    assert_eq!(
-        2, enrolled_events,
-        "exactly two events should have Enrolled event types"
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "another-monkey".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["some_control".into()],
+            },
+        ]
     );
 
     Ok(())
@@ -1536,19 +1691,32 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     );
 
     assert_eq!(
-        3,
-        events.len(),
-        "There should be exactly 3 enrollment_change_events (Enroll/Enroll/EnrollFailed)"
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "multi-feature-experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()],
+            },
+        ]
     );
 
-    let enrolled_events = events
-        .iter()
-        .filter(|&e| matches!(e.change, EnrollmentChangeEventType::Enrollment))
-        .count();
-    assert_eq!(
-        2, enrolled_events,
-        "exactly two events should have Enrolled event types"
-    );
     Ok(())
 }
 
@@ -1561,7 +1729,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
     let mut targeting_attributes = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &test_experiments,
@@ -1579,6 +1747,26 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         "exactly two enrollments should have Enrolled status"
     );
 
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()],
+            }
+        ]
+    );
+
     let conflicting_experiment = get_conflicting_experiment();
     let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
@@ -1589,20 +1777,29 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         None,
     )?;
 
-    debug!("events = {:?}", events);
-
-    assert_eq!(events.len(), 2);
-
-    // we didn't include test_experiments[1] in next_experiments above,
-    // so it should have been unenrolled...
-    assert_eq!(events[0].experiment_slug, test_experiments[0].slug);
-    assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
-
-    // ...which will have gotten rid of the thing that otherwise would have
-    // conflicted with conflicting_experiment, allowing it to have now
-    // been enrolled.
-    assert_eq!(events[1].experiment_slug, conflicting_experiment.slug);
-    assert_eq!(events[1].change, EnrollmentChangeEventType::Enrollment);
+    // we didn't include test_experiments[1] in next_experiments above, so it
+    // should have been unenrolled which will have gotten rid of the thing that
+    // otherwise would have conflicted with conflicting_experiment, allowing it
+    // to have now been enrolled.
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["some_control".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "another-monkey".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()]
+            }
+        ]
+    );
 
     let enrolled_count = enrollments
         .iter()
@@ -1632,7 +1829,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     // 1. we have two experiments that use one feature each. There's no conflicts.
     let next_experiments = vec![aboutwelcome_experiment.clone(), newtab_experiment.clone()];
 
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         &next_experiments,
@@ -1640,6 +1837,26 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "about_welcome-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "newtab-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["newtab".into()]
+            }
+        ]
+    );
 
     let feature_map =
         map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
@@ -1686,9 +1903,14 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     )?;
 
     assert_eq!(
-        events.len(),
-        1,
-        "A single EnrollFailed recorded due to the feature-conflict"
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "mixed-feature-experiment".into(),
+            branch_slug: "N/A".into(),
+            reason: Some("feature-conflict".into()),
+            change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: vec!["about_welcome".into(), "newtab".into()]
+        }]
     );
 
     let feature_map =
@@ -1756,7 +1978,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let prev_enrollments = enrollments;
     let prev_experiments = next_experiments;
     let next_experiments = vec![mixed_experiment.clone()];
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_experiments,
         &next_experiments,
@@ -1789,12 +2011,32 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .collect::<HashSet<_>>()
     );
 
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "newtab-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["newtab".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "mixed-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into(), "newtab".into()]
+            }
+        ]
+    );
+
     // 4. Starting from an empty enrollments, enroll a multi-feature and then add the single feature ones back in again, which won't be able to enroll.
     // 4a. The multi feature experiment.
     let prev_enrollments = vec![];
     let prev_experiments = vec![];
     let next_experiments = vec![mixed_experiment.clone()];
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_experiments,
         &next_experiments,
@@ -1802,6 +2044,17 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "mixed-feature-experiment".into(),
+            branch_slug: "treatment".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["about_welcome".into(), "newtab".into()]
+        }]
+    );
 
     // 4b. Add the single feature experiments.
     let prev_enrollments = enrollments;
@@ -1820,11 +2073,6 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    assert_eq!(
-        events.len(),
-        2,
-        "Exactly two EnrollFailed events should be recorded"
-    );
     let feature_map =
         map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
@@ -1847,6 +2095,26 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .iter()
             .map(|s| s.to_string())
             .collect::<HashSet<_>>()
+    );
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "about_welcome-feature-experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["about_welcome".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "newtab-feature-experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["newtab".into()]
+            }
+        ]
     );
 
     // 5. Add in experiment with conflicting features on the **same branch**
@@ -1863,11 +2131,6 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    assert_eq!(
-        events.len(),
-        1,
-        "Exactly one EnrollFailed event should be recorded"
-    );
     let feature_map =
         map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 2);
@@ -1892,11 +2155,22 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .collect::<HashSet<_>>()
     );
 
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "multi-feature-experiment".into(),
+            branch_slug: "N/A".into(),
+            reason: Some("feature-conflict".into()),
+            change: EnrollmentChangeEventType::EnrollFailed,
+            feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()]
+        }]
+    );
+
     // 6. Now we remove the mixed experiment, and we should get enrolled
     let prev_enrollments = enrollments;
     let prev_experiments = next_experiments;
     let next_experiments = vec![multi_feature_experiment];
-    let (enrollments, _) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &prev_experiments,
         &next_experiments,
@@ -1934,6 +2208,26 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             .collect::<HashSet<_>>()
     );
 
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "mixed-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["about_welcome".into(), "newtab".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "multi-feature-experiment".into(),
+                branch_slug: "treatment".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()]
+            }
+        ]
+    );
+
     Ok(())
 }
 
@@ -1964,7 +2258,7 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -2176,7 +2470,7 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
     let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+    let (enrollments, events) = evolver.evolve_enrollment_recipes(
         true,
         &no_experiments,
         &all_experiments,
@@ -2207,8 +2501,42 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
     ]);
     assert_eq!(observed, expected);
 
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp1".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["colliding".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp2".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["coenrolling".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp3".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["coenrolling".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp4".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["colliding".into()]
+            }
+        ]
+    );
+
     let experiments = [exp3, exp4];
-    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+    let (enrollments, events) = evolver.evolve_enrollment_recipes(
         true,
         &all_experiments,
         &experiments,
@@ -2237,6 +2565,34 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
         ),
     ]);
     assert_eq!(observed, expected);
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp1".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["colliding".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp2".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["coenrolling".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp4".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["colliding".into()]
+            }
+        ]
+    );
+
     Ok(())
 }
 
@@ -2274,7 +2630,7 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
     let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+    let (enrollments, events) = evolver.evolve_enrollment_recipes(
         true,
         &no_experiments,
         &all_experiments,
@@ -2311,8 +2667,42 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
     ]);
     assert_eq!(observed, expected);
 
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp1".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp2".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["coenrolling".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp3".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp4".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["another".into(), "coenrolling".into()]
+            }
+        ]
+    );
+
     let experiments = [exp3, exp4];
-    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+    let (enrollments, events) = evolver.evolve_enrollment_recipes(
         true,
         &all_experiments,
         &experiments,
@@ -2349,6 +2739,33 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
         ),
     ]);
     assert_eq!(observed, expected);
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp1".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp2".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Unenrollment,
+                feature_ids: vec!["coenrolling".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "exp3".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+            }
+        ]
+    );
 
     Ok(())
 }
@@ -2469,11 +2886,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         "no new enrollments should have been returned"
     );
 
-    assert_eq!(
-        events.len(),
-        0,
-        "no new enrollments should have been returned"
-    );
+    assert_eq!(&events, &[], "no new enrollments should have been returned");
 
     // Test that evolve_enrollments correctly handles the case where a
     // record with a previous enrollment gets dropped
@@ -2493,8 +2906,14 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
     );
 
     assert_eq!(
-        events.len(),
-        1,
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-silver".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["about_welcome".into()]
+        }],
         "only 1 of 2 enrollment events should have been returned, since one caused evolve_enrollment to err"
     );
 
@@ -2529,7 +2948,16 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
         "One enrollment should have been returned"
     );
 
-    assert_eq!(events.len(), 1, "One event should have been returned");
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "another-monkey".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
 
     // we change the app_id so the targeting will only target
     // against the `is_already_enrolled`
@@ -2555,8 +2983,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     );
 
     assert_eq!(
-        events.len(),
-        0,
+        &events,
+        &[],
         "no new events should have been returned, the user was already enrolled"
     );
     Ok(())
@@ -2592,7 +3020,16 @@ fn test_evolver_experiment_update_error() -> Result<()> {
         enrollment.status,
         EnrollmentStatus::Enrolled { .. }
     ));
-    assert_eq!(events.len(), 1);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "treatment".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
     Ok(())
 }
 
@@ -2629,10 +3066,16 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
     } else {
         panic!("Wrong variant!");
     }
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].branch_slug, "control");
-    assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Unenrollment,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
     Ok(())
 }
 
@@ -2667,10 +3110,16 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
     } else {
         panic!("Wrong variant!");
     }
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].experiment_slug, exp.slug);
-    assert_eq!(events[0].branch_slug, "control");
-    assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Unenrollment,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
     Ok(())
 }
 
@@ -2698,7 +3147,7 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
         None,
     )?;
     assert!(enrollment.is_none());
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -2726,7 +3175,7 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
         None,
     )?;
     assert_eq!(enrollment.unwrap(), existing_enrollment);
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -2754,7 +3203,7 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
         None,
     )?;
     assert!(enrollment.is_none());
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
     Ok(())
 }
 
@@ -2772,16 +3221,18 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
     let res = evolver.evolve_enrollment(
         true,
         None,
         Some(&exp),
         Some(&existing_enrollment),
-        &mut vec![],
+        &mut events,
         #[cfg(feature = "stateful")]
         None,
     );
     assert!(res.is_err());
+    assert_eq!(&events, &[]);
 }
 
 #[test]
@@ -2791,16 +3242,18 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
     let res = evolver.evolve_enrollment(
         true,
         Some(&exp),
         Some(&exp),
         None,
-        &mut vec![],
+        &mut events,
         #[cfg(feature = "stateful")]
         None,
     );
     assert!(res.is_err());
+    assert_eq!(&events, &[]);
 }
 
 #[test]
@@ -2869,7 +3322,25 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
         None,
     )?;
     assert_eq!(enrollments.len(), 2);
-    assert_eq!(events.len(), 2);
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout1".into(),
+                branch_slug: "".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "experiment1".into(),
+                branch_slug: "".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            }
+        ]
+    );
 
     assert_eq!(
         enrollments
@@ -2936,7 +3407,32 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
         None,
     )?;
     assert_eq!(enrollments.len(), 3);
-    assert_eq!(events.len(), 3);
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout1".into(),
+                branch_slug: "".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout2".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "experiment1".into(),
+                branch_slug: "".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            }
+        ]
+    );
 
     let enrollments: Vec<ExperimentEnrollment> = enrollments
         .into_iter()
@@ -3163,7 +3659,7 @@ fn test_rollouts_end_to_end() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
-    let (enrollments, _events) = evolver.evolve_enrollments(
+    let (enrollments, events) = evolver.evolve_enrollments(
         Participation::default(),
         &[],
         recipes,
@@ -3171,6 +3667,26 @@ fn test_rollouts_end_to_end() -> Result<()> {
         #[cfg(feature = "stateful")]
         None,
     )?;
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout1".into(),
+                branch_slug: "rollout1".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["bob".into(), "charlie".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "experiment1".into(),
+                branch_slug: "experiment1".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["alice".into(), "bob".into()]
+            }
+        ]
+    );
 
     let features = map_features_by_feature_id(&enrollments, recipes, &no_coenrolling_features());
 
@@ -3193,11 +3709,16 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
             ..
         }
     ));
-    assert_eq!(events.len(), 1);
-    assert!(matches!(
-        events[0].change,
-        EnrollmentChangeEventType::Enrollment
-    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
     Ok(())
 }
 
@@ -3214,7 +3735,7 @@ fn test_enrollment_enrolled_explicit_opt_out() {
     let exp = get_test_experiments()[0].clone();
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
-        slug: exp.slug,
+        slug: exp.slug.clone(),
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
@@ -3223,6 +3744,7 @@ fn test_enrollment_enrolled_explicit_opt_out() {
         },
     };
     let enrollment = existing_enrollment.on_explicit_opt_out(
+        Some(&exp),
         &mut events,
         #[cfg(feature = "stateful")]
         None,
@@ -3232,11 +3754,16 @@ fn test_enrollment_enrolled_explicit_opt_out() {
     } else {
         panic!("Wrong variant!");
     }
-    assert_eq!(events.len(), 1);
-    assert!(matches!(
-        events[0].change,
-        EnrollmentChangeEventType::Disqualification
-    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: Some("optout".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some_control".into()]
+        }]
+    );
 }
 
 #[test]
@@ -3244,12 +3771,13 @@ fn test_enrollment_not_enrolled_explicit_opt_out() {
     let exp = get_test_experiments()[0].clone();
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
-        slug: exp.slug,
+        slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
             reason: NotEnrolledReason::NotTargeted,
         },
     };
     let enrollment = existing_enrollment.on_explicit_opt_out(
+        Some(&exp),
         &mut events,
         #[cfg(feature = "stateful")]
         None,
@@ -3261,7 +3789,7 @@ fn test_enrollment_not_enrolled_explicit_opt_out() {
             ..
         }
     ));
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
 }
 
 #[test]
@@ -3276,12 +3804,13 @@ fn test_enrollment_disqualified_explicit_opt_out() {
         },
     };
     let enrollment = existing_enrollment.on_explicit_opt_out(
+        None,
         &mut events,
         #[cfg(feature = "stateful")]
         None,
     );
     assert_eq!(enrollment, existing_enrollment);
-    assert!(events.is_empty());
+    assert_eq!(&events, &[]);
 }
 
 #[test]
@@ -3452,7 +3981,7 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
     let all_experiments = [exp1, exp2];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+    let (enrollments, events) = evolver.evolve_enrollment_recipes(
         true,
         &no_experiments,
         &all_experiments,
@@ -3472,6 +4001,26 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
         ),
     )]);
     assert_eq!(observed, expected);
+
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "slug-2".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["colliding-feature".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "slug-1".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec!["colliding-feature".into()]
+            }
+        ]
+    );
 
     Ok(())
 }

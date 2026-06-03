@@ -12,12 +12,13 @@ use tempfile::TempDir;
 use uuid::Uuid;
 
 use crate::enrollment::{
-    DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
-    PreviousGeckoPrefState,
+    DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState,
 };
 use crate::error::{Result, info};
 use crate::json::PrefValue;
 use crate::metrics::MalformedFeatureConfigExtraDef;
+use crate::schema::{Branch, FeatureConfig};
 use crate::stateful::behavior::{
     EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
 };
@@ -29,8 +30,10 @@ use crate::stateful::persistence::{Database, StoreId};
 use crate::stateful::targeting::RecordedContext;
 use crate::tests::helpers::{
     TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
-    get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
-    get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
+    get_bucketed_rollout_with_feature, get_ios_rollout_experiment, get_multi_feature_experiment,
+    get_single_feature_experiment, get_single_feature_rollout, get_targeted_experiment,
+    get_targeted_experiment_with_feature, sorted_enrollment_change_events,
+    to_local_experiments_string,
 };
 use crate::{
     AppContext, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE, Experiment, NimbusClient,
@@ -82,6 +85,16 @@ fn test_telemetry_reset() -> Result<()> {
         &mock_exp_slug,
         &Experiment {
             slug: mock_exp_slug.clone(),
+            branches: vec![Branch {
+                slug: "control".into(),
+                ratio: 1,
+                features: Some(vec![FeatureConfig {
+                    feature_id: "foo".into(),
+                    value: serde_json::Map::new(),
+                }]),
+                feature: None,
+            }],
+            feature_ids: vec!["foo".into()],
             ..Experiment::default()
         },
     )?;
@@ -106,6 +119,16 @@ fn test_telemetry_reset() -> Result<()> {
     assert_eq!(get_aru_nimbus_id().unwrap(), orig_nimbus_id.to_string());
 
     let events = client.reset_telemetry_identifiers()?;
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "exp-1".into(),
+            branch_slug: "branch-1".into(),
+            reason: Some("optout".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["foo".into()],
+        },]
+    );
 
     // We should have reset our nimbus_id.
     let new_nimbus_id = client.nimbus_id()?;
@@ -118,9 +141,6 @@ fn test_telemetry_reset() -> Result<()> {
 
     // We should have been disqualified from the enrolled experiment.
     assert_eq!(client.get_experiment_branch(mock_exp_slug)?, None);
-
-    // We should have returned a single event.
-    assert_eq!(events.len(), 1);
 
     Ok(())
 }
@@ -899,7 +919,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     Ok(())
 }
 
-#[cfg(feature = "stateful")]
 #[test]
 fn test_ios_rollout() -> Result<()> {
     let ctx = AppContext {
@@ -1063,11 +1082,11 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
-    let exp_3 = get_targeted_experiment(slug_3, "true");
-    let exp_4 = get_targeted_experiment(slug_4, "true");
-    let ro_1 = get_bucketed_rollout(slug_5, 10_000);
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
+    let exp_3 = get_targeted_experiment_with_feature(slug_3, "true", "feature-3");
+    let exp_4 = get_targeted_experiment_with_feature(slug_4, "true", "feature-4");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_5, 10_000, "feature-5");
     client.set_experiments_locally(to_local_experiments_string(&[
         exp_1,
         exp_2,
@@ -1093,10 +1112,10 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
 
     // Apply empty first experiment, disqualifying second experiment, and decreased bucket rollout
-    let exp_2 = get_targeted_experiment(slug_2, "false");
-    let exp_3 = get_targeted_experiment(slug_3, "error_out");
-    let exp_4 = get_targeted_experiment(slug_4, "true");
-    let ro_1 = get_bucketed_rollout(slug_5, 0);
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "false", "feature-2");
+    let exp_3 = get_targeted_experiment_with_feature(slug_3, "error_out", "feature-3");
+    let exp_4 = get_targeted_experiment_with_feature(slug_4, "true", "feature-6");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_5, 0, "feature-5");
     let experiment_json = serde_json::to_string(
         &json!({"data": [exp_2, exp_3, exp_4, serde_json::to_value(ro_1)?]}),
     )?;
@@ -1111,6 +1130,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         .get_store(StoreId::Enrollments)
         .collect_all(&db.write()?)?;
     assert_eq!(enrollments.len(), 5);
+    println!("{:#?}", enrollments);
     assert!(matches!(
         enrollments.first().unwrap(),
         ExperimentEnrollment {
@@ -1204,8 +1224,8 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;
 
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
     client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2])?)?;
     client.apply_pending_experiments()?;
 
@@ -1233,9 +1253,9 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let slug_1 = "experiment-1";
     let slug_2 = "experiment-2";
     let slug_3 = "rollout-1";
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
-    let ro_1 = get_bucketed_rollout(slug_3, 10_000);
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_3, 10_000, "feature-1");
 
     let metrics = TestMetrics::new();
     let client = with_metrics(metrics.clone(), "coenrolling-feature")?;
@@ -1620,12 +1640,21 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     let slug_4 = "test-4";
 
     // Apply an initial experiment
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, &format!("'{}' in active_experiments", slug_1));
-    let exp_3 = get_targeted_experiment(slug_3, &format!("'{}' in enrollments", slug_1));
-    let exp_4 = get_targeted_experiment(
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(
+        slug_2,
+        &format!("'{}' in active_experiments", slug_1),
+        "feature-2",
+    );
+    let exp_3 = get_targeted_experiment_with_feature(
+        slug_3,
+        &format!("'{}' in enrollments", slug_1),
+        "feature-3",
+    );
+    let exp_4 = get_targeted_experiment_with_feature(
         slug_4,
         &format!("enrollments_map['{}'] == 'treatment'", slug_1),
+        "feature-4",
     );
     client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2, exp_3, exp_4])?)?;
     client.apply_pending_experiments()?;
@@ -1636,7 +1665,6 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "stateful")]
 #[test]
 fn test_recorded_context_recorded() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -1903,9 +1931,28 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
     let unenroll_events =
         client.unenroll_for_gecko_pref(pref_state, PrefUnenrollReason::FailedToSet)?;
 
+    assert_eq!(
+        &sorted_enrollment_change_events(unenroll_events),
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_failed_to_set".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_failed_to_set".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into()],
+            },
+        ]
+    );
+
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
-    assert_eq!(2, unenroll_events.len());
 
     {
         let handler = client.get_gecko_pref_store();
@@ -2035,9 +2082,28 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
     let unenroll_events =
         client.unenroll_for_gecko_pref(pref_state_1, PrefUnenrollReason::Changed)?;
 
+    assert_eq!(
+        &sorted_enrollment_change_events(unenroll_events),
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_changed".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_changed".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+            }
+        ]
+    );
+
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
-    assert_eq!(2, unenroll_events.len());
 
     {
         let handler = client.get_gecko_pref_store();
@@ -2353,5 +2419,107 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         .unwrap();
 
     assert_eq!(reader_result, original_prev_gecko_pref_states.clone());
+    Ok(())
+}
+
+#[test]
+fn test_opt_out_events() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug = "slug";
+    let experiment = get_targeted_experiment(slug, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+
+    client.apply_pending_experiments()?;
+    assert_eq!(client.get_active_experiments()?.len(), 1);
+
+    let events = client.opt_out(slug.into())?;
+    assert_eq!(client.get_active_experiments()?.len(), 0);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: slug.into(),
+            branch_slug: "control".into(),
+            reason: Some("optout".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some-feature-1".into()],
+        },]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_opt_in_with_branch_events() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug = "slug";
+    let experiment = get_targeted_experiment(slug, "false");
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+
+    client.apply_pending_experiments()?;
+    assert_eq!(client.get_active_experiments()?.len(), 0);
+
+    let events = client.opt_in_with_branch(slug.into(), "control".into())?;
+    assert_eq!(client.get_active_experiments()?.len(), 1);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: slug.into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some-feature-1".into()],
+        },]
+    );
+
     Ok(())
 }
