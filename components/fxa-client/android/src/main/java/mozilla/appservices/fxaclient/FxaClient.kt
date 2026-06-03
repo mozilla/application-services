@@ -101,40 +101,6 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     fun getAuthState() = this.inner.getAuthState()
 
     /**
-     * Constructs a URL used to begin the OAuth flow for the requested scopes and keys.
-     *
-     * This performs network requests, and should not be used on the main thread.
-     *
-     * @param scopes List of OAuth scopes for which the client wants access
-     * @param entrypoint to be used for metrics
-     * @return String that resolves to the flow URL when complete
-     */
-    fun beginOAuthFlow(
-        scopes: Array<String>,
-        entrypoint: String,
-    ): String {
-        return this.inner.beginOauthFlow(scopes.toList(), entrypoint)
-    }
-
-    /**
-     * Begins the pairing flow.
-     *
-     * This performs network requests, and should not be used on the main thread.
-     *
-     * @param pairingUrl the url to initilaize the paring flow with
-     * @param scopes List of OAuth scopes for which the client wants access
-     * @param entrypoint to be used for metrics
-     * @return String that resoles to the flow URL when complete
-     */
-    fun beginPairingFlow(
-        pairingUrl: String,
-        scopes: Array<String>,
-        entrypoint: String,
-    ): String {
-        return this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint)
-    }
-
-    /**
      * Stores anything necessary to login from a WebChannel login JSON payload. This includes the session
      * token, but that is abstracted because the consuming apps should not be aware of the
      * specific payload format returned, nor should they get access to the session token
@@ -165,19 +131,6 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      */
     fun getSignedInUserForWebChannel(): String? {
         return this.inner.getSignedInUserForWebChannel()
-    }
-
-    /**
-     * Authenticates the current account using the code and state parameters fetched from the
-     * redirect URL reached after completing the sign in flow triggered by [beginOAuthFlow].
-     *
-     * Modifies the FirefoxAccount state.
-     *
-     * This performs network requests, and should not be used on the main thread.
-     */
-    fun completeOAuthFlow(code: String, state: String) {
-        this.inner.completeOauthFlow(code, state)
-        this.tryPersistState()
     }
 
     /**
@@ -408,7 +361,7 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
 
     /**
      * Disconnect from the account and optionally destroy our device record.
-     * `beginOAuthFlow` will need to be called to reconnect.
+     * A `BeginOAuthFlow` state-machine event will need to be sent to reconnect.
      *
      * This performs network requests, and should not be used on the main thread.
      */
