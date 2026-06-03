@@ -208,6 +208,7 @@ impl StateManager {
         self.persisted_state.server_local_device_info = None;
         self.persisted_state.session_token = None;
         self.persisted_state.logged_out_from_auth_issues = false;
+        self.persisted_state.last_seen_profile = None;
         self.flow_store.clear();
     }
 
