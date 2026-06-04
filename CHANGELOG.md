@@ -1,5 +1,11 @@
 # v153.0 (In progress)
 
+## 🔧 What's Fixed 🔧
+
+### Logins
+
+- `update()` no longer bumps `times_used` or `time_last_used`, this is done only via `touch()`. Verified that both Firefox Android and iOS already track password use via `touch()` and call `update()` only for explicit edits. ([bug 2045032](https://bugzilla.mozilla.org/show_bug.cgi?id=2045032))
+
 ### Nimbus
 
 - Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))

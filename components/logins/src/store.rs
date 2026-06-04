@@ -499,9 +499,9 @@ mod tests {
         assert!(b_after_update.time_created >= start_us);
         assert!(b_after_update.time_created <= now_us);
         assert!(b_after_update.time_password_changed >= now_us);
-        assert!(b_after_update.time_last_used >= now_us);
-        // Should be two even though we updated twice
-        assert_eq!(b_after_update.times_used, 2);
+        // An edit is not a use: usage stats are unchanged by update().
+        assert_eq!(b_after_update.time_last_used, b_from_db.time_last_used);
+        assert_eq!(b_after_update.times_used, 1);
     }
 
     #[test]
