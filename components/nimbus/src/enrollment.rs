@@ -49,6 +49,7 @@ impl Display for EnrolledReason {
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[allow(deprecated)]
 pub enum NotEnrolledReason {
     /// The experiment targets a different application.
     DifferentAppName,
@@ -63,9 +64,29 @@ pub enum NotEnrolledReason {
     /// We are not being targeted for this experiment.
     NotTargeted,
     /// The user opted-out of experiments before we ever got enrolled to this one.
+    ExperimentsOptOut,
+    /// The user opted-out of rollouts before we ever got enrolled to this one.
+    RolloutsOptOut,
+
+    /// This state represents several cases:
+    ///
+    /// - this is an experiment and the user globally opted out of experiments
+    ///   (or the global participation opt-out pre Firefox 145);
+    /// - this is a rollout and the user globally opted out of rollouts (or the
+    ///   global participation opt-out pre Firefox 145); or
+    /// - this experiment or rollout was opted-out of manually by the user while
+    ///   not enrolled.
+    ///
+    /// The global participation opt-out was changed to individual experiments
+    /// and rollouts opt-outs in Firefox 145, but separate reasons were not
+    /// added until Firefox 153. It is therefore impossible to distinguish what
+    /// exactly this state represents and so we must interpet it in the most
+    /// strict sense in order to respect user choice.
+    #[deprecated]
     OptOut,
 }
 
+#[allow(deprecated)]
 impl Display for NotEnrolledReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(
@@ -76,6 +97,8 @@ impl Display for NotEnrolledReason {
                 NotEnrolledReason::FeatureConflict => "FeatureConflict",
                 NotEnrolledReason::NotSelected => "NotSelected",
                 NotEnrolledReason::NotTargeted => "NotTargeted",
+                NotEnrolledReason::ExperimentsOptOut => "ExperimentsOptOut",
+                NotEnrolledReason::RolloutsOptOut => "RolloutsOptOut",
                 NotEnrolledReason::OptOut => "OptOut",
             },
             f,
@@ -106,8 +129,12 @@ impl Default for Participation {
 pub enum DisqualifiedReason {
     /// There was an error.
     Error,
-    /// The user opted-out from this experiment or experiments in general.
+    /// The user opted-out from this experiment.
     OptOut,
+    /// The user opted-out from all rollouts.
+    ExperimentsOptOut,
+    /// The user reset their telemetry identifiers.
+    RolloutsOptOut,
     /// The targeting has changed for an experiment.
     NotTargeted,
     /// The bucketing has changed for an experiment.
@@ -123,6 +150,8 @@ impl Display for DisqualifiedReason {
             match self {
                 DisqualifiedReason::Error => "Error",
                 DisqualifiedReason::OptOut => "OptOut",
+                DisqualifiedReason::ExperimentsOptOut => "ExperimentsOptOut",
+                DisqualifiedReason::RolloutsOptOut => "ExperimentsOptOut",
                 DisqualifiedReason::NotSelected => "NotSelected",
                 DisqualifiedReason::NotTargeted => "NotTargeted",
                 #[cfg(feature = "stateful")]
@@ -205,7 +234,11 @@ impl ExperimentEnrollment {
             Self {
                 slug: experiment.slug.clone(),
                 status: EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::OptOut,
+                    reason: if experiment.is_rollout() {
+                        NotEnrolledReason::RolloutsOptOut
+                    } else {
+                        NotEnrolledReason::ExperimentsOptOut
+                    },
                 },
             }
         } else if experiment.is_enrollment_paused {
@@ -304,7 +337,11 @@ impl ExperimentEnrollment {
                     #[cfg(feature = "stateful")]
                     self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
                     let updated_enrollment =
-                        self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
+                        self.disqualify_from_enrolled(if updated_experiment.is_rollout {
+                            DisqualifiedReason::RolloutsOptOut
+                        } else {
+                            DisqualifiedReason::ExperimentsOptOut
+                        });
                     out_enrollment_events
                         .push(updated_enrollment.get_change_event(Some(updated_experiment)));
                     updated_enrollment
@@ -398,14 +435,20 @@ impl ExperimentEnrollment {
                     Self {
                         slug: self.slug.clone(),
                         status: EnrollmentStatus::Disqualified {
-                            reason: DisqualifiedReason::OptOut,
+                            reason: if updated_experiment.is_rollout {
+                                DisqualifiedReason::RolloutsOptOut
+                            } else {
+                                DisqualifiedReason::ExperimentsOptOut
+                            },
                             branch: branch.clone(),
                         },
                     }
                 } else if updated_experiment.is_rollout
                     && matches!(
                         reason,
-                        DisqualifiedReason::NotSelected | DisqualifiedReason::NotTargeted,
+                        DisqualifiedReason::NotSelected
+                            | DisqualifiedReason::NotTargeted
+                            | DisqualifiedReason::RolloutsOptOut,
                     )
                 {
                     let updated_enrollment = evaluate_enrollment(
@@ -639,6 +682,8 @@ impl ExperimentEnrollment {
                     DisqualifiedReason::NotSelected => Some("bucketing"),
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
+                    DisqualifiedReason::ExperimentsOptOut => Some("experiments-opt-out"),
+                    DisqualifiedReason::RolloutsOptOut => Some("rollouts-opt-out"),
                     DisqualifiedReason::Error => Some("error"),
                     #[cfg(feature = "stateful")]
                     DisqualifiedReason::PrefUnenrollReason { reason } => match reason {

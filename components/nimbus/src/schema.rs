@@ -16,6 +16,7 @@ use crate::{NimbusError, Result};
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct EnrolledExperiment {
     pub feature_ids: Vec<String>,
     pub slug: String,
