@@ -30,7 +30,9 @@ uniffi::custom_type!(TabsGuid, String, {
     lower: |obj| obj.into(),
 });
 
-pub use crate::storage::{ClientRemoteTabs, LocalTabsInfo, RemoteTabRecord, TabsDeviceType};
+pub use crate::storage::{
+    ClientRemoteTabs, LocalTabsInfo, RemoteTabRecord, TabGroup, TabsDeviceType, Window, WindowType,
+};
 pub use crate::store::{RemoteCommandStore, TabsStore};
 pub use error::{ApiResult, Error, Result, TabsApiError};
 use sync15::DeviceType;
