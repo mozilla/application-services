@@ -16,11 +16,11 @@ pub mod models;
 #[cfg(test)]
 mod tests;
 
-use crate::curated_recommendations::models::locale::CuratedRecommendationLocale;
+pub use crate::curated_recommendations::models::locale::CuratedRecommendationLocale;
 use crate::curated_recommendations::models::request::CuratedRecommendationsConfig;
 use crate::curated_recommendations::models::request::CuratedRecommendationsRequest;
 use crate::curated_recommendations::models::response::CuratedRecommendationsResponse;
-pub use error::{ApiResult, Error, Result};
+pub use error::{ApiResult, CuratedRecommendationsApiError, Error, Result};
 use error_support::handle_error;
 use url::Url;
 

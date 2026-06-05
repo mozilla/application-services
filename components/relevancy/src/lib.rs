@@ -35,7 +35,7 @@ pub use ranker::score;
 
 use error_support::handle_error;
 
-use db::BanditData;
+pub use db::BanditData;
 
 uniffi::setup_scaffolding!();
 
