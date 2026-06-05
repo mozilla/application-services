@@ -139,13 +139,23 @@ mod tests {
                         avatar: "https://foo.avatar".to_string(),
                         avatar_default: true,
                     },
-                    etag: None,
+                    etag: Some("123".to_string()),
                 }))
             });
         fxa.set_client(Arc::new(client));
 
         let p = fxa.get_profile(false).unwrap();
         assert_eq!(p.email, "foo@bar.com");
+        // do it again to check our caching - if it wasn't cached and we hit our mock
+        // of fetching the profile we'd still fail due to the mock only expecting 1 call.
+        let p = fxa.get_profile(false).unwrap();
+        assert_eq!(p.email, "foo@bar.com");
+
+        // make sure the cached value doesn't survive a disconnect.
+        fxa.disconnect();
+        // now we should have no cached value, but wont even try to hit the server as we
+        // have no session token.
+        assert!(matches!(fxa.get_profile(false), Err(Error::NoSessionToken)));
     }
 
     #[test]
