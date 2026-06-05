@@ -14,7 +14,7 @@ use tracing_subscriber::{
     Layer,
 };
 
-use crate::{EventSink, Level};
+use crate::{EventSink, TracingLevel};
 use tracing::field::{Field, Visit};
 
 static SINKS: RwLock<Vec<RegisteredEventSink>> = const_rwlock(Vec::new());
@@ -52,13 +52,13 @@ pub struct EventSinkSpecification {
     pub targets: Vec<EventTarget>,
     // Send events have a `min_level` or above.
     #[uniffi(default)]
-    pub min_level: Option<Level>,
+    pub min_level: Option<TracingLevel>,
 }
 
 #[derive(uniffi::Record, Debug)]
 pub struct EventTarget {
     pub target: String,
-    pub level: Level,
+    pub level: TracingLevel,
 }
 
 #[uniffi::export]
@@ -124,7 +124,7 @@ fn find_sinks_for_event(event: &tracing::Event<'_>) -> Vec<Arc<dyn EventSink>> {
         Some(index) => &target[..index],
         None => target,
     };
-    let level = Level::from(*event.metadata().level());
+    let level = TracingLevel::from(*event.metadata().level());
 
     // This requires a iterating through the entire SINKS vec, which could have performance impacts
     // if we have many sinks registered.  In practice, there should only be a handful of these so

@@ -9,6 +9,7 @@ uniffi::setup_scaffolding!("relay");
 
 pub use error::{ApiResult, Error, RelayApiError, Result};
 use error_support::handle_error;
+pub use rs::RelayRemoteSettingsClient;
 
 use serde::{Deserialize, Serialize};
 use url::Url;
