@@ -166,7 +166,6 @@ open class Nimbus(
         set(active) {
             dbScope.launch {
                 setExperimentParticipationOnThisThread(active)
-                applyPendingExperimentsOnThisThread()
             }
         }
 
@@ -175,7 +174,6 @@ open class Nimbus(
         set(active) {
             dbScope.launch {
                 setRolloutParticipationOnThisThread(active)
-                applyPendingExperimentsOnThisThread()
             }
         }
 
