@@ -59,6 +59,7 @@ The following text applies to code linked from these dependencies:
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
 [glean-build](https://github.com/mozilla/glean),
+[glean-sym](https://github.com/mozilla/glean),
 [hawk](https://github.com/taskcluster/rust-hawk),
 [jexl-eval](https://github.com/mozilla/jexl-rs),
 [jexl-parser](https://github.com/mozilla/jexl-rs),
