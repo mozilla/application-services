@@ -24,7 +24,7 @@ name = "nimbus_fml"
 name = "nimbus-fml"
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"], optional = true }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c", features = ["build"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -39,13 +39,13 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
-askama = "0.14"
+askama = "0.16"
 textwrap = { version = "0.16", default-features = false }
 heck = "0.5"
 icu_segmenter = "2"
 url = { version = "2", features = ["serde"] }
 glob = "0.3.0"
-uniffi = { version = "0.31", optional = true }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c", optional = true }
 cfg-if = "1.0.0"
 lazy_static = "1.4"
 sha2 = "^0.10"

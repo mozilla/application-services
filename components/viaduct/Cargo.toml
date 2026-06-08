@@ -21,7 +21,7 @@ pollster = "0.3.0"
 prost = "0.13"
 ffi-support = "0.4"
 thiserror = "2"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 bhttp = { version = "0.7.2", optional = true }
 ohttp = { version = "0.7.2", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
 

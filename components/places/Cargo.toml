@@ -31,7 +31,7 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "2"
 anyhow = "1.0"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
@@ -39,4 +39,4 @@ tempfile = "3.1"
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]
-uniffi = { version = "0.31", features=["build"]}
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c", features=["build"]}

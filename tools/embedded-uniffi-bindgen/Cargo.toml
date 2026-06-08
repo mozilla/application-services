@@ -15,6 +15,6 @@ glob = "0.3"
 toml = "0.5"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 serde = { version = "1", features = ["derive"] }
-uniffi_bindgen = { version = "0.31" }
-uniffi_pipeline = { version = "0.31" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
+uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }

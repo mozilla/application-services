@@ -42,7 +42,7 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "2"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 url = { version = "2", optional = true }
 viaduct = { path = "../viaduct", optional = true }
 

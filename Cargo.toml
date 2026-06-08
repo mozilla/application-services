@@ -166,10 +166,6 @@ debug = true
 lto = "thin"
 
 [patch.crates-io]
-# uniffi is using an experimental ffi based on 0.31.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
-uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
 # dummy crates for m-c integration hacks.
 mozilla-central-workspace-hack = { path = "monorepo-hacks/workspace-hack" }
 mozbuild = { path = "monorepo-hacks/mozbuild" }

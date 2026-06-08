@@ -1,6 +1,6 @@
 {%- import "macros.swift" as swift %}
 {%- let inner = self.inner() %}
-{% call swift::render_class(inner) -%}
+{{ swift::render_class(inner) -}}
 {%- let class_name = inner.name()|class_name %}
 
 public extension {{class_name}} {

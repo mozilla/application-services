@@ -11,7 +11,7 @@ error-support = { path = "../support/error" }
 md-5 = "0.10"
 regex = "1"
 thiserror = "2"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 
 [[bin]]
 name = "import-site-list"

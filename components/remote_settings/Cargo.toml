@@ -17,7 +17,7 @@ telemetry-submission = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c" }
 thiserror = "2"
 serde = { version = "1", features=["derive"] }
 serde_json = "1"
@@ -37,7 +37,7 @@ canonical_json = { version = "0.5", optional = true }
 rc_crypto = { path = "../support/rc_crypto", optional = true }
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "7d647a85a1258d4795e551048eb900193083365c", features = ["build"] }
 
 [dev-dependencies]
 expect-test = "1.4"
