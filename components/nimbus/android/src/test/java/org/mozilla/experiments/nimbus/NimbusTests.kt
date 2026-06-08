@@ -942,7 +942,8 @@ class NimbusTests {
             PrefUnenrollReason.FAILED_TO_SET,
         )
 
-        assertEquals(1, events.size)
+        assertNotNull(events)
+        assertEquals(1, events!!.size)
         assertEquals(EnrollmentChangeEventType.DISQUALIFICATION, events[0].change)
         assertEquals(0, handler.setValues?.size)
     }
