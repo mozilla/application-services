@@ -10,10 +10,10 @@ parking_lot = "0.12"
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", default-features = false }
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features = ["build"] }

@@ -19,11 +19,11 @@ error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "2"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8" }
 types = { path = "../support/types" }
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "874202a89f5d4437eb974ef4766564162caf01f8", features = ["build"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
