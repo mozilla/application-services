@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 camino = "1"
-cargo_metadata = "0.15"
+cargo_metadata = "0.23"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 askama = "0.14"
 serde_yaml = "0.8"

@@ -6,7 +6,7 @@ authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
 
 [dependencies]
-uniffi = { version = "0.31" }
+uniffi = { version = "0.32" }
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 parking_lot = ">=0.11,<=0.12"
