@@ -203,6 +203,14 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/remram44/adler32-rs/master/LICENSE",
         }
     },
+    # Upstream github repo is no longer, but crates.io lists this as BSD-2-Clause and links to this
+    # URL
+    "arrayref": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://choosealicense.com/licenses/bsd-2-clause/",
+        }
+    },
     "bincode": {
         "license_file": {
             "check": None,

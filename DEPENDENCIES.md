@@ -456,6 +456,7 @@ The following text applies to code linked from these dependencies:
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/askama-rs/askama),
 [askama_derive](https://github.com/askama-rs/askama),
+[askama_macros](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
 [async-trait](https://github.com/dtolnay/async-trait),
 [autocfg](https://github.com/cuviper/autocfg),
@@ -2026,32 +2027,650 @@ The following text applies to code linked from these dependencies:
 [arrayref](https://github.com/droundy/arrayref)
 
 ```
-Copyright (c) 2015 David Roundy <roundyd@physics.oregonstate.edu>
-All rights reserved.
+<!DOCTYPE html><html lang="en" dir="ltr">
+  <head itemscope itemtype="http://schema.org/WebSite">
+    <meta charset="utf-8">
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Chivo:900">
+    <link rel="stylesheet" href="/assets/css/application.css?v=d6277c04899ce98b13d713186b48d110ac998d0b">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/licenses/bsd-2-clause/" hreflang="en">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/fr/licenses/bsd-2-clause/" hreflang="fr">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/es/licenses/bsd-2-clause/" hreflang="es">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/pt/licenses/bsd-2-clause/" hreflang="pt">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/zh/licenses/bsd-2-clause/" hreflang="zh">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/ko/licenses/bsd-2-clause/" hreflang="ko">
+    
+      
+      <link rel="alternate" href="https://choosealicense.com/ar/licenses/bsd-2-clause/" hreflang="ar">
+    
+    <link rel="alternate" href="https://choosealicense.com/licenses/bsd-2-clause/" hreflang="x-default">
+
+    <!-- Begin Jekyll SEO tag v2.9.0 -->
+<title>BSD 2-Clause “Simplified” License | Choose a License</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="BSD 2-Clause “Simplified” License" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A permissive license that comes in two variants, the BSD 2-Clause and BSD 3-Clause. Both have very minute differences to the MIT license." />
+<meta name="twitter:description" property="og:description" content="A permissive license that comes in two variants, the BSD 2-Clause and BSD 3-Clause. Both have very minute differences to the MIT license." />
+<link rel="canonical" href="https://choosealicense.com/licenses/bsd-2-clause/" />
+<meta property="og:url" content="https://choosealicense.com/licenses/bsd-2-clause/" />
+<meta property="og:site_name" content="Choose a License" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-07-13T04:35:43+00:00" />
+<meta property="article:modified_time" content="2026-07-13T04:35:43+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="BSD 2-Clause “Simplified” License" />
+<meta name="twitter:site" content="@github" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-07-13T04:35:43+00:00","datePublished":"2026-07-13T04:35:43+00:00","description":"A permissive license that comes in two variants, the BSD 2-Clause and BSD 3-Clause. Both have very minute differences to the MIT license.","headline":"BSD 2-Clause “Simplified” License","mainEntityOfPage":{"@type":"WebPage","@id":"https://choosealicense.com/licenses/bsd-2-clause/"},"url":"https://choosealicense.com/licenses/bsd-2-clause/"}</script>
+<!-- End Jekyll SEO tag -->
+
+  </head>
+  <body class="license">
+    <div class="container">
+
+      <div class="topbar">
+        
+  
+  
+  
+  <ol>
+    <li>
+      
+        <a href="/">Home</a> / <a href="/licenses/">Licenses</a>
+      
+    </li>
+  </ol>
+  <script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [{
+      "@type": "ListItem",
+      "position": 1,
+      "item": {
+        "@id": "https://choosealicense.com/",
+        "name": "Home"
+      }
+    },{
+      "@type": "ListItem",
+      "position": 2,
+      "item": {
+        "@id": "https://choosealicense.com/licenses",
+        "name": "Licenses"
+      }
+    },{
+      "@type": "ListItem",
+      "position": 3,
+      "item": {
+        "@id": "https://choosealicense.com/licenses/bsd-2-clause/",
+        "name": "BSD 2-Clause \"Simplified\" License"
+      }
+    }]
+  }
+  </script>
+
+
+        <div class="lang-cluster">
+<div class="language-suggestion" hidden aria-live="polite"></div>
+<details class="language-selector">
+  <summary aria-label="Language" title="Language">
+    <span class="language-selector-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M62.4,101c-1.5-2.1-2.1-3.4-1.8-3.9c0.2-0.5,1.6-0.7,3.9-0.5c2.3,0.2,4.2,0.5,5.8,0.9c1.5,0.4,2.8,1,3.8,1.7c1,0.7,1.8,1.5,2.3,2.6c0.6,1,1,2.3,1.4,3.7c0.7,2.8,0.5,4.7-0.5,5.7c-1.1,1-2.6,0.8-4.6-0.6c-2.1-1.4-3.9-2.8-5.5-4.2C65.5,105.1,63.9,103.2,62.4,101z M40.7,190.1c4.8-2.1,9-4.2,12.6-6.4c3.5-2.1,6.6-4.4,9.3-6.8c2.6-2.3,5-4.9,7-7.7c2-2.7,3.8-5.8,5.4-9.2c1.3,1.2,2.5,2.4,3.8,3.5c1.2,1.1,2.5,2.2,3.8,3.4c1.3,1.2,2.8,2.4,4.3,3.8c1.5,1.4,3.3,2.8,5.3,4.5c0.7,0.5,1.4,0.9,2.1,1c0.7,0.1,1.7,0,3.1-0.6c1.3-0.5,3-1.4,5.1-2.8c2.1-1.3,4.7-3.1,7.9-5.4c1.6-1.1,2.4-2,2.3-2.7c-0.1-0.7-1-1-2.7-0.9c-3.1,0.1-5.9,0.1-8.3-0.1c-2.5-0.2-5-0.6-7.4-1.4c-2.4-0.8-4.9-1.9-7.5-3.4c-2.6-1.5-5.6-3.6-9.1-6.2c1-3.9,1.8-8,2.4-12.4c0.3-2.5,0.6-4.3,0.8-5.6c0.2-1.2,0.5-2.4,0.9-3.3c0.3-0.8,0.4-1.4,0.5-1.9c0.1-0.5-0.1-1-0.4-1.6c-0.4-0.5-1-1.1-1.9-1.7c-0.9-0.6-2.2-1.4-3.9-2.3c2.4-0.9,5.1-1.7,7.9-2.6c2.7-0.9,5.7-1.8,8.8-2.7c3-0.9,4.5-1.9,4.6-3.1c0.1-1.2-0.9-2.3-3.2-3.5c-1.5-0.8-2.9-1.1-4.3-0.9c-1.4,0.2-3.2,0.9-5.4,2.2c-0.6,0.4-1.8,0.9-3.4,1.6c-1.7,0.7-3.6,1.5-6,2.5c-2.4,1-5,2-7.8,3.1c-2.9,1.1-5.8,2.2-8.7,3.2c-2.9,1.1-5.7,2-8.2,2.8c-2.6,0.8-4.6,1.4-6.1,1.6c-3.8,0.8-5.8,1.6-5.9,2.4c0,0.8,1.5,1.6,4.4,2.4c1.2,0.3,2.3,0.6,3.1,0.6c0.8,0.1,1.7,0.1,2.5,0c0.8-0.1,1.6-0.3,2.4-0.5c0.8-0.3,1.7-0.7,2.8-1.1c1.6-0.8,3.9-1.7,6.9-2.8c2.9-1,6.6-2.4,11.2-4c0.9,2.7,1.4,6,1.4,9.8c0,3.8-0.4,8.1-1.4,13c-1.3-1.1-2.7-2.3-4.2-3.6c-1.5-1.3-2.9-2.6-4.3-3.9c-1.6-1.5-3.2-2.5-4.7-3c-1.6-0.5-3.4-0.5-5.5,0c-3.3,0.9-5,1.9-4.9,3.1c0,1.2,1.3,1.8,3.8,1.9c0.9,0.1,1.8,0.3,2.7,0.6c0.9,0.3,1.9,0.9,3.2,1.8c1.3,0.9,2.9,2.2,4.7,3.8c1.8,1.6,4.2,3.7,7,6.3c-1.2,2.9-2.6,5.6-4.1,8c-1.5,2.5-3.4,5-5.5,7.3c-2.2,2.4-4.7,4.8-7.7,7.2c-3,2.5-6.6,5.1-10.8,7.8c-4.3,2.8-6.5,4.7-6.5,5.6C35,192.1,37,191.7,40.7,190.1z M250.5,81.8v165.3l-111.6-36.4L10.5,253.4V76.1l29.9-10V10.4l81.2,28.7L231.3,2.6v73.1L250.5,81.8z M124.2,50.6L22.3,84.6v152.2l101.9-33.9V50.6L124.2,50.6z M219.4,71.9V19L138.1,46L219.4,71.9z M227,201.9L196.5,92L176,85.6l-30.9,90.8l18.9,5.9l5.8-18.7l31.9,10l5.7,22.3L227,201.9z M174.8,147.7l22.2,6.9l-10.9-42.9L174.8,147.7z"/></svg>
+</span>
+    <span class="language-selector-current">English</span>
+    <span class="language-selector-caret" aria-hidden="true">▾</span>
+  </summary>
+  <ul class="language-menu"><li><a href="/licenses/bsd-2-clause/" lang="en" hreflang="en" rel="alternate" aria-current="true">English<span class="checkmark" aria-hidden="true">✓</span></a></li><li><a href="/fr/licenses/bsd-2-clause/" lang="fr" hreflang="fr" rel="alternate">Français</a></li><li><a href="/es/licenses/bsd-2-clause/" lang="es" hreflang="es" rel="alternate">Español</a></li><li><a href="/pt/licenses/bsd-2-clause/" lang="pt" hreflang="pt" rel="alternate">Português</a></li><li><a href="/zh/licenses/bsd-2-clause/" lang="zh" hreflang="zh" rel="alternate">中文</a></li><li><a href="/ko/licenses/bsd-2-clause/" lang="ko" hreflang="ko" rel="alternate">한국어</a></li><li><a href="/ar/licenses/bsd-2-clause/" lang="ar" hreflang="ar" rel="alternate">العربية</a></li></ul>
+</details>
+</div>
+      </div>
+
+      
+        <h1>BSD 2-Clause “Simplified” License</h1>
+      
+
+
+
+
+
+
+
+
+
+      <div class="clearfix">
+
+        <div class="license-body">
+
+            
+
+            <p>
+                A permissive license that comes in two variants, the <a href="/licenses/bsd-2-clause/">BSD 2-Clause</a> and <a href="/licenses/bsd-3-clause/">BSD 3-Clause</a>. Both have very minute differences to the MIT license.
+            </p>
+
+            <div class="license-page-details">
+
+              <table class="license-rules">
+  <tr>
+  
+  
+    
+    <th class="label">Permissions</th>
+  
+    
+    <th class="label">Conditions</th>
+  
+    
+    <th class="label">Limitations</th>
+  
+  </tr>
+  <tr>
+    
+      <td>
+        <ul class="license-permissions">
+          
+          
+            
+            
+              
+              <li class="commercial-use">
+                <span class="license-marker">✓</span>
+                Commercial use
+              </li>
+            
+          
+            
+            
+              
+              <li class="distribution">
+                <span class="license-marker">✓</span>
+                Distribution
+              </li>
+            
+          
+            
+            
+              
+              <li class="modifications">
+                <span class="license-marker">✓</span>
+                Modification
+              </li>
+            
+          
+            
+            
+          
+            
+            
+              
+              <li class="private-use">
+                <span class="license-marker">✓</span>
+                Private use
+              </li>
+            
+          
+        </ul>
+      </td>
+    
+      <td>
+        <ul class="license-conditions">
+          
+          
+            
+            
+          
+            
+            
+              
+              <li class="include-copyright">
+                <span class="license-marker">ⓘ</span>
+                License and copyright notice
+              </li>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+        </ul>
+      </td>
+    
+      <td>
+        <ul class="license-limitations">
+          
+          
+            
+            
+              
+              <li class="liability">
+                <span class="license-marker">✕</span>
+                Liability
+              </li>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+              
+              <li class="warranty">
+                <span class="license-marker">✕</span>
+                Warranty
+              </li>
+            
+          
+        </ul>
+      </td>
+    
+  </tr>
+</table>
+
+
+            </div>
+
+            <pre id="license-text" dir="ltr">BSD 2-Clause License
+
+Copyright (c) [year], [fullname]
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the
-   distribution.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+</pre>
+
+        </div> <!-- /license-body -->
+
+<div class="sidebar">
+
+  
+  
+  
+  
+  
+
+  <a href="#" data-clipboard-target="#license-text" data-proofer-ignore="true" data-copied-label="Copied!" class="js-clipboard-button button">Copy license text to clipboard</a>
+  
+  <h3 id="suggest-this-license">Suggest this license</h3>
+  <div class="repository-suggestion">
+    <p>Make a pull request to suggest this license for a project that is <a href="/no-permission/">not licensed</a>. Please be polite: see if a license has already been suggested, try to suggest a license fitting for the project’s <a href="/community/">community</a>, and keep your communication with project maintainers friendly.</p>
+
+
+    <div class="input-wrapper">
+      <input type="text" data-license-id="BSD-2-Clause" placeholder="Enter GitHub repository URL" id="repository-url" title="status" />
+      <div class="status-indicator"></div>
+    </div>
+  </div>
+  
+
+  <div class="how-to-apply">
+    <h3 id="how-to-apply">How to apply this license</h3>
+    <p>
+      Create a text file (typically named LICENSE or LICENSE.txt) in the root of your source code and copy the text of the license into the file. Replace [year] with the current year and [fullname] with the name (or names) of the copyright holders.
+    </p>
+    <div class="note">
+    <h4 id="optional-steps">Optional steps</h4>
+    
+    
+    
+    
+    
+    <p id="package-metadata">Add <strong><code>BSD-2-Clause</code></strong> to your project’s package description, if applicable (e.g., <a href="https://docs.npmjs.com/cli/v7/configuring-npm/package-json#license">Node.js</a>, <a href="https://guides.rubygems.org/specification-reference/#license=">Ruby</a>, and <a href="https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields">Rust</a>). This will ensure the license is displayed in package directories.</p>
+    
+    </div>
+  </div>
+
+  <div class="source">
+    <a href="https://spdx.org/licenses/BSD-2-Clause.html">
+      <span class="source-marker" aria-hidden="true">↗</span>
+      Source
+    </a>
+  </div>
+
+  
+  <div class="projects-with-license">
+    <h3>Who’s using this license?</h3>
+    <ul>
+      
+        <li><a href="https://github.com/go-redis/redis/blob/master/LICENSE" target="_blank">go-redis</a></li>
+      
+        <li><a href="https://github.com/Homebrew/brew/blob/master/LICENSE.txt" target="_blank">Homebrew</a></li>
+      
+        <li><a href="https://github.com/ponylang/ponyc/blob/master/LICENSE" target="_blank">Pony</a></li>
+      
+    </ul>
+  </div>
+  
+
+</div> <!-- /sidebar -->
+
+
+      </div> <!-- /clearfix -->
+
+      <footer class="site-footer clearfix">
+        <nav>
+          <a href="/about/">About</a>
+          <a href="/terms-of-service/">Terms of Service</a>
+          
+          <a href="https://github.com/github/choosealicense.com/edit/gh-pages/_licenses/bsd-2-clause.txt">Help improve this page</a>
+        </nav>
+        <p>
+          The content of this site is licensed under the <a href="https://creativecommons.org/licenses/by/3.0/">Creative Commons Attribution 3.0 Unported License</a>.
+        </p>
+        <div class="with-love">
+          Curated with ❤️ by <a href="https://github.com">GitHub, Inc.</a> and <a href="https://github.com/github/choosealicense.com">You!</a>
+        </div>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <script>window.annotations = {"permissions": [{"tag": "commercial-use", "label": "Commercial use", "description": "The licensed material and derivatives may be used for commercial purposes."}, {"tag": "modifications", "label": "Modification", "description": "The licensed material may be modified."}, {"tag": "distribution", "label": "Distribution", "description": "The licensed material may be distributed."}, {"tag": "private-use", "label": "Private use", "description": "The licensed material may be used and modified in private."}, {"tag": "patent-use", "label": "Patent use", "description": "This license provides an express grant of patent rights from contributors."}], "conditions": [{"tag": "include-copyright", "label": "License and copyright notice", "description": "A copy of the license and copyright notice must be included with the licensed material."}, {"tag": "include-copyright--source", "label": "License and copyright notice for source", "description": "A copy of the license and copyright notice must be included with the licensed material in source form, but is not required for binaries."}, {"tag": "document-changes", "label": "State changes", "description": "Changes made to the licensed material must be documented."}, {"tag": "disclose-source", "label": "Disclose source", "description": "Source code must be made available when the licensed material is distributed."}, {"tag": "network-use-disclose", "label": "Network use is distribution", "description": "Users who interact with the licensed material via network are given the right to receive a copy of the source code."}, {"tag": "same-license", "label": "Same license", "description": "Modifications must be released under the same license when distributing the licensed material. In some cases a similar or related license may be used."}, {"tag": "same-license--file", "label": "Same license (file)", "description": "Modifications of existing files must be released under the same license when distributing the licensed material. In some cases a similar or related license may be used."}, {"tag": "same-license--library", "label": "Same license (library)", "description": "Modifications must be released under the same license when distributing the licensed material. In some cases a similar or related license may be used, or this condition may not apply to works that use the licensed material as a library."}], "limitations": [{"tag": "trademark-use", "label": "Trademark use", "description": "This license explicitly states that it does NOT grant trademark rights, even though licenses without such a statement probably do not grant any implicit trademark rights."}, {"tag": "liability", "label": "Liability", "description": "This license includes a limitation of liability."}, {"tag": "patent-use", "label": "Patent use", "description": "This license explicitly states that it does NOT grant any rights in the patents of contributors."}, {"tag": "warranty", "label": "Warranty", "description": "This license explicitly states that it does NOT provide any warranty."}]
+      };window.tooltipFormat = "%label% %category%: %description%";
+      window.tooltipCategory = { "permissions": "permission", "conditions": "condition", "limitations": "limitation" };
+      
+      window.licenses = [
+        
+          {
+            "title": "BSD Zero Clause License",
+            "spdx_id": "0BSD"
+          },
+        
+          {
+            "title": "Academic Free License v3.0",
+            "spdx_id": "AFL-3.0"
+          },
+        
+          {
+            "title": "GNU Affero General Public License v3.0",
+            "spdx_id": "AGPL-3.0"
+          },
+        
+          {
+            "title": "Apache License 2.0",
+            "spdx_id": "Apache-2.0"
+          },
+        
+          {
+            "title": "Artistic License 2.0",
+            "spdx_id": "Artistic-2.0"
+          },
+        
+          {
+            "title": "Blue Oak Model License 1.0.0",
+            "spdx_id": "BlueOak-1.0.0"
+          },
+        
+          {
+            "title": "BSD-2-Clause Plus Patent License",
+            "spdx_id": "BSD-2-Clause-Patent"
+          },
+        
+          {
+            "title": "BSD 2-Clause &quot;Simplified&quot; License",
+            "spdx_id": "BSD-2-Clause"
+          },
+        
+          {
+            "title": "BSD 3-Clause Clear License",
+            "spdx_id": "BSD-3-Clause-Clear"
+          },
+        
+          {
+            "title": "BSD 3-Clause &quot;New&quot; or &quot;Revised&quot; License",
+            "spdx_id": "BSD-3-Clause"
+          },
+        
+          {
+            "title": "BSD 4-Clause &quot;Original&quot; or &quot;Old&quot; License",
+            "spdx_id": "BSD-4-Clause"
+          },
+        
+          {
+            "title": "Boost Software License 1.0",
+            "spdx_id": "BSL-1.0"
+          },
+        
+          {
+            "title": "Creative Commons Attribution 4.0 International",
+            "spdx_id": "CC-BY-4.0"
+          },
+        
+          {
+            "title": "Creative Commons Attribution Share Alike 4.0 International",
+            "spdx_id": "CC-BY-SA-4.0"
+          },
+        
+          {
+            "title": "Creative Commons Zero v1.0 Universal",
+            "spdx_id": "CC0-1.0"
+          },
+        
+          {
+            "title": "CeCILL Free Software License Agreement v2.1",
+            "spdx_id": "CECILL-2.1"
+          },
+        
+          {
+            "title": "CERN Open Hardware Licence Version 2 - Permissive",
+            "spdx_id": "CERN-OHL-P-2.0"
+          },
+        
+          {
+            "title": "CERN Open Hardware Licence Version 2 - Strongly Reciprocal",
+            "spdx_id": "CERN-OHL-S-2.0"
+          },
+        
+          {
+            "title": "CERN Open Hardware Licence Version 2 - Weakly Reciprocal",
+            "spdx_id": "CERN-OHL-W-2.0"
+          },
+        
+          {
+            "title": "Educational Community License v2.0",
+            "spdx_id": "ECL-2.0"
+          },
+        
+          {
+            "title": "Eclipse Public License 1.0",
+            "spdx_id": "EPL-1.0"
+          },
+        
+          {
+            "title": "Eclipse Public License 2.0",
+            "spdx_id": "EPL-2.0"
+          },
+        
+          {
+            "title": "European Union Public License 1.1",
+            "spdx_id": "EUPL-1.1"
+          },
+        
+          {
+            "title": "European Union Public License 1.2",
+            "spdx_id": "EUPL-1.2"
+          },
+        
+          {
+            "title": "GNU Free Documentation License v1.3",
+            "spdx_id": "GFDL-1.3"
+          },
+        
+          {
+            "title": "GNU General Public License v2.0",
+            "spdx_id": "GPL-2.0"
+          },
+        
+          {
+            "title": "GNU General Public License v3.0",
+            "spdx_id": "GPL-3.0"
+          },
+        
+          {
+            "title": "ISC License",
+            "spdx_id": "ISC"
+          },
+        
+          {
+            "title": "GNU Lesser General Public License v2.1",
+            "spdx_id": "LGPL-2.1"
+          },
+        
+          {
+            "title": "GNU Lesser General Public License v3.0",
+            "spdx_id": "LGPL-3.0"
+          },
+        
+          {
+            "title": "LaTeX Project Public License v1.3c",
+            "spdx_id": "LPPL-1.3c"
+          },
+        
+          {
+            "title": "MIT No Attribution",
+            "spdx_id": "MIT-0"
+          },
+        
+          {
+            "title": "MIT License",
+            "spdx_id": "MIT"
+          },
+        
+          {
+            "title": "Mozilla Public License 2.0",
+            "spdx_id": "MPL-2.0"
+          },
+        
+          {
+            "title": "Microsoft Public License",
+            "spdx_id": "MS-PL"
+          },
+        
+          {
+            "title": "Microsoft Reciprocal License",
+            "spdx_id": "MS-RL"
+          },
+        
+          {
+            "title": "Mulan Permissive Software License, Version 2",
+            "spdx_id": "MulanPSL-2.0"
+          },
+        
+          {
+            "title": "University of Illinois/NCSA Open Source License",
+            "spdx_id": "NCSA"
+          },
+        
+          {
+            "title": "Open Data Commons Open Database License v1.0",
+            "spdx_id": "ODbL-1.0"
+          },
+        
+          {
+            "title": "SIL Open Font License 1.1",
+            "spdx_id": "OFL-1.1"
+          },
+        
+          {
+            "title": "Open Software License 3.0",
+            "spdx_id": "OSL-3.0"
+          },
+        
+          {
+            "title": "PostgreSQL License",
+            "spdx_id": "PostgreSQL"
+          },
+        
+          {
+            "title": "The Unlicense",
+            "spdx_id": "Unlicense"
+          },
+        
+          {
+            "title": "Universal Permissive License v1.0",
+            "spdx_id": "UPL-1.0"
+          },
+        
+          {
+            "title": "Vim License",
+            "spdx_id": "Vim"
+          },
+        
+          {
+            "title": "Do What The F*ck You Want To Public License",
+            "spdx_id": "WTFPL"
+          },
+        
+          {
+            "title": "zlib License",
+            "spdx_id": "Zlib"
+          }
+        
+      ];
+      
+    </script>
+    <script src="/assets/js/app.js?v=d6277c04899ce98b13d713186b48d110ac998d0b"></script>
+    
+    <script>
+      window.choosealicenseI18n = {
+        current: "en",
+        default: "en",
+        languages: { "en": { "name": "English", "suggest": "This page is also available in **English**.", "switch": "Switch to **English**", "dismiss": "Dismiss" }, "fr": { "name": "Français", "suggest": "Cette page est aussi disponible en **français**.", "switch": "Voir en **français**", "dismiss": "Ignorer" }, "es": { "name": "Español", "suggest": "Esta página también está disponible en **español**.", "switch": "Cambiar a **español**", "dismiss": "Descartar" }, "pt": { "name": "Português", "suggest": "Esta página também está disponível em **português**.", "switch": "Mudar para **português**", "dismiss": "Dispensar" }, "zh": { "name": "中文", "suggest": "本页面也提供**中文**版本。", "switch": "切换到**中文**", "dismiss": "忽略" }, "ko": { "name": "한국어", "suggest": "이 페이지는 **한국어**로도 제공됩니다.", "switch": "**한국어**로 전환", "dismiss": "닫기" }, "ar": { "name": "العربية", "suggest": "هذه الصفحة متوفرة أيضًا **بالعربية**.", "switch": "التبديل إلى **العربية**", "dismiss": "تجاهل" } }
+      };
+    </script>
+    <script src="/assets/js/i18n.js?v=d6277c04899ce98b13d713186b48d110ac998d0b"></script>
+  </body>
+</html>
+
 
 ```
 -------------

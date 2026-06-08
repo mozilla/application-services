@@ -12,6 +12,8 @@ pub use context_id;
 pub use crashtest;
 pub use error_support;
 pub use fxa_client;
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub use glean_sym;
 pub use init_rust_components;
 pub use logins;
 pub use merino;

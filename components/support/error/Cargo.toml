@@ -15,10 +15,10 @@ lazy_static = { version = "1.4" }
 log = { version = "0.4" }
 parking_lot = { version = ">=0.11,<=0.12" }
 tracing-support = { path = "../tracing" }
-uniffi = { version = "0.31" }
+uniffi = { version = "0.32" }
 
 [build-dependencies]
-uniffi = { version = "0.31", features=["build"]}
+uniffi = { version = "0.32", features=["build"]}
 
 [features]
 backtrace = ["dep:backtrace"]
