@@ -87,7 +87,7 @@ public class {{class_name}}: FMLObjectInterface {
 
             `has_prefs()` checks if the type can be got from UserDefaults.
             #}
-        if let {{ prefs }} = {% call prefs() %},
+        if let {{ prefs }} = {{ prefs() }},
             let {{ prop_swift }} = {{ prefs }}.object(forKey: {{ key|quoted }}) as? {{ type_swift }} {
             return {{ prop_swift }}
         }

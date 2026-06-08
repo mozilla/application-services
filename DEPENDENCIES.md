@@ -456,6 +456,7 @@ The following text applies to code linked from these dependencies:
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/askama-rs/askama),
 [askama_derive](https://github.com/askama-rs/askama),
+[askama_macros](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
 [async-trait](https://github.com/dtolnay/async-trait),
 [autocfg](https://github.com/cuviper/autocfg),

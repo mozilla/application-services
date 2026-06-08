@@ -1,13 +1,13 @@
 {%- import "macros.swift" as swift %}
 {%- let inner = self.inner() %}
 {%- let class_name = inner.name()|class_name -%}
-{% call swift::render_class(inner) %}
+{{ swift::render_class(inner) }}
 
 {%- if inner.has_prefs() %}
 
 extension {{ class_name }}: FMLFeatureInterface {
     public func isModified() -> Bool {
-        guard let prefs = {% call swift::prefs() %} else {
+        guard let prefs = {{ swift::prefs() }} else {
             return false
         }
         let keys = [
