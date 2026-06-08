@@ -10,6 +10,7 @@
 
 - Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
 - Fixed a bug where enrollment change events were not emitted for rollouts that re-enrolled after previously unenrolling. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+- Attempting to opt-out from an experiment that is not currently enrolled is now a no-op. ([#7399](https://github.com/mozilla/application-services/pull/7399))
 
 [Full Changelog](In progress)
 

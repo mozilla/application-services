@@ -3749,11 +3749,9 @@ fn test_enrollment_enrolled_explicit_opt_out() {
         #[cfg(feature = "stateful")]
         None,
     );
-    if let EnrollmentStatus::Disqualified { branch, .. } = enrollment.status {
-        assert_eq!(branch, "control");
-    } else {
-        panic!("Wrong variant!");
-    }
+    assert!(
+        matches!(enrollment.status, EnrollmentStatus::Disqualified { branch, .. } if branch == "control")
+    );
     assert_eq!(
         &events,
         &[EnrollmentChangeEvent {
@@ -3782,13 +3780,7 @@ fn test_enrollment_not_enrolled_explicit_opt_out() {
         #[cfg(feature = "stateful")]
         None,
     );
-    assert!(matches!(
-        enrollment.status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut,
-            ..
-        }
-    ));
+    assert_eq!(enrollment, existing_enrollment);
     assert_eq!(&events, &[]);
 }
 

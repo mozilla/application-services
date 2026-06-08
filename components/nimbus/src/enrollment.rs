@@ -484,13 +484,8 @@ impl ExperimentEnrollment {
                 out_enrollment_events.push(enrollment.get_change_event(experiment));
                 enrollment
             }
-            EnrollmentStatus::NotEnrolled { .. } => Self {
-                slug: self.slug.to_string(),
-                status: EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::OptOut, // Explicitly set the reason to OptOut.
-                },
-            },
-            EnrollmentStatus::Disqualified { .. }
+            EnrollmentStatus::NotEnrolled { .. }
+            | EnrollmentStatus::Disqualified { .. }
             | EnrollmentStatus::WasEnrolled { .. }
             | EnrollmentStatus::Error { .. } => {
                 // Nothing to do here.
