@@ -165,7 +165,7 @@ open class Nimbus(
         get() = nimbusClient.getExperimentParticipation()
         set(active) {
             dbScope.launch {
-                nimbusClient.setExperimentParticipation(active)
+                setExperimentParticipationOnThisThread(active)
                 applyPendingExperimentsOnThisThread()
             }
         }
@@ -174,7 +174,7 @@ open class Nimbus(
         get() = nimbusClient.getRolloutParticipation()
         set(active) {
             dbScope.launch {
-                nimbusClient.setRolloutParticipation(active)
+                setRolloutParticipationOnThisThread(active)
                 applyPendingExperimentsOnThisThread()
             }
         }
@@ -458,9 +458,7 @@ open class Nimbus(
         prefUnenrollReason: PrefUnenrollReason,
     ) {
         dbScope.launch {
-            withCatchAll("unenrollForGeckoPref") {
-                unenrollForGeckoPrefOnThisThread(geckoPrefState, prefUnenrollReason)
-            }
+            unenrollForGeckoPrefOnThisThread(geckoPrefState, prefUnenrollReason)
         }
     }
 
@@ -469,10 +467,13 @@ open class Nimbus(
     internal fun unenrollForGeckoPrefOnThisThread(
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
-    ): List<EnrollmentChangeEvent> {
-        val events = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
-        recordExperimentTelemetryEvents(events)
-        return events
+    ): List<EnrollmentChangeEvent>? {
+        return withCatchAll("unenrollForGeckoPref") {
+            val enrollmentChangeEvents = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
+            recordExperimentTelemetryEvents(enrollmentChangeEvents)
+            postEnrolmentCalculation()
+            enrollmentChangeEvents
+        }
     }
 
     override fun registerPreviousGeckoPrefStates(geckoPrefStates: List<GeckoPrefState>) {
@@ -491,25 +492,42 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun optOutOnThisThread(experimentId: String) = withCatchAll("optOut") {
-        nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+    internal fun optOutOnThisThread(experimentId: String) {
+        withCatchAll("optOut") {
+            nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+            postEnrolmentCalculation()
+        }
     }
 
+    @AnyThread
     override fun resetTelemetryIdentifiers() {
         dbScope.launch {
-            withCatchAll("resetTelemetryIdentifiers") {
-                nimbusClient.resetTelemetryIdentifiers().also { enrollmentChangeEvents ->
-                    recordExperimentTelemetryEvents(enrollmentChangeEvents)
-                }
-            }
+            resetTelemetryIdentifiersOnThisThread()
+        }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun resetTelemetryIdentifiersOnThisThread() {
+        withCatchAll("resetTelemetryIdentifiers") {
+            val enrollmentChangeEvents = nimbusClient.resetTelemetryIdentifiers()
+            recordExperimentTelemetryEvents(enrollmentChangeEvents)
+            postEnrolmentCalculation()
         }
     }
 
     override fun optInWithBranch(experimentId: String, branch: String) {
         dbScope.launch {
-            withCatchAll("optIn") {
-                nimbusClient.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
-            }
+            optInWithBranchOnThisThread(experimentId, branch)
+        }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun optInWithBranchOnThisThread(experimentId: String, branch: String) {
+        withCatchAll("optIn") {
+            nimbusClient.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
+            postEnrolmentCalculation()
         }
     }
 
