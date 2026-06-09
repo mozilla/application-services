@@ -157,8 +157,8 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn telemetry(self: Arc<Self>, telemetry: Arc<dyn MozAdsTelemetry>) -> Arc<Self> {
-        self.0.lock().telemetry = Some(telemetry);
+    pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
+        self.0.lock().telemetry = Some(Arc::from(telemetry));
         self
     }
 }
