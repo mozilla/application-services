@@ -466,7 +466,7 @@ fn test_ios_rollout_experiment() -> Result<()> {
 
 #[test]
 fn test_evolver_new_experiment_enrolled() -> Result<()> {
-    let exp = &get_test_experiments()[0];
+    let exp = &get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
@@ -552,7 +552,46 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
+            reason: NotEnrolledReason::ExperimentsOptOut
+        }
+    ));
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (no previous enrollment, opted out)"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_evolve_new_rollout_globally_opted_out() -> Result<()> {
+    let rollout = {
+        let mut rollout = get_test_experiments()[0].clone();
+        rollout.is_rollout = true;
+        rollout.branches.remove(1);
+        rollout
+    };
+
+    let (_, app_ctx, aru) = local_ctx();
+    let mut th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            None,
+            Some(&rollout),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::RolloutsOptOut
         }
     ));
     assert_eq!(
@@ -601,6 +640,8 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
+
+    #[allow(deprecated)]
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -622,8 +663,100 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
     assert_eq!(
         &events,
         &[],
-        "no change in enrollments (previous unenrolled (optout) enrollment, opted out)"
+        "no change in enrollments (previous unenrolled (legacy optout) enrollment, opted out)"
     );
+
+    let existing_enrollment = ExperimentEnrollment {
+        slug: exp.slug.clone(),
+        status: EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::ExperimentsOptOut,
+        },
+    };
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            Some(&exp),
+            Some(&exp),
+            Some(&existing_enrollment),
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+    assert_eq!(enrollment.status, existing_enrollment.status);
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (previous unenrolled (experiments optout) enrollment, opted out)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_evolve_rollout_update_not_enrolled_opted_out() -> Result<()> {
+    let recipe = {
+        let mut recipe = get_test_experiments()[0].clone();
+        recipe.is_rollout = true;
+        recipe.branches.remove(1);
+        recipe
+    };
+
+    let (_, app_ctx, aru) = local_ctx();
+    let mut th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
+
+    #[allow(deprecated)]
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::OptOut,
+        },
+    };
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+    assert_eq!(enrollment.status, existing_enrollment.status);
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (previous unenrolled (legacy optout) enrollment, opted out)"
+    );
+
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::RolloutsOptOut,
+        },
+    };
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+    assert_eq!(enrollment.status, existing_enrollment.status);
+    assert_eq!(
+        &events,
+        &[],
+        "no change in enrollments (previous unenrolled (rllouts optout) enrollment, opted out)"
+    );
+
     Ok(())
 }
 
@@ -709,6 +842,9 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
+
+    // TODO(bug 2044504): This test implies the existence of a enrollment paused ->
+    // enrollment unpaused workflow, which does not exist in practice.
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
         status: EnrollmentStatus::NotEnrolled {
@@ -775,10 +911,11 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             None,
         )?
         .unwrap();
+    println!("{:?}", enrollment.status);
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::OptOut,
+            reason: DisqualifiedReason::ExperimentsOptOut,
             ..
         }
     ));
@@ -787,7 +924,62 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
         &[EnrollmentChangeEvent {
             experiment_slug: exp.slug.clone(),
             branch_slug: "control".into(),
-            reason: Some("optout".to_owned()),
+            reason: Some("experiments-opt-out".to_owned()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some_control".into()],
+        }]
+    );
+    Ok(())
+}
+
+#[test]
+fn test_evolve_rollout_update_enrolled_then_opted_out() -> Result<()> {
+    let recipe = {
+        let mut recipe = get_test_experiments()[0].clone();
+        recipe.is_rollout = true;
+        recipe.branches.remove(1);
+        recipe
+    };
+
+    let (_, app_ctx, aru) = local_ctx();
+    let mut th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            prev_gecko_pref_states: None,
+        },
+    };
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+    println!("{:?}", enrollment.status);
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::RolloutsOptOut,
+            ..
+        }
+    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: recipe.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("rollouts-opt-out".to_owned()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
         }]
@@ -1329,7 +1521,7 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Disqualified {
-            reason: DisqualifiedReason::OptOut,
+            reason: DisqualifiedReason::ExperimentsOptOut,
             ..
         }
     ));

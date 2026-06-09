@@ -151,7 +151,7 @@ fn test_updates() -> Result<()> {
     let mut writer = db.write()?;
     let nimbus_id = Uuid::from_str("00000000-0000-0000-0000-000000000004")?;
     let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
-    let mut th = NimbusTargetingHelper::from(AppContext {
+    let th = NimbusTargetingHelper::from(AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -190,7 +190,8 @@ fn test_updates() -> Result<()> {
 
     // pretend we just updated from the server and one of the 2 is missing.
     let exps = &[exps[1].clone()];
-    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
+    let mut targeting_helper = th;
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps, None)?;
 
     // should only have 1 now.
@@ -213,13 +214,13 @@ fn test_updates() -> Result<()> {
 }
 
 #[test]
-fn test_global_opt_out() -> Result<()> {
+fn test_experiments_opt_out() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::from_str("00000000-0000-0000-0000-000000000004")?;
-    let mut th = NimbusTargetingHelper::from(AppContext {
+    let th = NimbusTargetingHelper::from(AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -248,7 +249,7 @@ fn test_global_opt_out() -> Result<()> {
             matches!(
                 enr.status,
                 EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::OptOut
+                    reason: NotEnrolledReason::ExperimentsOptOut
                 }
             )
         })
@@ -306,14 +307,14 @@ fn test_global_opt_out() -> Result<()> {
             EnrollmentChangeEvent {
                 experiment_slug: "secure-gold".into(),
                 branch_slug: "treatment".into(),
-                reason: Some("optout".into()),
+                reason: Some("experiments-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["some_control".into()]
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "treatment".into(),
-                reason: Some("optout".into()),
+                reason: Some("experiments-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["about_welcome".into()]
             }
@@ -329,7 +330,7 @@ fn test_global_opt_out() -> Result<()> {
                 matches!(
                     enr.status,
                     EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut,
+                        reason: DisqualifiedReason::ExperimentsOptOut,
                         ..
                     }
                 )
@@ -341,7 +342,8 @@ fn test_global_opt_out() -> Result<()> {
     // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
     set_experiment_participation(&db, &mut writer, true)?;
 
-    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
+    let mut targeting_helper = th;
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
@@ -355,11 +357,189 @@ fn test_global_opt_out() -> Result<()> {
                 matches!(
                     enr.status,
                     EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut,
+                        reason: DisqualifiedReason::ExperimentsOptOut,
                         ..
                     }
                 )
             })
+            .count(),
+        2
+    );
+
+    writer.commit()?;
+    Ok(())
+}
+
+#[test]
+fn test_rollouts_opt_out() -> Result<()> {
+    let tmp_dir = tempfile::tempdir()?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
+    let mut writer = db.write()?;
+    let nimbus_id = Uuid::from_str("00000000-0000-0000-0000-000000000004")?;
+    let th = NimbusTargetingHelper::from(AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    });
+    let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
+    assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
+    let recipes = {
+        let mut recipes = get_test_experiments();
+        recipes[0].is_rollout = true;
+        recipes[0].branches.remove(1);
+        recipes[1].is_rollout = true;
+        recipes[1].branches.remove(1);
+        recipes
+    };
+
+    set_rollout_participation(&db, &mut writer, false)?;
+
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let mut targeting_helper = th.clone();
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &recipes, None)?;
+
+    let enrollments = get_enrollments(&db, &writer)?;
+    assert_eq!(&enrollments, &[]);
+    assert_eq!(&events, &[]);
+    let experiment_enrollments = get_experiment_enrollments(&db, &writer)?;
+    assert_eq!(experiment_enrollments.len(), 2);
+    let num_not_enrolled_enrollments = experiment_enrollments
+        .into_iter()
+        .filter(|enr| {
+            matches!(
+                enr.status,
+                EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::RolloutsOptOut
+                }
+            )
+        })
+        .count();
+    assert_eq!(num_not_enrolled_enrollments, 2);
+
+    set_rollout_participation(&db, &mut writer, true)?;
+
+    let mut targeting_helper = th.clone();
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &recipes, None)?;
+
+    let enrollments = get_enrollments(&db, &writer)?;
+    assert_eq!(enrollments.len(), 2);
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()]
+            }
+        ]
+    );
+    // We should see 2 experiment enrollments.
+    assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+    let num_enrolled_enrollments = get_experiment_enrollments(&db, &writer)?
+        .into_iter()
+        .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
+        .count();
+    assert_eq!(num_enrolled_enrollments, 2);
+
+    set_rollout_participation(&db, &mut writer, false)?;
+
+    let mut targeting_helper = th.clone();
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &recipes, None)?;
+
+    let enrollments = get_enrollments(&db, &writer)?;
+    assert_eq!(enrollments.len(), 0);
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "control".into(),
+                reason: Some("rollouts-opt-out".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["some_control".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: Some("rollouts-opt-out".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["about_welcome".into()]
+            }
+        ]
+    );
+    // We should see 2 experiment enrolments, this time they're both opt outs
+    assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+
+    assert_eq!(
+        get_experiment_enrollments(&db, &writer)?
+            .into_iter()
+            .filter(|enr| {
+                matches!(
+                    enr.status,
+                    EnrollmentStatus::Disqualified {
+                        reason: DisqualifiedReason::RolloutsOptOut,
+                        ..
+                    }
+                )
+            })
+            .count(),
+        2
+    );
+
+    // Opting in again and updating SHOULD re-enroll us again.
+    set_rollout_participation(&db, &mut writer, true)?;
+
+    let mut targeting_helper = th;
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+    println!("====");
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &recipes, None)?;
+
+    let enrollments = get_enrollments(&db, &writer)?;
+    assert_eq!(enrollments.len(), 2);
+    assert_eq!(
+        &events,
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-gold".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["some_control".into()]
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "secure-silver".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["about_welcome".into()]
+            }
+        ]
+    );
+
+    assert_eq!(
+        get_experiment_enrollments(&db, &writer)?
+            .into_iter()
+            .filter(|enr| { matches!(enr.status, EnrollmentStatus::Enrolled { .. }) })
             .count(),
         2
     );
@@ -548,7 +728,7 @@ fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
     assert!(matches!(
         experiment_enrollment.unwrap().status,
         EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
+            reason: NotEnrolledReason::ExperimentsOptOut
         }
     ));
 
@@ -637,7 +817,7 @@ fn test_rollouts_opt_out_with_experiments_opt_in() -> Result<()> {
     assert!(matches!(
         rollout_enrollment.unwrap().status,
         EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
+            reason: NotEnrolledReason::RolloutsOptOut
         }
     ));
 
