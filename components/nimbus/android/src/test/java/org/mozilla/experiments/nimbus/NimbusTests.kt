@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mozilla.telemetry.glean.BuildInfo
 import mozilla.telemetry.glean.Glean
@@ -54,7 +55,6 @@ import org.mozilla.experiments.nimbus.internal.RecordedContext
 import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -477,21 +477,29 @@ class NimbusTests {
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
-        this.setExperimentsLocallyOnThisThread(
-            testExperimentsJsonString(appInfo, appId),
-        )
+        setUpTestExperimentsWithTargeting(appId, appInfo, "true")
+    }
+
+    private fun Nimbus.setUpTestExperimentsWithTargeting(appId: String, appInfo: NimbusAppInfo, targeting: String) {
+        setUpTestExperimentsWithJson(testExperimentsJsonString(appId, appInfo, targeting))
+    }
+
+    private fun Nimbus.setUpTestExperimentsWithJson(recipes: String) {
+        this.setExperimentsLocallyOnThisThread(recipes)
         this.applyPendingExperimentsOnThisThread()
     }
 
     private fun testExperimentsJsonString(
-        appInfo: NimbusAppInfo,
         appId: String,
+        appInfo: NimbusAppInfo,
+        targeting: String,
     ) = """
                     {"data": [{
                       "schemaVersion": "1.0.0",
                       "slug": "test-experiment",
                       "endDate": null,
                       "featureIds": ["about_welcome"],
+                      "targeting": "$targeting",
                       "branches": [
                         {
                           "slug": "test-branch",
@@ -596,18 +604,8 @@ class NimbusTests {
 
     @Test
     fun `applyLocalExperiments calls setLocalExperiments and applyPendingExperiments`() {
-        var completed = false
-        suspend fun getString(): String {
-            completed = true
-            return testExperimentsJsonString(appInfo, packageName)
-        }
+        nimbus.setUpTestExperiments(packageName, appInfo)
 
-        val job = nimbus.applyLocalExperiments(::getString)
-        runBlocking {
-            job.join()
-        }
-
-        assertTrue(completed)
         assertEquals(1, nimbus.getAvailableExperiments().size)
     }
 
@@ -644,7 +642,7 @@ class NimbusTests {
         suspend fun getString(): String {
             delay(1000)
             completed = true
-            return testExperimentsJsonString(appInfo, packageName)
+            return testExperimentsJsonString(packageName, appInfo, "true")
         }
 
         val job = nimbus.applyLocalExperiments(::getString)
@@ -680,7 +678,7 @@ class NimbusTests {
             delegate = nimbusDelegate,
         )
 
-        suspend fun getString() = testExperimentsJsonString(appInfo, packageName)
+        suspend fun getString() = testExperimentsJsonString(packageName, appInfo, "true")
 
         val job = nimbus.applyLocalExperiments(::getString)
         runBlocking {
@@ -725,7 +723,7 @@ class NimbusTests {
     @Ignore
     fun `Nimbus records EnrollmentStatus metrics`() {
         suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
+            return testExperimentsJsonString(packageName, appInfo, "true")
         }
 
         var enrollmentStatusEvents: List<RecordedEvent>? = null
@@ -792,15 +790,7 @@ class NimbusTests {
     fun `Nimbus records context if it's passed in`() {
         val context = TestRecordedContext()
         val nimbus = createNimbus(recordedContext = context)
-
-        suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
-        }
-
-        val job = nimbus.applyLocalExperiments(::getString)
-        runBlocking {
-            job.join()
-        }
+        nimbus.setUpTestExperiments(packageName, appInfo)
 
         assertEquals(context.recorded.size, 1)
     }
@@ -817,7 +807,7 @@ class NimbusTests {
         }
 
         suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
+            return testExperimentsJsonString(packageName, appInfo, "true")
         }
 
         val job = nimbus.applyLocalExperiments(::getString)
@@ -892,7 +882,7 @@ class NimbusTests {
         val nimbus = createNimbus(geckoPrefHandler = handler)
 
         suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
+            return testExperimentsJsonString(packageName, appInfo, "true")
         }
 
         val job = nimbus.applyLocalExperiments(::getString)
@@ -926,7 +916,7 @@ class NimbusTests {
         val nimbus = createNimbus(geckoPrefHandler = handler)
 
         suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
+            return testExperimentsJsonString(packageName, appInfo, "true")
         }
 
         val job = nimbus.applyLocalExperiments(::getString)
@@ -953,30 +943,204 @@ class NimbusTests {
         val handler = TestGeckoPrefHandler()
 
         val nimbus = createNimbus(geckoPrefHandler = handler)
-
-        suspend fun getString(): String {
-            return testExperimentsJsonString(appInfo, packageName)
-        }
-
-        val job = nimbus.applyLocalExperiments(::getString)
-        runBlocking {
-            job.join()
-        }
+        nimbus.setUpTestExperiments(packageName, appInfo)
 
         assertEquals(1, handler.setValues?.size)
         assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
 
-        nimbus.registerPreviousGeckoPrefStates(handler.setValues!!)
-        shadowOf(Looper.getMainLooper()).idle()
+        nimbus.registerPreviousGeckoPrefStatesOnThisThread(handler.setValues!!)
 
         val previousStates = nimbus.getPreviousGeckoPrefStatesOnThisThread("test-experiment")
-        shadowOf(Looper.getMainLooper()).idle()
 
         assertNotNull(previousStates)
         val geckoPreviousStates = previousStates as List<PreviousGeckoPrefState>
         assertEquals(1, geckoPreviousStates.size)
         assertEquals("1", geckoPreviousStates[0].originalValue.value)
         assertEquals("pref.number", geckoPreviousStates[0].originalValue.pref)
+    }
+
+    @Test
+    fun `opt-in and opt-out trigger callbacks`() {
+        val nimbus = createNimbus()
+        nimbus.setUpTestExperimentsWithTargeting(packageName, appInfo, "false")
+
+        var calls = 0
+
+        fun assertCalls(expected: Int) {
+            assertEquals(expected, calls)
+        }
+
+        nimbus.getFeatureUpdateDispatcher()?.addCallback("about_welcome", { calls++ })
+
+        nimbus.optInWithBranchOnThisThread("test-experiment", "test-branch")
+        assertCalls(1)
+
+        nimbus.optOutOnThisThread("test-experiment")
+        assertCalls(2)
+    }
+
+    @Test
+    fun `unenrollForGeckoPref triggers callbacks`() {
+        val geckoPrefHandler = TestGeckoPrefHandler()
+        val nimbus = createNimbus(geckoPrefHandler = geckoPrefHandler)
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        var calls = 0
+        fun assertCalls(expected: Int) {
+            assertEquals(expected, calls)
+        }
+
+        nimbus.getFeatureUpdateDispatcher()?.addCallback("about_welcome", { calls++ })
+
+        nimbus.unenrollForGeckoPrefOnThisThread(
+            geckoPrefHandler.internalMap["about_welcome"]?.get("number")!!,
+            PrefUnenrollReason.FAILED_TO_SET,
+        )
+        assertCalls(1)
+    }
+
+    @Test
+    fun `applyPendingExperiments triggers callbacks`() {
+        val nimbus = createNimbus()
+
+        var calls = 0
+        fun assertCalls(expected: Int) {
+            assertEquals(expected, calls)
+        }
+
+        nimbus.getFeatureUpdateDispatcher()?.addCallback("about_welcome", { calls++ })
+
+        nimbus.setUpTestExperimentsWithTargeting(packageName, appInfo, "false")
+        assertCalls(0)
+
+        nimbus.setUpTestExperimentsWithTargeting(packageName, appInfo, "true")
+        assertCalls(1)
+    }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `setExperimentParticipation et al trigger callbacks`() {
+        val nimbus = createNimbus()
+        nimbus.setUpTestExperimentsWithJson(
+            """{
+                "data": [
+                    {
+                        "schemaVersion": "1.0.0",
+                        "slug": "test-experiment",
+                        "app_name": "${appInfo.appName}",
+                        "app_id": "$packageName",
+                        "channel": "${appInfo.channel}",
+                        "userFacingName": "test-experiment",
+                        "userFacingDescription": "test-experiment",
+                        "isEnrollmentPaused": false,
+                        "bucketConfig": {
+                            "start": 0,
+                            "count": 10000,
+                            "total": 10000,
+                            "namespace": "test-experiment",
+                            "randomizationUnit": "nimbus_id"
+                        },
+                        "branches": [
+                            {
+                                "slug": "control",
+                                "ratio": 1,
+                                "features": [
+                                    {
+                                        "featureId": "foo",
+                                        "value": {}
+                                    }
+                                ]
+                            }
+                        ],
+                        "featureIds": ["foo"],
+                        "targeting": "true",
+                        "startDate": null,
+                        "endDate": null,
+                        "proposedDuration": null,
+                        "proposedEnrollment": 1,
+                        "referenceBranch": "control",
+                        "isRollout": false,
+                        "publishedDate": null
+                    },
+                    {
+                        "schemaVersion": "1.0.0",
+                        "slug": "test-rollout",
+                        "app_name": "${appInfo.appName}",
+                        "app_id": "$packageName",
+                        "channel": "${appInfo.channel}",
+                        "userFacingName": "test-rollout",
+                        "userFacingDescription": "test-rollout",
+                        "isEnrollmentPaused": false,
+                        "bucketConfig": {
+                            "start": 0,
+                            "count": 10000,
+                            "total": 10000,
+                            "namespace": "test-experiment",
+                            "randomizationUnit": "nimbus_id"
+                        },
+                        "branches": [
+                            {
+                                "slug": "control",
+                                "ratio": 1,
+                                "features": [
+                                    {
+                                        "featureId": "foo",
+                                        "value": {}
+                                    }
+                                ]
+                            }
+                        ],
+                        "featureIds": ["foo"],
+                        "targeting": "true",
+                        "startDate": null,
+                        "endDate": null,
+                        "proposedDuration": null,
+                        "proposedEnrollment": 1,
+                        "referenceBranch": "control",
+                        "isRollout": true,
+                        "publishedDate": null
+                    }
+                ]
+            }
+            """.trimIndent(),
+        )
+
+        var calls = 0
+        fun assertCalls(expected: Int) {
+            assertEquals(expected, calls)
+        }
+
+        nimbus.getFeatureUpdateDispatcher()?.addCallback("foo", { calls++ })
+
+        nimbus.setExperimentParticipationOnThisThread(false)
+        assertCalls(1)
+
+        // The experiment won't re-enroll so there is no change.
+        nimbus.setExperimentParticipationOnThisThread(true)
+        assertCalls(1)
+
+        nimbus.setRolloutParticipationOnThisThread(false)
+        assertCalls(2)
+
+        // Rollout do re-enroll, so there is a change here.
+        nimbus.setRolloutParticipationOnThisThread(true)
+        assertCalls(3)
+    }
+
+    @Test
+    fun `resetTelemetryIdentifiers triggers callbacks`() {
+        val nimbus = createNimbus()
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        var calls = 0
+        fun assertCalls(expected: Int) {
+            assertEquals(expected, calls)
+        }
+
+        nimbus.getFeatureUpdateDispatcher()?.addCallback("about_welcome", { calls++ })
+
+        nimbus.resetTelemetryIdentifiersOnThisThread()
+        assertCalls(1)
     }
 }
 

@@ -13,6 +13,7 @@
 - Attempting to opt-out from an experiment that is not currently enrolled is now a no-op. ([#7399](https://github.com/mozilla/application-services/pull/7399))
 - There are new separate DisqualifiedReason and NotEnrolledReason for global (experiment and rollout) opt-outs. ([#7400](https://github.com/mozilla/application-services/pull/7400))
 - Changing experiment and/or rollout participation no longer triggers a double update. Enrollment change telemetry is now appropriately triggered when this occurs. ([#7401](https://github.com/mozilla/application-services/pull/7401))
+- The Kotlin client now has per-feature update notifications. ([#7354](https://github.com/mozilla/application-services/pull/7354))
 
 [Full Changelog](In progress)
 
