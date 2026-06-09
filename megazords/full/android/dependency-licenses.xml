@@ -6,7 +6,7 @@ the details of which are reproduced below.
 -->
   <license>
     <name>Mozilla Public License 2.0: NSPR</name>
-    <url>https://hg.mozilla.org/projects/nspr/raw-file/tip/LICENSE</url>
+    <url>https://raw.githubusercontent.com/mozilla/nspr/main/LICENSE</url>
   </license>
   <license>
     <name>Mozilla Public License 2.0: NSS</name>

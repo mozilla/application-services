@@ -78,7 +78,7 @@ We currently do not depend on any Swift dependencies. And no Swift dependencies 
 
 We currently depend on local builds of the following system dependencies:
 
-* [NSS](https://hg.mozilla.org/projects/nss) and [NSPR](https://hg.mozilla.org/projects/nspr)
+* [NSS](https://hg.mozilla.org/projects/nss) and [NSPR](https://github.com/mozilla/nspr/)
 * [SQLCipher](https://github.com/sqlcipher/sqlcipher)
 * [Protobuf](https://github.com/protocolbuffers/protobuf)
 
