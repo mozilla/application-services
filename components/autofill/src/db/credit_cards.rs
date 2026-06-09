@@ -39,6 +39,7 @@ pub(crate) fn add_credit_card(
         // Credit card types are a fixed set of strings as defined in the link below
         // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
         cc_type: new_credit_card_fields.cc_type,
+        custom_label: new_credit_card_fields.custom_label,
         metadata: Metadata {
             time_created: now,
             time_last_modified: now,
@@ -76,6 +77,7 @@ pub(crate) fn add_internal_credit_card(
             ":cc_exp_month": card.cc_exp_month,
             ":cc_exp_year": card.cc_exp_year,
             ":cc_type": card.cc_type,
+            ":custom_label": card.custom_label,
             ":time_created": card.metadata.time_created,
             ":time_last_used": card.metadata.time_last_used,
             ":time_last_modified": card.metadata.time_last_modified,
@@ -142,6 +144,7 @@ pub fn update_credit_card(
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
             cc_type                     = :cc_type,
+            custom_label                = :custom_label,
             time_last_modified          = :time_last_modified,
             sync_change_counter         = sync_change_counter + 1
         WHERE guid                      = :guid",
@@ -152,6 +155,7 @@ pub fn update_credit_card(
             ":cc_exp_month": credit_card.cc_exp_month,
             ":cc_exp_year": credit_card.cc_exp_year,
             ":cc_type": credit_card.cc_type,
+            ":custom_label": credit_card.custom_label,
             ":time_last_modified": Timestamp::now(),
             ":guid": guid,
         },
@@ -178,6 +182,7 @@ pub(crate) fn update_internal_credit_card(
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
             cc_type                     = :cc_type,
+            custom_label                = :custom_label,
             time_created                = :time_created,
             time_last_used              = :time_last_used,
             time_last_modified          = :time_last_modified,
@@ -191,6 +196,7 @@ pub(crate) fn update_internal_credit_card(
             ":cc_exp_month": card.cc_exp_month,
             ":cc_exp_year": card.cc_exp_year,
             ":cc_type": card.cc_type,
+            ":custom_label": card.custom_label,
             ":time_created": card.metadata.time_created,
             ":time_last_used": card.metadata.time_last_used,
             ":time_last_modified": card.metadata.time_last_modified,
@@ -361,6 +367,7 @@ pub(crate) mod tests {
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -434,6 +441,7 @@ pub(crate) mod tests {
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -446,6 +454,7 @@ pub(crate) mod tests {
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -459,6 +468,7 @@ pub(crate) mod tests {
                 cc_exp_month: 1,
                 cc_exp_year: 2024,
                 cc_type: "amex".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -502,6 +512,7 @@ pub(crate) mod tests {
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -514,6 +525,7 @@ pub(crate) mod tests {
                 cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
                 cc_number_last_4: "1234".to_string(),
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
             },
@@ -599,6 +611,7 @@ pub(crate) mod tests {
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -615,6 +628,7 @@ pub(crate) mod tests {
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -668,6 +682,7 @@ pub(crate) mod tests {
                     cc_exp_month: 10,
                     cc_exp_year: 2025,
                     cc_type: "mastercard".to_string(),
+                    custom_label: None,
                 },
             )?);
         }
@@ -699,6 +714,7 @@ pub(crate) mod tests {
                 cc_exp_month: 9,
                 cc_exp_year: 2027,
                 cc_type: "visa".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -712,6 +728,7 @@ pub(crate) mod tests {
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
             },
         )?;
 
@@ -810,6 +827,7 @@ pub(crate) mod tests {
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),
+                custom_label: None,
             },
         )?;
 

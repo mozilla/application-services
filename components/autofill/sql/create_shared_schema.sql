@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
     cc_type             TEXT NOT NULL,
+    -- Optional user-assigned label (free text). NULL means unset.
+    custom_label        TEXT,
 
     time_created        INTEGER NOT NULL,
     time_last_used      INTEGER,

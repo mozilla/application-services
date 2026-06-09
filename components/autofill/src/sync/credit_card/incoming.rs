@@ -107,6 +107,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
             l.cc_exp_month,
             l.cc_exp_year,
             l.cc_type,
+            l.custom_label,
             l.time_created,
             l.time_last_used,
             l.time_last_modified,

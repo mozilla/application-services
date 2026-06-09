@@ -1,5 +1,11 @@
 # v153.0 (In progress)
 
+## ✨ What's New ✨
+
+### Autofill
+
+- Added an optional `custom_label` field to the credit-card record so consumers can let users assign a user-defined label to a saved card. The field is nullable in the DB (NULL by default), defaults to `null` in the UniFFI bindings (no breaking change for existing Swift/Kotlin callers), and rides on the existing v3 credit-card sync payload as a kebab-cased `custom-label` key. It is omitted from outgoing payloads when unset so older clients see records unchanged. ([bug 1443042](https://bugzilla.mozilla.org/show_bug.cgi?id=1443042))
+
 ## 🔧 What's Fixed 🔧
 
 ### Logins
