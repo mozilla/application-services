@@ -1,5 +1,11 @@
 # v153.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+## Nimbus
+
+- Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+
 ## 🔧 What's Fixed 🔧
 
 ### Logins
@@ -8,13 +14,18 @@
 
 ### Nimbus
 
-- Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
 - Fixed a bug where enrollment change events were not emitted for rollouts that re-enrolled after previously unenrolling. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
 - Attempting to opt-out from an experiment that is not currently enrolled is now a no-op. ([#7399](https://github.com/mozilla/application-services/pull/7399))
-- There are new separate DisqualifiedReason and NotEnrolledReason for global (experiment and rollout) opt-outs. ([#7400](https://github.com/mozilla/application-services/pull/7400))
 - All enrollment updates (opt-in, opt-out, reseting telemetry identifiers, unenrolling for pref conflicts) now trigger feature invalidation in Android clients. ([#7405](https://github.com/mozilla/application-services/pull/7405))
 - Changing experiment and/or rollout participation no longer triggers a double update. Enrollment change telemetry is now appropriately triggered when this occurs. ([#7401](https://github.com/mozilla/application-services/pull/7401))
+
+## ✨ What's New ✨
+
+### Nimbus
+
+- There are new separate DisqualifiedReason and NotEnrolledReason for global (experiment and rollout) opt-outs. ([#7400](https://github.com/mozilla/application-services/pull/7400))
 - The Kotlin client now has per-feature update notifications. ([#7354](https://github.com/mozilla/application-services/pull/7354))
+- The Nimbus client now understands Firefox Labs opt-ins and will not automatically enroll in them. ([#7403](https://github.com/mozilla/application-services/pull/7403))
 
 [Full Changelog](In progress)
 

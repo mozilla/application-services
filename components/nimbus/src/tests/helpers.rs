@@ -733,6 +733,51 @@ pub(crate) fn get_experiment_with_published_date(
     .unwrap()
 }
 
+#[allow(unused)]
+pub(crate) fn get_firefox_labs(slug: &str) -> Experiment {
+    serde_json::from_value(json!({
+        "schemaVersion": "1.0.0",
+        "appName": "fenix",
+        "appId": "org.mozilla.fenix",
+        "channel": "nightly",
+        "slug": slug,
+        "branches": [
+            {
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": "labs-feature",
+                        "value": {}
+                    }
+                ]
+            }
+        ],
+        "featureIds": ["labs-feature"],
+        "isRollout": true,
+        "isEnrollmentPaused": false,
+        "isFirefoxLabsOptIn": true,
+        "firefoxLabsTitle": "labs-title",
+        "firefoxLabsDescription": "labs-description",
+        "firefoxLabsDescriptionLinks": {
+            "connect": "https://example.com/#connect",
+            "learn-more": "https://example.com/#learn-more",
+        },
+        "userFacingName": "Test Firefox Labs",
+        "userFacingDescription": "Test Firefox Labs",
+        "bucketConfig": {
+            "randomizationUnit": "nimbus_id",
+            "start": 0,
+            "count": 10000,
+            "total": 10000,
+            "namespace": "firefox-labs-test"
+        },
+        "targeting": "true",
+        "proposedEnrollment": 0,
+    }))
+    .unwrap()
+}
+
 #[cfg(feature = "stateful")]
 mod detail {
     use super::TestMetrics;
