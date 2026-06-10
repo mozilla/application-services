@@ -5,6 +5,7 @@
 
 pub mod address;
 pub mod credit_card;
+pub mod passport;
 use types::Timestamp;
 
 /// Metadata that's common between the records.

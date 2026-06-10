@@ -90,6 +90,43 @@ CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;
 
+-- Passport records. The passport number is stored as plaintext (no field-level
+-- encryption).
+CREATE TABLE IF NOT EXISTS passports_data (
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+    name                TEXT NOT NULL,              -- full name on passport
+    country             TEXT NOT NULL,              -- ISO 3166 code
+    passport_number     TEXT NOT NULL,
+    issue_date_month    INTEGER,
+    issue_date_day      INTEGER,
+    issue_date_year     INTEGER,
+    expiry_date_month   INTEGER,
+    expiry_date_day     INTEGER,
+    expiry_date_year    INTEGER,
+
+    time_created        INTEGER NOT NULL,
+    time_last_used      INTEGER,
+    time_last_modified  INTEGER NOT NULL,
+    times_used          INTEGER NOT NULL,
+
+    /* Same "sync change counter" strategy used by other components. */
+    sync_change_counter INTEGER NOT NULL
+);
+
+-- What's on the server as the JSON payload.
+CREATE TABLE IF NOT EXISTS passports_mirror (
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+    -- The plain-text sync15 payload.
+    payload             TEXT NOT NULL CHECK(length(payload) != 0)
+);
+
+-- Tombstones are items deleted locally but not deleted in the mirror (ie, ones
+-- we are yet to upload)
+CREATE TABLE IF NOT EXISTS passports_tombstones (
+    guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
+    time_deleted    INTEGER NOT NULL
+) WITHOUT ROWID;
+
 -- This table holds key-value metadata for the Autofill component and its consumers.
 CREATE TABLE IF NOT EXISTS moz_meta (
     key TEXT PRIMARY KEY,

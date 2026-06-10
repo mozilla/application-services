@@ -5,6 +5,7 @@
 pub mod addresses;
 pub mod credit_cards;
 pub mod models;
+pub mod passports;
 pub mod schema;
 pub mod store;
 

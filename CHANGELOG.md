@@ -1,5 +1,9 @@
 # v153.0 (In progress)
 
+### Autofill
+
+- Added a new `passports` record type (name, country, passport number, issue/expiry dates) with full CRUD on the `Store` API. The schema is laid out sync-ready, but no sync engine is registered yet, so passports are not synced.
+
 ### Nimbus
 
 - Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
