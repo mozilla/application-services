@@ -6,7 +6,8 @@ use std::iter;
 
 use crate::enrollment::Participation;
 use crate::enrollment::{
-    EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
+    DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason, PreviousGeckoPrefState,
     map_enrollments,
 };
 use crate::error::{Result, debug, warn};
@@ -294,4 +295,108 @@ pub fn reset_telemetry_identifiers(
         store.put(writer, &enrollment.slug, &enrollment)?;
     }
     Ok(events)
+}
+
+pub mod v3 {
+    // This module contains legacy enrollment structs that mirror the schema of enrollments stored as they were in the database as of v3. These are used for deserializing pre-migration enrollments during the migration process, and should not be used outside of that context.
+
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
+    pub enum LegacyNotEnrolledReason {
+        DifferentAppName,
+        DifferentChannel,
+        EnrollmentsPaused,
+        FeatureConflict,
+        NotSelected,
+        NotTargeted,
+        OptOut,
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+    pub struct LegacyExperimentEnrollment {
+        pub slug: String,
+        pub status: LegacyEnrollmentStatus,
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
+    pub enum LegacyEnrollmentStatus {
+        Enrolled {
+            reason: EnrolledReason,
+            branch: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            prev_gecko_pref_states: Option<Vec<PreviousGeckoPrefState>>,
+        },
+        NotEnrolled {
+            reason: LegacyNotEnrolledReason,
+        },
+        Disqualified {
+            reason: DisqualifiedReason,
+            branch: String,
+        },
+        WasEnrolled {
+            branch: String,
+            experiment_ended_at: u64,
+        },
+        Error {
+            reason: String,
+        },
+    }
+
+    impl From<LegacyNotEnrolledReason> for NotEnrolledReason {
+        #[allow(deprecated)]
+        fn from(value: LegacyNotEnrolledReason) -> Self {
+            match value {
+                LegacyNotEnrolledReason::DifferentAppName => NotEnrolledReason::DifferentAppName,
+                LegacyNotEnrolledReason::DifferentChannel => NotEnrolledReason::DifferentChannel,
+                LegacyNotEnrolledReason::EnrollmentsPaused => NotEnrolledReason::EnrollmentsPaused,
+                LegacyNotEnrolledReason::FeatureConflict => NotEnrolledReason::FeatureConflict {
+                    conflict_slug: None,
+                },
+                LegacyNotEnrolledReason::NotSelected => NotEnrolledReason::NotSelected,
+                LegacyNotEnrolledReason::NotTargeted => NotEnrolledReason::NotTargeted,
+                LegacyNotEnrolledReason::OptOut => NotEnrolledReason::OptOut,
+            }
+        }
+    }
+
+    impl From<LegacyEnrollmentStatus> for EnrollmentStatus {
+        fn from(value: LegacyEnrollmentStatus) -> Self {
+            match value {
+                LegacyEnrollmentStatus::Enrolled {
+                    reason,
+                    branch,
+                    prev_gecko_pref_states,
+                } => EnrollmentStatus::Enrolled {
+                    reason,
+                    branch,
+                    prev_gecko_pref_states,
+                },
+                LegacyEnrollmentStatus::NotEnrolled { reason } => EnrollmentStatus::NotEnrolled {
+                    reason: reason.into(),
+                },
+                LegacyEnrollmentStatus::Disqualified { reason, branch } => {
+                    EnrollmentStatus::Disqualified { reason, branch }
+                }
+                LegacyEnrollmentStatus::WasEnrolled {
+                    branch,
+                    experiment_ended_at,
+                } => EnrollmentStatus::WasEnrolled {
+                    branch,
+                    experiment_ended_at,
+                },
+                LegacyEnrollmentStatus::Error { reason } => EnrollmentStatus::Error { reason },
+            }
+        }
+    }
+
+    impl From<LegacyExperimentEnrollment> for ExperimentEnrollment {
+        fn from(value: LegacyExperimentEnrollment) -> Self {
+            ExperimentEnrollment {
+                slug: value.slug,
+                status: value.status.into(),
+            }
+        }
+    }
 }
