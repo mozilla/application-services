@@ -209,16 +209,6 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     ) = Unit
 
     /**
-     * Retrieves a list of previous states, if available, on an enrolled experiment, from a given slug.
-     *
-     * @param experimentSlug The slug of the experiment.
-     * @return The previous Gecko pref states of the given slug. Will return null if not available or invalid slug.
-     */
-    fun getPreviousGeckoPrefStates(
-        experimentSlug: String,
-    ): List<PreviousGeckoPrefState>? = null
-
-    /**
      *  Reset internal state in response to application-level telemetry reset.
      *  Consumers should call this method when the user resets the telemetry state of the
      *  consuming application, such as by opting out of (or in to) submitting telemetry.
