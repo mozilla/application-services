@@ -195,6 +195,17 @@ impl GetErrorHandling for Error {
     }
 }
 
+// The bridged sync engine (`sync::bridge`) deals in `anyhow::Result`, as that's
+// what the `sync15` BridgedEngine traits use. This lets UniFFI map those errors
+// onto our public error type when the bridge methods are exposed via the UDL.
+impl From<anyhow::Error> for LoginsApiError {
+    fn from(value: anyhow::Error) -> Self {
+        LoginsApiError::UnexpectedLoginsApiError {
+            reason: value.to_string(),
+        }
+    }
+}
+
 impl From<uniffi::UnexpectedUniFFICallbackError> for LoginsApiError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
         LoginsApiError::UnexpectedLoginsApiError {

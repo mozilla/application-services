@@ -16,9 +16,8 @@ use crate::LoginStore;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::named_params;
 use sql_support::ConnExt;
-use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, UNIX_EPOCH};
 use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
@@ -30,7 +29,9 @@ pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
     pub scope: SqlInterruptScope,
     pub encdec: Arc<dyn EncryptorDecryptor>,
-    pub staged: RefCell<Vec<IncomingBso>>,
+    // `Mutex` (rather than `RefCell`) so the engine is `Sync`, which the
+    // Desktop `BridgedEngineAdaptor` requires. Only ever locked briefly.
+    pub staged: Mutex<Vec<IncomingBso>>,
 }
 
 impl LoginsSyncEngine {
@@ -43,7 +44,7 @@ impl LoginsSyncEngine {
             store,
             encdec,
             scope,
-            staged: RefCell::new(vec![]),
+            staged: Mutex::new(vec![]),
         })
     }
 
@@ -292,9 +293,13 @@ impl LoginsSyncEngine {
         db.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }
 
-    fn get_last_sync(&self, db: &LoginDb) -> Result<Option<ServerTimestamp>> {
-        let millis = db.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?.unwrap();
-        Ok(Some(ServerTimestamp(millis)))
+    // Public so the bridged engine (`sync::bridge`) can read the last-sync
+    // timestamp without needing access to the private internals here. Returns
+    // `None` when we've never synced, rather than panicking on a fresh DB.
+    pub fn get_last_sync(&self, db: &LoginDb) -> Result<Option<ServerTimestamp>> {
+        Ok(db
+            .get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
+            .map(ServerTimestamp))
     }
 
     fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
@@ -424,7 +429,7 @@ impl SyncEngine for LoginsSyncEngine {
     ) -> anyhow::Result<()> {
         // We don't have cross-item dependencies like bookmarks does, so we can
         // just apply now instead of "staging"
-        self.staged.borrow_mut().append(&mut inbound);
+        self.staged.lock().unwrap().append(&mut inbound);
         Ok(())
     }
 
@@ -433,7 +438,7 @@ impl SyncEngine for LoginsSyncEngine {
         timestamp: ServerTimestamp,
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<Vec<OutgoingBso>> {
-        let inbound = (*self.staged.borrow_mut()).drain(..).collect();
+        let inbound = self.staged.lock().unwrap().drain(..).collect();
         Ok(self.do_apply_incoming(inbound, timestamp, telem)?)
     }
 
