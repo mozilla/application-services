@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod bridge;
 mod engine;
 pub(crate) mod merge;
 mod payload;
 mod update_plan;
 
+pub use bridge::LoginsBridgedEngine;
 pub use engine::LoginsSyncEngine;
 use payload::{IncomingLogin, LoginPayload};
 
