@@ -95,7 +95,7 @@ places_manager:
     description: |
       Time taken to execute `PRAGMA_CHECKPOINT` inside `run_maintenance()`
 
-      Duplication of `run_maintenance_chk_pnt_time_temp` for glean-sym testing.
+      Duplication of `run_maintenance_chk_pnt_time` for glean-sym testing.
     time_unit: millisecond
     bugs:
       - https://github.com/mozilla/application-services/issues/5246

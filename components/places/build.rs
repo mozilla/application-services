@@ -7,7 +7,7 @@ use glean_build::Builder;
 fn main() {
     uniffi::generate_scaffolding("./src/places.udl").unwrap();
 
-    if let Ok("android") = std::env::var("CARGO_CFG_TARGET_OS")
+    if let Ok("android" | "ios") = std::env::var("CARGO_CFG_TARGET_OS")
         .as_ref()
         .map(String::as_str)
     {
