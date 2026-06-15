@@ -1,4 +1,8 @@
-# v153.0 (In progress)
+# v154.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v153.0 (_2026-06-15_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -27,7 +31,7 @@
 - The Kotlin client now has per-feature update notifications. ([#7354](https://github.com/mozilla/application-services/pull/7354))
 - The Nimbus client now understands Firefox Labs opt-ins and will not automatically enroll in them. ([#7403](https://github.com/mozilla/application-services/pull/7403))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v152.0...v153.0)
 
 # v152.0 (_2026-05-18_)
 
