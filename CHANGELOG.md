@@ -30,6 +30,7 @@
 - There are new separate DisqualifiedReason and NotEnrolledReason for global (experiment and rollout) opt-outs. ([#7400](https://github.com/mozilla/application-services/pull/7400))
 - The Kotlin client now has per-feature update notifications. ([#7354](https://github.com/mozilla/application-services/pull/7354))
 - The Nimbus client now understands Firefox Labs opt-ins and will not automatically enroll in them. ([#7403](https://github.com/mozilla/application-services/pull/7403))
+- Firefox Labs support for Android. ([#7413](https://github.com/mozilla/application-services/pull/7413))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v152.0...v153.0)
 

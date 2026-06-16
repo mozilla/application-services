@@ -17,7 +17,11 @@ import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsEnrollStatus
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsMetadata
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsUnenrollStatus
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.PreviousGeckoPrefState
 import java.time.Duration
@@ -207,6 +211,29 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     fun registerPreviousGeckoPrefStates(
         geckoPrefStates: List<GeckoPrefState>,
     ) = Unit
+
+    /**
+     * Return the list of available Firefox Labs opt-ins.
+     */
+    fun getAvailableFirefoxLabs(): Deferred<List<FirefoxLabsMetadata>> =
+        CompletableDeferred(emptyList<FirefoxLabsMetadata>())
+
+    /**
+     * Attempt to enroll in a Firefox Labs opt-in.
+     */
+    fun enrollInFirefoxLab(slug: String): Deferred<FirefoxLabsEnrollStatus> =
+        CompletableDeferred(FirefoxLabsEnrollStatus.NO_EXPERIMENT)
+
+    /**
+     * Attempt to unenroll from a Firefox Labs opt-in.
+     */
+    fun unenrollFromFirefoxLab(slug: String): Deferred<FirefoxLabsUnenrollStatus> =
+        CompletableDeferred(FirefoxLabsUnenrollStatus.NO_EXPERIMENT)
+
+    /**
+    * Attempt to unenroll from all Firefox Labs.
+     */
+    fun unenrollFromAllFirefoxLabs() = Unit
 
     /**
      *  Reset internal state in response to application-level telemetry reset.

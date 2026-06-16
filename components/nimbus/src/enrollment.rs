@@ -30,7 +30,8 @@ pub enum EnrolledReason {
     Qualified,
     /// Explicit opt-in.
     OptIn,
-    /// Opted-in via Firefox Labs
+    #[cfg(feature = "stateful")]
+    /// Opt-in via Firefox Labs.
     FirefoxLabsOptIn,
 }
 
@@ -40,6 +41,7 @@ impl Display for EnrolledReason {
             match self {
                 EnrolledReason::Qualified => "Qualified",
                 EnrolledReason::OptIn => "OptIn",
+                #[cfg(feature = "stateful")]
                 EnrolledReason::FirefoxLabsOptIn => "FirefoxLabsOptIn",
             },
             f,
@@ -72,6 +74,7 @@ pub enum NotEnrolledReason {
     RolloutsOptOut,
 
     /// This is a Firefox Labs opt-in and we have not opted-in.
+    #[cfg(feature = "stateful")]
     FirefoxLabs,
 
     /// This state represents several cases:
@@ -105,6 +108,7 @@ impl Display for NotEnrolledReason {
                 NotEnrolledReason::NotTargeted => "NotTargeted",
                 NotEnrolledReason::ExperimentsOptOut => "ExperimentsOptOut",
                 NotEnrolledReason::RolloutsOptOut => "RolloutsOptOut",
+                #[cfg(feature = "stateful")]
                 NotEnrolledReason::FirefoxLabs => "FirefoxLabs",
                 NotEnrolledReason::OptOut => "OptOut",
             },
@@ -138,9 +142,9 @@ pub enum DisqualifiedReason {
     Error,
     /// The user opted-out from this experiment.
     OptOut,
-    /// The user opted-out from all rollouts.
+    /// The user opted-out from all experiments.
     ExperimentsOptOut,
-    /// The user reset their telemetry identifiers.
+    // The user opted-out from all rollouts.
     RolloutsOptOut,
     /// The targeting has changed for an experiment.
     NotTargeted,
@@ -148,7 +152,11 @@ pub enum DisqualifiedReason {
     NotSelected,
     /// A pref used in the experiment was set by the user.
     #[cfg(feature = "stateful")]
-    PrefUnenrollReason { reason: PrefUnenrollReason },
+    PrefUnenrollReason {
+        reason: PrefUnenrollReason,
+    },
+    #[cfg(feature = "stateful")]
+    FirefoxLabsOptOut,
 }
 
 impl Display for DisqualifiedReason {
@@ -166,9 +174,32 @@ impl Display for DisqualifiedReason {
                     PrefUnenrollReason::Changed => "PrefChanged",
                     PrefUnenrollReason::FailedToSet => "PrefFailedToSet",
                 },
+                #[cfg(feature = "stateful")]
+                DisqualifiedReason::FirefoxLabsOptOut => "FirefoxLabsOptOut",
             },
             f,
         )
+    }
+}
+
+impl DisqualifiedReason {
+    // TODO(bug 2046987): Unify with Display impl?
+    fn for_enrollment_change_event(&self) -> &'static str {
+        match self {
+            DisqualifiedReason::NotSelected => "bucketing",
+            DisqualifiedReason::NotTargeted => "targeting",
+            DisqualifiedReason::OptOut => "optout",
+            DisqualifiedReason::ExperimentsOptOut => "experiments-opt-out",
+            DisqualifiedReason::RolloutsOptOut => "rollouts-opt-out",
+            DisqualifiedReason::Error => "error",
+            #[cfg(feature = "stateful")]
+            DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
+                PrefUnenrollReason::Changed => "pref_changed",
+                PrefUnenrollReason::FailedToSet => "pref_failed_to_set",
+            },
+            #[cfg(feature = "stateful")]
+            DisqualifiedReason::FirefoxLabsOptOut => "FirefoxLabsOptOut",
+        }
     }
 }
 
@@ -290,6 +321,7 @@ impl ExperimentEnrollment {
     pub(crate) fn from_explicit_opt_in(
         experiment: &Experiment,
         branch_slug: &str,
+        reason: EnrolledReason,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         if !experiment.has_branch(branch_slug) {
@@ -308,7 +340,7 @@ impl ExperimentEnrollment {
         }
         let enrollment = Self {
             slug: experiment.slug.clone(),
-            status: EnrollmentStatus::new_enrolled(EnrolledReason::OptIn, branch_slug),
+            status: EnrollmentStatus::new_enrolled(reason, branch_slug),
         };
         out_enrollment_events.push(enrollment.get_change_event(Some(experiment)));
         Ok(enrollment)
@@ -545,6 +577,7 @@ impl ExperimentEnrollment {
         &self,
         experiment: Option<&Experiment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
+        reason: DisqualifiedReason,
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> ExperimentEnrollment {
         match self.status {
@@ -552,7 +585,7 @@ impl ExperimentEnrollment {
                 #[cfg(feature = "stateful")]
                 self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
 
-                let enrollment = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
+                let enrollment = self.disqualify_from_enrolled(reason);
                 out_enrollment_events.push(enrollment.get_change_event(experiment));
                 enrollment
             }
@@ -654,9 +687,16 @@ impl ExperimentEnrollment {
     ) -> Self {
         let updated = match self.status {
             EnrollmentStatus::Enrolled { .. } => {
-                let disqualified = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
-                out_enrollment_events.push(disqualified.get_change_event(experiment));
-                disqualified
+                if let Some(experiment) = experiment
+                    && experiment.is_firefox_labs_opt_in
+                {
+                    // Firefox Labs is unrelated to telemetry.
+                    self.clone()
+                } else {
+                    let disqualified = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
+                    out_enrollment_events.push(disqualified.get_change_event(experiment));
+                    disqualified
+                }
             }
             EnrollmentStatus::NotEnrolled { .. }
             | EnrollmentStatus::Disqualified { .. }
@@ -707,19 +747,7 @@ impl ExperimentEnrollment {
             EnrollmentStatus::Disqualified { branch, reason, .. } => EnrollmentChangeEvent::new(
                 &self.slug,
                 branch,
-                match reason {
-                    DisqualifiedReason::NotSelected => Some("bucketing"),
-                    DisqualifiedReason::NotTargeted => Some("targeting"),
-                    DisqualifiedReason::OptOut => Some("optout"),
-                    DisqualifiedReason::ExperimentsOptOut => Some("experiments-opt-out"),
-                    DisqualifiedReason::RolloutsOptOut => Some("rollouts-opt-out"),
-                    DisqualifiedReason::Error => Some("error"),
-                    #[cfg(feature = "stateful")]
-                    DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
-                        PrefUnenrollReason::Changed => Some("pref_changed"),
-                        PrefUnenrollReason::FailedToSet => Some("pref_failed_to_set"),
-                    },
-                },
+                Some(reason.for_enrollment_change_event()),
                 EnrollmentChangeEventType::Disqualification,
                 experiment,
             ),
@@ -865,6 +893,14 @@ impl EnrollmentStatus {
 
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
+    }
+
+    pub fn is_enrolled_with_reason(&self, expected_reason: EnrolledReason) -> bool {
+        matches!(
+            self,
+            EnrollmentStatus::Enrolled { reason, ..}
+            if *reason == expected_reason
+        )
     }
 }
 

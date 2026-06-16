@@ -137,6 +137,7 @@ class NimbusTests {
                 branchSlug = "test-branch",
                 userFacingDescription = "A test experiment for testing experiments",
                 userFacingName = "Test Experiment",
+                isRollout = false,
             ),
         )
 

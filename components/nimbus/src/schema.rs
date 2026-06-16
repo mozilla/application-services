@@ -11,6 +11,8 @@ use uuid::Uuid;
 use crate::defaults::Defaults;
 use crate::enrollment::ExperimentMetadata;
 use crate::error::{trace, warn};
+#[cfg(feature = "stateful")]
+use crate::stateful::firefox_labs::{FIREFOX_LABS_FEEDBACK_URL_KEY, FirefoxLabsMetadata};
 use crate::{NimbusError, Result};
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
@@ -23,6 +25,7 @@ pub struct EnrolledExperiment {
     pub user_facing_name: String,
     pub user_facing_description: String,
     pub branch_slug: String,
+    pub is_rollout: bool,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -111,6 +114,44 @@ impl Experiment {
             experiment = serde_json::to_value(e).unwrap();
         }
         serde_json::from_value(experiment).unwrap()
+    }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn get_firefox_labs_metadata(&self, enrolled: bool) -> Option<FirefoxLabsMetadata> {
+        // We do not enforce at a schema level that is_firefox_labs_opt_in
+        // implies is_rollout, but only rollouts are supported so we must
+        // enforce it here.
+        if self.is_firefox_labs_opt_in
+            && self.is_rollout
+            && self.branches.len() == 1
+            && let Some(title) = self.firefox_labs_title.as_deref()
+            && let Some(description) = self.firefox_labs_description.as_deref()
+        {
+            let feedback_url = self
+                .firefox_labs_description_links
+                .as_ref()
+                .and_then(|links| links.get(FIREFOX_LABS_FEEDBACK_URL_KEY).cloned());
+
+            Some(FirefoxLabsMetadata {
+                slug: self.slug.clone(),
+                title_string_id: title.into(),
+                description_string_id: description.into(),
+                feedback_url,
+                enrolled,
+                requires_restart: self.requires_restart,
+            })
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn is_valid_firefox_lab(&self) -> bool {
+        self.is_firefox_labs_opt_in
+            && self.is_rollout
+            && self.branches.len() == 1
+            && self.firefox_labs_title.is_some()
+            && self.firefox_labs_description.is_some()
     }
 }
 

@@ -49,6 +49,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store() 
             user_facing_name: "".to_string(),
             user_facing_description: "".to_string(),
             branch_slug: experiment.branches[0].clone().slug,
+            is_rollout: false,
         },
     )]);
 
@@ -95,7 +96,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
     store.initialize()?;
 
     let rollout_slug = "rollout-1";
-    let mut rollout = get_multi_feature_experiment(
+    let rollout = get_multi_feature_experiment(
         rollout_slug,
         vec![(
             "test_feature",
@@ -103,8 +104,8 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
                 "test_prop": "some-rollout-value"
             }),
         )],
-    );
-    rollout.is_rollout = true;
+    )
+    .patch(json!({ "isRollout": true }));
 
     let experiment_slug = "exp-1";
     let experiment = get_multi_feature_experiment(
@@ -130,6 +131,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
                 user_facing_name: "".to_string(),
                 user_facing_description: "".to_string(),
                 branch_slug: rollout.branches[0].clone().slug,
+                is_rollout: true,
             },
         ),
         (
@@ -140,6 +142,7 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
                 user_facing_name: "".to_string(),
                 user_facing_description: "".to_string(),
                 branch_slug: experiment.branches[0].clone().slug,
+                is_rollout: false,
             },
         ),
     ]);

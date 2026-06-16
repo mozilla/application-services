@@ -7,6 +7,7 @@ pub mod client;
 pub mod dbcache;
 pub mod enrollment;
 pub mod evaluator;
+pub mod firefox_labs;
 pub mod gecko_prefs;
 pub mod matcher;
 pub mod nimbus_client;
