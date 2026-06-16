@@ -10,6 +10,8 @@
 
 - Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
 - Removed NimbusInterface.getPreviousGeckoPrefsState since it is unimplemented and the underlying SDK method is only used by tests. ([#7412](https://github.com/mozilla/application-services/pull/7412/))
+- `setExperimentsLocally()` is no longer exposed by NimbusInterface. ([#7426](https://bugzilla.mozilla.org/show_bug.cgi?id=2048051))
+
 ## 🔧 What's Fixed 🔧
 
 ### Logins
