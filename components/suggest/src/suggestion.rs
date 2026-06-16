@@ -5,7 +5,7 @@
 
 use chrono::Local;
 
-use crate::{db::DEFAULT_SUGGESTION_SCORE, geoname::Geoname};
+use crate::{db::DEFAULT_SUGGESTION_SCORE, geoname::Geoname, JsonValue};
 
 /// The template parameter for a timestamp in a "raw" sponsored suggestion URL.
 const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
@@ -86,7 +86,7 @@ pub enum Suggestion {
     },
     Dynamic {
         suggestion_type: String,
-        data: Option<serde_json::Value>,
+        data: Option<JsonValue>,
         /// This value is optionally defined in the suggestion's remote settings
         /// data and is an opaque token used for dismissing the suggestion in
         /// lieu of a URL. If `Some`, the suggestion can be dismissed by passing
