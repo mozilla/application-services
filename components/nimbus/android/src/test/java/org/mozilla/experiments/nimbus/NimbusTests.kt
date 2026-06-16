@@ -433,8 +433,12 @@ class NimbusTests {
             NimbusEvents.disqualification.testGetValue(),
         )
 
+        assertTrue(Glean.testIsExperimentActive("test-experiment"))
+
         // Opt out of the specific experiment
         nimbus.optOutOnThisThread("test-experiment")
+
+        assertFalse(Glean.testIsExperimentActive("test-experiment"))
 
         // Use the Glean test API to check that the valid event is present
         assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
@@ -450,7 +454,7 @@ class NimbusTests {
     }
 
     @Test
-    fun `toggling the global opt out generates the correct Glean event`() {
+    fun `toggling the experiment opt out generates the correct Glean event`() {
         // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
         // because recordExposure checks for active experiments before recording.
         nimbus.setUpTestExperiments(packageName, appInfo)
@@ -461,8 +465,12 @@ class NimbusTests {
             NimbusEvents.disqualification.testGetValue(),
         )
 
+        assertTrue(Glean.testIsExperimentActive("test-experiment"))
+
         // Opt out of experiments but keep rollouts
         nimbus.setExperimentParticipationOnThisThread(false)
+
+        assertFalse(Glean.testIsExperimentActive("test-experiment"))
 
         // Use the Glean test API to check that the valid event is present
         assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
@@ -915,15 +923,9 @@ class NimbusTests {
         val handler = TestGeckoPrefHandler()
 
         val nimbus = createNimbus(geckoPrefHandler = handler)
+        nimbus.setUpTestExperiments(packageName, appInfo)
 
-        suspend fun getString(): String {
-            return testExperimentsJsonString(packageName, appInfo, "true")
-        }
-
-        val job = nimbus.applyLocalExperiments(::getString)
-        runBlocking {
-            job.join()
-        }
+        assertTrue(Glean.testIsExperimentActive("test-experiment"))
 
         assertEquals(1, handler.setValues?.size)
         assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
@@ -932,6 +934,8 @@ class NimbusTests {
             handler.internalMap["about_welcome"]?.get("number")!!,
             PrefUnenrollReason.FAILED_TO_SET,
         )
+
+        assertFalse(Glean.testIsExperimentActive("test-experiment"))
 
         assertNotNull(events)
         assertEquals(1, events!!.size)

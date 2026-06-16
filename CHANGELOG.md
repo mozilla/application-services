@@ -24,6 +24,7 @@
 - Attempting to opt-out from an experiment that is not currently enrolled is now a no-op. ([#7399](https://github.com/mozilla/application-services/pull/7399))
 - All enrollment updates (opt-in, opt-out, reseting telemetry identifiers, unenrolling for pref conflicts) now trigger feature invalidation in Android clients. ([#7405](https://github.com/mozilla/application-services/pull/7405))
 - Changing experiment and/or rollout participation no longer triggers a double update. Enrollment change telemetry is now appropriately triggered when this occurs. ([#7401](https://github.com/mozilla/application-services/pull/7401))
+- Experiments will be marked as inactive in Glean when unenrolling. ([#7427](https://github.com/mozilla/application-services/pull/7427))
 
 ## ✨ What's New ✨
 
