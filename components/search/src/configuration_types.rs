@@ -15,7 +15,7 @@ use std::collections::HashMap;
 /// The list of possible submission methods for search engine urls.
 #[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "UPPERCASE")]
-pub(crate) enum JSONEngineMethod {
+pub enum JSONEngineMethod {
     Post = 2,
     #[serde(other)]
     #[default]
@@ -36,7 +36,7 @@ impl JSONEngineMethod {
 /// configuration.
 #[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct JSONEngineUrl {
+pub struct JSONEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
     /// which have a variable FilePath, e.g. `{searchTerms}` for when a search
     /// term is within the path of the url.

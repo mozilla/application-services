@@ -13,7 +13,7 @@ pub use error::SearchApiError;
 pub mod selector;
 pub mod types;
 
-pub(crate) use crate::configuration_types::*;
+pub use crate::configuration_types::*;
 pub use crate::types::*;
 pub use selector::SearchEngineSelector;
 pub type SearchApiResult<T> = std::result::Result<T, error::SearchApiError>;
