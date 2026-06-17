@@ -129,8 +129,11 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      * `setExperimentsLocally`, and then informs Glean of new experiment enrolment.
      *
      * Notifies `onUpdatesApplied` once enrolments are recalculated.
+     *
+     * @param initial Whether or not this is called during Nimbus initialization
+     * by the NimbusBuilder.
      */
-    fun applyPendingExperiments(): Job = Job()
+    fun applyPendingExperiments(initial: Boolean = false): Job = Job()
 
     /**
      * Apply the set of local experiments.

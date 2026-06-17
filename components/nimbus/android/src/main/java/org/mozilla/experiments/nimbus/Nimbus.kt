@@ -286,7 +286,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll("initialize") {
         nimbusClient.initialize()
-        postEnrolmentCalculation(initial = true)
+        postEnrolmentCalculation(emptyList(), initial = true)
     }
 
     override fun fetchExperiments() {
@@ -333,33 +333,31 @@ open class Nimbus(
         }
     }
 
-    override fun applyPendingExperiments(): Job =
+    override fun applyPendingExperiments(initial: Boolean): Job =
         dbScope.launch {
             withContext(NonCancellable) {
-                applyPendingExperimentsOnThisThread()
+                applyPendingExperimentsOnThisThread(initial)
             }
         }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun applyPendingExperimentsOnThisThread() = withCatchAll("applyPendingExperiments") {
-        try {
-            var events: List<EnrollmentChangeEvent>?
-            val time = measureTimeMillis {
-                events = nimbusClient.applyPendingExperiments()
+    internal fun applyPendingExperimentsOnThisThread(initial: Boolean = false) {
+        withCatchAll("applyPendingExperiments") {
+            try {
+                var enrollmentChangeEvents: List<EnrollmentChangeEvent>?
+                val time = measureTimeMillis {
+                    enrollmentChangeEvents = nimbusClient.applyPendingExperiments()
+                }
+                NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
+
+                // SAFETY: events is only null at declaration time and is
+                // immediately assigned a non-null value inside the
+                // measureTimeMillis lambda.
+                postEnrolmentCalculation(enrollmentChangeEvents!!, initial)
+            } catch (e: NimbusException.InvalidExperimentFormat) {
+                reportError("Invalid experiment format", e)
             }
-            NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
-
-            // SAFETY: events is only null at declaration time and is
-            // immediately assigned a non-null value inside the
-            // measureTimeMillis lambda.
-            recordExperimentTelemetryEvents(events!!)
-
-            // Get the experiments to record in telemetry
-            postEnrolmentCalculation()
-            updateDispatcher.notifyChanged(events)
-        } catch (e: NimbusException.InvalidExperimentFormat) {
-            reportError("Invalid experiment format", e)
         }
     }
 
@@ -395,7 +393,7 @@ open class Nimbus(
         withContext(NonCancellable) {
             if (experimentsJson != null) {
                 setExperimentsLocallyOnThisThread(experimentsJson)
-                applyPendingExperimentsOnThisThread()
+                applyPendingExperimentsOnThisThread(initial = true)
             } else {
                 initializeOnThisThread()
             }
@@ -403,23 +401,44 @@ open class Nimbus(
     }
 
     @WorkerThread
-    private fun postEnrolmentCalculation(initial: Boolean = false) {
-        nimbusClient.getActiveExperiments().also { experiments ->
-            recordExperimentTelemetry(experiments)
+    private fun postEnrolmentCalculation(
+        enrollmentChangeEvents: List<EnrollmentChangeEvent>,
+        initial: Boolean = false,
+    ) {
+        val experiments = nimbusClient.getActiveExperiments()
+
+        if (initial) {
+            // During initialization we need to report the experiment status of
+            // all pre-existing experiments.
+            for (experiment in experiments) {
+                Glean.setExperimentActive(experiment.slug, experiment.branchSlug)
+            }
+        }
+
+        if (initial || enrollmentChangeEvents.isNotEmpty()) {
+            // During initialization we need to inform the application when we've
+            // finished applying updates, even if there is nothing enrolled.
+            recordExperimentTelemetryEvents(enrollmentChangeEvents)
             updateObserver { observer ->
                 observer.onUpdatesApplied(experiments)
             }
+        }
 
-            if (initial) {
-                val featureIds = mutableSetOf<String>()
-                for (experiment in experiments) {
-                    for (featureId in experiment.featureIds) {
-                        featureIds.add(featureId)
-                    }
+        if (initial) {
+            // Likewise, during initialization we need to include trigger
+            // updates for all pre-existing experiments.
+            val featureIds = mutableSetOf<String>()
+            for (experiment in experiments) {
+                for (featureId in experiment.featureIds) {
+                    featureIds.add(featureId)
                 }
-
-                updateDispatcher.notifyFeatures(featureIds)
             }
+
+            updateDispatcher.notifyFeatures(featureIds)
+        } else {
+            // However, during subsequent enrollment changes we only need to
+            // trigger updates to features that changed.
+            updateDispatcher.notifyChanged(enrollmentChangeEvents)
         }
     }
 
@@ -445,24 +464,16 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setExperimentParticipationOnThisThread(active: Boolean) =
         withCatchAll("setExperimentParticipation") {
-            val enrolmentChanges = nimbusClient.setExperimentParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-                updateDispatcher.notifyChanged(enrolmentChanges)
-            }
+            val enrollmentChangeEvents = nimbusClient.setExperimentParticipation(active)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setRolloutParticipationOnThisThread(active: Boolean) =
         withCatchAll("setRolloutParticipation") {
-            val enrolmentChanges = nimbusClient.setRolloutParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-                updateDispatcher.notifyChanged(enrolmentChanges)
-            }
+            val enrollmentChangeEvents = nimbusClient.setRolloutParticipation(active)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
 
     override fun optOut(experimentId: String) {
@@ -489,9 +500,7 @@ open class Nimbus(
     ): List<EnrollmentChangeEvent>? {
         return withCatchAll("unenrollForGeckoPref") {
             val enrollmentChangeEvents = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
-            recordExperimentTelemetryEvents(enrollmentChangeEvents)
-            postEnrolmentCalculation()
-            updateDispatcher.notifyChanged(enrollmentChangeEvents)
+            postEnrolmentCalculation(enrollmentChangeEvents)
             enrollmentChangeEvents
         }
     }
@@ -521,9 +530,7 @@ open class Nimbus(
     internal fun optOutOnThisThread(experimentId: String) {
         withCatchAll("optOut") {
             val enrollmentChangeEvents = nimbusClient.optOut(experimentId)
-            recordExperimentTelemetryEvents(enrollmentChangeEvents)
-            postEnrolmentCalculation()
-            updateDispatcher.notifyChanged(enrollmentChangeEvents)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
@@ -539,9 +546,7 @@ open class Nimbus(
     internal fun resetTelemetryIdentifiersOnThisThread() {
         withCatchAll("resetTelemetryIdentifiers") {
             val enrollmentChangeEvents = nimbusClient.resetTelemetryIdentifiers()
-            recordExperimentTelemetryEvents(enrollmentChangeEvents)
-            postEnrolmentCalculation()
-            updateDispatcher.notifyChanged(enrollmentChangeEvents)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
@@ -557,9 +562,7 @@ open class Nimbus(
     internal fun optInWithBranchOnThisThread(experimentId: String, branch: String) {
         withCatchAll("optIn") {
             val enrollmentChangeEvents = nimbusClient.optInWithBranch(experimentId, branch)
-            recordExperimentTelemetryEvents(enrollmentChangeEvents)
-            postEnrolmentCalculation()
-            updateDispatcher.notifyChanged(enrollmentChangeEvents)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
@@ -637,6 +640,11 @@ open class Nimbus(
                             branch = event.branchSlug,
                         ),
                     )
+
+                    Glean.setExperimentActive(
+                        event.experimentSlug,
+                        event.branchSlug,
+                    )
                 }
 
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
@@ -646,6 +654,10 @@ open class Nimbus(
                             branch = event.branchSlug,
                         ),
                     )
+
+                    Glean.setExperimentInactive(
+                        event.experimentSlug,
+                    )
                 }
 
                 EnrollmentChangeEventType.UNENROLLMENT -> {
@@ -654,6 +666,10 @@ open class Nimbus(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
                         ),
+                    )
+
+                    Glean.setExperimentInactive(
+                        event.experimentSlug,
                     )
                 }
 
@@ -717,11 +733,7 @@ open class Nimbus(
     internal fun enrollInFirefoxLabOnThisThread(slug: String): FirefoxLabsEnrollStatus {
         return withCatchAll("enrollInFirefoxLab") {
             val result = nimbusClient.enrollInFirefoxLab(slug)
-            if (result.enrollmentChangeEvents.isNotEmpty()) {
-                recordExperimentTelemetryEvents(result.enrollmentChangeEvents)
-                postEnrolmentCalculation()
-                updateDispatcher.notifyChanged(result.enrollmentChangeEvents)
-            }
+            postEnrolmentCalculation(result.enrollmentChangeEvents)
 
             result.status
         } ?: FirefoxLabsEnrollStatus.ERROR
@@ -735,11 +747,7 @@ open class Nimbus(
     internal fun unenrollFromFirefoxLabOnThisThread(slug: String): FirefoxLabsUnenrollStatus {
         return withCatchAll("unenrollFromFirefoxLab") {
             val result = nimbusClient.unenrollFromFirefoxLab(slug)
-            if (result.enrollmentChangeEvents.isNotEmpty()) {
-                recordExperimentTelemetryEvents(result.enrollmentChangeEvents)
-                postEnrolmentCalculation()
-                updateDispatcher.notifyChanged(result.enrollmentChangeEvents)
-            }
+            postEnrolmentCalculation(result.enrollmentChangeEvents)
 
             result.status
         } ?: FirefoxLabsUnenrollStatus.ERROR
@@ -753,11 +761,7 @@ open class Nimbus(
     internal fun unenrollFromAllFirefoxLabsOnThisThread() {
         withCatchAll("unenrollFromAllFirefoxLabs") {
             val enrollmentChangeEvents = nimbusClient.unenrollFromAllFirefoxLabs()
-            if (enrollmentChangeEvents.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrollmentChangeEvents)
-                postEnrolmentCalculation()
-                updateDispatcher.notifyChanged(enrollmentChangeEvents)
-            }
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
