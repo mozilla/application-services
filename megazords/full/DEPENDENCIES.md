@@ -40,7 +40,7 @@ the details of which are reproduced below.
 ## Mozilla Public License 2.0
 
 The following text applies to code linked from these dependencies:
-[NSPR](https://hg.mozilla.org/projects/nspr),
+[NSPR](https://github.com/mozilla/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
 [glean-build](https://github.com/mozilla/glean),

@@ -120,9 +120,9 @@ EXTRA_PACKAGE_METADATA = {
     },
     "ext-nspr": {
         "name": "NSPR",
-        "repository": "https://hg.mozilla.org/projects/nspr",
+        "repository": "https://github.com/mozilla/nspr",
         "license": "MPL-2.0",
-        "license_file": "https://hg.mozilla.org/projects/nspr/raw-file/tip/LICENSE",
+        "license_file": "https://raw.githubusercontent.com/mozilla/nspr/main/LICENSE",
     },
     "ext-openssl": {
         "name": "openssl",
