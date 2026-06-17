@@ -78,7 +78,7 @@ impl std::fmt::Display for Method {
 #[derive(Clone, uniffi::Record)]
 pub struct Request {
     pub method: Method,
-    pub url: Url,
+    pub url: ViaductUrl,
     pub headers: Headers,
     pub body: Option<Vec<u8>>,
 }
@@ -258,7 +258,7 @@ pub struct Response {
     /// The method used to request this response.
     pub request_method: Method,
     /// The URL of this response.
-    pub url: Url,
+    pub url: ViaductUrl,
     /// The HTTP Status code of this response.
     pub status: u16,
     /// The headers returned with this response.

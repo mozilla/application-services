@@ -733,6 +733,57 @@ pub(crate) fn get_experiment_with_published_date(
     .unwrap()
 }
 
+#[allow(unused)]
+pub(crate) fn get_firefox_lab(slug: &str) -> Experiment {
+    get_firefox_lab_with_feature(slug, "labs-feature")
+}
+
+#[allow(unused)]
+pub(crate) fn get_firefox_lab_with_feature(slug: &str, feature_id: &str) -> Experiment {
+    serde_json::from_value(json!({
+        "schemaVersion": "1.0.0",
+        "appName": "fenix",
+        "appId": "org.mozilla.fenix",
+        "channel": "nightly",
+        "slug": slug,
+        "branches": [
+            {
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
+            }
+        ],
+        "featureIds": [feature_id],
+        "isRollout": true,
+        "isEnrollmentPaused": false,
+        "isFirefoxLabsOptIn": true,
+        "firefoxLabsTitle": "labs-title",
+        "firefoxLabsDescription": "labs-description",
+        "firefoxLabsDescriptionLinks": {
+            "feedback": "https://example.com/#feedback",
+            "learn-more": "https://example.com/#learn-more",
+        },
+        "requiresRestart": false,
+        "userFacingName": "Test Firefox Labs",
+        "userFacingDescription": "Test Firefox Labs",
+        "bucketConfig": {
+            "randomizationUnit": "nimbus_id",
+            "start": 0,
+            "count": 10000,
+            "total": 10000,
+            "namespace": "firefox-labs-test"
+        },
+        "targeting": "true",
+        "proposedEnrollment": 0,
+    }))
+    .unwrap()
+}
+
 #[cfg(feature = "stateful")]
 mod detail {
     use super::TestMetrics;

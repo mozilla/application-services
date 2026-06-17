@@ -21,7 +21,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
         }
     }
@@ -135,16 +135,11 @@ if (!gradle.hasProperty("mozconfig")) {
     }
 }
 
-afterEvaluate {
-    // The `cargoBuild` task isn't available until after evaluation.
-    android.libraryVariants.all { variant ->
-        def productFlavor = ""
-        variant.productFlavors.each {
-            productFlavor += "${it.name.capitalize()}"
-        }
-        if (!gradle.hasProperty("mozconfig")) {
-            def buildType = "${variant.buildType.name.capitalize()}"
-            tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
+if (!gradle.hasProperty("mozconfig")) {
+    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+        // The `cargoBuild` task isn't available until after evaluation.
+        afterEvaluate {
+            tasks["merge${variant.name.capitalize()}JniLibFolders"].dependsOn(tasks["cargoBuild"])
         }
     }
 }

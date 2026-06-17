@@ -35,7 +35,7 @@ def upload_symbols(zip_file, token_file):
         print("'faketoken` detected, not pushing anything", file=sys.stdout)
         sys.exit(0)
 
-    for i, _ in enumerate(redo.retrier(attempts=MAX_RETRIES), start=1):
+    for i, _ in enumerate(redo.retrier(attempts=MAX_RETRIES, sleeptime=60, sleepscale=1), start=1):
         print("Attempt %d of %d..." % (i, MAX_RETRIES))
         try:
             if zip_file.startswith("http"):
@@ -47,9 +47,8 @@ def upload_symbols(zip_file, token_file):
                 headers={"Auth-Token": auth_token},
                 allow_redirects=False,
                 # Allow a longer read timeout because uploading by URL means the server
-                # has to fetch the entire zip file, which can take a while. The load balancer
-                # in front of symbols.mozilla.org has a 300 second timeout, so we'll use that.
-                timeout=(10, 300),
+                # has to fetch the entire zip file, which can take a while.
+                timeout=(300, 600),
                 **zip_arg,
             )
             # 500 is likely to be a transient failure.

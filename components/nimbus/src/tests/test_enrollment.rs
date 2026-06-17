@@ -19,7 +19,7 @@ use crate::stateful::gecko_prefs::{
     create_feature_prop_pref_map,
 };
 #[cfg(feature = "stateful")]
-use crate::tests::helpers::{TestGeckoPrefHandler, get_ios_rollout_experiment};
+use crate::tests::helpers::{TestGeckoPrefHandler, get_firefox_lab, get_ios_rollout_experiment};
 use crate::tests::helpers::{
     get_bucketed_rollout, get_experiment_with_published_date, get_multi_feature_experiment,
     get_single_feature_experiment, get_test_experiments, no_coenrolling_features,
@@ -433,7 +433,7 @@ fn test_ios_rollout_experiment() -> Result<()> {
     };
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment(
@@ -470,7 +470,7 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment(
@@ -527,6 +527,34 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
         }
     ));
     assert_eq!(&events, &[], "no change in enrollments (not bucketed)");
+    Ok(())
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolve_new_labs_not_enrolled() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs");
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(true, None, Some(&recipe), None, &mut events, None)?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::FirefoxLabs,
+            ..
+        }
+    ));
+    assert_eq!(&events, &[]);
+
     Ok(())
 }
 
@@ -602,6 +630,34 @@ fn test_evolve_new_rollout_globally_opted_out() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolve_new_labs_globally_opted_out_from_rollouts() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs");
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(false, None, Some(&recipe), None, &mut events, None)?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::FirefoxLabs,
+            ..
+        }
+    ));
+    assert_eq!(&events, &[]);
+
+    Ok(())
+}
+
 #[test]
 fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let mut exp = get_test_experiments()[0].clone();
@@ -629,6 +685,34 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
         }
     ));
     assert_eq!(&events, &[], "no change in enrollments (paused)");
+    Ok(())
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolver_new_labs_enrollment_paused() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs").patch(json!({ "isEnrollmentPaused": true }));
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(true, None, Some(&recipe), None, &mut events, None)?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::FirefoxLabs,
+            ..
+        }
+    ));
+    assert_eq!(&events, &[]);
+
     Ok(())
 }
 
@@ -987,6 +1071,47 @@ fn test_evolve_rollout_update_enrolled_then_opted_out() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolve_labs_update_enrolled_then_opted_out() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs");
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".into(),
+            reason: EnrolledReason::FirefoxLabsOptIn,
+            prev_gecko_pref_states: None,
+        },
+    };
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(
+            false,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            None,
+        )?
+        .unwrap();
+
+    assert_eq!(
+        existing_enrollment, enrollment,
+        "rollout opt-out does not affect labs"
+    );
+    assert_eq!(&events, &[]);
+
+    Ok(())
+}
+
 #[test]
 fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()> {
     let mut exp = get_test_experiments()[0].clone();
@@ -1067,16 +1192,13 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
         )?
         .unwrap();
 
-    if let EnrollmentStatus::Disqualified {
-        reason: DisqualifiedReason::NotTargeted,
-        branch,
-        ..
-    } = enrollment.status
-    {
-        assert_eq!(branch, "control");
-    } else {
-        panic!("Wrong variant! \n{:#?}", enrollment.status);
-    }
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::NotTargeted,
+            branch
+        } if branch == "control"
+    ));
     assert_eq!(
         &events,
         &[EnrollmentChangeEvent {
@@ -1087,6 +1209,60 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             feature_ids: vec!["some_control".into()],
         }]
     );
+    Ok(())
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolver_labs_update_enrolled_then_targeting_changed() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs").patch(json!({ "targeting": "false" }));
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".into(),
+            reason: EnrolledReason::FirefoxLabsOptIn,
+            prev_gecko_pref_states: None,
+        },
+    };
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(
+            true,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            None,
+        )?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::NotTargeted,
+            branch
+        }
+        if branch  == "control"
+    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: recipe.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("targeting".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["labs-feature".into()],
+        }]
+    );
+
     Ok(())
 }
 
@@ -1138,6 +1314,69 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             feature_ids: vec!["a-feature".into()],
         }]
     );
+    Ok(())
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_evolver_labs_update_enrolled_then_bucketing_changed() -> Result<()> {
+    let recipe = get_firefox_lab("firefox-labs").patch(json!({
+        "bucketConfig": {
+            "randomizationUnit": "nimbus_id",
+            "start": 0,
+            "count": 0,
+            "total": 10000,
+            "namespace": "test"
+        }
+    }));
+
+    let (_, ctx, aru) = local_ctx();
+    let mut targeting_helper = ctx.into();
+    let coenrolling_feature_ids = no_coenrolling_features();
+
+    let existing_enrollment = ExperimentEnrollment {
+        slug: recipe.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".into(),
+            reason: EnrolledReason::FirefoxLabsOptIn,
+            prev_gecko_pref_states: None,
+        },
+    };
+
+    let mut evolver =
+        EnrollmentsEvolver::new(&aru, &mut targeting_helper, &coenrolling_feature_ids);
+
+    let mut events = vec![];
+    let enrollment = evolver
+        .evolve_enrollment(
+            true,
+            Some(&recipe),
+            Some(&recipe),
+            Some(&existing_enrollment),
+            &mut events,
+            None,
+        )?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Disqualified {
+            reason: DisqualifiedReason::NotSelected,
+            branch
+        }
+        if branch  == "control"
+    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: recipe.slug.clone(),
+            branch_slug: "control".into(),
+            reason: Some("bucketing".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["labs-feature".into()],
+        }]
+    );
+
     Ok(())
 }
 
@@ -1803,10 +2042,11 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         .iter()
         .filter(|&e| {
             matches!(
-                e.status,
+                &e.status,
                 EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::FeatureConflict
+                    reason: NotEnrolledReason::FeatureConflict { conflict_slug: Some(conflict_slug) }
                 }
+                if conflict_slug == "secure-gold"
             )
         })
         .count();
@@ -3891,7 +4131,12 @@ fn test_rollouts_end_to_end() -> Result<()> {
 fn test_enrollment_explicit_opt_in() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let mut events = vec![];
-    let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, "control", &mut events)?;
+    let enrollment = ExperimentEnrollment::from_explicit_opt_in(
+        &exp,
+        "control",
+        EnrolledReason::OptIn,
+        &mut events,
+    )?;
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Enrolled {
@@ -3918,7 +4163,12 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
 fn test_enrollment_explicit_opt_in_branch_unknown() {
     let exp = get_test_experiments()[0].clone();
     let mut events = vec![];
-    let res = ExperimentEnrollment::from_explicit_opt_in(&exp, "bobo", &mut events);
+    let res = ExperimentEnrollment::from_explicit_opt_in(
+        &exp,
+        "bobo",
+        EnrolledReason::OptIn,
+        &mut events,
+    );
     assert!(res.is_err());
 }
 
@@ -3938,6 +4188,7 @@ fn test_enrollment_enrolled_explicit_opt_out() {
     let enrollment = existing_enrollment.on_explicit_opt_out(
         Some(&exp),
         &mut events,
+        DisqualifiedReason::OptOut,
         #[cfg(feature = "stateful")]
         None,
     );
@@ -3969,6 +4220,7 @@ fn test_enrollment_not_enrolled_explicit_opt_out() {
     let enrollment = existing_enrollment.on_explicit_opt_out(
         Some(&exp),
         &mut events,
+        DisqualifiedReason::OptOut,
         #[cfg(feature = "stateful")]
         None,
     );
@@ -3990,6 +4242,7 @@ fn test_enrollment_disqualified_explicit_opt_out() {
     let enrollment = existing_enrollment.on_explicit_opt_out(
         None,
         &mut events,
+        DisqualifiedReason::OptOut,
         #[cfg(feature = "stateful")]
         None,
     );

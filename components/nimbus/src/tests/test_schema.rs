@@ -59,3 +59,131 @@ fn test_deserialize_untyped_json() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(feature = "stateful")]
+mod stateful {
+    use serde_json::json;
+
+    use crate::stateful::firefox_labs::*;
+    use crate::tests::helpers::get_firefox_lab;
+
+    #[cfg(feature = "stateful")]
+    #[test]
+    fn test_get_firefox_labs_metadata() {
+        assert_eq!(
+            get_firefox_lab("slug")
+                .get_firefox_labs_metadata(false)
+                .unwrap(),
+            FirefoxLabsMetadata {
+                slug: "slug".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into()),
+            }
+        );
+
+        assert_eq!(
+            get_firefox_lab("slug")
+                .get_firefox_labs_metadata(true)
+                .unwrap(),
+            FirefoxLabsMetadata {
+                slug: "slug".into(),
+                enrolled: true,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into()),
+            }
+        );
+
+        assert_eq!(
+            get_firefox_lab("slug")
+                .patch(json!({
+                    "firefoxLabsDescriptionLinks": null,
+                    "requiresRestart": true,
+                }))
+                .get_firefox_labs_metadata(false)
+                .unwrap(),
+            FirefoxLabsMetadata {
+                slug: "slug".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: None,
+            }
+        );
+
+        assert_eq!(
+            get_firefox_lab("slug")
+                .patch(json!({
+                    "firefoxLabsDescriptionLinks": {
+                        "feedback": "https://feedback.example.com/",
+                    },
+                    "requiresRestart": true,
+                }))
+                .get_firefox_labs_metadata(false)
+                .unwrap(),
+            FirefoxLabsMetadata {
+                slug: "slug".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://feedback.example.com/".into()),
+            }
+        );
+
+        assert_eq!(
+            get_firefox_lab("slug")
+                .patch(json!({
+                    "firefoxLabsDescriptionLinks": {},
+                    "requiresRestart": true,
+                }))
+                .get_firefox_labs_metadata(false)
+                .unwrap(),
+            FirefoxLabsMetadata {
+                slug: "slug".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: None,
+            }
+        );
+
+        // Requires isFirefoxLabsOptIn: true
+        assert!(
+            get_firefox_lab("slug")
+                .patch(json!({ "isFirefoxLabsOptIn": false }))
+                .get_firefox_labs_metadata(false)
+                .is_none()
+        );
+
+        // Requires isRollout: true
+        assert!(
+            get_firefox_lab("slug")
+                .patch(json!({ "isRollout": false }))
+                .get_firefox_labs_metadata(false)
+                .is_none()
+        );
+
+        // Requires firefoxLabsTitle
+        assert!(
+            get_firefox_lab("slug")
+                .patch(json!({ "firefoxLabsTitle": null }))
+                .get_firefox_labs_metadata(false)
+                .is_none()
+        );
+
+        // Requires firefoxLabsDescription
+        assert!(
+            get_firefox_lab("slug")
+                .patch(json!({ "firefoxLabsDescription": null }))
+                .get_firefox_labs_metadata(false)
+                .is_none()
+        );
+    }
+}

@@ -135,6 +135,23 @@ class FeatureHolder<T : FMLFeatureInterface>(
     }
 
     /**
+     * Add a callback to be called when the feature updates.
+     *
+     * This **must** be called after Nimbus is initialized, otherwise the
+     * callback will not be registered.
+     */
+    fun addUpdateCallback(callback: () -> Unit) {
+        getSdk()?.getFeatureUpdateDispatcher()?.addCallback(featureId, callback)
+    }
+
+    /**
+     * Remove a feature update callback.
+     */
+    fun removeUpdateCallback(callback: () -> Unit) {
+        getSdk()?.getFeatureUpdateDispatcher()?.removeCallback(featureId, callback)
+    }
+
+    /**
      * Is this feature the focus of an automated test.
      *
      * A utility flag to be used in conjunction with {HardcodedNimbusFeatures}.

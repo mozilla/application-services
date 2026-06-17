@@ -10,8 +10,10 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::enrollment::ExperimentEnrollment;
 use crate::error::{ErrorCode, NimbusError, Result, debug, info, warn};
 use crate::metrics::{DatabaseLoadExtraDef, DatabaseMigrationExtraDef, MetricsHandler};
+use crate::stateful::enrollment::v3;
 
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
@@ -27,7 +29,7 @@ use crate::metrics::{DatabaseLoadExtraDef, DatabaseMigrationExtraDef, MetricsHan
 pub(crate) const DB_KEY_DB_VERSION: &str = "db_version";
 
 /// The current database version.
-pub(crate) const DB_VERSION: u16 = 3;
+pub(crate) const DB_VERSION: u16 = 4;
 
 pub(crate) const DB_KEY_DB_WAS_CORRUPT: &str = "db-was-corrupt";
 
@@ -554,6 +556,14 @@ impl Database {
             DatabaseMigrationReason::Upgrade,
         )?;
 
+        self.apply_migration(
+            writer,
+            |writer| self.migrate_v3_to_v4(writer),
+            &mut current_version,
+            4,
+            DatabaseMigrationReason::Upgrade,
+        )?;
+
         Ok(())
     }
 
@@ -673,6 +683,23 @@ impl Database {
             "Migration v2->v3: experiments_participation={}, rollouts_participation={}",
             old_global_participation, old_global_participation
         );
+
+        Ok(())
+    }
+
+    fn migrate_v3_to_v4(&self, writer: &mut Writer) -> Result<()> {
+        info!("Upgrading from version 3 to version 4");
+
+        let enrollment_store = self.get_store(StoreId::Enrollments);
+        let enrollments: Vec<v3::LegacyExperimentEnrollment> =
+            enrollment_store.try_collect_all(writer)?;
+
+        let enrollments: Vec<ExperimentEnrollment> =
+            enrollments.into_iter().map(Into::into).collect();
+
+        for enrollment in enrollments {
+            enrollment_store.put(writer, &enrollment.slug, &enrollment)?;
+        }
 
         Ok(())
     }

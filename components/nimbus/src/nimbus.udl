@@ -53,6 +53,7 @@ dictionary EnrolledExperiment {
     string user_facing_name;
     string user_facing_description;
     string branch_slug;
+    boolean is_rollout;
 };
 
 dictionary AvailableExperiment {
@@ -225,7 +226,6 @@ interface RecordedContext {
 
     void record();
 };
-
 interface NimbusClient {
     [Throws=NimbusError]
     constructor(
@@ -413,7 +413,56 @@ interface NimbusClient {
 
     [Throws=NimbusError]
     sequence<PreviousGeckoPrefState>? get_previous_gecko_pref_states(string experiment_slug);
+
+    [Throws=NimbusError]
+    sequence<FirefoxLabsMetadata> get_available_firefox_labs();
+
+    [Throws=NimbusError]
+    FirefoxLabsEnrollResult enroll_in_firefox_lab([ByRef] string slug);
+
+    [Throws=NimbusError]
+    FirefoxLabsUnenrollResult unenroll_from_firefox_lab([ByRef] string slug);
+
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> unenroll_from_all_firefox_labs();
 };
+
+dictionary FirefoxLabsMetadata {
+    string slug;
+    boolean enrolled;
+    string title_string_id;
+    string description_string_id;
+    boolean requires_restart;
+    string? feedback_url;
+};
+
+enum FirefoxLabsEnrollStatus {
+    "Enrolled",
+    "AlreadyEnrolled",
+    "NoExperiment",
+    "NotFirefoxLabsOptIn",
+    "FeatureConflict",
+    "Error",
+};
+
+dictionary FirefoxLabsEnrollResult {
+    FirefoxLabsEnrollStatus status;
+    sequence<EnrollmentChangeEvent> enrollment_change_events;
+};
+
+enum FirefoxLabsUnenrollStatus {
+    "Unenrolled",
+    "AlreadyUnenrolled",
+    "NoExperiment",
+    "NotFirefoxLabsOptIn",
+    "Error",
+};
+
+dictionary FirefoxLabsUnenrollResult {
+    FirefoxLabsUnenrollStatus status;
+    sequence<EnrollmentChangeEvent> enrollment_change_events;
+};
+
 
 interface NimbusTargetingHelper {
     /// Execute the given jexl expression and evaluate against the existing targeting parameters and context passed to
