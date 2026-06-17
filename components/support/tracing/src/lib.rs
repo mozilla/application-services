@@ -12,8 +12,8 @@ pub use filters::{
 };
 
 pub use layer::{
-    register_event_sink, simple_event_layer, unregister_event_sink, EventSinkId,
-    EventSinkSpecification, EventTarget,
+    register_event_sink, register_event_sink_box, simple_event_layer, unregister_event_sink,
+    EventSinkId, EventSinkSpecification, EventTarget,
 };
 // Re-export tracing so that our dependencies can use it.
 pub use tracing;
@@ -152,7 +152,7 @@ pub struct TracingEvent {
     pub target: String,
     pub name: String,
     pub message: String,
-    pub fields: serde_json::Value,
+    pub fields: TracingJsonValue,
 }
 
 #[uniffi::export(callback_interface)]
