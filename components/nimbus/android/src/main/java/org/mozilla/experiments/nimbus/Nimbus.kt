@@ -369,10 +369,10 @@ open class Nimbus(
         applyLocalExperiments { loadRawResource(file) }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    fun applyLocalExperiments(getString: suspend () -> String): Job =
+    internal fun applyLocalExperiments(readExperiments: suspend () -> String): Job =
         dbScope.launch {
             val payload = try {
-                getString()
+                readExperiments()
             } catch (e: CancellationException) {
                 // TODO consider reporting a glean event here.
                 logger(e.stackTraceToString())
@@ -381,15 +381,26 @@ open class Nimbus(
                 logger(e.stackTraceToString())
                 null
             }
-            withContext(NonCancellable) {
-                if (payload != null) {
-                    setExperimentsLocallyOnThisThread(payload)
-                    applyPendingExperimentsOnThisThread()
-                } else {
-                    initializeOnThisThread()
-                }
+
+            applyLocalExperimentsOnThisThread(payload)
+        }
+
+    override fun applyLocalExperiments(experimentsJson: String): Job {
+        return dbScope.launch {
+            applyLocalExperimentsOnThisThread(experimentsJson)
+        }
+    }
+
+    internal suspend fun applyLocalExperimentsOnThisThread(experimentsJson: String?) {
+        withContext(NonCancellable) {
+            if (experimentsJson != null) {
+                setExperimentsLocallyOnThisThread(experimentsJson)
+                applyPendingExperimentsOnThisThread()
+            } else {
+                initializeOnThisThread()
             }
         }
+    }
 
     @WorkerThread
     private fun postEnrolmentCalculation(initial: Boolean = false) {
@@ -412,28 +423,10 @@ open class Nimbus(
         }
     }
 
-    override fun setExperimentsLocally(
-        @RawRes file: Int,
-    ) {
-        dbScope.launch {
-            withCatchAll("setExperimentsLocally") {
-                loadRawResource(file)
-            }?.let { payload ->
-                setExperimentsLocallyOnThisThread(payload)
-            }
-        }
-    }
-
     private fun loadRawResource(file: Int): String =
         context.resources.openRawResource(file).use {
             it.bufferedReader().readText()
         }
-
-    override fun setExperimentsLocally(payload: String) {
-        dbScope.launch {
-            setExperimentsLocallyOnThisThread(payload)
-        }
-    }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
