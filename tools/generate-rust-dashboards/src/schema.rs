@@ -243,6 +243,29 @@ pub enum Transformation {
         regex: String,
         rename_pattern: String,
     },
+    #[serde(rename_all = "camelCase")]
+    CalculateField(CalculateFieldOptions),
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "mode")]
+pub enum CalculateFieldOptions {
+    #[serde(rename_all = "camelCase")]
+    WindowFunctions {
+        window: WindowFunctionWindow,
+        replace_fields: bool,
+    },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowFunctionWindow {
+    pub field: String,
+    pub reducer: String,
+    pub window_alignment: String,
+    pub window_size_mode: String,
+    pub window_size: f32,
 }
 
 #[derive(Default, Serialize, Clone, Copy)]
