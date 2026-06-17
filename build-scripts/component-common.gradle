@@ -91,13 +91,6 @@ ext.dependsOnTheMegazord = {
         megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
         implementation project("path": ":full-megazord", "configuration": "libsForTests")
     }
-
-    afterEvaluate {
-        android.libraryVariants.all { variant ->
-            def variantName = variant.name.capitalize();
-            def testTask = tasks["test${variantName}UnitTest"]
-        }
-    }
 }
 
 // Shared logic for projects that use UniFFI-generated bindings
