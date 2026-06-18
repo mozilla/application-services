@@ -25,7 +25,6 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store() 
         "test_prop",
         pref_state.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = GeckoPrefStore::new(handler.clone());
     store.initialize()?;
 
@@ -60,11 +59,6 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store() 
         true,
     );
 
-    let handler = unsafe {
-        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-            handler,
-        )
-    };
     let handler_state = handler
         .state
         .lock()
@@ -91,7 +85,6 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
         "test_prop",
         pref_state.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = GeckoPrefStore::new(handler.clone());
     store.initialize()?;
 
@@ -154,11 +147,6 @@ fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store_ex
         true,
     );
 
-    let handler = unsafe {
-        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-            handler,
-        )
-    };
     let handler_state = handler
         .state
         .lock()
@@ -215,7 +203,6 @@ fn test_gecko_pref_store_pref_is_user_set() -> Result<()> {
         ("test_feature", "test_prop_1", pref_state_1.clone()),
         ("test_feature", "test_prop_2", pref_state_2.clone()),
     ]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = GeckoPrefStore::new(handler.clone());
     store.initialize()?;
 
@@ -380,17 +367,11 @@ fn test_set_gecko_prefs_original_values() {
         "test_prop",
         pref_state_1.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = Arc::new(GeckoPrefStore::new(handler.clone()));
     let _ = store.initialize();
 
     handler.set_gecko_prefs_original_values(original_gecko_prefs.clone());
-    let test_handler = unsafe {
-        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-            handler,
-        )
-    };
-    let test_handler_state = test_handler
+    let test_handler_state = handler
         .state
         .lock()
         .expect("Unable to lock transmuted handler state");

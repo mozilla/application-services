@@ -189,15 +189,15 @@ pub struct TestGeckoPrefHandler {
 
 #[cfg(feature = "stateful")]
 impl TestGeckoPrefHandler {
-    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Self {
-        Self {
+    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Arc<Self> {
+        Arc::new(Self {
             prefs,
             state: Mutex::new(TestGeckoPrefHandlerState {
                 prefs_set: None,
                 original_prefs_state: None,
                 set_gecko_prefs_state_call_count: 0,
             }),
-        }
+        })
     }
 }
 
