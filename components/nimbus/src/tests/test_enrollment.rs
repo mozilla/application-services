@@ -15,8 +15,7 @@ use crate::enrollment::*;
 use crate::error::Result;
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::{
-    GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
-    create_feature_prop_pref_map,
+    GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch, create_feature_prop_pref_map,
 };
 #[cfg(feature = "stateful")]
 use crate::tests::helpers::{TestGeckoPrefHandler, get_firefox_lab, get_ios_rollout_experiment};
@@ -4564,7 +4563,6 @@ fn test_on_revert_all_to_previous_state_with_gecko_prefs() {
         "test_prop",
         pref_state_1.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = Arc::new(GeckoPrefStore::new(handler.clone()));
     let _ = store.initialize();
     let gecko_pref_store = Some(store);
@@ -4578,12 +4576,7 @@ fn test_on_revert_all_to_previous_state_with_gecko_prefs() {
             prev_gecko_pref_states,
             gecko_pref_store.as_deref(),
         );
-        let test_handler = unsafe {
-            std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-                handler,
-            )
-        };
-        let test_handler_state = test_handler
+        let test_handler_state = handler
             .state
             .lock()
             .expect("Unable to lock transmuted handler state");
@@ -4638,7 +4631,6 @@ fn test_on_revert_partially_to_previous_state_with_gecko_prefs() {
         "test_prop",
         pref_state_1.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = Arc::new(GeckoPrefStore::new(handler.clone()));
     let _ = store.initialize();
     let gecko_pref_store = Some(store);
@@ -4653,12 +4645,7 @@ fn test_on_revert_partially_to_previous_state_with_gecko_prefs() {
             &pref_state_2.gecko_pref.pref,
             gecko_pref_store.as_deref(),
         );
-        let test_handler = unsafe {
-            std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-                handler,
-            )
-        };
-        let test_handler_state = test_handler
+        let test_handler_state = handler
             .state
             .lock()
             .expect("Unable to lock transmuted handler state");
@@ -4895,19 +4882,13 @@ fn test_maybe_revert_all_gecko_pref_states() {
         "test_prop",
         pref_state_1.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = Arc::new(GeckoPrefStore::new(handler.clone()));
     let _ = store.initialize();
     let gecko_pref_store = Some(store);
 
     enrollment.maybe_revert_all_gecko_pref_states(gecko_pref_store.as_deref());
 
-    let test_handler = unsafe {
-        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-            handler,
-        )
-    };
-    let test_handler_state = test_handler
+    let test_handler_state = handler
         .state
         .lock()
         .expect("Unable to lock transmuted handler state");
@@ -4961,7 +4942,6 @@ fn test_maybe_revert_unchanged_gecko_pref_states() {
         "test_prop",
         pref_state_1.clone(),
     )]));
-    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
     let store = Arc::new(GeckoPrefStore::new(handler.clone()));
     let _ = store.initialize();
     let gecko_pref_store = Some(store);
@@ -4970,12 +4950,7 @@ fn test_maybe_revert_unchanged_gecko_pref_states() {
         &pref_state_2.gecko_pref.pref,
         gecko_pref_store.as_deref(),
     );
-    let test_handler = unsafe {
-        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-            handler,
-        )
-    };
-    let test_handler_state = test_handler
+    let test_handler_state = handler
         .state
         .lock()
         .expect("Unable to lock transmuted handler state");

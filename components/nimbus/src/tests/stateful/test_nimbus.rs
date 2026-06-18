@@ -1796,7 +1796,7 @@ fn test_gecko_pref_enrollment() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -1820,11 +1820,7 @@ fn test_gecko_pref_enrollment() -> Result<()> {
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
 
-    let handler = client.get_gecko_pref_store();
-    let handler_state = handler
-        .state
-        .lock()
-        .expect("Unable to lock transmuted handler state");
+    let handler_state = handler.state.lock().expect("Unable to lock handler state");
     let prefs = handler_state.prefs_set.clone().unwrap();
 
     assert_eq!(1, prefs.len());
@@ -1872,7 +1868,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -1910,11 +1906,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
     assert_eq!(active_experiments.len(), 2);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(1, prefs.len());
@@ -1959,11 +1951,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
     assert_eq!(active_experiments.len(), 0);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(0, prefs.len());
@@ -2006,7 +1994,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -2060,11 +2048,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
     assert_eq!(active_experiments.len(), 2);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(2, prefs.len());
@@ -2110,11 +2094,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
     assert_eq!(active_experiments.len(), 0);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
 
         let original_prefs_stored = handler_state.original_prefs_state.clone().unwrap();
 
@@ -2151,7 +2131,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -2245,8 +2225,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         gecko_pref_state_3.clone(),
     ];
 
-    let call_count_before = client
-        .get_gecko_pref_store()
+    let call_count_before = handler
         .state
         .lock()
         .unwrap()
@@ -2258,8 +2237,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
     // Registration must not send pref values to Gecko.
     assert_eq!(
         call_count_before,
-        client
-            .get_gecko_pref_store()
+        handler
             .state
             .lock()
             .unwrap()
@@ -2350,7 +2328,7 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
-        Some(Box::new(handler)),
+        Some(handler),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
