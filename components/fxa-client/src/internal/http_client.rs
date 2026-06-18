@@ -12,11 +12,7 @@ use super::{config::Config, util};
 use crate::{trace, Error, Result};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use rc_crypto::{
-    digest,
-    hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
-    hkdf, hmac,
-};
+use rc_crypto::{digest, hkdf, hmac};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
@@ -28,8 +24,12 @@ use sync15::DeviceType;
 use url::Url;
 use viaduct::{header_names, status_codes, Method, Request, Response};
 
-const HAWK_HKDF_SALT: [u8; 32] = [0b0; 32];
-const HAWK_KEY_LENGTH: usize = 32;
+const AUTH_HKDF_SALT: [u8; 32] = [0b0; 32];
+const AUTH_KEY_LENGTH: usize = 32;
+// Auth-server typed-Bearer prefix for sessionToken (matches KIND_PREFIXES in
+// the auth-server's bearer-fxa-token scheme). See:
+// https://mozilla.github.io/ecosystem-platform/reference/authentication-schemes
+const BEARER_PREFIX_SESSION_TOKEN: &str = "fxs";
 const RETRY_AFTER_DEFAULT_SECONDS: u64 = 10;
 // Devices older than this many days will not appear in the devices list
 const DEVICES_FILTER_DAYS: u64 = 21;
@@ -237,14 +237,14 @@ impl FxAClient for Client {
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        let key = derive_auth_key_from_session_token(session_token)?;
+        let auth = derive_bearer_token_from_session_token(session_token)?;
         let body = json!({
             "client_id": config.client_id,
             "scope": scopes.join(" "),
             "grant_type": "fxa-credentials",
             "access_type": "offline",
         });
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = BearerRequestBuilder::new(Method::Post, url, &auth)
             .body(body)
             .build()?;
         Ok(self.make_request(request)?.json()?)
@@ -279,9 +279,9 @@ impl FxAClient for Client {
             "grant_type": "fxa-credentials",
             "scope": scopes.join(" ")
         });
-        let key = derive_auth_key_from_session_token(session_token)?;
+        let auth = derive_bearer_token_from_session_token(session_token)?;
         let url = config.token_endpoint()?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = BearerRequestBuilder::new(Method::Post, url, &auth)
             .body(parameters)
             .build()?;
         self.make_request(request)?.json().map_err(Into::into)
@@ -308,9 +308,9 @@ impl FxAClient for Client {
         auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse> {
         let parameters = serde_json::to_value(auth_params)?;
-        let key = derive_auth_key_from_session_token(session_token)?;
+        let auth = derive_bearer_token_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/oauth/authorization")?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = BearerRequestBuilder::new(Method::Post, url, &auth)
             .body(parameters)
             .build()?;
 
@@ -336,11 +336,11 @@ impl FxAClient for Client {
         session_token: &str,
     ) -> Result<DuplicateTokenResponse> {
         let url = config.auth_url_path("v1/session/duplicate")?;
-        let key = derive_auth_key_from_session_token(session_token)?;
+        let auth = derive_bearer_token_from_session_token(session_token)?;
         let duplicate_body = json!({
             "reason": "migration"
         });
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = BearerRequestBuilder::new(Method::Post, url, &auth)
             .body(duplicate_body)
             .build()?;
 
@@ -449,8 +449,8 @@ impl FxAClient for Client {
         session_token: &str,
     ) -> Result<Vec<GetAttachedClientResponse>> {
         let url = config.auth_url_path("v1/account/attached_clients")?;
-        let key = derive_auth_key_from_session_token(session_token)?;
-        let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
+        let auth = derive_bearer_token_from_session_token(session_token)?;
+        let request = BearerRequestBuilder::new(Method::Get, url, &auth).build()?;
         Ok(self.make_request(request)?.json()?)
     }
 
@@ -466,8 +466,8 @@ impl FxAClient for Client {
             "scope": scope,
         });
         let url = config.auth_url_path("v1/account/scoped-key-data")?;
-        let key = derive_auth_key_from_session_token(session_token)?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let auth = derive_bearer_token_from_session_token(session_token)?;
+        let request = BearerRequestBuilder::new(Method::Post, url, &auth)
             .body(body)
             .build()?;
         self.make_request(request)?.json().map_err(|e| e.into())
@@ -518,8 +518,8 @@ impl Client {
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
         if let Some(session_token) = session_token {
-            let key = derive_auth_key_from_session_token(session_token)?;
-            let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            let auth = derive_bearer_token_from_session_token(session_token)?;
+            let request = BearerRequestBuilder::new(Method::Post, url, &auth)
                 .body(body)
                 .build()?;
 
@@ -613,13 +613,21 @@ fn kw(name: &str) -> Vec<u8> {
         .to_vec()
 }
 
-pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>> {
+/// Derive the typed-Bearer `Authorization` header value for a sessionToken.
+///
+/// Returns the complete `Bearer fxs_<token_id>` value the auth-server expects,
+/// where `token_id` is the hex-encoded first 32 bytes of the HKDF output (the
+/// same value Hawk used as `id=`).
+pub fn derive_bearer_token_from_session_token(session_token: &str) -> Result<String> {
     let session_token_bytes = hex::decode(session_token)?;
     let context_info = kw("sessionToken");
-    let salt = hmac::SigningKey::new(&digest::SHA256, &HAWK_HKDF_SALT);
-    let mut out = vec![0u8; HAWK_KEY_LENGTH * 2];
+    let salt = hmac::SigningKey::new(&digest::SHA256, &AUTH_HKDF_SALT);
+    let mut out = vec![0u8; AUTH_KEY_LENGTH * 2];
     hkdf::extract_and_expand(&salt, &session_token_bytes, &context_info, &mut out)?;
-    Ok(out)
+    let token_id = hex::encode(&out[0..AUTH_KEY_LENGTH]);
+    Ok(bearer_token(&format!(
+        "{BEARER_PREFIX_SESSION_TOKEN}_{token_id}"
+    )))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -633,21 +641,20 @@ pub struct AuthorizationRequestParameters {
     pub keys_jwe: Option<String>,
 }
 
-struct HawkRequestBuilder<'a> {
+struct BearerRequestBuilder<'a> {
     url: Url,
     method: Method,
     body: Option<String>,
-    hkdf_sha256_key: &'a [u8],
+    auth_header: &'a str,
 }
 
-impl<'a> HawkRequestBuilder<'a> {
-    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
-        rc_crypto::ensure_initialized();
-        HawkRequestBuilder {
+impl<'a> BearerRequestBuilder<'a> {
+    pub fn new(method: Method, url: Url, auth_header: &'a str) -> Self {
+        BearerRequestBuilder {
             url,
             method,
             body: None,
-            hkdf_sha256_key,
+            auth_header,
         }
     }
 
@@ -658,30 +665,9 @@ impl<'a> HawkRequestBuilder<'a> {
         self
     }
 
-    fn make_hawk_header(&self) -> Result<String> {
-        // Make sure we de-allocate the hash after hawk_request_builder.
-        let hash;
-        let method = format!("{}", self.method);
-        let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
-        if let Some(ref body) = self.body {
-            hash = PayloadHasher::hash("application/json", SHA256, body)?;
-            hawk_request_builder = hawk_request_builder.hash(&hash[..]);
-        }
-        let hawk_request = hawk_request_builder.request();
-        let token_id = hex::encode(&self.hkdf_sha256_key[0..HAWK_KEY_LENGTH]);
-        let hmac_key = &self.hkdf_sha256_key[HAWK_KEY_LENGTH..(2 * HAWK_KEY_LENGTH)];
-        let hawk_credentials = Credentials {
-            id: token_id,
-            key: Key::new(hmac_key, SHA256)?,
-        };
-        let header = hawk_request.make_header(&hawk_credentials)?;
-        Ok(format!("Hawk {}", header))
-    }
-
     pub fn build(self) -> Result<Request> {
-        let hawk_header = self.make_hawk_header()?;
-        let mut request =
-            Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header)?;
+        let mut request = Request::new(self.method, self.url)
+            .header(header_names::AUTHORIZATION, self.auth_header)?;
         if let Some(body) = self.body {
             request = request
                 .header(header_names::CONTENT_TYPE, "application/json")?
@@ -1020,6 +1006,68 @@ struct InvokeCommandRequest<'a> {
 mod tests {
     use super::*;
     use mockito::mock;
+
+    const TEST_AUTH_HEADER: &str = "Bearer fxs_deadbeef";
+
+    #[test]
+    fn builder_sets_authorization_header() {
+        let req = BearerRequestBuilder::new(
+            Method::Get,
+            Url::parse("https://example.com/v1/account/attached_clients").unwrap(),
+            TEST_AUTH_HEADER,
+        )
+        .build()
+        .unwrap();
+        assert_eq!(
+            req.headers.get(header_names::AUTHORIZATION),
+            Some(TEST_AUTH_HEADER)
+        );
+    }
+
+    #[test]
+    fn builder_with_body_sets_content_type() {
+        let req = BearerRequestBuilder::new(
+            Method::Post,
+            Url::parse("https://example.com/v1/session/duplicate").unwrap(),
+            TEST_AUTH_HEADER,
+        )
+        .body(json!({"a": "b"}))
+        .build()
+        .unwrap();
+        assert_eq!(
+            req.headers.get(header_names::CONTENT_TYPE),
+            Some("application/json")
+        );
+    }
+
+    #[test]
+    fn builder_without_body_omits_content_type() {
+        let req = BearerRequestBuilder::new(
+            Method::Get,
+            Url::parse("https://example.com/v1/account/attached_clients").unwrap(),
+            TEST_AUTH_HEADER,
+        )
+        .build()
+        .unwrap();
+        assert_eq!(req.headers.get(header_names::CONTENT_TYPE), None);
+    }
+
+    // Backward-compat guard for already-logged-in users: a session token issued
+    // under the old (Hawk) client is unchanged by this migration, so it must run
+    // through the same HKDF derivation and produce the same token id the server
+    // already extracts. The id is the first 32 bytes of the HKDF output, the exact
+    // value Hawk sent as `id=`, now carried as `Bearer fxs_<token_id>`. The pinned
+    // value below catches any derivation drift that would break existing sessions.
+    #[test]
+    fn derive_bearer_token_from_existing_session_token() {
+        nss_as::ensure_initialized();
+        let session_token = "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f";
+        let auth = derive_bearer_token_from_session_token(session_token).unwrap();
+        assert_eq!(
+            auth,
+            "Bearer fxs_923ee512d6153af6796ecb3aaddb1e8a48a713ef79cf0dbcfcc124456fd3ed6a"
+        );
+    }
 
     #[test]
     #[allow(non_snake_case)]
