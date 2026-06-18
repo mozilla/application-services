@@ -237,7 +237,8 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     /**
     * Attempt to unenroll from all Firefox Labs.
      */
-    fun unenrollFromAllFirefoxLabs() = Unit
+    fun unenrollFromAllFirefoxLabs(): Deferred<Unit> =
+        CompletableDeferred(Unit)
 
     /**
      *  Reset internal state in response to application-level telemetry reset.
