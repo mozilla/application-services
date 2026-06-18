@@ -11,6 +11,7 @@ import org.mozilla.experiments.nimbus.HardcodedNimbusFeatures
 import org.mozilla.experiments.nimbus.NullVariables
 import org.mozilla.experiments.nimbus.Variables
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * `FeatureHolder` is a class that unpacks a JSON object from the Nimbus SDK and transforms it into a useful
@@ -43,7 +44,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * This can be resolved by setting `FxNimbus.initialize`, and after that by passing in a `Context` object.
      */
     fun value(): T =
-        lock.runBlock {
+        lock.withLock {
             if (cachedValue != null) {
                 cachedValue!!
             } else {
@@ -105,7 +106,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * This is most likely useful during testing only.
      */
     fun withCachedValue(value: T?) {
-        lock.runBlock {
+        lock.withLock {
             cachedValue = value
         }
     }
@@ -116,7 +117,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * This is most likely useful during testing and other generated code.
      */
     fun withInitializer(create: (Variables, SharedPreferences?) -> T) {
-        lock.runBlock {
+        lock.withLock {
             this.create = create
             this.cachedValue = null
         }
@@ -128,7 +129,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * This is especially useful at start up and for imported features.
      */
     fun withSdk(getSdk: () -> FeaturesInterface?) {
-        lock.runBlock {
+        lock.withLock {
             this.getSdk = getSdk
             this.cachedValue = null
         }
@@ -165,18 +166,9 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * For example, a background worker might be scheduled to run every 24 hours, but
      * under test it would be desirable to run immediately, and only once.
      */
-    fun isUnderTest(): Boolean = lock.runBlock {
-        val sdk = getSdk() as? HardcodedNimbusFeatures ?: return@runBlock false
+    fun isUnderTest(): Boolean = lock.withLock {
+        val sdk = getSdk() as? HardcodedNimbusFeatures ?: return@withLock false
         sdk.hasFeature(featureId)
-    }
-
-    private fun <T> ReentrantLock.runBlock(block: () -> T): T {
-        lock.lock()
-        try {
-            return block.invoke()
-        } finally {
-            lock.unlock()
-        }
     }
 }
 
