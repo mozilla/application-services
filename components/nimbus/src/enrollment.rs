@@ -1361,7 +1361,7 @@ where
 
 pub(crate) fn sort_experiments_by_published_date(experiments: &[Experiment]) -> Vec<&Experiment> {
     let mut experiments: Vec<_> = experiments.iter().collect();
-    experiments.sort_by(|a, b| a.published_date.cmp(&b.published_date));
+    experiments.sort_by_key(|e| e.published_date);
     experiments
 }
 

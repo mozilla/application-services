@@ -753,8 +753,8 @@ open class Nimbus(
         } ?: FirefoxLabsUnenrollStatus.ERROR
     }
 
-    override fun unenrollFromAllFirefoxLabs() {
-        dbScope.launch { unenrollFromAllFirefoxLabsOnThisThread() }
+    override fun unenrollFromAllFirefoxLabs(): Deferred<Unit> {
+        return dbScope.async { unenrollFromAllFirefoxLabsOnThisThread() }
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)

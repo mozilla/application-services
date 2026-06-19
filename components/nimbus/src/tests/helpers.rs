@@ -4,8 +4,6 @@
 
 #![allow(unexpected_cfgs)]
 
-pub use self::detail::*;
-use crate::metrics::EnrollmentStatusExtraDef;
 #[cfg(feature = "stateful")]
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -16,12 +14,14 @@ use serde::Serialize;
 use serde_json::Map;
 use serde_json::{Value, json};
 
+pub use self::detail::*;
 use crate::enrollment::{
     EnrolledFeatureConfig, EnrolledReason, EnrollmentChangeEvent, ExperimentEnrollment,
     NotEnrolledReason,
 };
 #[cfg(feature = "stateful")]
 use crate::json::JsonObject;
+use crate::metrics::EnrollmentStatusExtraDef;
 #[cfg(feature = "stateful")]
 use crate::stateful::behavior::EventStore;
 #[cfg(feature = "stateful")]
@@ -80,17 +80,17 @@ struct RecordedContextState {
 }
 
 #[cfg(feature = "stateful")]
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct TestRecordedContext {
-    state: Arc<Mutex<RecordedContextState>>,
+    state: Mutex<RecordedContextState>,
 }
 
 #[cfg(feature = "stateful")]
 impl TestRecordedContext {
-    pub fn new() -> Self {
-        TestRecordedContext {
+    pub fn new() -> Arc<Self> {
+        Arc::new(TestRecordedContext {
             state: Default::default(),
-        }
+        })
     }
 
     pub fn get_record_calls(&self) -> u64 {
@@ -189,15 +189,15 @@ pub struct TestGeckoPrefHandler {
 
 #[cfg(feature = "stateful")]
 impl TestGeckoPrefHandler {
-    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Self {
-        Self {
+    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Arc<Self> {
+        Arc::new(Self {
             prefs,
             state: Mutex::new(TestGeckoPrefHandlerState {
                 prefs_set: None,
                 original_prefs_state: None,
                 set_gecko_prefs_state_call_count: 0,
             }),
-        }
+        })
     }
 }
 

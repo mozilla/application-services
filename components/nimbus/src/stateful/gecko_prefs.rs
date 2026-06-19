@@ -125,6 +125,7 @@ pub fn create_feature_prop_pref_map(
     )
 }
 
+#[uniffi::trait_interface]
 pub trait GeckoPrefHandler: Send + Sync {
     /// Used to obtain the prefs values from Gecko
     fn get_prefs_with_state(&self) -> MapOfFeatureIdToPropertyNameToGeckoPrefState;
@@ -161,12 +162,12 @@ impl GeckoPrefStoreState {
 
 pub struct GeckoPrefStore {
     // This is Arc<Box<_>> because of FFI
-    pub handler: Arc<Box<dyn GeckoPrefHandler>>,
+    pub handler: Arc<dyn GeckoPrefHandler>,
     pub state: Mutex<GeckoPrefStoreState>,
 }
 
 impl GeckoPrefStore {
-    pub fn new(handler: Arc<Box<dyn GeckoPrefHandler>>) -> Self {
+    pub fn new(handler: Arc<dyn GeckoPrefHandler>) -> Self {
         Self {
             handler,
             state: Mutex::new(GeckoPrefStoreState::default()),
