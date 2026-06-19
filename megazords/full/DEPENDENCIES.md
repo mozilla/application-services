@@ -471,7 +471,6 @@ The following text applies to code linked from these dependencies:
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fastrand](https://github.com/smol-rs/fastrand),
-[fd-lock](https://github.com/yoshuawuyts/fd-lock),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [find-msvc-tools](https://github.com/rust-lang/cc-rs),
 [form_urlencoded](https://github.com/servo/rust-url),
