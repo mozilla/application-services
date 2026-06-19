@@ -1680,7 +1680,7 @@ fn test_recorded_context_recorded() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
+    let recorded_context = TestRecordedContext::new();
     recorded_context.set_context(json!({
         "app_version": "125.0.0",
         "other": "stuff",
@@ -1688,7 +1688,7 @@ fn test_recorded_context_recorded() -> Result<()> {
     let metrics = TestMetrics::new();
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(recorded_context.clone()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
@@ -1707,7 +1707,7 @@ fn test_recorded_context_recorded() -> Result<()> {
 
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(recorded_context.get_record_calls(), 1u64);
     assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
 
     Ok(())
@@ -1724,7 +1724,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
+    let recorded_context = TestRecordedContext::new();
     recorded_context.set_context(json!({
         "app_version": "125.0.0",
         "other": "stuff",
@@ -1735,7 +1735,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(recorded_context.clone()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
@@ -1754,16 +1754,13 @@ fn test_recorded_context_event_queries() -> Result<()> {
 
     info!(
         "{}",
-        serde_json::to_string(&client.get_recorded_context().get_event_queries())?
+        serde_json::to_string(&recorded_context.get_event_queries())?
     );
 
     let active_experiments = client.get_active_experiments()?;
-    assert_eq!(
-        client.get_recorded_context().get_event_query_values()["TEST_QUERY"],
-        0.0
-    );
+    assert_eq!(recorded_context.get_event_query_values()["TEST_QUERY"], 0.0);
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(recorded_context.get_record_calls(), 1u64);
 
     Ok(())
 }
@@ -1779,7 +1776,6 @@ fn test_gecko_pref_enrollment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state = GeckoPrefState::new("test.pref", None)
         .with_gecko_value(PrefValue::Null)
@@ -1792,7 +1788,7 @@ fn test_gecko_pref_enrollment() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
@@ -1853,7 +1849,6 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
@@ -1864,7 +1859,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
@@ -1979,7 +1974,6 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state_1 = GeckoPrefState::new("test.pref.1", None).with_gecko_value(PrefValue::Null);
     let pref_state_2 = GeckoPrefState::new("test.pref.2", None).with_gecko_value(PrefValue::Null);
@@ -1990,7 +1984,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
@@ -2118,7 +2112,6 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
         "test_feature",
@@ -2127,7 +2120,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
@@ -2315,7 +2308,6 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
         "test_feature",
@@ -2324,7 +2316,7 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),

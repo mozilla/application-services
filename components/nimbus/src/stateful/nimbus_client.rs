@@ -48,11 +48,9 @@ use crate::stateful::gecko_prefs::{
 };
 use crate::stateful::matcher::AppContext;
 use crate::stateful::persistence::{Database, StoreId, Writer};
-use crate::stateful::targeting::{RecordedContext, validate_event_queries};
+use crate::stateful::targeting::{RecordedContext, execute_event_queries, validate_event_queries};
 use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use crate::strings::fmt_with_map;
-#[cfg(test)]
-use crate::tests::helpers::TestRecordedContext;
 use crate::{
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
 };
@@ -200,7 +198,7 @@ impl NimbusClient {
                 Ok(v) => v,
                 Err(e) => return Err(NimbusError::JSONError("targeting_helper = nimbus::stateful::nimbus_client::NimbusClient::begin_initialize::serde_json::to_value".into(), e.to_string()))
             });
-            recorded_context.execute_queries(targeting_helper.as_ref())?;
+            execute_event_queries(&**recorded_context, targeting_helper.as_ref())?;
             state
                 .targeting_attributes
                 .set_recorded_context(recorded_context.to_json());
@@ -911,23 +909,6 @@ impl NimbusClient {
                     None
                 }
             }))
-    }
-
-    #[cfg(test)]
-    pub fn get_recorded_context(&self) -> &&TestRecordedContext {
-        self.recorded_context
-            .clone()
-            .map(|ref recorded_context|
-                // SAFETY: The cast to TestRecordedContext is safe because the Rust instance is
-                // guaranteed to be a TestRecordedContext instance. TestRecordedContext is the only
-                // Rust-implemented version of RecordedContext, and, like this method,  is only
-                // used in tests.
-                unsafe {
-                    std::mem::transmute::<&&dyn RecordedContext, &&TestRecordedContext>(
-                        &&**recorded_context,
-                    )
-                })
-            .expect("failed to unwrap RecordedContext object")
     }
 
     pub fn set_install_time(&mut self, then: DateTime<Utc>) {

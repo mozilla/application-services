@@ -7,7 +7,8 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::Map;
 
-use crate::stateful::{behavior::EventStore, targeting::RecordedContext};
+use crate::stateful::behavior::EventStore;
+use crate::stateful::targeting::{execute_event_queries, validate_event_queries};
 use crate::tests::helpers::TestRecordedContext;
 use crate::{NimbusTargetingHelper, Result};
 
@@ -31,23 +32,14 @@ fn test_recorded_context_execute_queries() -> Result<()> {
 
     let recorded_context = TestRecordedContext::new();
     recorded_context.set_event_queries(map.clone());
-    let recorded_context: Box<dyn RecordedContext> = Box::new(recorded_context);
+    execute_event_queries(&*recorded_context, &targeting_helper)?;
 
-    recorded_context.execute_queries(&targeting_helper)?;
-
-    // SAFETY: The cast to TestRecordedContext is safe because the Rust instance is
-    // guaranteed to be a TestRecordedContext instance. TestRecordedContext is the only
-    // Rust-implemented version of RecordedContext, and, like this method,  is only
-    // used in tests.
-    let test_recorded_context = unsafe {
-        std::mem::transmute::<&&dyn RecordedContext, &&TestRecordedContext>(&&*recorded_context)
-    };
     assert_eq!(
-        test_recorded_context.get_event_query_values()["TEST_QUERY_SUCCESS"],
+        recorded_context.get_event_query_values()["TEST_QUERY_SUCCESS"],
         1.0
     );
     assert!(
-        !test_recorded_context
+        !recorded_context
             .get_event_query_values()
             .contains_key("TEST_QUERY_FAIL_NOT_VALID_QUERY")
     );
@@ -70,9 +62,7 @@ fn test_recorded_context_validate_queries() -> Result<()> {
 
     let recorded_context = TestRecordedContext::new();
     recorded_context.set_event_queries(map.clone());
-    let recorded_context: Box<dyn RecordedContext> = Box::new(recorded_context);
-
-    let result = recorded_context.validate_queries();
+    let result = validate_event_queries(recorded_context);
     assert!(result.is_err_and(|e| {
         assert_eq!(e.to_string(), "Behavior error: EventQueryParseError: \"'event'|eventYolo('Days', 1, 0)\" is not a valid EventQuery".to_string());
         true
