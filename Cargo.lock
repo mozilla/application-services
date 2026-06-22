@@ -1510,17 +1510,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fd-lock"
-version = "4.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c44818c96aec5cadc9dacfb97bbcbcfc19a0de75b218412d56f57fbaab94e439"
-dependencies = [
- "cfg-if",
- "rustix 0.38.25",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "ffi-support"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1807,8 +1796,8 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
 name = "glean-build"
-version = "19.1.0"
-source = "git+https://github.com/mozilla/glean?rev=0401cd87c365fd8356e5d3bb6d72a67c8940c934#0401cd87c365fd8356e5d3bb6d72a67c8940c934"
+version = "20.0.0"
+source = "git+https://github.com/mozilla/glean?rev=3b00f26c4814a47044c6736563ee7589dfa3b399#3b00f26c4814a47044c6736563ee7589dfa3b399"
 dependencies = [
  "xshell-venv",
 ]
@@ -2525,12 +2514,6 @@ name = "linux-raw-sys"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f508063cc7bb32987c71511216bd5a32be15bccb6a80b52df8b9d7f01fc3aa2"
-
-[[package]]
-name = "linux-raw-sys"
-version = "0.4.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
 name = "litemap"
@@ -3927,19 +3910,6 @@ dependencies = [
  "io-lifetimes",
  "libc",
  "linux-raw-sys 0.3.2",
- "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "rustix"
-version = "0.38.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc99bc2d4f1fed22595588a013687477aedf3cdcfb26558c559edb67b4d9b22e"
-dependencies = [
- "bitflags 2.11.0",
- "errno 0.3.1",
- "libc",
- "linux-raw-sys 0.4.15",
  "windows-sys 0.48.0",
 ]
 
@@ -5597,15 +5567,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-sys"
-version = "0.59.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
-dependencies = [
- "windows-targets 0.52.6",
-]
-
-[[package]]
 name = "windows-targets"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5903,11 +5864,10 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xshell-venv"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7933fb25d6b9716ede532410214bbc9b0fd08aa7a7a499788ede2d2c23dc4b02"
+checksum = "7ce3f9ddca75ddede32d5cc5a154fa237f4209ad71e6e2fc3db3ed18667d606b"
 dependencies = [
- "fd-lock",
  "xshell",
 ]
 
