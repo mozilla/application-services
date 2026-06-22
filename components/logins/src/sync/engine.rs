@@ -24,6 +24,13 @@ use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, Sync
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
+// The Desktop FxA session-credentials pseudo-login. Firefox stores its account
+// credentials as a login under this origin; it must never be synced. This
+// mirrors the exclusion the JS `PasswordEngine` does via
+// `Utils.getSyncCredentialsHosts()`. Only relevant on Desktop (mobile never has
+// such a login), but it's harmless to filter everywhere.
+const FXA_CREDENTIALS_ORIGIN: &str = "chrome://FirefoxAccounts";
+
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
@@ -246,26 +253,31 @@ impl LoginsSyncEngine {
         let mut stmt = db.prepare_cached(&format!(
             "SELECT L.*, M.enc_unknown_fields
              FROM loginsL L LEFT JOIN loginsM M ON L.guid = M.guid
-             WHERE sync_status IS NOT {synced}",
+             WHERE sync_status IS NOT {synced}
+               -- Never sync Desktop's FxA session-credentials pseudo-login.
+               AND L.origin IS NOT :fxa_origin",
             synced = SyncStatus::Synced as u8
         ))?;
-        let bsos = stmt.query_and_then([], |row| {
-            self.scope.err_if_interrupted()?;
-            Ok(if row.get::<_, bool>("is_deleted")? {
-                let envelope = OutgoingEnvelope {
-                    id: row.get::<_, String>("guid")?.into(),
-                    sortindex: Some(TOMBSTONE_SORTINDEX),
-                    ..Default::default()
-                };
-                OutgoingBso::new_tombstone(envelope)
-            } else {
-                let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
-                let mut bso =
-                    EncryptedLogin::from_row(row)?.into_bso(self.encdec.as_ref(), unknown)?;
-                bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
-                bso
-            })
-        })?;
+        let bsos = stmt.query_and_then(
+            named_params! { ":fxa_origin": FXA_CREDENTIALS_ORIGIN },
+            |row| {
+                self.scope.err_if_interrupted()?;
+                Ok(if row.get::<_, bool>("is_deleted")? {
+                    let envelope = OutgoingEnvelope {
+                        id: row.get::<_, String>("guid")?.into(),
+                        sortindex: Some(TOMBSTONE_SORTINDEX),
+                        ..Default::default()
+                    };
+                    OutgoingBso::new_tombstone(envelope)
+                } else {
+                    let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
+                    let mut bso =
+                        EncryptedLogin::from_row(row)?.into_bso(self.encdec.as_ref(), unknown)?;
+                    bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
+                    bso
+                })
+            },
+        )?;
         bsos.collect::<Result<_>>()
     }
 
@@ -806,6 +818,44 @@ mod tests {
         assert!(changes["deleted"].get("deleted").is_some());
         assert!(changes["added"].get("deleted").is_none());
         assert!(changes["changed"].get("deleted").is_none());
+    }
+
+    #[test]
+    fn test_fetch_outgoing_excludes_fxa_credentials() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory();
+
+        // A normal local login that should be uploaded.
+        insert_login(&store.lock_db().unwrap(), "normal", Some("password"), None);
+
+        // Desktop's FxA session-credentials pseudo-login must never be synced.
+        store
+            .add(LoginEntry {
+                origin: FXA_CREDENTIALS_ORIGIN.to_string(),
+                http_realm: Some("Firefox Accounts credentials".to_string()),
+                username: "uid".to_string(),
+                password: "sync-token".to_string(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+
+        // The normal login still uploads; nothing pointing at the FxA origin
+        // is outgoing.
+        assert!(changes.contains_key("normal"));
+        assert!(changes
+            .values()
+            .all(|payload| payload["hostname"] != FXA_CREDENTIALS_ORIGIN));
     }
 
     #[test]
