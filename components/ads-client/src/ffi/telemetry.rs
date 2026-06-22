@@ -12,7 +12,7 @@ use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
 
-#[uniffi::export(with_foreign)]
+#[uniffi::export(callback_interface)]
 pub trait MozAdsTelemetry: Send + Sync {
     fn record_build_cache_error(&self, label: String, value: String);
     fn record_client_error(&self, label: String, value: String);
