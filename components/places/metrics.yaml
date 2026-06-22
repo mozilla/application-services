@@ -1,0 +1,114 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+
+places_manager:
+  connection_initialized:
+    type: counter
+    description: |
+      Number of times a `PlacesConnection` was initialized.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2034534
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/7336
+    notification_emails:
+      - jrediger@mozilla.com
+    expires: 2026-11-13
+    data_sensitivity:
+      - technical
+
+  run_maintenance_prune_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `prune_older_visits()` inside `run_maintenance()`
+
+      Duplication of `run_maintenance_prune_time` for glean-sym testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2034534
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+      - https://github.com/mozilla/application-services/pull/7336
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+      - jrediger@mozilla.com
+    expires: 2026-11-13
+    data_sensitivity:
+      - technical
+    no_lint: [COMMON_PREFIX]
+
+  run_maintenance_vacuum_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `VACUUM` inside `run_maintenance()`
+
+      Duplication of `run_maintenance_vacuum_time` for glean-sym testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2034534
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+      - https://github.com/mozilla/application-services/pull/7336
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+      - jrediger@mozilla.com
+    expires: 2026-11-13
+    data_sensitivity:
+      - technical
+
+  run_maintenance_optimize_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `PRAGMA optimize` inside `run_maintenance()`
+
+      Duplication of `run_maintenance_optimize_time` for glean-sym testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2034534
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+      - https://github.com/mozilla/application-services/pull/7336
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+      - jrediger@mozilla.com
+    expires: 2026-11-13
+    data_sensitivity:
+      - technical
+
+  run_maintenance_chk_pnt_time_temp:
+    type: timing_distribution
+    description: |
+      Time taken to execute `PRAGMA_CHECKPOINT` inside `run_maintenance()`
+
+      Duplication of `run_maintenance_chk_pnt_time_temp` for glean-sym testing.
+    time_unit: millisecond
+    bugs:
+      - https://github.com/mozilla/application-services/issues/5246
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2034534
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/5247
+      - https://github.com/mozilla/application-services/issues/5387
+      - https://github.com/mozilla/application-services/issues/5830
+      - https://github.com/mozilla/application-services/pull/7336
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+      - jrediger@mozilla.com
+    expires: 2026-11-13
+    data_sensitivity:
+      - technical

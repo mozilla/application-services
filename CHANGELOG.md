@@ -1,4 +1,4 @@
-# v153.0 (In progress)
+# v154.0 (In progress)
 
 [Full Changelog](In progress)
 
@@ -7,9 +7,51 @@
 ### Ads Client
 - Add support for IAB content categories and the `flags.contextual_placement` request flag on ad requests. Callers can attach an `iabContent` (taxonomy + category IDs) to each `MozAdsPlacementRequest`, and set `contextualPlacement: true` on `MozAdsRequestOptions` to opt the request into contextual placement on the server side (AC-109).
 
+### Glean
+- Updated to v68.0.0 ([#7438](https://github.com/mozilla/application-services/issues/7438))
+
+# v153.0 (_2026-06-15_)
+
+## ⚠️ Breaking Changes ⚠️
+
+## Nimbus
+
+- Enrollment change events (visible to the UDL) now include the feature IDs of the features involved when possible. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+- Removed NimbusInterface.getPreviousGeckoPrefsState since it is unimplemented and the underlying SDK method is only used by tests. ([#7412](https://github.com/mozilla/application-services/pull/7412/))
+- `setExperimentsLocally()` is no longer exposed by NimbusInterface. ([#7426](https://bugzilla.mozilla.org/show_bug.cgi?id=2048051))
+
+## 🔧 What's Fixed 🔧
+
+### Logins
+
+- `update()` no longer bumps `times_used` or `time_last_used`, this is done only via `touch()`. Verified that both Firefox Android and iOS already track password use via `touch()` and call `update()` only for explicit edits. ([bug 2045032](https://bugzilla.mozilla.org/show_bug.cgi?id=2045032))
+
+### Nimbus
+
+- Fixed a bug where enrollment change events were not emitted for rollouts that re-enrolled after previously unenrolling. ([#7391](https://github.com/mozilla/application-services/pull/7391/))
+- Attempting to opt-out from an experiment that is not currently enrolled is now a no-op. ([#7399](https://github.com/mozilla/application-services/pull/7399))
+- All enrollment updates (opt-in, opt-out, reseting telemetry identifiers, unenrolling for pref conflicts) now trigger feature invalidation in Android clients. ([#7405](https://github.com/mozilla/application-services/pull/7405))
+- Changing experiment and/or rollout participation no longer triggers a double update. Enrollment change telemetry is now appropriately triggered when this occurs. ([#7401](https://github.com/mozilla/application-services/pull/7401))
+- Experiments will be marked as inactive in Glean when unenrolling. ([#7427](https://github.com/mozilla/application-services/pull/7427))
+
+## ✨ What's New ✨
+
+### Nimbus
+
+- There are new separate DisqualifiedReason and NotEnrolledReason for global (experiment and rollout) opt-outs. ([#7400](https://github.com/mozilla/application-services/pull/7400))
+- The Kotlin client now has per-feature update notifications. ([#7354](https://github.com/mozilla/application-services/pull/7354))
+- The Nimbus client now understands Firefox Labs opt-ins and will not automatically enroll in them. ([#7403](https://github.com/mozilla/application-services/pull/7403))
+- Firefox Labs support for Android. ([#7413](https://github.com/mozilla/application-services/pull/7413))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v152.0...v153.0)
+
 # v152.0 (_2026-05-18_)
 
 ## ⚠️ Breaking Changes ⚠️
+
+### Logins
+
+- **BREAKING**: Removed deprecated checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()`. They are not in use by desktop and mobile.
 
 ### Remote-Settings
  * Removed legacy remote-settings client
@@ -30,6 +72,10 @@
 ### Remote Settings
 * Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
 * Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
+
+## ✨ What's Changed ✨
+
+- Viaduct has a default timeout of 60 seconds on all platforms (was previously 10 seconds on Android, 7 seconds on iOS)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v151.0...v152.0)
 

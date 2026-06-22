@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashMap};
 
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -11,17 +11,21 @@ use uuid::Uuid;
 use crate::defaults::Defaults;
 use crate::enrollment::ExperimentMetadata;
 use crate::error::{trace, warn};
+#[cfg(feature = "stateful")]
+use crate::stateful::firefox_labs::{FIREFOX_LABS_FEEDBACK_URL_KEY, FirefoxLabsMetadata};
 use crate::{NimbusError, Result};
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct EnrolledExperiment {
     pub feature_ids: Vec<String>,
     pub slug: String,
     pub user_facing_name: String,
     pub user_facing_description: String,
     pub branch_slug: String,
+    pub is_rollout: bool,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -54,6 +58,20 @@ pub struct Experiment {
     pub published_date: Option<chrono::DateTime<chrono::Utc>>,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
+    #[serde(default)]
+    pub is_firefox_labs_opt_in: bool,
+
+    #[serde(default)]
+    pub firefox_labs_title: Option<String>,
+
+    #[serde(default)]
+    pub firefox_labs_description: Option<String>,
+
+    #[serde(default)]
+    pub firefox_labs_description_links: Option<HashMap<String, String>>,
+
+    #[serde(default)]
+    pub requires_restart: bool,
 }
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
@@ -75,11 +93,13 @@ impl Experiment {
             .flat_map(|b| {
                 b.get_feature_configs()
                     .iter()
-                    .map(|f| f.to_owned().feature_id)
+                    .map(|f| f.feature_id.clone())
                     .collect::<Vec<_>>()
             })
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
+        // Using a BTreeSet generates the feature IDs in a sorted order, which helps
+        // make testing easier.
         feature_ids.into_iter().collect()
     }
 
@@ -94,6 +114,44 @@ impl Experiment {
             experiment = serde_json::to_value(e).unwrap();
         }
         serde_json::from_value(experiment).unwrap()
+    }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn get_firefox_labs_metadata(&self, enrolled: bool) -> Option<FirefoxLabsMetadata> {
+        // We do not enforce at a schema level that is_firefox_labs_opt_in
+        // implies is_rollout, but only rollouts are supported so we must
+        // enforce it here.
+        if self.is_firefox_labs_opt_in
+            && self.is_rollout
+            && self.branches.len() == 1
+            && let Some(title) = self.firefox_labs_title.as_deref()
+            && let Some(description) = self.firefox_labs_description.as_deref()
+        {
+            let feedback_url = self
+                .firefox_labs_description_links
+                .as_ref()
+                .and_then(|links| links.get(FIREFOX_LABS_FEEDBACK_URL_KEY).cloned());
+
+            Some(FirefoxLabsMetadata {
+                slug: self.slug.clone(),
+                title_string_id: title.into(),
+                description_string_id: description.into(),
+                feedback_url,
+                enrolled,
+                requires_restart: self.requires_restart,
+            })
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn is_valid_firefox_lab(&self) -> bool {
+        self.is_firefox_labs_opt_in
+            && self.is_rollout
+            && self.branches.len() == 1
+            && self.firefox_labs_title.is_some()
+            && self.firefox_labs_description.is_some()
     }
 }
 

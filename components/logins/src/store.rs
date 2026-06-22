@@ -5,7 +5,6 @@ use crate::db::{LoginDb, LoginsDeletionMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
-use crate::schema;
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use sql_support::run_maintenance;
@@ -319,17 +318,6 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn set_checkpoint(&self, checkpoint: &str) -> ApiResult<()> {
-        self.lock_db()?
-            .put_meta(schema::CHECKPOINT_KEY, &checkpoint)
-    }
-
-    #[handle_error(Error)]
-    pub fn get_checkpoint(&self) -> ApiResult<Option<String>> {
-        self.lock_db()?.get_meta(schema::CHECKPOINT_KEY)
-    }
-
-    #[handle_error(Error)]
     pub fn run_maintenance(&self, options: Option<RunMaintenanceOptions>) -> ApiResult<()> {
         let conn = self.lock_db()?;
         let options = options.unwrap_or_default();
@@ -511,18 +499,9 @@ mod tests {
         assert!(b_after_update.time_created >= start_us);
         assert!(b_after_update.time_created <= now_us);
         assert!(b_after_update.time_password_changed >= now_us);
-        assert!(b_after_update.time_last_used >= now_us);
-        // Should be two even though we updated twice
-        assert_eq!(b_after_update.times_used, 2);
-    }
-
-    #[test]
-    fn test_checkpoint() {
-        ensure_initialized();
-        let store = LoginStore::new_in_memory();
-        let checkpoint = "a-checkpoint";
-        store.set_checkpoint(checkpoint).ok();
-        assert_eq!(store.get_checkpoint().unwrap().unwrap(), checkpoint);
+        // An edit is not a use: usage stats are unchanged by update().
+        assert_eq!(b_after_update.time_last_used, b_from_db.time_last_used);
+        assert_eq!(b_after_update.times_used, 1);
     }
 
     #[test]

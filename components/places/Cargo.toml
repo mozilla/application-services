@@ -7,7 +7,9 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
-default = []
+default = ["glean-sym"]
+# Enable metric recording through glean-sym (Android only)
+glean-sym = ["dep:glean-sym"]
 
 [dependencies]
 sync15 = { path = "../sync15" }
@@ -32,6 +34,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 thiserror = "2"
 anyhow = "1.0"
 uniffi = { version = "0.31" }
+glean-sym = { git = "https://github.com/mozilla/glean", rev = "a16cb6034dc2c37ba62eae85f6304c637e53b2ae", optional = true }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
@@ -40,3 +43,4 @@ sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 uniffi = { version = "0.31", features=["build"]}
+glean-build = { git = "https://github.com/mozilla/glean", rev = "3b00f26c4814a47044c6736563ee7589dfa3b399" }

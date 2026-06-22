@@ -6,6 +6,7 @@ package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.mozilla.experiments.nimbus.internal.FeatureUpdateDispatcher
 
 /**
  * Small interface to get the feature variables out of the Nimbus SDK.
@@ -78,4 +79,9 @@ interface FeaturesInterface {
      *  card).
      */
     fun recordMalformedConfiguration(featureId: String, partId: String) = Unit
+
+    /**
+     * Return the feature update dispatcher.
+     */
+    fun getFeatureUpdateDispatcher(): FeatureUpdateDispatcher? = null
 }

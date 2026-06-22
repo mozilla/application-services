@@ -37,10 +37,8 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
     }
 
     args.experiments?.let { experiments ->
-        setExperimentsLocally(experiments)
-        val job = applyPendingExperiments()
         runBlocking {
-            job.join()
+            applyLocalExperiments(experiments).join()
         }
         setFetchEnabled(false)
     }

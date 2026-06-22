@@ -1795,6 +1795,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
+name = "glean-build"
+version = "20.0.0"
+source = "git+https://github.com/mozilla/glean?rev=3b00f26c4814a47044c6736563ee7589dfa3b399#3b00f26c4814a47044c6736563ee7589dfa3b399"
+dependencies = [
+ "xshell-venv",
+]
+
+[[package]]
+name = "glean-sym"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/glean?rev=a16cb6034dc2c37ba62eae85f6304c637e53b2ae#a16cb6034dc2c37ba62eae85f6304c637e53b2ae"
+dependencies = [
+ "libloading",
+ "once_cell",
+ "serde",
+ "uniffi",
+]
+
+[[package]]
 name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3114,9 +3133,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.2"
+version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "oneshot"
@@ -3310,6 +3329,8 @@ dependencies = [
  "bitflags 1.3.2",
  "dogear",
  "error-support",
+ "glean-build",
+ "glean-sym",
  "icu_casemap",
  "idna",
  "interrupt-support",
@@ -5825,6 +5846,30 @@ name = "xml-rs"
 version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a56c84a8ccd4258aed21c92f70c0f6dea75356b6892ae27c24139da456f9336"
+
+[[package]]
+name = "xshell"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e7290c623014758632efe00737145b6867b66292c42167f2ec381eb566a373d"
+dependencies = [
+ "xshell-macros",
+]
+
+[[package]]
+name = "xshell-macros"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
+
+[[package]]
+name = "xshell-venv"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce3f9ddca75ddede32d5cc5a154fa237f4209ad71e6e2fc3db3ed18667d606b"
+dependencies = [
+ "xshell",
+]
 
 [[package]]
 name = "xz2"

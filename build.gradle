@@ -170,9 +170,10 @@ if (useDownloadedLibs) {
     }
 
     subprojects { project ->
-        afterEvaluate {
-            android.libraryVariants.all { v ->
-                v.preBuildProvider.configure {
+        project.pluginManager.withPlugin("com.android.library") {
+            def androidComponents = project.extensions.getByName("androidComponents")
+            androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+                project.tasks.named("pre${variant.name.capitalize()}Build").configure {
                     dependsOn(rootProject.untarAndroidLibs)
                     dependsOn(rootProject.untarDesktopLibs)
                 }

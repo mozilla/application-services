@@ -33,9 +33,14 @@ use crate::stateful::behavior::EventStore;
 use crate::stateful::client::{NimbusServerSettings, SettingsClient, create_client};
 use crate::stateful::dbcache::DatabaseCache;
 use crate::stateful::enrollment::{
-    get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
-    reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
-    unenroll_for_pref,
+    enroll_in_firefox_lab, get_experiment_participation, get_rollout_participation,
+    opt_in_with_branch, opt_out, reset_telemetry_identifiers, set_experiment_participation,
+    set_rollout_participation, unenroll_for_pref, unenroll_from_all_firefox_labs,
+    unenroll_from_firefox_lab,
+};
+use crate::stateful::firefox_labs::{
+    FirefoxLabsEnrollResult, FirefoxLabsEnrollStatus, FirefoxLabsMetadata,
+    FirefoxLabsUnenrollResult, FirefoxLabsUnenrollStatus,
 };
 use crate::stateful::gecko_prefs::{
     GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
@@ -43,11 +48,9 @@ use crate::stateful::gecko_prefs::{
 };
 use crate::stateful::matcher::AppContext;
 use crate::stateful::persistence::{Database, StoreId, Writer};
-use crate::stateful::targeting::{RecordedContext, validate_event_queries};
+use crate::stateful::targeting::{RecordedContext, execute_event_queries, validate_event_queries};
 use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use crate::strings::fmt_with_map;
-#[cfg(test)]
-use crate::tests::helpers::{TestGeckoPrefHandler, TestRecordedContext};
 use crate::{
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
 };
@@ -108,7 +111,7 @@ impl NimbusClient {
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
         metrics_handler: Arc<dyn MetricsHandler>,
-        gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
+        gecko_pref_handler: Option<Arc<dyn GeckoPrefHandler>>,
         remote_settings_info: Option<NimbusServerSettings>,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(remote_settings_info)?);
@@ -123,7 +126,7 @@ impl NimbusClient {
 
         let mut prefs = None;
         if let Some(handler) = gecko_pref_handler {
-            prefs = Some(Arc::new(GeckoPrefStore::new(Arc::new(handler))));
+            prefs = Some(Arc::new(GeckoPrefStore::new(handler)));
         }
 
         info!(
@@ -195,7 +198,7 @@ impl NimbusClient {
                 Ok(v) => v,
                 Err(e) => return Err(NimbusError::JSONError("targeting_helper = nimbus::stateful::nimbus_client::NimbusClient::begin_initialize::serde_json::to_value".into(), e.to_string()))
             });
-            recorded_context.execute_queries(targeting_helper.as_ref())?;
+            execute_event_queries(&**recorded_context, targeting_helper.as_ref())?;
             state
                 .targeting_attributes
                 .set_recorded_context(recorded_context.to_json());
@@ -908,42 +911,6 @@ impl NimbusClient {
             }))
     }
 
-    #[cfg(test)]
-    pub fn get_recorded_context(&self) -> &&TestRecordedContext {
-        self.recorded_context
-            .clone()
-            .map(|ref recorded_context|
-                // SAFETY: The cast to TestRecordedContext is safe because the Rust instance is
-                // guaranteed to be a TestRecordedContext instance. TestRecordedContext is the only
-                // Rust-implemented version of RecordedContext, and, like this method,  is only
-                // used in tests.
-                unsafe {
-                    std::mem::transmute::<&&dyn RecordedContext, &&TestRecordedContext>(
-                        &&**recorded_context,
-                    )
-                })
-            .expect("failed to unwrap RecordedContext object")
-    }
-
-    #[cfg(test)]
-    pub fn get_gecko_pref_store(&self) -> Arc<Box<TestGeckoPrefHandler>> {
-        self.gecko_prefs.clone()
-            .clone()
-            .map(|ref pref_store|
-                // SAFETY: The cast to TestGeckoPrefHandler is safe because the Rust instance is
-                // guaranteed to be a TestGeckoPrefHandler instance. TestGeckoPrefHandler is the only
-                // Rust-implemented version of GeckoPrefHandler, and, like this method,  is only
-                // used in tests.
-                unsafe {
-                    std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
-                        pref_store.clone().handler.clone(),
-                    )
-                })
-            .expect("failed to unwrap GeckoPrefHandler object")
-    }
-}
-
-impl NimbusClient {
     pub fn set_install_time(&mut self, then: DateTime<Utc>) {
         let mut state = self.mutable_state.lock().unwrap();
         state.install_date = Some(then);
@@ -955,9 +922,7 @@ impl NimbusClient {
         state.update_date = Some(then);
         state.update_time_to_now(Utc::now());
     }
-}
 
-impl NimbusClient {
     /// This is only called from `get_feature_config_variables` which is itself is cached with
     /// thread safety in the FeatureHolder.kt and FeatureHolder.swift
     fn record_feature_activation_if_needed(&self, feature_id: &str) {
@@ -1035,6 +1000,53 @@ impl NimbusClient {
         );
         self.metrics_handler.submit_targeting_context();
         Ok(())
+    }
+
+    pub fn get_available_firefox_labs(&self) -> Result<Vec<FirefoxLabsMetadata>> {
+        let targeting_attributes = self.get_targeting_attributes();
+        let targeting_helper = NimbusTargetingHelper::with_targeting_attributes(
+            &targeting_attributes,
+            self.event_store.clone(),
+            self.gecko_prefs.clone(),
+        );
+        self.database_cache
+            .get_available_firefox_labs_metadata(&targeting_helper, &self.coenrolling_feature_ids)
+    }
+
+    pub fn enroll_in_firefox_lab(&self, slug: &str) -> Result<FirefoxLabsEnrollResult> {
+        let feature_conflict = self
+            .database_cache
+            .check_for_feature_conflict(slug, &self.coenrolling_feature_ids)?;
+
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let result = enroll_in_firefox_lab(db, &mut writer, slug, feature_conflict);
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
+        result
+    }
+
+    pub fn unenroll_from_firefox_lab(&self, slug: &str) -> Result<FirefoxLabsUnenrollResult> {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let result = unenroll_from_firefox_lab(db, &mut writer, slug, self.gecko_prefs.as_deref());
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
+        result
+    }
+
+    pub fn unenroll_from_all_firefox_labs(&self) -> Result<Vec<EnrollmentChangeEvent>> {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let result = unenroll_from_all_firefox_labs(db, &mut writer, self.gecko_prefs.as_deref());
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
+        result
+    }
+
+    #[cfg(test)]
+    pub fn get_experiment_enrollment(&self, slug: &str) -> Result<Option<ExperimentEnrollment>> {
+        self.database_cache.get_experiment_enrollment(slug)
     }
 }
 

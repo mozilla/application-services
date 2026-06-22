@@ -38,6 +38,7 @@ the details of which are reproduced below.
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle2](#mit-license-weedle2)
 * [MIT License: winreg](#mit-license-winreg)
+* [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: libloading](#isc-license-libloading)
 * [ISC License: ring](#isc-license-ring)
@@ -54,9 +55,11 @@ the details of which are reproduced below.
 ## Mozilla Public License 2.0
 
 The following text applies to code linked from these dependencies:
-[NSPR](https://hg.mozilla.org/projects/nspr),
+[NSPR](https://github.com/mozilla/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
+[glean-build](https://github.com/mozilla/glean),
+[glean-sym](https://github.com/mozilla/glean),
 [hawk](https://github.com/taskcluster/rust-hawk),
 [jexl-eval](https://github.com/mozilla/jexl-rs),
 [jexl-parser](https://github.com/mozilla/jexl-rs),
@@ -600,7 +603,9 @@ The following text applies to code linked from these dependencies:
 [windows-sys](https://github.com/microsoft/windows-rs),
 [windows-targets](https://github.com/microsoft/windows-rs),
 [windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
-[windows_x86_64_msvc](https://github.com/microsoft/windows-rs)
+[windows_x86_64_msvc](https://github.com/microsoft/windows-rs),
+[xshell-macros](https://github.com/matklad/xshell),
+[xshell](https://github.com/matklad/xshell)
 
 ```
                                  Apache License
@@ -1765,6 +1770,36 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+```
+-------------
+## MIT License: xshell-venv
+
+The following text applies to code linked from these dependencies:
+[xshell-venv](https://github.com/badboy/xshell-venv)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2022 Jan-Erik Rediger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------

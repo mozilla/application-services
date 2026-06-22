@@ -10,7 +10,9 @@ use crate::enrollment::ExperimentEnrollment;
 use crate::enrollment::PreviousGeckoPrefState;
 pub use crate::metrics::detail::*;
 
+use crate::enrollment::NotEnrolledReason;
 #[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug, Default, Eq, PartialEq))]
 pub struct EnrollmentStatusExtraDef {
     pub branch: Option<String>,
     pub conflict_slug: Option<String>,
@@ -30,6 +32,7 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
         let mut branch_value: Option<String> = None;
         let mut reason_value: Option<String> = None;
         let mut error_value: Option<String> = None;
+        let mut conflict_slug_value: Option<String> = None;
         match &enrollment.status {
             EnrollmentStatus::Enrolled { reason, branch, .. } => {
                 branch_value = Some(branch.to_owned());
@@ -41,6 +44,9 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             }
             EnrollmentStatus::NotEnrolled { reason } => {
                 reason_value = Some(reason.to_string());
+                if let NotEnrolledReason::FeatureConflict { conflict_slug } = reason {
+                    conflict_slug_value = conflict_slug.clone();
+                }
             }
             EnrollmentStatus::WasEnrolled { branch, .. } => branch_value = Some(branch.to_owned()),
             EnrollmentStatus::Error { reason } => {
@@ -49,7 +55,7 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
         }
         EnrollmentStatusExtraDef {
             branch: branch_value,
-            conflict_slug: None,
+            conflict_slug: conflict_slug_value,
             error_string: error_value,
             reason: reason_value,
             slug: Some(enrollment.slug),

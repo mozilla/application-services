@@ -82,6 +82,12 @@ fn test_db_upgrade_unknown_version() -> Result<()> {
                 to_version: 3,
                 error: None,
             },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
+            },
         ]
     );
 
@@ -149,6 +155,12 @@ fn test_corrupt_db() -> Result<()> {
                     reason: DatabaseMigrationReason::Upgrade.to_string(),
                     from_version: 2,
                     to_version: 3,
+                    error: None,
+                },
+                DatabaseMigrationExtraDef {
+                    reason: DatabaseMigrationReason::Upgrade.to_string(),
+                    from_version: 3,
+                    to_version: 4,
                     error: None,
                 }
             ]
@@ -248,6 +260,12 @@ fn test_corrupt_db_get_calculated_attributes() -> Result<()> {
                     from_version: 2,
                     to_version: 3,
                     error: None,
+                },
+                DatabaseMigrationExtraDef {
+                    reason: DatabaseMigrationReason::Upgrade.to_string(),
+                    from_version: 3,
+                    to_version: 4,
+                    error: None,
                 }
             ]
         );
@@ -289,7 +307,7 @@ fn test_corrupt_db_get_calculated_attributes() -> Result<()> {
 }
 
 #[test]
-fn test_migrate_db_v2_to_v3_user_opted_out() -> Result<()> {
+fn test_migrate_db_from_v2_user_opted_out() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
 
@@ -300,8 +318,8 @@ fn test_migrate_db_v2_to_v3_user_opted_out() -> Result<()> {
     let metrics = TestMetrics::new();
     let db = Database::new(&tmp_dir, metrics.clone())?;
 
-    // Check the database was upgraded to v3
-    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(3u16));
+    // Check the database was upgraded to the latest version
+    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
 
     // Check that separate flags were set correctly for opted-out user
     let reader = db.read()?;
@@ -324,26 +342,34 @@ fn test_migrate_db_v2_to_v3_user_opted_out() -> Result<()> {
             corrupt: Some(false),
             error: None,
             initial_version: Some(2),
-            migrated_version: Some(3),
+            migrated_version: Some(DB_VERSION),
             migration_error: None,
         }],
     );
 
     assert_eq!(
         metrics.get_database_migration_events(),
-        [DatabaseMigrationExtraDef {
-            reason: DatabaseMigrationReason::Upgrade.to_string(),
-            from_version: 2,
-            to_version: 3,
-            error: None,
-        }],
+        [
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 2,
+                to_version: 3,
+                error: None,
+            },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
+            }
+        ],
     );
 
     Ok(())
 }
 
 #[test]
-fn test_migrate_db_v2_to_v3_user_opted_in() -> Result<()> {
+fn test_migrate_db_from_v2_user_opted_in() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
 
@@ -353,8 +379,8 @@ fn test_migrate_db_v2_to_v3_user_opted_in() -> Result<()> {
     let metrics = TestMetrics::new();
     let db = Database::new(&tmp_dir, metrics.clone())?;
 
-    // Check the database was upgraded to v3
-    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(3u16));
+    // Check the database was upgraded to the latest version
+    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
 
     // Check that separate flags were set correctly for opted-in user
     let reader = db.read()?;
@@ -377,19 +403,27 @@ fn test_migrate_db_v2_to_v3_user_opted_in() -> Result<()> {
             corrupt: Some(false),
             error: None,
             initial_version: Some(2),
-            migrated_version: Some(3),
+            migrated_version: Some(4),
             migration_error: None,
         }],
     );
 
     assert_eq!(
         metrics.get_database_migration_events(),
-        [DatabaseMigrationExtraDef {
-            reason: DatabaseMigrationReason::Upgrade.to_string(),
-            from_version: 2,
-            to_version: 3,
-            error: None,
-        }],
+        [
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 2,
+                to_version: 3,
+                error: None,
+            },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
+            }
+        ],
     );
 
     Ok(())
@@ -405,7 +439,10 @@ fn test_migrate_empty() -> Result<()> {
     let db = Database::new(&tmp_dir, metrics.clone())?;
     let meta = db.get_store(StoreId::Meta);
     let reader = db.read()?;
-    assert_eq!(meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?, Some(3));
+    assert_eq!(
+        meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?,
+        Some(DB_VERSION)
+    );
     assert_eq!(
         meta.get::<bool, _>(&reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
         None
@@ -425,7 +462,7 @@ fn test_migrate_empty() -> Result<()> {
             corrupt: Some(false),
             error: None,
             initial_version: Some(0),
-            migrated_version: Some(3),
+            migrated_version: Some(DB_VERSION),
             migration_error: None,
         }],
     );
@@ -445,6 +482,12 @@ fn test_migrate_empty() -> Result<()> {
                 to_version: 3,
                 error: None,
             },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
+            },
         ],
     );
 
@@ -452,7 +495,7 @@ fn test_migrate_empty() -> Result<()> {
 }
 
 #[test]
-fn test_migrate_db_v1_to_v3_cumulative_participation_enabled() -> Result<()> {
+fn test_migrate_db_from_v1_cumulative_participation_enabled() -> Result<()> {
     error_support::init_for_tests();
 
     let tmp_dir = tempfile::tempdir()?;
@@ -472,7 +515,10 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_enabled() -> Result<()> {
     let db = Database::new(&tmp_dir, metrics.clone())?;
     let meta = db.get_store(StoreId::Meta);
     let reader = db.read()?;
-    assert_eq!(meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?, Some(3));
+    assert_eq!(
+        meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?,
+        Some(DB_VERSION)
+    );
     assert_eq!(
         meta.get::<bool, _>(&reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
         None
@@ -492,7 +538,7 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_enabled() -> Result<()> {
             corrupt: Some(false),
             error: None,
             initial_version: Some(1),
-            migrated_version: Some(3),
+            migrated_version: Some(DB_VERSION),
             migration_error: None,
         }],
     );
@@ -511,6 +557,12 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_enabled() -> Result<()> {
                 from_version: 2,
                 to_version: 3,
                 error: None,
+            },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
             }
         ],
     );
@@ -519,7 +571,7 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_enabled() -> Result<()> {
 }
 
 #[test]
-fn test_migrate_db_v1_to_v3_cumulative_participation_disabled() -> Result<()> {
+fn test_migrate_db_from_v1_cumulative_participation_disabled() -> Result<()> {
     error_support::init_for_tests();
 
     let tmp_dir = tempfile::tempdir()?;
@@ -539,7 +591,10 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_disabled() -> Result<()> {
     let db = Database::new(&tmp_dir, metrics.clone())?;
     let meta = db.get_store(StoreId::Meta);
     let reader = db.read()?;
-    assert_eq!(meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?, Some(3));
+    assert_eq!(
+        meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?,
+        Some(DB_VERSION)
+    );
     assert_eq!(
         meta.get::<bool, _>(&reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
         None
@@ -559,7 +614,7 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_disabled() -> Result<()> {
             corrupt: Some(false),
             error: None,
             initial_version: Some(1),
-            migrated_version: Some(3),
+            migrated_version: Some(DB_VERSION),
             migration_error: None,
         }],
     );
@@ -578,6 +633,12 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_disabled() -> Result<()> {
                 from_version: 2,
                 to_version: 3,
                 error: None,
+            },
+            DatabaseMigrationExtraDef {
+                reason: DatabaseMigrationReason::Upgrade.to_string(),
+                from_version: 3,
+                to_version: 4,
+                error: None,
             }
         ],
     );
@@ -586,7 +647,7 @@ fn test_migrate_db_v1_to_v3_cumulative_participation_disabled() -> Result<()> {
 }
 
 #[test]
-fn test_migrate_db_v3_idempotent() -> Result<()> {
+fn test_migrate_db_idempotent() -> Result<()> {
     error_support::init_for_tests();
 
     let tmp_dir = tempfile::tempdir()?;
@@ -596,7 +657,7 @@ fn test_migrate_db_v3_idempotent() -> Result<()> {
         let meta = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
 
         let mut writer = rkv.write()?;
-        meta.put(&mut writer, DB_KEY_DB_VERSION, &3)?;
+        meta.put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         meta.put(&mut writer, DB_KEY_EXPERIMENT_PARTICIPATION, &false)?;
         meta.put(&mut writer, DB_KEY_ROLLOUT_PARTICIPATION, &true)?;
         writer.commit()?;
@@ -607,7 +668,10 @@ fn test_migrate_db_v3_idempotent() -> Result<()> {
     let db = Database::new(&tmp_dir, metrics.clone())?;
     let meta = db.get_store(StoreId::Meta);
     let reader = db.read()?;
-    assert_eq!(meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?, Some(3));
+    assert_eq!(
+        meta.get::<u16, _>(&reader, DB_KEY_DB_VERSION)?,
+        Some(DB_VERSION)
+    );
     assert_eq!(
         meta.get::<bool, _>(&reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
         None
@@ -626,7 +690,7 @@ fn test_migrate_db_v3_idempotent() -> Result<()> {
         [DatabaseLoadExtraDef {
             corrupt: Some(false),
             error: None,
-            initial_version: Some(3),
+            initial_version: Some(DB_VERSION),
             migrated_version: None,
             migration_error: None,
         }],

@@ -12,14 +12,19 @@ use tempfile::TempDir;
 use uuid::Uuid;
 
 use crate::enrollment::{
-    DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
-    PreviousGeckoPrefState,
+    DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState,
 };
 use crate::error::{Result, info};
 use crate::json::PrefValue;
-use crate::metrics::MalformedFeatureConfigExtraDef;
+use crate::metrics::{EnrollmentStatusExtraDef, MalformedFeatureConfigExtraDef};
+use crate::schema::{Branch, FeatureConfig};
 use crate::stateful::behavior::{
     EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use crate::stateful::firefox_labs::{
+    FirefoxLabsEnrollResult, FirefoxLabsEnrollStatus, FirefoxLabsMetadata,
+    FirefoxLabsUnenrollResult, FirefoxLabsUnenrollStatus,
 };
 use crate::stateful::gecko_prefs::{
     GeckoPrefState, OriginalGeckoPref, PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
@@ -29,8 +34,10 @@ use crate::stateful::persistence::{Database, StoreId};
 use crate::stateful::targeting::RecordedContext;
 use crate::tests::helpers::{
     TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
+    get_bucketed_rollout_with_feature, get_firefox_lab, get_firefox_lab_with_feature,
     get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
-    get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
+    get_single_feature_rollout, get_targeted_experiment, get_targeted_experiment_with_feature,
+    sorted_enrollment_change_events, to_local_experiments_string,
 };
 use crate::{
     AppContext, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE, Experiment, NimbusClient,
@@ -82,6 +89,16 @@ fn test_telemetry_reset() -> Result<()> {
         &mock_exp_slug,
         &Experiment {
             slug: mock_exp_slug.clone(),
+            branches: vec![Branch {
+                slug: "control".into(),
+                ratio: 1,
+                features: Some(vec![FeatureConfig {
+                    feature_id: "foo".into(),
+                    value: serde_json::Map::new(),
+                }]),
+                feature: None,
+            }],
+            feature_ids: vec!["foo".into()],
             ..Experiment::default()
         },
     )?;
@@ -106,6 +123,16 @@ fn test_telemetry_reset() -> Result<()> {
     assert_eq!(get_aru_nimbus_id().unwrap(), orig_nimbus_id.to_string());
 
     let events = client.reset_telemetry_identifiers()?;
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "exp-1".into(),
+            branch_slug: "branch-1".into(),
+            reason: Some("optout".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["foo".into()],
+        },]
+    );
 
     // We should have reset our nimbus_id.
     let new_nimbus_id = client.nimbus_id()?;
@@ -118,9 +145,6 @@ fn test_telemetry_reset() -> Result<()> {
 
     // We should have been disqualified from the enrolled experiment.
     assert_eq!(client.get_experiment_branch(mock_exp_slug)?, None);
-
-    // We should have returned a single event.
-    assert_eq!(events.len(), 1);
 
     Ok(())
 }
@@ -899,7 +923,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     Ok(())
 }
 
-#[cfg(feature = "stateful")]
 #[test]
 fn test_ios_rollout() -> Result<()> {
     let ctx = AppContext {
@@ -1063,11 +1086,11 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     client.initialize()?;
 
     // Apply an initial experiment
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
-    let exp_3 = get_targeted_experiment(slug_3, "true");
-    let exp_4 = get_targeted_experiment(slug_4, "true");
-    let ro_1 = get_bucketed_rollout(slug_5, 10_000);
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
+    let exp_3 = get_targeted_experiment_with_feature(slug_3, "true", "feature-3");
+    let exp_4 = get_targeted_experiment_with_feature(slug_4, "true", "feature-4");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_5, 10_000, "feature-5");
     client.set_experiments_locally(to_local_experiments_string(&[
         exp_1,
         exp_2,
@@ -1093,10 +1116,10 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     assert!(targeting_helper.eval_jexl(format!("'{}' in enrollments", slug_5))?);
 
     // Apply empty first experiment, disqualifying second experiment, and decreased bucket rollout
-    let exp_2 = get_targeted_experiment(slug_2, "false");
-    let exp_3 = get_targeted_experiment(slug_3, "error_out");
-    let exp_4 = get_targeted_experiment(slug_4, "true");
-    let ro_1 = get_bucketed_rollout(slug_5, 0);
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "false", "feature-2");
+    let exp_3 = get_targeted_experiment_with_feature(slug_3, "error_out", "feature-3");
+    let exp_4 = get_targeted_experiment_with_feature(slug_4, "true", "feature-6");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_5, 0, "feature-5");
     let experiment_json = serde_json::to_string(
         &json!({"data": [exp_2, exp_3, exp_4, serde_json::to_value(ro_1)?]}),
     )?;
@@ -1111,6 +1134,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         .get_store(StoreId::Enrollments)
         .collect_all(&db.write()?)?;
     assert_eq!(enrollments.len(), 5);
+    println!("{:#?}", enrollments);
     assert!(matches!(
         enrollments.first().unwrap(),
         ExperimentEnrollment {
@@ -1204,8 +1228,8 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
     client.with_targeting_attributes(targeting_attributes);
     client.initialize()?;
 
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
     client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2])?)?;
     client.apply_pending_experiments()?;
 
@@ -1233,9 +1257,9 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let slug_1 = "experiment-1";
     let slug_2 = "experiment-2";
     let slug_3 = "rollout-1";
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, "true");
-    let ro_1 = get_bucketed_rollout(slug_3, 10_000);
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(slug_2, "true", "feature-2");
+    let ro_1 = get_bucketed_rollout_with_feature(slug_3, 10_000, "feature-1");
 
     let metrics = TestMetrics::new();
     let client = with_metrics(metrics.clone(), "coenrolling-feature")?;
@@ -1620,12 +1644,21 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     let slug_4 = "test-4";
 
     // Apply an initial experiment
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    let exp_2 = get_targeted_experiment(slug_2, &format!("'{}' in active_experiments", slug_1));
-    let exp_3 = get_targeted_experiment(slug_3, &format!("'{}' in enrollments", slug_1));
-    let exp_4 = get_targeted_experiment(
+    let exp_1 = get_targeted_experiment_with_feature(slug_1, "true", "feature-1");
+    let exp_2 = get_targeted_experiment_with_feature(
+        slug_2,
+        &format!("'{}' in active_experiments", slug_1),
+        "feature-2",
+    );
+    let exp_3 = get_targeted_experiment_with_feature(
+        slug_3,
+        &format!("'{}' in enrollments", slug_1),
+        "feature-3",
+    );
+    let exp_4 = get_targeted_experiment_with_feature(
         slug_4,
         &format!("enrollments_map['{}'] == 'treatment'", slug_1),
+        "feature-4",
     );
     client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2, exp_3, exp_4])?)?;
     client.apply_pending_experiments()?;
@@ -1636,7 +1669,6 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "stateful")]
 #[test]
 fn test_recorded_context_recorded() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -1648,7 +1680,7 @@ fn test_recorded_context_recorded() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
+    let recorded_context = TestRecordedContext::new();
     recorded_context.set_context(json!({
         "app_version": "125.0.0",
         "other": "stuff",
@@ -1656,7 +1688,7 @@ fn test_recorded_context_recorded() -> Result<()> {
     let metrics = TestMetrics::new();
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(recorded_context.clone()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
@@ -1675,7 +1707,7 @@ fn test_recorded_context_recorded() -> Result<()> {
 
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(recorded_context.get_record_calls(), 1u64);
     assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
 
     Ok(())
@@ -1692,7 +1724,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
+    let recorded_context = TestRecordedContext::new();
     recorded_context.set_context(json!({
         "app_version": "125.0.0",
         "other": "stuff",
@@ -1703,7 +1735,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(recorded_context.clone()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
@@ -1722,16 +1754,13 @@ fn test_recorded_context_event_queries() -> Result<()> {
 
     info!(
         "{}",
-        serde_json::to_string(&client.get_recorded_context().get_event_queries())?
+        serde_json::to_string(&recorded_context.get_event_queries())?
     );
 
     let active_experiments = client.get_active_experiments()?;
-    assert_eq!(
-        client.get_recorded_context().get_event_query_values()["TEST_QUERY"],
-        0.0
-    );
+    assert_eq!(recorded_context.get_event_query_values()["TEST_QUERY"], 0.0);
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(recorded_context.get_record_calls(), 1u64);
 
     Ok(())
 }
@@ -1747,7 +1776,6 @@ fn test_gecko_pref_enrollment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state = GeckoPrefState::new("test.pref", None)
         .with_gecko_value(PrefValue::Null)
@@ -1760,11 +1788,11 @@ fn test_gecko_pref_enrollment() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -1788,11 +1816,7 @@ fn test_gecko_pref_enrollment() -> Result<()> {
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
 
-    let handler = client.get_gecko_pref_store();
-    let handler_state = handler
-        .state
-        .lock()
-        .expect("Unable to lock transmuted handler state");
+    let handler_state = handler.state.lock().expect("Unable to lock handler state");
     let prefs = handler_state.prefs_set.clone().unwrap();
 
     assert_eq!(1, prefs.len());
@@ -1825,7 +1849,6 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
@@ -1836,11 +1859,11 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -1878,11 +1901,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
     assert_eq!(active_experiments.len(), 2);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(1, prefs.len());
@@ -1903,16 +1922,31 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
     let unenroll_events =
         client.unenroll_for_gecko_pref(pref_state, PrefUnenrollReason::FailedToSet)?;
 
+    assert_eq!(
+        &sorted_enrollment_change_events(unenroll_events),
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_failed_to_set".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_failed_to_set".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into()],
+            },
+        ]
+    );
+
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
-    assert_eq!(2, unenroll_events.len());
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(0, prefs.len());
@@ -1940,7 +1974,6 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
 
     let pref_state_1 = GeckoPrefState::new("test.pref.1", None).with_gecko_value(PrefValue::Null);
     let pref_state_2 = GeckoPrefState::new("test.pref.2", None).with_gecko_value(PrefValue::Null);
@@ -1951,11 +1984,11 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
 
     let client = NimbusClient::new(
         app_context,
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         TestMetrics::new(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -2009,11 +2042,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
     assert_eq!(active_experiments.len(), 2);
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
         let prefs = handler_state.prefs_set.clone().unwrap();
 
         assert_eq!(2, prefs.len());
@@ -2035,16 +2064,31 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
     let unenroll_events =
         client.unenroll_for_gecko_pref(pref_state_1, PrefUnenrollReason::Changed)?;
 
+    assert_eq!(
+        &sorted_enrollment_change_events(unenroll_events),
+        &[
+            EnrollmentChangeEvent {
+                experiment_slug: "exp-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_changed".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+            },
+            EnrollmentChangeEvent {
+                experiment_slug: "rollout-1".into(),
+                branch_slug: "control".into(),
+                reason: Some("pref_changed".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+            }
+        ]
+    );
+
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
-    assert_eq!(2, unenroll_events.len());
 
     {
-        let handler = client.get_gecko_pref_store();
-        let handler_state = handler
-            .state
-            .lock()
-            .expect("Unable to lock transmuted handler state");
+        let handler_state = handler.state.lock().expect("Unable to lock handler state");
 
         let original_prefs_stored = handler_state.original_prefs_state.clone().unwrap();
 
@@ -2068,7 +2112,6 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
         "test_feature",
@@ -2077,11 +2120,11 @@ fn register_previous_gecko_pref_states() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
-        Some(Box::new(handler)),
+        Some(handler.clone()),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -2175,8 +2218,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         gecko_pref_state_3.clone(),
     ];
 
-    let call_count_before = client
-        .get_gecko_pref_store()
+    let call_count_before = handler
         .state
         .lock()
         .unwrap()
@@ -2188,8 +2230,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
     // Registration must not send pref values to Gecko.
     assert_eq!(
         call_count_before,
-        client
-            .get_gecko_pref_store()
+        handler
             .state
             .lock()
             .unwrap()
@@ -2267,7 +2308,6 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         app_version: Some("124.0.0".to_string()),
         ..Default::default()
     };
-    let recorded_context = Arc::new(TestRecordedContext::new());
     let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
     let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
         "test_feature",
@@ -2276,11 +2316,11 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
     )]));
     let client = NimbusClient::new(
         app_context.clone(),
-        Some(recorded_context),
+        Some(TestRecordedContext::new()),
         Default::default(),
         temp_dir.path(),
         metrics.clone(),
-        Some(Box::new(handler)),
+        Some(handler),
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -2353,5 +2393,571 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         .unwrap();
 
     assert_eq!(reader_result, original_prev_gecko_pref_states.clone());
+    Ok(())
+}
+
+#[test]
+fn test_opt_out_events() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug = "slug";
+    let experiment = get_targeted_experiment(slug, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+
+    client.apply_pending_experiments()?;
+    assert_eq!(client.get_active_experiments()?.len(), 1);
+
+    let events = client.opt_out(slug.into())?;
+    assert_eq!(client.get_active_experiments()?.len(), 0);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: slug.into(),
+            branch_slug: "control".into(),
+            reason: Some("optout".into()),
+            change: EnrollmentChangeEventType::Disqualification,
+            feature_ids: vec!["some-feature-1".into()],
+        },]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_opt_in_with_branch_events() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug = "slug";
+    let experiment = get_targeted_experiment(slug, "false");
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+
+    client.apply_pending_experiments()?;
+    assert_eq!(client.get_active_experiments()?.len(), 0);
+
+    let events = client.opt_in_with_branch(slug.into(), "control".into())?;
+    assert_eq!(client.get_active_experiments()?.len(), 1);
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: slug.into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["some-feature-1".into()],
+        },]
+    );
+
+    Ok(())
+}
+
+fn setup_firefox_labs_test(
+    recipes: &[Experiment],
+) -> Result<(tempfile::TempDir, NimbusClient, Arc<TestMetrics>)> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+
+    let metrics = TestMetrics::new();
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        metrics.clone(),
+        None,
+        None,
+    )?;
+    client.with_targeting_attributes(TargetingAttributes {
+        app_context,
+        ..Default::default()
+    });
+
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    client.set_experiments_locally(to_local_experiments_string(recipes)?)?;
+    client.apply_pending_experiments()?;
+
+    Ok((temp_dir, client, metrics))
+}
+
+fn assert_enrolled_experiment_slugs(client: &NimbusClient, expected_slugs: &[&str]) {
+    let mut slugs = client
+        .get_active_experiments()
+        .unwrap()
+        .iter()
+        .map(|e| e.slug.clone())
+        .collect::<Vec<_>>();
+
+    slugs.sort();
+
+    assert_eq!(&slugs, expected_slugs);
+}
+
+fn assert_enrolled_reason(client: &NimbusClient, slug: &str, reason: EnrolledReason) {
+    assert!(
+        &client
+            .get_experiment_enrollment(slug)
+            .unwrap()
+            .unwrap()
+            .status
+            .is_enrolled_with_reason(reason),
+    );
+}
+
+fn assert_disqualified_reason(
+    client: &NimbusClient,
+    slug: &str,
+    expected_reason: DisqualifiedReason,
+) {
+    let status = client
+        .get_experiment_enrollment(slug)
+        .unwrap()
+        .unwrap()
+        .status;
+
+    assert!(matches!(
+        &status,
+        EnrollmentStatus::Disqualified { reason, .. }
+        if *reason == expected_reason
+    ));
+}
+
+#[test]
+fn test_firefox_labs_enroll_unenroll() -> Result<()> {
+    // This tests the basic cases for enrollment and unenrollment.
+    let (_temp_dir, client, metrics) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("experiment", "feature-id", json!({})),
+        get_single_feature_experiment("rollout", "feature-id", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab_with_feature("lab", "lab-feature-1"),
+        get_firefox_lab_with_feature("lab-requires-restart", "lab-feature-2")
+            .patch(json!({ "requiresRestart": true })),
+        get_firefox_lab_with_feature("lab-links", "lab-feature-3")
+            .patch(json!({ "firefoxLabsDescriptionLinks": { "feedback": "https://example.com" } })),
+        get_firefox_lab_with_feature("lab-not-rollout", "lab-feature-4")
+            .patch(json!({ "isRollout": false })),
+        get_firefox_lab_with_feature("lab-no-title", "lab-feature-5")
+            .patch(json!({ "firefoxLabsTitle": null })),
+        get_firefox_lab_with_feature("lab-no-description", "lab-feature-6")
+            .patch(json!({ "firefoxLabsDescription": null })),
+        get_firefox_lab_with_feature("lab-different-channel", "lab-feature-7")
+            .patch(json!({ "channel": "mystery" })),
+    ])?;
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    assert_eq!(
+        &metrics.get_enrollment_statuses(),
+        &[
+            EnrollmentStatusExtraDef {
+                slug: Some("experiment".into()),
+                status: Some("Enrolled".into()),
+                reason: Some("Qualified".into()),
+                branch: Some("control".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-links".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-no-description".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-no-title".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-not-rollout".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("lab-requires-restart".into()),
+                status: Some("NotEnrolled".into()),
+                reason: Some("FirefoxLabs".into()),
+                ..Default::default()
+            },
+            EnrollmentStatusExtraDef {
+                slug: Some("rollout".into()),
+                status: Some("Enrolled".into()),
+                reason: Some("Qualified".into()),
+                branch: Some("control".into()),
+                ..Default::default()
+            },
+        ],
+    );
+
+    metrics.clear();
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+
+    // Enroll in a lab and see the change reported in get_available_firefox_labs()
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::Enrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "control".into(),
+                reason: None,
+                change: EnrollmentChangeEventType::Enrollment,
+                feature_ids: vec!["lab-feature-1".into()]
+            }],
+        }
+    );
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "lab", "rollout"]);
+    assert_enrolled_reason(&client, "lab", EnrolledReason::FirefoxLabsOptIn);
+
+    // Opt in does not trigger enrollment status.
+    assert_eq!(metrics.get_enrollment_statuses(), &[]);
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: true,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    // Attempting to re-enroll does nothing.
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::AlreadyEnrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("already-enrolled".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Unenrolling also should update get_available_firefox_labs()
+    assert_eq!(
+        client.unenroll_from_firefox_lab("lab")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::Unenrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "control".into(),
+                reason: Some("FirefoxLabsOptOut".into()),
+                change: EnrollmentChangeEventType::Disqualification,
+                feature_ids: vec!["lab-feature-1".into()]
+            }],
+        }
+    );
+
+    // Opt out does not trigger enrollment status.
+    assert_eq!(metrics.get_enrollment_statuses(), &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+    assert_disqualified_reason(&client, "lab", DisqualifiedReason::FirefoxLabsOptOut);
+
+    assert_eq!(
+        &client.get_available_firefox_labs()?,
+        &[
+            FirefoxLabsMetadata {
+                slug: "lab".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-links".into(),
+                enrolled: false,
+                requires_restart: false,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com".into())
+            },
+            FirefoxLabsMetadata {
+                slug: "lab-requires-restart".into(),
+                enrolled: false,
+                requires_restart: true,
+                title_string_id: "labs-title".into(),
+                description_string_id: "labs-description".into(),
+                feedback_url: Some("https://example.com/#feedback".into())
+            }
+        ]
+    );
+
+    // Attempting to re-unenroll does nothing.
+    assert_eq!(
+        client.unenroll_from_firefox_lab("lab")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::AlreadyUnenrolled,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("already-unenrolled".into()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempting to enroll in a non-existant lab.
+    assert_eq!(
+        client.enroll_in_firefox_lab("unknown")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::NoExperiment,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "unknown".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("lab-does-not-exist".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempting to enroll in a non-lab.
+    assert_eq!(
+        client.enroll_in_firefox_lab("experiment")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::NotFirefoxLabsOptIn,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("not-lab".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![]
+            }],
+        }
+    );
+
+    // Attempt to unenroll from a non-lab as a lab.
+    assert_eq!(
+        client.unenroll_from_firefox_lab("experiment")?,
+        FirefoxLabsUnenrollResult {
+            status: FirefoxLabsUnenrollStatus::NotFirefoxLabsOptIn,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "experiment".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("not-lab".into()),
+                change: EnrollmentChangeEventType::UnenrollFailed,
+                feature_ids: vec![],
+            }],
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_feature_conflict() -> Result<()> {
+    // This tests the basic cases for enrollment and unenrollment.
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("rollout", "labs-feature", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab("lab"),
+    ])?;
+
+    assert_eq!(&client.get_available_firefox_labs()?, &[]);
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?,
+        FirefoxLabsEnrollResult {
+            status: FirefoxLabsEnrollStatus::FeatureConflict,
+            enrollment_change_events: vec![EnrollmentChangeEvent {
+                experiment_slug: "lab".into(),
+                branch_slug: "N/A".into(),
+                reason: Some("feature-conflict".into()),
+                change: EnrollmentChangeEventType::EnrollFailed,
+                feature_ids: vec![],
+            }],
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_rollout_opt_out_does_not_unenroll() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[get_firefox_lab("lab")])?;
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?.status,
+        FirefoxLabsEnrollStatus::Enrolled
+    );
+
+    let events = client.set_rollout_participation(false)?;
+    assert_eq!(&events, &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["lab"]);
+
+    Ok(())
+}
+
+#[test]
+fn test_firefox_labs_reset_telemetry_does_not_unenroll() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[get_firefox_lab("lab")])?;
+
+    assert_eq!(
+        client.enroll_in_firefox_lab("lab")?.status,
+        FirefoxLabsEnrollStatus::Enrolled
+    );
+
+    let events = client.reset_telemetry_identifiers()?;
+    assert_eq!(&events, &[]);
+
+    assert_enrolled_experiment_slugs(&client, &["lab"]);
+
+    Ok(())
+}
+
+#[test]
+fn test_unenroll_from_all_firefox_labs() -> Result<()> {
+    let (_temp_dir, client, _) = setup_firefox_labs_test(&[
+        get_single_feature_experiment("experiment", "feature-id", json!({})),
+        get_single_feature_experiment("rollout", "feature-id", json!({}))
+            .patch(json!({ "isRollout": true })),
+        get_firefox_lab_with_feature("lab-1", "feature-1"),
+        get_firefox_lab_with_feature("lab-2", "feature-2"),
+        get_firefox_lab_with_feature("lab-3", "feature-3"),
+    ])?;
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+
+    client.enroll_in_firefox_lab("lab-1")?;
+    client.enroll_in_firefox_lab("lab-2")?;
+    client.enroll_in_firefox_lab("lab-3")?;
+
+    assert_enrolled_experiment_slugs(
+        &client,
+        &["experiment", "lab-1", "lab-2", "lab-3", "rollout"],
+    );
+
+    client.unenroll_from_all_firefox_labs()?;
+
+    assert_enrolled_experiment_slugs(&client, &["experiment", "rollout"]);
+    assert_disqualified_reason(&client, "lab-1", DisqualifiedReason::FirefoxLabsOptOut);
+    assert_disqualified_reason(&client, "lab-2", DisqualifiedReason::FirefoxLabsOptOut);
+    assert_disqualified_reason(&client, "lab-3", DisqualifiedReason::FirefoxLabsOptOut);
+
     Ok(())
 }

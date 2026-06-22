@@ -24,7 +24,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import mozilla.appservices.remotesettings.RemoteSettingsService
 import mozilla.telemetry.glean.Glean
@@ -41,6 +40,10 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
+import org.mozilla.experiments.nimbus.internal.FeatureUpdateDispatcher
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsEnrollStatus
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsMetadata
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsUnenrollStatus
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.MalformedFeatureConfigExtraDef
@@ -85,6 +88,10 @@ open class Nimbus(
     private val errorReporter = delegate.errorReporter
 
     private val logger = delegate.logger
+
+    private val updateDispatcher: FeatureUpdateDispatcher by lazy {
+        FeatureUpdateDispatcher(updateScope)
+    }
 
     private val metricsHandler = object : MetricsHandler {
         override fun recordDatabaseLoad(event: DatabaseLoadExtraDef) {
@@ -165,8 +172,7 @@ open class Nimbus(
         get() = nimbusClient.getExperimentParticipation()
         set(active) {
             dbScope.launch {
-                nimbusClient.setExperimentParticipation(active)
-                applyPendingExperimentsOnThisThread()
+                setExperimentParticipationOnThisThread(active)
             }
         }
 
@@ -174,8 +180,7 @@ open class Nimbus(
         get() = nimbusClient.getRolloutParticipation()
         set(active) {
             dbScope.launch {
-                nimbusClient.setRolloutParticipation(active)
-                applyPendingExperimentsOnThisThread()
+                setRolloutParticipationOnThisThread(active)
             }
         }
 
@@ -204,6 +209,8 @@ open class Nimbus(
             server,
         )
     }
+
+    override fun getFeatureUpdateDispatcher(): FeatureUpdateDispatcher? = updateDispatcher
 
     // This is currently not available from the main thread.
     // see https://jira.mozilla.com/browse/SDK-191
@@ -279,7 +286,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll("initialize") {
         nimbusClient.initialize()
-        postEnrolmentCalculation()
+        postEnrolmentCalculation(emptyList(), initial = true)
     }
 
     override fun fetchExperiments() {
@@ -326,27 +333,31 @@ open class Nimbus(
         }
     }
 
-    override fun applyPendingExperiments(): Job =
+    override fun applyPendingExperiments(initial: Boolean): Job =
         dbScope.launch {
             withContext(NonCancellable) {
-                applyPendingExperimentsOnThisThread()
+                applyPendingExperimentsOnThisThread(initial)
             }
         }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun applyPendingExperimentsOnThisThread() = withCatchAll("applyPendingExperiments") {
-        try {
-            var events: List<EnrollmentChangeEvent>?
-            val time = measureTimeMillis {
-                events = nimbusClient.applyPendingExperiments()
+    internal fun applyPendingExperimentsOnThisThread(initial: Boolean = false) {
+        withCatchAll("applyPendingExperiments") {
+            try {
+                var enrollmentChangeEvents: List<EnrollmentChangeEvent>?
+                val time = measureTimeMillis {
+                    enrollmentChangeEvents = nimbusClient.applyPendingExperiments()
+                }
+                NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
+
+                // SAFETY: events is only null at declaration time and is
+                // immediately assigned a non-null value inside the
+                // measureTimeMillis lambda.
+                postEnrolmentCalculation(enrollmentChangeEvents!!, initial)
+            } catch (e: NimbusException.InvalidExperimentFormat) {
+                reportError("Invalid experiment format", e)
             }
-            NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
-            recordExperimentTelemetryEvents(events!!)
-            // Get the experiments to record in telemetry
-            postEnrolmentCalculation()
-        } catch (e: NimbusException.InvalidExperimentFormat) {
-            reportError("Invalid experiment format", e)
         }
     }
 
@@ -356,10 +367,10 @@ open class Nimbus(
         applyLocalExperiments { loadRawResource(file) }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    fun applyLocalExperiments(getString: suspend () -> String): Job =
+    internal fun applyLocalExperiments(readExperiments: suspend () -> String): Job =
         dbScope.launch {
             val payload = try {
-                getString()
+                readExperiments()
             } catch (e: CancellationException) {
                 // TODO consider reporting a glean event here.
                 logger(e.stackTraceToString())
@@ -368,35 +379,66 @@ open class Nimbus(
                 logger(e.stackTraceToString())
                 null
             }
-            withContext(NonCancellable) {
-                if (payload != null) {
-                    setExperimentsLocallyOnThisThread(payload)
-                    applyPendingExperimentsOnThisThread()
-                } else {
-                    initializeOnThisThread()
-                }
-            }
+
+            applyLocalExperimentsOnThisThread(payload)
         }
 
-    @WorkerThread
-    private fun postEnrolmentCalculation() {
-        nimbusClient.getActiveExperiments().let {
-            recordExperimentTelemetry(it)
-            updateObserver { observer ->
-                observer.onUpdatesApplied(it)
+    override fun applyLocalExperiments(experimentsJson: String): Job {
+        return dbScope.launch {
+            applyLocalExperimentsOnThisThread(experimentsJson)
+        }
+    }
+
+    internal suspend fun applyLocalExperimentsOnThisThread(experimentsJson: String?) {
+        withContext(NonCancellable) {
+            if (experimentsJson != null) {
+                setExperimentsLocallyOnThisThread(experimentsJson)
+                applyPendingExperimentsOnThisThread(initial = true)
+            } else {
+                initializeOnThisThread()
             }
         }
     }
 
-    override fun setExperimentsLocally(
-        @RawRes file: Int,
+    @WorkerThread
+    private fun postEnrolmentCalculation(
+        enrollmentChangeEvents: List<EnrollmentChangeEvent>,
+        initial: Boolean = false,
     ) {
-        dbScope.launch {
-            withCatchAll("setExperimentsLocally") {
-                loadRawResource(file)
-            }?.let { payload ->
-                setExperimentsLocallyOnThisThread(payload)
+        val experiments = nimbusClient.getActiveExperiments()
+
+        if (initial) {
+            // During initialization we need to report the experiment status of
+            // all pre-existing experiments.
+            for (experiment in experiments) {
+                Glean.setExperimentActive(experiment.slug, experiment.branchSlug)
             }
+        }
+
+        if (initial || enrollmentChangeEvents.isNotEmpty()) {
+            // During initialization we need to inform the application when we've
+            // finished applying updates, even if there is nothing enrolled.
+            recordExperimentTelemetryEvents(enrollmentChangeEvents)
+            updateObserver { observer ->
+                observer.onUpdatesApplied(experiments)
+            }
+        }
+
+        if (initial) {
+            // Likewise, during initialization we need to include trigger
+            // updates for all pre-existing experiments.
+            val featureIds = mutableSetOf<String>()
+            for (experiment in experiments) {
+                for (featureId in experiment.featureIds) {
+                    featureIds.add(featureId)
+                }
+            }
+
+            updateDispatcher.notifyFeatures(featureIds)
+        } else {
+            // However, during subsequent enrollment changes we only need to
+            // trigger updates to features that changed.
+            updateDispatcher.notifyChanged(enrollmentChangeEvents)
         }
     }
 
@@ -404,12 +446,6 @@ open class Nimbus(
         context.resources.openRawResource(file).use {
             it.bufferedReader().readText()
         }
-
-    override fun setExperimentsLocally(payload: String) {
-        dbScope.launch {
-            setExperimentsLocallyOnThisThread(payload)
-        }
-    }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -428,22 +464,16 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setExperimentParticipationOnThisThread(active: Boolean) =
         withCatchAll("setExperimentParticipation") {
-            val enrolmentChanges = nimbusClient.setExperimentParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-            }
+            val enrollmentChangeEvents = nimbusClient.setExperimentParticipation(active)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setRolloutParticipationOnThisThread(active: Boolean) =
         withCatchAll("setRolloutParticipation") {
-            val enrolmentChanges = nimbusClient.setRolloutParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-            }
+            val enrollmentChangeEvents = nimbusClient.setRolloutParticipation(active)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
 
     override fun optOut(experimentId: String) {
@@ -458,9 +488,7 @@ open class Nimbus(
         prefUnenrollReason: PrefUnenrollReason,
     ) {
         dbScope.launch {
-            withCatchAll("unenrollForGeckoPref") {
-                unenrollForGeckoPrefOnThisThread(geckoPrefState, prefUnenrollReason)
-            }
+            unenrollForGeckoPrefOnThisThread(geckoPrefState, prefUnenrollReason)
         }
     }
 
@@ -469,18 +497,26 @@ open class Nimbus(
     internal fun unenrollForGeckoPrefOnThisThread(
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
-    ): List<EnrollmentChangeEvent> {
-        val events = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
-        recordExperimentTelemetryEvents(events)
-        return events
+    ): List<EnrollmentChangeEvent>? {
+        return withCatchAll("unenrollForGeckoPref") {
+            val enrollmentChangeEvents = nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
+            postEnrolmentCalculation(enrollmentChangeEvents)
+            enrollmentChangeEvents
+        }
     }
 
     override fun registerPreviousGeckoPrefStates(geckoPrefStates: List<GeckoPrefState>) {
         dbScope.launch {
             withCatchAll("registerPreviousGeckoPrefStates") {
-                nimbusClient.registerPreviousGeckoPrefStates(geckoPrefStates)
+                registerPreviousGeckoPrefStatesOnThisThread(geckoPrefStates)
             }
         }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun registerPreviousGeckoPrefStatesOnThisThread(geckoPrefStates: List<GeckoPrefState>) {
+        nimbusClient.registerPreviousGeckoPrefStates(geckoPrefStates)
     }
 
     @WorkerThread
@@ -491,25 +527,42 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun optOutOnThisThread(experimentId: String) = withCatchAll("optOut") {
-        nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
-    }
-
-    override fun resetTelemetryIdentifiers() {
-        dbScope.launch {
-            withCatchAll("resetTelemetryIdentifiers") {
-                nimbusClient.resetTelemetryIdentifiers().also { enrollmentChangeEvents ->
-                    recordExperimentTelemetryEvents(enrollmentChangeEvents)
-                }
-            }
+    internal fun optOutOnThisThread(experimentId: String) {
+        withCatchAll("optOut") {
+            val enrollmentChangeEvents = nimbusClient.optOut(experimentId)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
+    @AnyThread
+    override fun resetTelemetryIdentifiers() {
+        dbScope.launch {
+            resetTelemetryIdentifiersOnThisThread()
+        }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun resetTelemetryIdentifiersOnThisThread() {
+        withCatchAll("resetTelemetryIdentifiers") {
+            val enrollmentChangeEvents = nimbusClient.resetTelemetryIdentifiers()
+            postEnrolmentCalculation(enrollmentChangeEvents)
+        }
+    }
+
+    @AnyThread
     override fun optInWithBranch(experimentId: String, branch: String) {
         dbScope.launch {
-            withCatchAll("optIn") {
-                nimbusClient.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
-            }
+            optInWithBranchOnThisThread(experimentId, branch)
+        }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun optInWithBranchOnThisThread(experimentId: String, branch: String) {
+        withCatchAll("optIn") {
+            val enrollmentChangeEvents = nimbusClient.optInWithBranch(experimentId, branch)
+            postEnrolmentCalculation(enrollmentChangeEvents)
         }
     }
 
@@ -587,6 +640,11 @@ open class Nimbus(
                             branch = event.branchSlug,
                         ),
                     )
+
+                    Glean.setExperimentActive(
+                        event.experimentSlug,
+                        event.branchSlug,
+                    )
                 }
 
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
@@ -596,6 +654,10 @@ open class Nimbus(
                             branch = event.branchSlug,
                         ),
                     )
+
+                    Glean.setExperimentInactive(
+                        event.experimentSlug,
+                    )
                 }
 
                 EnrollmentChangeEventType.UNENROLLMENT -> {
@@ -604,6 +666,10 @@ open class Nimbus(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
                         ),
+                    )
+
+                    Glean.setExperimentInactive(
+                        event.experimentSlug,
                     )
                 }
 
@@ -647,6 +713,57 @@ open class Nimbus(
         withCatchAll("recordMalformedConfiguration") {
             nimbusClient.recordMalformedFeatureConfig(featureId, partId)
         }
+
+    override fun getAvailableFirefoxLabs(): Deferred<List<FirefoxLabsMetadata>> {
+        return dbScope.async { getAvailableFirefoxLabsOnThisThread() }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getAvailableFirefoxLabsOnThisThread(): List<FirefoxLabsMetadata> {
+        return withCatchAll("getAvailableFirefoxLabs") {
+            nimbusClient.getAvailableFirefoxLabs()
+        } ?: emptyList()
+    }
+
+    override fun enrollInFirefoxLab(slug: String): Deferred<FirefoxLabsEnrollStatus> {
+        return dbScope.async { enrollInFirefoxLabOnThisThread(slug) }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun enrollInFirefoxLabOnThisThread(slug: String): FirefoxLabsEnrollStatus {
+        return withCatchAll("enrollInFirefoxLab") {
+            val result = nimbusClient.enrollInFirefoxLab(slug)
+            postEnrolmentCalculation(result.enrollmentChangeEvents)
+
+            result.status
+        } ?: FirefoxLabsEnrollStatus.ERROR
+    }
+
+    override fun unenrollFromFirefoxLab(slug: String): Deferred<FirefoxLabsUnenrollStatus> {
+        return dbScope.async { unenrollFromFirefoxLabOnThisThread(slug) }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun unenrollFromFirefoxLabOnThisThread(slug: String): FirefoxLabsUnenrollStatus {
+        return withCatchAll("unenrollFromFirefoxLab") {
+            val result = nimbusClient.unenrollFromFirefoxLab(slug)
+            postEnrolmentCalculation(result.enrollmentChangeEvents)
+
+            result.status
+        } ?: FirefoxLabsUnenrollStatus.ERROR
+    }
+
+    override fun unenrollFromAllFirefoxLabs(): Deferred<Unit> {
+        return dbScope.async { unenrollFromAllFirefoxLabsOnThisThread() }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun unenrollFromAllFirefoxLabsOnThisThread() {
+        withCatchAll("unenrollFromAllFirefoxLabs") {
+            val enrollmentChangeEvents = nimbusClient.unenrollFromAllFirefoxLabs()
+            postEnrolmentCalculation(enrollmentChangeEvents)
+        }
+    }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun buildExperimentContext(

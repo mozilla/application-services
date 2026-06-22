@@ -62,55 +62,49 @@ pub trait RecordedContext: Send + Sync {
     fn record(&self);
 }
 
-impl dyn RecordedContext {
-    pub fn execute_queries(
-        &self,
-        nimbus_targeting_helper: &NimbusTargetingHelper,
-    ) -> Result<HashMap<String, f64>> {
-        let results: HashMap<String, f64> =
-            HashMap::from_iter(self.get_event_queries().iter().filter_map(|(key, query)| {
-                match nimbus_targeting_helper.evaluate_jexl_raw_value(query) {
-                    Ok(result) => match result.as_f64() {
-                        Some(v) => Some((key.clone(), v)),
-                        None => {
-                            warn!(
-                                "Value '{}' for query '{}' was not a string",
-                                result.to_string(),
-                                query
-                            );
-                            None
-                        }
-                    },
-                    Err(err) => {
-                        let error_string = format!(
-                            "error during jexl evaluation for query '{}' — {}",
-                            query, err
+pub fn execute_event_queries(
+    recorded_context: &dyn RecordedContext,
+    nimbus_targeting_helper: &NimbusTargetingHelper,
+) -> Result<HashMap<String, f64>> {
+    let results: HashMap<String, f64> =
+        HashMap::from_iter(recorded_context.get_event_queries().iter().filter_map(
+            |(key, query)| match nimbus_targeting_helper.evaluate_jexl_raw_value(query) {
+                Ok(result) => match result.as_f64() {
+                    Some(v) => Some((key.clone(), v)),
+                    None => {
+                        warn!(
+                            "Value '{}' for query '{}' was not a string",
+                            result.to_string(),
+                            query
                         );
-                        warn!("{}", error_string);
                         None
                     }
+                },
+                Err(err) => {
+                    let error_string = format!(
+                        "error during jexl evaluation for query '{}' — {}",
+                        query, err
+                    );
+                    warn!("{}", error_string);
+                    None
                 }
-            }));
-        self.set_event_query_values(results.clone());
-        Ok(results)
-    }
-
-    pub fn validate_queries(&self) -> Result<()> {
-        for query in self.get_event_queries().values() {
-            match EventQueryType::validate_query(query) {
-                Ok(true) => continue,
-                Ok(false) => {
-                    return Err(NimbusError::BehaviorError(
-                        BehaviorError::EventQueryParseError(query.clone()),
-                    ));
-                }
-                Err(err) => return Err(err),
-            }
-        }
-        Ok(())
-    }
+            },
+        ));
+    recorded_context.set_event_query_values(results.clone());
+    Ok(results)
 }
 
 pub fn validate_event_queries(recorded_context: Arc<dyn RecordedContext>) -> Result<()> {
-    recorded_context.validate_queries()
+    for query in recorded_context.get_event_queries().values() {
+        match EventQueryType::validate_query(query) {
+            Ok(true) => continue,
+            Ok(false) => {
+                return Err(NimbusError::BehaviorError(
+                    BehaviorError::EventQueryParseError(query.clone()),
+                ));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(())
 }

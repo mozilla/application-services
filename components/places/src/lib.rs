@@ -38,4 +38,10 @@ pub use crate::types::*;
 
 pub use ffi::*;
 
+#[cfg(all(feature = "glean-sym", target_os = "android"))]
+#[allow(clippy::all)] // Don't lint generated code.
+pub mod glean_metrics {
+    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
+}
+
 uniffi::include_scaffolding!("places");

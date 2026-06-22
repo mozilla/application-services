@@ -38,15 +38,43 @@ impl FirefoxAccount {
         Ok(())
     }
 
-    /// Extracts the session token from a WebChannel password change JSON payload and exchanges it
-    /// for a new refresh token via a network call.
+    /// Extracts the session token from a WebChannel password change JSON payload, exchanges it
+    /// for a new refresh token.
     pub fn handle_web_channel_password_change(&mut self, json_payload: &str) -> Result<()> {
         let data: serde_json::Value = serde_json::from_str(json_payload)?;
         let token = data
             .get("sessionToken")
             .and_then(|v| v.as_str())
             .ok_or(Error::NoSessionToken)?;
-        self.handle_session_token_change(token)
+        // Grab the current device before the token swap since destroying the old refresh token
+        // tears down its associated device record server-side.
+        let old_device_info = match self.get_current_device() {
+            Ok(maybe_device) => maybe_device,
+            Err(err) => {
+                warn!(
+                    "Error fetching current device before password change: {:?}",
+                    err
+                );
+                None
+            }
+        };
+        self.handle_session_token_change(token)?;
+        if let Some(ref device_info) = old_device_info {
+            if let Err(err) = self.replace_device(
+                &device_info.display_name,
+                &device_info.device_type,
+                &device_info.push_subscription,
+                &device_info.available_commands,
+            ) {
+                warn!(
+                    "Device information restoration failed after password change: {:?}",
+                    err
+                );
+            } else {
+                info!("Restored device information with new refresh token");
+            }
+        }
+        Ok(())
     }
 
     /// Retrieve the current session token from state

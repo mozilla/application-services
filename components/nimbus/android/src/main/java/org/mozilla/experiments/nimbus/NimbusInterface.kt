@@ -17,7 +17,11 @@ import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsEnrollStatus
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsMetadata
+import org.mozilla.experiments.nimbus.internal.FirefoxLabsUnenrollStatus
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.PreviousGeckoPrefState
 import java.time.Duration
@@ -125,29 +129,24 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      * `setExperimentsLocally`, and then informs Glean of new experiment enrolment.
      *
      * Notifies `onUpdatesApplied` once enrolments are recalculated.
+     *
+     * @param initial Whether or not this is called during Nimbus initialization
+     * by the NimbusBuilder.
      */
-    fun applyPendingExperiments(): Job = Job()
+    fun applyPendingExperiments(initial: Boolean = false): Job = Job()
 
     /**
-     * Set the experiments as the passed string, just as `fetchExperiments` gets the string from
-     * the server. Like `fetchExperiments`, this requires `applyPendingExperiments` to be called
-     * before enrolments are affected.
+     * Apply the set of local experiments.
      *
-     * The string should be in the same JSON format that is delivered from the server.
+     * The format of the file should be in the same JSON format that is
+     * delivered from the Remote Settings API.
      *
-     * This is performed on a background thread.
-     */
-    fun setExperimentsLocally(payload: String) = Unit
-
-    /**
-     * This is functionally equivalent to a sequence of {setExperimentsLocally} the
-     * {applyPendingExperiments}.
+     * The work will be performed on a background thread.
      *
      * Following completion of the returned job, the SDK's Feature API is ready to be used. If
      * cancelled, the SDK will still prepare the SDK for safe use.
      *
-     * Most apps will not need to call this method directly, as it is called on first run
-     * as part of {initialize}.
+     * Most apps will not need to call this method directly.
      *
      * @param a `raw` resource identifier resolving to a JSON file downloaded from RemoteSettings
      *       at build time.
@@ -160,11 +159,20 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     ): Job = Job()
 
     /**
-     * A utility method to load a file from resources and pass it to `setExperimentsLocally(String)`.
+     * Apply the set of local experiments.
+     *
+     * The format of the file should be in the same JSON format that is
+     * delivered from the Remote Settings API.
+     *
+     * The work will be performed on a background thread.
+     *
+     * NB: This function is only exposed for usage by the Nimbus CLI. Callers
+     * should prefer `applyLocalExperiments` with a file resource instead.
+     *
+     * @param The experiments JSON, as returned by Remote Settings.
+     * @return A Job. It cannot be cancelled.
      */
-    fun setExperimentsLocally(
-        @RawRes file: Int,
-    ) = Unit
+    fun applyLocalExperiments(experimentsJson: String): Job = Job()
 
     /**
      * Testing method to reset the enrollments and experiments database back to its initial state.
@@ -209,14 +217,28 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     ) = Unit
 
     /**
-     * Retrieves a list of previous states, if available, on an enrolled experiment, from a given slug.
-     *
-     * @param experimentSlug The slug of the experiment.
-     * @return The previous Gecko pref states of the given slug. Will return null if not available or invalid slug.
+     * Return the list of available Firefox Labs opt-ins.
      */
-    fun getPreviousGeckoPrefStates(
-        experimentSlug: String,
-    ): List<PreviousGeckoPrefState>? = null
+    fun getAvailableFirefoxLabs(): Deferred<List<FirefoxLabsMetadata>> =
+        CompletableDeferred(emptyList<FirefoxLabsMetadata>())
+
+    /**
+     * Attempt to enroll in a Firefox Labs opt-in.
+     */
+    fun enrollInFirefoxLab(slug: String): Deferred<FirefoxLabsEnrollStatus> =
+        CompletableDeferred(FirefoxLabsEnrollStatus.NO_EXPERIMENT)
+
+    /**
+     * Attempt to unenroll from a Firefox Labs opt-in.
+     */
+    fun unenrollFromFirefoxLab(slug: String): Deferred<FirefoxLabsUnenrollStatus> =
+        CompletableDeferred(FirefoxLabsUnenrollStatus.NO_EXPERIMENT)
+
+    /**
+    * Attempt to unenroll from all Firefox Labs.
+     */
+    fun unenrollFromAllFirefoxLabs(): Deferred<Unit> =
+        CompletableDeferred(Unit)
 
     /**
      *  Reset internal state in response to application-level telemetry reset.

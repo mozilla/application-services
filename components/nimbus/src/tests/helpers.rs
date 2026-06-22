@@ -4,8 +4,6 @@
 
 #![allow(unexpected_cfgs)]
 
-pub use self::detail::*;
-use crate::metrics::EnrollmentStatusExtraDef;
 #[cfg(feature = "stateful")]
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -16,11 +14,14 @@ use serde::Serialize;
 use serde_json::Map;
 use serde_json::{Value, json};
 
+pub use self::detail::*;
 use crate::enrollment::{
-    EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+    EnrolledFeatureConfig, EnrolledReason, EnrollmentChangeEvent, ExperimentEnrollment,
+    NotEnrolledReason,
 };
 #[cfg(feature = "stateful")]
 use crate::json::JsonObject;
+use crate::metrics::EnrollmentStatusExtraDef;
 #[cfg(feature = "stateful")]
 use crate::stateful::behavior::EventStore;
 #[cfg(feature = "stateful")]
@@ -79,17 +80,17 @@ struct RecordedContextState {
 }
 
 #[cfg(feature = "stateful")]
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct TestRecordedContext {
-    state: Arc<Mutex<RecordedContextState>>,
+    state: Mutex<RecordedContextState>,
 }
 
 #[cfg(feature = "stateful")]
 impl TestRecordedContext {
-    pub fn new() -> Self {
-        TestRecordedContext {
+    pub fn new() -> Arc<Self> {
+        Arc::new(TestRecordedContext {
             state: Default::default(),
-        }
+        })
     }
 
     pub fn get_record_calls(&self) -> u64 {
@@ -188,15 +189,15 @@ pub struct TestGeckoPrefHandler {
 
 #[cfg(feature = "stateful")]
 impl TestGeckoPrefHandler {
-    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Self {
-        Self {
+    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Arc<Self> {
+        Arc::new(Self {
             prefs,
             state: Mutex::new(TestGeckoPrefHandlerState {
                 prefs_set: None,
                 original_prefs_state: None,
                 set_gecko_prefs_state_call_count: 0,
             }),
-        }
+        })
     }
 }
 
@@ -506,7 +507,10 @@ pub fn get_single_feature_rollout(slug: &str, feature_id: &str, config: Value) -
 }
 
 pub fn get_bucketed_rollout(slug: &str, count: i64) -> Experiment {
-    let feature_id = "a-feature";
+    get_bucketed_rollout_with_feature(slug, count, "a-feature")
+}
+
+pub fn get_bucketed_rollout_with_feature(slug: &str, count: i64, feature_id: &str) -> Experiment {
     serde_json::from_value(json!(
         {
         "schemaVersion": "1.0.0",
@@ -618,19 +622,40 @@ where
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]
 pub fn get_targeted_experiment(slug: &str, targeting: &str) -> serde_json::Value {
+    get_targeted_experiment_with_feature(slug, targeting, "some-feature-1")
+}
+
+#[cfg_attr(not(feature = "stateful"), allow(unused))]
+pub fn get_targeted_experiment_with_feature(
+    slug: &str,
+    targeting: &str,
+    feature_id: &str,
+) -> serde_json::Value {
     json!({
         "schemaVersion": "1.0.0",
         "slug": slug,
         "endDate": null,
-        "featureIds": ["some-feature-1"],
+        "featureIds": [feature_id],
         "branches": [
             {
-            "slug": "control",
-            "ratio": 1
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
             },
             {
-            "slug": "treatment",
-            "ratio": 1
+                "slug": "treatment",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
             }
         ],
         "channel": "nightly",
@@ -704,6 +729,57 @@ pub(crate) fn get_experiment_with_published_date(
         "id":"secure-silver",
         "last_modified":1_602_197_324_372i64,
         "publishedDate": published_date
+    }))
+    .unwrap()
+}
+
+#[allow(unused)]
+pub(crate) fn get_firefox_lab(slug: &str) -> Experiment {
+    get_firefox_lab_with_feature(slug, "labs-feature")
+}
+
+#[allow(unused)]
+pub(crate) fn get_firefox_lab_with_feature(slug: &str, feature_id: &str) -> Experiment {
+    serde_json::from_value(json!({
+        "schemaVersion": "1.0.0",
+        "appName": "fenix",
+        "appId": "org.mozilla.fenix",
+        "channel": "nightly",
+        "slug": slug,
+        "branches": [
+            {
+                "slug": "control",
+                "ratio": 1,
+                "features": [
+                    {
+                        "featureId": feature_id,
+                        "value": {}
+                    }
+                ]
+            }
+        ],
+        "featureIds": [feature_id],
+        "isRollout": true,
+        "isEnrollmentPaused": false,
+        "isFirefoxLabsOptIn": true,
+        "firefoxLabsTitle": "labs-title",
+        "firefoxLabsDescription": "labs-description",
+        "firefoxLabsDescriptionLinks": {
+            "feedback": "https://example.com/#feedback",
+            "learn-more": "https://example.com/#learn-more",
+        },
+        "requiresRestart": false,
+        "userFacingName": "Test Firefox Labs",
+        "userFacingDescription": "Test Firefox Labs",
+        "bucketConfig": {
+            "randomizationUnit": "nimbus_id",
+            "start": 0,
+            "count": 10000,
+            "total": 10000,
+            "namespace": "firefox-labs-test"
+        },
+        "targeting": "true",
+        "proposedEnrollment": 0,
     }))
     .unwrap()
 }
@@ -822,4 +898,13 @@ mod detail {
             state.nimbus_user_id = nimbus_user_id;
         }
     }
+}
+
+/// Return the given enrollments in a sorted order.
+pub fn sorted_enrollment_change_events(
+    mut events: Vec<EnrollmentChangeEvent>,
+) -> Vec<EnrollmentChangeEvent> {
+    events.sort_by(|e1, e2| e1.experiment_slug.cmp(&e2.experiment_slug));
+
+    events
 }

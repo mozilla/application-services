@@ -311,6 +311,14 @@ pub enum FxaEvent {
     ///
     /// This event is valid for the `Authenticating` state.
     CompleteOAuthFlow { code: String, state: String },
+    /// An `fxaccounts:change_password` WebChannel message arrived on the device that just changed
+    /// its password. `json_payload` is the `data` object of that message and contains the new
+    /// session token. The state machine swaps the session token for a new refresh token and
+    /// re-initialises the device record.
+    ///
+    /// This event is valid for the `Connected` and `AuthIssues` states. In `Authenticating` it
+    /// is a no-op so the in-progress OAuth flow is not disrupted.
+    WebChannelPasswordChange { json_payload: String },
     /// Cancel an OAuth flow.
     ///
     /// Use this to cancel an in-progress OAuth, returning to [FxaState::Disconnected] so the

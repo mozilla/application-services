@@ -7,7 +7,7 @@ use crate::{
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
         FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel, Target,
-        TimeSeriesPanel, Transformation,
+        TextPanel, TimeSeriesPanel, Transformation,
     },
     sql::Query,
     util::{Join, UrlBuilder},
@@ -55,11 +55,16 @@ fn overview_count_panel(
     application: Application,
     channel: ReleaseChannel,
 ) -> Panel {
-    let query = if application == Application::Desktop {
-        desktop_count_query(format!("'{channel}'"))
-    } else {
-        mobile_count_query(config, format!("'{channel}'"))
-    };
+    if application == Application::Ios && channel == ReleaseChannel::Nightly {
+        return TextPanel {
+            content: "## N/A".into(),
+            mode: "markdown".into(),
+            grid_pos: GridPos::height(8),
+        }
+        .into();
+    }
+
+    let query = count_query(config, application, format!("'{channel}'"));
 
     TimeSeriesPanel {
         title: application.display_name(channel),
@@ -106,74 +111,43 @@ fn overview_count_panel(
     .into()
 }
 
-/// Subquery to fetch general sync info for desktop
-///
-/// We use subqueries to smooth out the differences between desktop and mobile telemetry.
-fn desktop_count_query(channel_expr: String) -> String {
-    format!(
-        "\
-WITH counts AS
-  (SELECT 
-      $__timeGroup(submission_timestamp, $__interval) as time,
-      JSON_VALUE(engine.name) AS engine_name,
-      COUNTIF(syncs.failureReason IS NOT NULL OR engine.failureReason IS NOT NULL) as count_total_errors,
-      COUNTIF(syncs.failureReason IS NULL
-              AND engine.failureReason IS NULL
-              AND (engine.incoming IS NOT NULL
-                   OR engine.outgoing IS NOT NULL 
-                   OR engine.took IS NOT NULL)) AS count_success,
-   FROM firefox_desktop.sync
-   CROSS JOIN UNNEST(JSON_QUERY_ARRAY(metrics.object.syncs_syncs)) as syncs
-   CROSS JOIN UNNEST(JSON_QUERY_ARRAY(syncs,'$.engines')) AS engine
-   WHERE metrics IS NOT NULL
-     AND JSON_VALUE(engine.name) NOT IN ('bookmarks', 'extension-storage')
-     AND normalized_channel = {channel_expr}
-     AND $__timeFilter(submission_timestamp)
-   GROUP BY time, engine_name)
-SELECT engine_name,
-       time,
-       count_success / (count_success + count_total_errors) * 100 AS success_rate,
-FROM counts
-ORDER BY time")
-}
+/// Query to fetch sync success rates
+fn count_query(config: &TeamConfig, application: Application, channel_expr: String) -> String {
+    let table_name = if application == Application::Desktop {
+        "desktop_v1"
+    } else {
+        "mobile_v1"
+    };
+    let application_where = match application {
+        Application::Desktop => "application = 'desktop'",
+        Application::Ios => "application = 'firefox-ios'",
+        Application::Android => "application = 'firefox-android'",
+    };
 
-/// Subquery to fetch general sync info for mobile
-///
-/// We use subqueries to smooth out the differences between desktop and mobile telemetry.
-fn mobile_count_query(config: &TeamConfig, channel_expr: String) -> String {
-    let parts = config
+    let mut engines: Vec<_> = config
         .components
         .iter()
         .flat_map(|c| c.sync_engines())
-        .map(|engine_name| {
-            let table_name = format!("{}_sync", engine_name.replace("-", "_"));
-            format!(
-                "\
-SELECT '{engine_name}' AS engine_name, 
-    $__timeGroup(submission_timestamp, $__interval) as time,
-    SAFE_DIVIDE(
-        -- 100 * success count
-        100 * COUNTIF(
-            (metrics.labeled_counter.{table_name}_v2_incoming IS NOT NULL
-              OR metrics.labeled_counter.{table_name}_v2_outgoing IS NOT NULL)
-            AND metrics.labeled_string.{table_name}_v2_failure_reason IS NULL
-        ),
-        -- count success or failures
-        COUNTIF(
-            metrics.labeled_string.{table_name}_v2_failure_reason IS NOT NULL
-            OR metrics.labeled_counter.{table_name}_v2_outgoing IS NOT NULL
-            OR metrics.labeled_counter.{table_name}_v2_incoming IS NOT NULL
-        )
-    ) AS success_rate,
-FROM mozdata.fenix.{table_name}
-WHERE normalized_channel={channel_expr} AND $__timeFilter(submission_timestamp)
-GROUP BY 1, 2"
-            )
-        })
-        .collect::<Vec<_>>();
+        .map(|e| format!("'{e}'"))
+        .collect();
+    engines.sort_unstable();
+    engines.dedup();
+    let engines_where = format!("engine_name IN ({})", engines.join(", "));
+
     format!(
-        "{}\nORDER BY engine_name, time",
-        parts.join("\nUNION ALL\n")
+        "\
+SELECT 
+    TIMESTAMP(submission_date) as time,
+    engine_name,
+    success_rate
+FROM
+    moz-fx-data-shared-prod.sync_derived.{table_name}
+WHERE
+    channel = {channel_expr}
+    AND $__timeFilter(TIMESTAMP(submission_date))
+    AND {application_where}
+    AND {engines_where}
+ORDER BY time"
     )
 }
 

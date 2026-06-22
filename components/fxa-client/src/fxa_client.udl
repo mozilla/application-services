@@ -992,6 +992,7 @@ interface FxaEvent {
   CompleteOAuthFlow(string code, string state);
   CancelOAuthFlow();
   CheckAuthorizationStatus();
+  WebChannelPasswordChange(string json_payload);
   Disconnect();
   CallGetProfile();
 };

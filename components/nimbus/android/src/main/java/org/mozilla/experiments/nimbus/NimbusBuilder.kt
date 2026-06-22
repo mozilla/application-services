@@ -120,7 +120,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
                 val job = if (initialExperiments != null && (isFirstRun || isLocalBuild())) {
                     applyLocalExperiments(initialExperiments!!)
                 } else {
-                    applyPendingExperiments()
+                    applyPendingExperiments(initial = true)
                 }
 
                 // We always want initialize Nimbus to happen ASAP and before any features (engine/UI)
