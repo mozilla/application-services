@@ -121,7 +121,7 @@ where
 
     pub fn record_impression(
         &self,
-        impression_url: Url,
+        mut impression_url: Url,
         ohttp: bool,
     ) -> Result<(), RecordImpressionError> {
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
@@ -130,6 +130,26 @@ where
         // if let Some(request_hash) = pop_request_hash_from_url(&mut impression_url) {
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
+
+        // TODO: Add count call with _cap_key for impression capping logic
+        if let Some((_, _cap_key)) = impression_url
+            .query_pairs()
+            .find(|(key, _)| key == "cap_key")
+        {
+            let original_url = impression_url.clone();
+            impression_url
+                .query_pairs_mut()
+                .clear()
+                .extend_pairs(
+                    original_url
+                        .query_pairs()
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .filter(|(key, _)| key != "cap_key"),
+                )
+                .finish();
+        }
+
         self.client
             .record_impression(impression_url, ohttp)
             .inspect_err(|e| {
@@ -390,6 +410,33 @@ mod tests {
         );
         assert!(result.is_ok());
         m.assert();
+    }
+
+    #[test]
+    fn test_record_impression_removes_cap_key() {
+        viaduct_dev::init_backend_dev();
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let ads_client = new_with_mars_client(mars_client);
+
+        let base_url = mockito::server_url();
+        let path_and_query = "/impression?kept=example";
+        let callback_url = Url::parse(&format!("{}{}", base_url, path_and_query)).unwrap();
+
+        let mock = mockito::mock("GET", path_and_query)
+            .with_status(200)
+            .create();
+
+        ads_client.record_impression(callback_url, false).unwrap();
+
+        mock.assert();
+
+        let callback_url_with_cap_key =
+            Url::parse(&format!("{}{}&cap_key=test", base_url, path_and_query)).unwrap();
+        ads_client
+            .record_impression(callback_url_with_cap_key, false)
+            .unwrap();
+
+        mock.expect(2).assert();
     }
 
     #[test]
