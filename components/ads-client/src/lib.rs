@@ -13,7 +13,7 @@ use url::Url as AdsClientUrl;
 
 use client::AdsClient;
 use http_cache::CachePolicy;
-use mars::ad_request::AdPlacementRequest;
+use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 
 mod client;
 mod ffi;
@@ -111,10 +111,12 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let ohttp = options.as_ref().map(|o| o.ohttp).unwrap_or(false);
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
         let cache_policy: CachePolicy = options.into();
         let response = inner
-            .request_image_ads(requests, Some(cache_policy), ohttp)
+            .request_image_ads(requests, flags, Some(cache_policy), ohttp)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -128,10 +130,12 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let ohttp = options.as_ref().map(|o| o.ohttp).unwrap_or(false);
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
         let cache_policy: CachePolicy = options.into();
         let response = inner
-            .request_spoc_ads(requests, Some(cache_policy), ohttp)
+            .request_spoc_ads(requests, flags, Some(cache_policy), ohttp)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -148,10 +152,12 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
-        let ohttp = options.as_ref().map(|o| o.ohttp).unwrap_or(false);
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
         let cache_policy: CachePolicy = options.into();
         let response = inner
-            .request_tile_ads(requests, Some(cache_policy), ohttp)
+            .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }

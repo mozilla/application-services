@@ -12,7 +12,9 @@ use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
-use crate::mars::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
+use crate::mars::ad_request::{
+    AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
+};
 use crate::mars::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
@@ -20,6 +22,7 @@ use crate::mars::Environment;
 use crate::mars::ReportReason;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
+use std::collections::HashMap;
 use url::Url;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
@@ -55,6 +58,8 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
+    #[uniffi(default)]
+    pub flags: HashMap<String, bool>,
     #[uniffi(default = false)]
     pub ohttp: bool,
 }
@@ -425,15 +430,15 @@ impl From<&MozAdsIABContent> for AdContentCategory {
     }
 }
 
-impl From<MozAdsRequestOptions> for CachePolicy {
-    fn from(options: MozAdsRequestOptions) -> Self {
-        options.cache_policy.map(Into::into).unwrap_or_default()
+impl From<&MozAdsRequestOptions> for AdRequestFlags {
+    fn from(options: &MozAdsRequestOptions) -> Self {
+        options.flags.clone()
     }
 }
 
-impl From<Option<MozAdsRequestOptions>> for CachePolicy {
-    fn from(options: Option<MozAdsRequestOptions>) -> Self {
-        options.map(Into::into).unwrap_or_default()
+impl From<MozAdsRequestOptions> for CachePolicy {
+    fn from(options: MozAdsRequestOptions) -> Self {
+        options.cache_policy.map(Into::into).unwrap_or_default()
     }
 }
 
