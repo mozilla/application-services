@@ -18,7 +18,7 @@ kotlinx-serialization = "1.11.0"
 
 # Mozilla
 android-components = "150.0.3"
-glean = "67.3.1"
+glean = "68.0.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX

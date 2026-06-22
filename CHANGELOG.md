@@ -8,6 +8,9 @@
 
 [Full Changelog](In progress)
 
+### Glean
+- Updated to v68.0.0 ([#7438](https://github.com/mozilla/application-services/issues/7438))
+
 # v153.0 (_2026-06-15_)
 
 ## ⚠️ Breaking Changes ⚠️

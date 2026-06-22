@@ -205,10 +205,6 @@ the details of which are reproduced below.
     <url>https://github.com/smol-rs/fastrand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: fd-lock</name>
-    <url>https://github.com/yoshuawuyts/fd-lock/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: ffi-support</name>
     <url>https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE</url>
   </license>
