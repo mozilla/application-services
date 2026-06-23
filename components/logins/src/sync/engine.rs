@@ -16,21 +16,29 @@ use crate::LoginStore;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::named_params;
 use sql_support::ConnExt;
-use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, UNIX_EPOCH};
 use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
+// The Desktop FxA session-credentials pseudo-login. Firefox stores its account
+// credentials as a login under this origin; it must never be synced. This
+// mirrors the exclusion the JS `PasswordEngine` does via
+// `Utils.getSyncCredentialsHosts()`. Only relevant on Desktop (mobile never has
+// such a login), but it's harmless to filter everywhere.
+const FXA_CREDENTIALS_ORIGIN: &str = "chrome://FirefoxAccounts";
+
 // The sync engine.
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
     pub scope: SqlInterruptScope,
     pub encdec: Arc<dyn EncryptorDecryptor>,
-    pub staged: RefCell<Vec<IncomingBso>>,
+    // `Mutex` (rather than `RefCell`) so the engine is `Sync`, which the
+    // Desktop `BridgedEngineAdaptor` requires. Only ever locked briefly.
+    pub staged: Mutex<Vec<IncomingBso>>,
 }
 
 impl LoginsSyncEngine {
@@ -43,7 +51,7 @@ impl LoginsSyncEngine {
             store,
             encdec,
             scope,
-            staged: RefCell::new(vec![]),
+            staged: Mutex::new(vec![]),
         })
     }
 
@@ -245,26 +253,31 @@ impl LoginsSyncEngine {
         let mut stmt = db.prepare_cached(&format!(
             "SELECT L.*, M.enc_unknown_fields
              FROM loginsL L LEFT JOIN loginsM M ON L.guid = M.guid
-             WHERE sync_status IS NOT {synced}",
+             WHERE sync_status IS NOT {synced}
+               -- Never sync Desktop's FxA session-credentials pseudo-login.
+               AND L.origin IS NOT :fxa_origin",
             synced = SyncStatus::Synced as u8
         ))?;
-        let bsos = stmt.query_and_then([], |row| {
-            self.scope.err_if_interrupted()?;
-            Ok(if row.get::<_, bool>("is_deleted")? {
-                let envelope = OutgoingEnvelope {
-                    id: row.get::<_, String>("guid")?.into(),
-                    sortindex: Some(TOMBSTONE_SORTINDEX),
-                    ..Default::default()
-                };
-                OutgoingBso::new_tombstone(envelope)
-            } else {
-                let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
-                let mut bso =
-                    EncryptedLogin::from_row(row)?.into_bso(self.encdec.as_ref(), unknown)?;
-                bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
-                bso
-            })
-        })?;
+        let bsos = stmt.query_and_then(
+            named_params! { ":fxa_origin": FXA_CREDENTIALS_ORIGIN },
+            |row| {
+                self.scope.err_if_interrupted()?;
+                Ok(if row.get::<_, bool>("is_deleted")? {
+                    let envelope = OutgoingEnvelope {
+                        id: row.get::<_, String>("guid")?.into(),
+                        sortindex: Some(TOMBSTONE_SORTINDEX),
+                        ..Default::default()
+                    };
+                    OutgoingBso::new_tombstone(envelope)
+                } else {
+                    let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
+                    let mut bso =
+                        EncryptedLogin::from_row(row)?.into_bso(self.encdec.as_ref(), unknown)?;
+                    bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
+                    bso
+                })
+            },
+        )?;
         bsos.collect::<Result<_>>()
     }
 
@@ -292,9 +305,13 @@ impl LoginsSyncEngine {
         db.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }
 
-    fn get_last_sync(&self, db: &LoginDb) -> Result<Option<ServerTimestamp>> {
-        let millis = db.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?.unwrap();
-        Ok(Some(ServerTimestamp(millis)))
+    // Public so the bridged engine (`sync::bridge`) can read the last-sync
+    // timestamp without needing access to the private internals here. Returns
+    // `None` when we've never synced, rather than panicking on a fresh DB.
+    pub fn get_last_sync(&self, db: &LoginDb) -> Result<Option<ServerTimestamp>> {
+        Ok(db
+            .get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
+            .map(ServerTimestamp))
     }
 
     fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
@@ -424,7 +441,7 @@ impl SyncEngine for LoginsSyncEngine {
     ) -> anyhow::Result<()> {
         // We don't have cross-item dependencies like bookmarks does, so we can
         // just apply now instead of "staging"
-        self.staged.borrow_mut().append(&mut inbound);
+        self.staged.lock().unwrap().append(&mut inbound);
         Ok(())
     }
 
@@ -433,7 +450,7 @@ impl SyncEngine for LoginsSyncEngine {
         timestamp: ServerTimestamp,
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<Vec<OutgoingBso>> {
-        let inbound = (*self.staged.borrow_mut()).drain(..).collect();
+        let inbound = self.staged.lock().unwrap().drain(..).collect();
         Ok(self.do_apply_incoming(inbound, timestamp, telem)?)
     }
 
@@ -801,6 +818,44 @@ mod tests {
         assert!(changes["deleted"].get("deleted").is_some());
         assert!(changes["added"].get("deleted").is_none());
         assert!(changes["changed"].get("deleted").is_none());
+    }
+
+    #[test]
+    fn test_fetch_outgoing_excludes_fxa_credentials() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory();
+
+        // A normal local login that should be uploaded.
+        insert_login(&store.lock_db().unwrap(), "normal", Some("password"), None);
+
+        // Desktop's FxA session-credentials pseudo-login must never be synced.
+        store
+            .add(LoginEntry {
+                origin: FXA_CREDENTIALS_ORIGIN.to_string(),
+                http_realm: Some("Firefox Accounts credentials".to_string()),
+                username: "uid".to_string(),
+                password: "sync-token".to_string(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+
+        // The normal login still uploads; nothing pointing at the FxA origin
+        // is outgoing.
+        assert!(changes.contains_key("normal"));
+        assert!(changes
+            .values()
+            .all(|payload| payload["hostname"] != FXA_CREDENTIALS_ORIGIN));
     }
 
     #[test]

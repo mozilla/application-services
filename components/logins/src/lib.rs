@@ -29,7 +29,7 @@ use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
-pub use crate::sync::LoginsSyncEngine;
+pub use crate::sync::{LoginsBridgedEngine, LoginsSyncEngine};
 use std::sync::Arc;
 
 // Utility function to create a StaticKeyManager to be used for the time being until support lands

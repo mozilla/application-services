@@ -10,11 +10,12 @@
 
 ## ✨ What's New ✨
 
-### Ads Client
-- Add support for IAB content categories and the `flags.contextual_placement` request flag on ad requests. Callers can attach an `iabContent` (taxonomy + category IDs) to each `MozAdsPlacementRequest`, and set `contextualPlacement: true` on `MozAdsRequestOptions` to opt the request into contextual placement on the server side (AC-109).
-
 ### Glean
 - Updated to v68.0.0 ([#7438](https://github.com/mozilla/application-services/issues/7438))
+
+### Logins
+
+- Add `LoginStore.bridgedEngine()`, which exposes the logins sync engine to Desktop's Sync. ([bug 2049263](https://bugzilla.mozilla.org/show_bug.cgi?id=2049263))
 
 # v153.0 (_2026-06-15_)
 
