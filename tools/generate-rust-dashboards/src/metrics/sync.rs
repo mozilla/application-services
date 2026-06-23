@@ -5,9 +5,9 @@
 use crate::{
     config::{Application, ReleaseChannel, TeamConfig},
     schema::{
-        CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
-        FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel, Target,
-        TextPanel, TimeSeriesPanel, Transformation,
+        CalculateFieldOptions, CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource,
+        FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel,
+        Target, TextPanel, TimeSeriesPanel, Transformation, WindowFunctionWindow,
     },
     sql::Query,
     util::{Join, UrlBuilder},
@@ -27,8 +27,8 @@ pub fn add_to_main_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig
 
 pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
     let mut builder = DashboardBuilder::new(
-        format!("{} - Sync Errors", config.team_name),
-        format!("{}-sync-errors", config.team_slug()),
+        format!("{} - Sync Details", config.team_name),
+        format!("{}-sync-details", config.team_slug()),
     );
     builder.add_application_variable(config)?;
     builder.add_channel_variable();
@@ -44,8 +44,20 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         ..CustomVariable::default()
     });
 
-    builder.add_panel_full(error_list_count_panel(config));
-    builder.add_panel_full(error_list_log_panel(config));
+    builder.add_panel_title("Metrics");
+    builder.add_panel_full(details_dash_count_panel(
+        "Success Rate",
+        "success_rate",
+        false,
+    ));
+    builder.add_panel_full(details_dash_count_panel(
+        "Total counts (7 day moving average)",
+        "count_total",
+        true,
+    ));
+    builder.add_panel_title("Errors");
+    builder.add_panel_full(details_dash_error_count_panel(config));
+    builder.add_panel_full(details_dash_error_log_panel(config));
 
     Ok(builder.dashboard)
 }
@@ -66,7 +78,7 @@ fn overview_count_panel(
 
     let query = count_query(config, application, format!("'{channel}'"));
 
-    TimeSeriesPanel {
+    Panel::from(TimeSeriesPanel {
         title: application.display_name(channel),
         grid_pos: GridPos::height(8),
         datasource: Datasource::bigquery(),
@@ -76,7 +88,7 @@ fn overview_count_panel(
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {
                 links: vec![DataLink {
-                    url: UrlBuilder::new_dashboard(format!("{}-sync-errors", config.team_slug()))
+                    url: UrlBuilder::new_dashboard(format!("{}-sync-details", config.team_slug()))
                         .with_time_range_param()
                         .with_param("var-application", application.slug())
                         .with_param("var-channel", channel.to_string())
@@ -107,8 +119,7 @@ fn overview_count_panel(
             },
         ],
         ..TimeSeriesPanel::default()
-    }
-    .into()
+    })
 }
 
 /// Query to fetch sync success rates
@@ -151,7 +162,87 @@ ORDER BY time"
     )
 }
 
-fn error_list_count_panel(config: &TeamConfig) -> Panel {
+fn details_dash_count_panel(title: &str, column_name: &str, moving_average: bool) -> Panel {
+    let query = Query {
+        select: vec!["time".into(), column_name.into()],
+        from: format!("(\n{}\n)", details_dash_count_query()),
+        group_by: Some("1, 2".into()),
+        ..Query::default()
+    };
+
+    let transformations = if moving_average {
+        vec![Transformation::CalculateField(
+            CalculateFieldOptions::WindowFunctions {
+                replace_fields: true,
+                window: WindowFunctionWindow {
+                    field: "count_total".into(),
+                    reducer: "mean".into(),
+                    window_alignment: "centered".into(),
+                    window_size: 7.0,
+                    window_size_mode: "fixed".into(),
+                },
+            },
+        )]
+    } else {
+        vec![]
+    };
+
+    TimeSeriesPanel {
+        title: title.into(),
+        grid_pos: GridPos::height(10),
+        datasource: Datasource::bigquery(),
+        // needs to be fairly large since the total sync count can be low on mobile/nightly
+        interval: "1d".into(),
+        targets: vec![Target::table(query.sql())],
+        transformations,
+        ..TimeSeriesPanel::default()
+    }
+    .into()
+}
+
+/// Query to count metrics for the details dashboard
+fn details_dash_count_query() -> String {
+    "\
+SELECT 
+    TIMESTAMP(submission_date) as time,
+    success_rate,
+    count_total
+FROM
+    moz-fx-data-shared-prod.sync_derived.desktop_v1
+WHERE
+    $__timeFilter(TIMESTAMP(submission_date))
+    AND channel = '${channel}'
+    AND application=CASE '${application}'
+        WHEN 'firefox_desktop' THEN 'desktop'
+        WHEN 'firefox_android' THEN 'firefox-android'
+        WHEN 'firefox_ios' THEN 'firefox-ios'
+        ELSE '${application}'
+    END
+    AND engine_name = '${engine}'
+
+UNION ALL
+
+SELECT 
+    TIMESTAMP(submission_date) as time,
+    success_rate,
+    count_total
+FROM
+    moz-fx-data-shared-prod.sync_derived.mobile_v1
+WHERE
+    $__timeFilter(TIMESTAMP(submission_date))
+    AND channel = '${channel}'
+    AND application=CASE '${application}'
+        WHEN 'firefox_desktop' THEN 'desktop'
+        WHEN 'firefox_android' THEN 'firefox-android'
+        WHEN 'firefox_ios' THEN 'firefox-ios'
+        ELSE '${application}'
+    END
+    AND engine_name = '${engine}'
+ORDER BY time"
+        .to_string()
+}
+
+fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
     let query = Query {
         select: vec![
             "error".into(),
@@ -171,7 +262,7 @@ fn error_list_count_panel(config: &TeamConfig) -> Panel {
     };
 
     TimeSeriesPanel {
-        title: "Error counts".into(),
+        title: "Error counts by type".into(),
         grid_pos: GridPos::height(10),
         datasource: Datasource::bigquery(),
         // needs to be fairly large since the total sync count can be low on mobile/nightly
@@ -192,7 +283,7 @@ fn error_list_count_panel(config: &TeamConfig) -> Panel {
     .into()
 }
 
-fn error_list_log_panel(config: &TeamConfig) -> Panel {
+fn details_dash_error_log_panel(config: &TeamConfig) -> Panel {
     let query = Query {
         select: vec![
             "CONCAT(IFNULL(error, 'unknown'), ': ', IFNULL(details, 'unknown')) as message".into(),
