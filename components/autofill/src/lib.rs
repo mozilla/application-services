@@ -18,6 +18,7 @@ pub use crate::db::store::get_registered_sync_engine;
 use crate::db::credit_cards::CreditCardsDeletionMetrics;
 use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
+use crate::db::models::passport::*;
 use crate::db::store::Store;
 use crate::encryption::{create_autofill_key, decrypt_string, encrypt_string};
 pub use error::{ApiResult, AutofillApiError, Error, Result};

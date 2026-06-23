@@ -33,6 +33,10 @@
 
 - `update()` no longer bumps `times_used` or `time_last_used`, this is done only via `touch()`. Verified that both Firefox Android and iOS already track password use via `touch()` and call `update()` only for explicit edits. ([bug 2045032](https://bugzilla.mozilla.org/show_bug.cgi?id=2045032))
 
+### Autofill
+
+- Added a new `passports` record type (name, country, passport number, issue/expiry dates) with full CRUD on the `Store` API. The schema is laid out sync-ready, but no sync engine is registered yet, so passports are not synced.
+
 ### Nimbus
 
 - Fixed a bug where enrollment change events were not emitted for rollouts that re-enrolled after previously unenrolling. ([#7391](https://github.com/mozilla/application-services/pull/7391/))

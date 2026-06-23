@@ -75,6 +75,38 @@ dictionary Address {
     i64 times_used;
 };
 
+/// What you pass to create or update a passport.
+dictionary UpdatablePassportFields {
+    string name;
+    string country;
+    string passport_number;
+    i64 issue_date_month;
+    i64 issue_date_day;
+    i64 issue_date_year;
+    i64 expiry_date_month;
+    i64 expiry_date_day;
+    i64 expiry_date_year;
+};
+
+/// What you get back as a passport.
+dictionary Passport {
+    string guid;
+    string name;
+    string country;
+    string passport_number;
+    i64 issue_date_month;
+    i64 issue_date_day;
+    i64 issue_date_year;
+    i64 expiry_date_month;
+    i64 expiry_date_day;
+    i64 expiry_date_year;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
 /// Metrics tracking scrubbing of credit cards that cannot be decrypted, see
 // `scrub_undecryptable_credit_card_data_for_remote_replacement` for more details
 dictionary CreditCardsDeletionMetrics {
@@ -135,6 +167,27 @@ interface Store {
 
     [Throws=AutofillApiError]
     void touch_address(string guid);
+
+    [Throws=AutofillApiError]
+    Passport add_passport(UpdatablePassportFields p);
+
+    [Throws=AutofillApiError]
+    Passport get_passport(string guid);
+
+    [Throws=AutofillApiError]
+    sequence<Passport> get_all_passports();
+
+    [Throws=AutofillApiError]
+    i64 count_all_passports();
+
+    [Throws=AutofillApiError]
+    void update_passport(string guid, UpdatablePassportFields p);
+
+    [Throws=AutofillApiError]
+    boolean delete_passport(string guid);
+
+    [Throws=AutofillApiError]
+    void touch_passport(string guid);
 
     [Throws=AutofillApiError, Self=ByArc]
     void scrub_encrypted_data();
