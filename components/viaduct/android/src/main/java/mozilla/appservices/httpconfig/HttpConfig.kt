@@ -31,19 +31,13 @@ class UnsupportedRequestMethodError(method: String) :
  */
 @OptIn(ExperimentalAtomicApi::class)
 object RustHttpConfig {
-    // Used to only initialize the client once
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1989865.
-    private var backendInitialized = AtomicBoolean(false)
-
     /**
      * Set the HTTP client to be used by all Rust code.
      * the `Lazy`'s value is not read until the first request is made.
      */
     @Synchronized
     fun setClient(c: Lazy<Client>) {
-        if (backendInitialized.compareAndSet(false, true)) {
-            initBackend(FetchBackend(c))
-        }
+        initBackend(FetchBackend(c))
     }
 
     /** Allows connections to the hard-coded address the Android Emulator uses

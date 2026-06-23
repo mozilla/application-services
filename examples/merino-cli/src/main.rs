@@ -119,7 +119,7 @@ enum WorldCupEndpoint {
 }
 
 fn main() -> Result<()> {
-    viaduct_hyper::viaduct_init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper();
 
     let cli = Cli::parse();
 

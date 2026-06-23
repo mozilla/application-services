@@ -50,7 +50,7 @@ fn run_benchmarks<B: BenchmarkWithInput, M: Measurement>(
 fn setup_viaduct() {
     static INIT: Once = Once::new();
     INIT.call_once(|| {
-        viaduct_hyper::viaduct_init_backend_hyper().expect("error initializing viaduct")
+        viaduct_hyper::viaduct_init_backend_hyper();
     });
 }
 

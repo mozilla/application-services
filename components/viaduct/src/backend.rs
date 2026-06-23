@@ -28,10 +28,10 @@ pub trait Backend: Send + Sync + 'static {
 
 static BACKEND: OnceCell<&'static dyn Backend> = OnceCell::new();
 
-pub fn set_backend(b: &'static dyn Backend) -> Result<(), crate::ViaductError> {
-    BACKEND
-        .set(b)
-        .map_err(|_| crate::error::ViaductError::SetBackendError)
+pub fn set_backend(b: &'static dyn Backend) {
+    // Ignore errors when setting the OnceCell multiple times.
+    // `new_backend::init_backend` will catch and report these.
+    let _ = BACKEND.set(b);
 }
 
 pub(crate) fn get_backend() -> &'static dyn Backend {

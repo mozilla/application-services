@@ -234,7 +234,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    viaduct_hyper::viaduct_init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper();
 
     let mut cli = CliFxa::new(get_default_fxa_config(), Some(&cred_file))?;
     cli.ensure_logged_in(&[SYNC_SCOPE])?;

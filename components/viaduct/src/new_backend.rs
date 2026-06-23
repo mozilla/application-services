@@ -29,11 +29,14 @@ pub trait Backend: Send + Sync + 'static {
 static REGISTERED_BACKEND: OnceLock<Arc<dyn Backend>> = OnceLock::new();
 
 #[uniffi::export]
-pub fn init_backend(backend: Arc<dyn Backend>) -> Result<()> {
-    old_backend::set_backend(Box::leak(Box::new(backend.clone())))?;
-    REGISTERED_BACKEND
-        .set(backend)
-        .map_err(|_| ViaductError::BackendAlreadyInitialized)
+pub fn init_backend(backend: Arc<dyn Backend>) {
+    old_backend::set_backend(Box::leak(Box::new(backend.clone())));
+    if REGISTERED_BACKEND.set(backend).is_err() {
+        error_support::report_error!(
+            "viaduct-multiple-init-backend",
+            "init_backend called multiple times"
+        );
+    }
 }
 
 pub fn get_backend() -> Result<&'static Arc<dyn Backend>> {

@@ -107,8 +107,7 @@ static INIT_REQWEST_BACKEND: Once = Once::new();
 
 pub fn use_reqwest_backend() {
     INIT_REQWEST_BACKEND.call_once(|| {
-        viaduct::set_backend(Box::leak(Box::new(ReqwestBackend)))
-            .expect("Backend already set (FFI)");
+        viaduct::set_backend(Box::leak(Box::new(ReqwestBackend)));
     })
 }
 
