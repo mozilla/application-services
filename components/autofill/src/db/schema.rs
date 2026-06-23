@@ -50,6 +50,7 @@ pub const CREDIT_CARD_COMMON_COLS: &str = "
     cc_exp_month,
     cc_exp_year,
     cc_type,
+    custom_label,
     time_created,
     time_last_used,
     time_last_modified,
@@ -63,6 +64,7 @@ pub const CREDIT_CARD_COMMON_VALS: &str = "
     :cc_exp_month,
     :cc_exp_year,
     :cc_type,
+    :custom_label,
     :time_created,
     :time_last_used,
     :time_last_modified,
@@ -76,7 +78,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 4;
+    const END_VERSION: u32 = 5;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -107,6 +109,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             1 => upgrade_from_v1(db),
             2 => upgrade_from_v2(db),
             3 => upgrade_from_v3(db),
+            4 => upgrade_from_v4(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -238,6 +241,12 @@ fn upgrade_from_v3(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn upgrade_from_v4(db: &Connection) -> Result<()> {
+    let migration_string: &str = include_str!("../../sql/migrations/v5_migration.sql");
+    db.execute_batch(migration_string)?;
+    Ok(())
+}
+
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -258,6 +267,7 @@ mod tests {
     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
     const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
     const CREATE_V3_DB: &str = include_str!("../../sql/tests/create_v3_db.sql");
+    const CREATE_V4_DB: &str = include_str!("../../sql/tests/create_v4_db.sql");
 
     #[test]
     fn test_create_schema_twice() {
@@ -407,5 +417,27 @@ mod tests {
         address = get_address(&db, &Guid::new("B")).unwrap();
         assert_eq!(address.guid, "B");
         assert_eq!(address.address_level1, "ON");
+    }
+
+    #[test]
+    fn test_upgrade_version_4() {
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V4_DB);
+        let db = db_file.open();
+
+        // custom_label must not exist yet at v4.
+        db.execute_batch("SELECT custom_label FROM credit_cards_data")
+            .expect_err("custom_label should not exist at v4");
+
+        db_file.upgrade_to(5);
+
+        // After upgrading to v5 the column exists, and the existing row has NULL.
+        let label: Option<String> = db
+            .query_row(
+                "SELECT custom_label FROM credit_cards_data WHERE guid = 'A'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("select custom_label should succeed at v5");
+        assert_eq!(label, None);
     }
 }

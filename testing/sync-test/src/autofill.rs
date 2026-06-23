@@ -172,6 +172,7 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
             cc_exp_month: 3,
             cc_exp_year: 2022,
             cc_type: "visa".to_string(),
+            custom_label: None,
         },
     )
     .expect("add cc1");
@@ -186,15 +187,16 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
+            custom_label: None,
         },
     )
     .expect("add cc2");
 
     log::info!("Syncing client0");
-    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+    sync_credit_cards(c0, key.clone()).expect("c0 syncÂ to work");
 
     log::info!("Syncing client1");
-    sync_credit_cards(c1, key.clone()).expect("c1 sync to work");
+    sync_credit_cards(c1, key.clone()).expect("c1 syncÂ to work");
 
     log::info!("Check state");
     verify_credit_card(&c1.autofill_store, &cc1, key.clone());
@@ -203,8 +205,8 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
     // clear records
     delete_credit_card(&c0.autofill_store, cc1).expect("cc1 to be deleted from c0");
     delete_credit_card(&c0.autofill_store, cc2).expect("cc2 to be deleted from c0");
-    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
-    sync_credit_cards(c1, key).expect("c1 sync to work");
+    sync_credit_cards(c0, key.clone()).expect("c0 syncÂ to work");
+    sync_credit_cards(c1, key).expect("c1 syncÂ to work");
     verify_credit_card_removal(&c0.autofill_store);
     verify_credit_card_removal(&c1.autofill_store);
 }
@@ -223,6 +225,7 @@ fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut 
             cc_exp_month: 12,
             cc_exp_year: 2027,
             cc_type: "visa".to_string(),
+            custom_label: None,
         },
     )
     .expect("add cc3");
@@ -233,11 +236,11 @@ fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut 
     let _ = scrub_credit_card(c0.autofill_store.clone());
 
     log::info!("Syncing client0");
-    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+    sync_credit_cards(c0, key.clone()).expect("c0 syncÂ to work");
 
     // clear records
     delete_credit_card(&c0.autofill_store, cc3.clone()).expect("cc3 to be deleted from c0");
-    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+    sync_credit_cards(c0, key.clone()).expect("c0 syncÂ to work");
     verify_credit_card_removal(&c0.autofill_store);
     verify_credit_card_removal(&c1.autofill_store);
 }
@@ -273,10 +276,10 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     .expect("add a2");
 
     log::info!("Syncing client0");
-    sync_addresses(c0).expect("c0 sync to work");
+    sync_addresses(c0).expect("c0 syncÂ to work");
 
     log::info!("Syncing client1");
-    sync_addresses(c1).expect("c1 sync to work");
+    sync_addresses(c1).expect("c1 syncÂ to work");
 
     log::info!("Check state");
     verify_address(&c1.autofill_store, &a1);
@@ -285,8 +288,8 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     // clear records
     delete_address(&c0.autofill_store, a1).expect("a1 to be deleted from c0");
     delete_address(&c0.autofill_store, a2).expect("a2 to be deleted from c0");
-    sync_addresses(c0).expect("c0 sync to work");
-    sync_addresses(c1).expect("c1 sync to work");
+    sync_addresses(c0).expect("c0 syncÂ to work");
+    sync_addresses(c1).expect("c1 syncÂ to work");
     verify_address_removal(&c0.autofill_store);
     verify_address_removal(&c1.autofill_store);
 }
@@ -306,6 +309,7 @@ fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut Test
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
+            custom_label: None,
         },
     )
     .expect("add credit_card0");
@@ -353,6 +357,7 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
+            custom_label: None,
         },
     )
     .expect("add credit_card0 to c0");

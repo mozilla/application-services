@@ -96,6 +96,11 @@ pub(super) struct PayloadEntry {
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     pub cc_type: String,
+    // Optional user-assigned label. Omitted from outgoing payloads when None so
+    // older clients (and the existing v3 schema) round-trip the record without
+    // gaining a meaningless `"custom-label": null` key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_label: Option<String>,
     // metadata (which isn't kebab-case for some historical reason...)
     #[serde(rename = "timeCreated")]
     pub time_created: Timestamp,
@@ -134,6 +139,7 @@ impl InternalCreditCard {
             cc_exp_month: p.entry.cc_exp_month,
             cc_exp_year: p.entry.cc_exp_year,
             cc_type: p.entry.cc_type,
+            custom_label: p.entry.custom_label,
             metadata: Metadata {
                 time_created: p.entry.time_created,
                 time_last_used: p.entry.time_last_used,
@@ -154,6 +160,7 @@ impl InternalCreditCard {
                 cc_exp_month: self.cc_exp_month,
                 cc_exp_year: self.cc_exp_year,
                 cc_type: self.cc_type,
+                custom_label: self.custom_label,
                 time_created: self.metadata.time_created,
                 time_last_used: self.metadata.time_last_used,
                 time_last_modified: self.metadata.time_last_modified,
@@ -209,6 +216,7 @@ impl SyncRecord for InternalCreditCard {
         sync_merge_field_check!(cc_exp_month, incoming, local, mirror, merged_record);
         sync_merge_field_check!(cc_exp_year, incoming, local, mirror, merged_record);
         sync_merge_field_check!(cc_type, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(custom_label, incoming, local, mirror, merged_record);
 
         merged_record.metadata = incoming.metadata;
         merged_record
@@ -267,6 +275,7 @@ fn test_to_from_payload() {
         cc_exp_month: 12,
         cc_exp_year: 2021,
         cc_type: "foo".to_string(),
+        custom_label: Some("Travel".to_string()),
         ..Default::default()
     };
     let encdec = EncryptorDecryptor::new(&key).unwrap();
@@ -278,6 +287,7 @@ fn test_to_from_payload() {
     assert_eq!(payload.entry.cc_exp_month, 12);
     assert_eq!(payload.entry.cc_exp_year, 2021);
     assert_eq!(payload.entry.cc_type, "foo".to_string());
+    assert_eq!(payload.entry.custom_label.as_deref(), Some("Travel"));
 
     // and back.
     let cc2 = InternalCreditCard::from_payload(payload, &encdec).unwrap();
@@ -289,6 +299,7 @@ fn test_to_from_payload() {
     assert_eq!(cc2.cc_exp_month, cc.cc_exp_month);
     assert_eq!(cc2.cc_exp_year, cc.cc_exp_year);
     assert_eq!(cc2.cc_type, cc.cc_type);
+    assert_eq!(cc2.custom_label, cc.custom_label);
     // The decrypted number should be the same.
     assert_eq!(
         crate::encryption::decrypt_string(key, cc2.cc_number_enc.clone()).unwrap(),
@@ -296,4 +307,30 @@ fn test_to_from_payload() {
     );
     // But the encrypted value should not.
     assert_ne!(cc2.cc_number_enc, cc.cc_number_enc);
+}
+
+#[test]
+fn test_payload_omits_none_custom_label() {
+    nss_as::ensure_initialized();
+    let key = crate::encryption::create_autofill_key().unwrap();
+    let cc_number_enc = crate::encryption::encrypt_string(key.clone(), "4111".to_string()).unwrap();
+    // No custom_label set — outgoing payload must not include the kebab-case
+    // key so older clients see a record indistinguishable from the v3 schema.
+    let cc = InternalCreditCard {
+        cc_name: "Shaggy".to_string(),
+        cc_number_enc,
+        cc_number_last_4: "4111".to_string(),
+        cc_exp_month: 12,
+        cc_exp_year: 2021,
+        cc_type: "foo".to_string(),
+        custom_label: None,
+        ..Default::default()
+    };
+    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let payload = cc.into_payload(&encdec).unwrap();
+    let json = serde_json::to_string(&payload.entry).unwrap();
+    assert!(
+        !json.contains("custom-label"),
+        "outgoing payload should omit custom-label when None, got: {json}"
+    );
 }

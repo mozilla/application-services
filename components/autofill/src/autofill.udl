@@ -23,6 +23,7 @@ dictionary UpdatableCreditCardFields {
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
+    string? custom_label = null;
 };
 
 /// What you get back as a credit-card.
@@ -34,6 +35,7 @@ dictionary CreditCard {
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
+    string? custom_label = null;
 
     i64 time_created;
     i64? time_last_used;

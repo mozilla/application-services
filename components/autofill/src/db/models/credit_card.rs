@@ -17,6 +17,8 @@ pub struct UpdatableCreditCardFields {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
+    // Optional user-assigned free-text label.
+    pub custom_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -31,6 +33,7 @@ pub struct CreditCard {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
+    pub custom_label: Option<String>,
 
     // The metadata
     pub time_created: i64,
@@ -51,6 +54,7 @@ impl From<InternalCreditCard> for CreditCard {
             cc_exp_month: icc.cc_exp_month,
             cc_exp_year: icc.cc_exp_year,
             cc_type: icc.cc_type,
+            custom_label: icc.custom_label,
             // note we can't use u64 in uniffi
             time_created: u64::from(icc.metadata.time_created) as i64,
             time_last_used: if icc.metadata.time_last_used.0 == 0 {
@@ -77,6 +81,7 @@ pub struct InternalCreditCard {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
+    pub custom_label: Option<String>,
     pub metadata: Metadata,
 }
 
@@ -90,6 +95,7 @@ impl InternalCreditCard {
             cc_exp_month: row.get("cc_exp_month")?,
             cc_exp_year: row.get("cc_exp_year")?,
             cc_type: row.get("cc_type")?,
+            custom_label: row.get("custom_label")?,
             metadata: Metadata {
                 time_created: row.get("time_created")?,
                 time_last_used: row.get("time_last_used")?,

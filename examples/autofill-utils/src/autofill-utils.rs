@@ -245,6 +245,7 @@ fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
         cc_exp_month: prompt_usize("cc_exp_month").unwrap_or_default() as i64,
         cc_exp_year: prompt_usize("cc_exp_year").unwrap_or_default() as i64,
         cc_type: prompt_string("cc_type").unwrap_or_default(),
+        custom_label: None,
     };
     println!("Making `add_credit_card` api call");
     let credit_card = Store::add_credit_card(store, cc_fields)?;
@@ -307,6 +308,7 @@ fn run_update_credit_card(store: &Store, guid: String) -> Result<()> {
         cc_exp_month: update_i64("cc_exp_month", cc.cc_exp_month),
         cc_exp_year: update_i64("cc_exp_year", cc.cc_exp_year),
         cc_type: update_string("cc_type", cc.cc_type),
+        custom_label: None,
     };
 
     println!("Updating credit card");

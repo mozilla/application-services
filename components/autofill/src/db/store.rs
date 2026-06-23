@@ -331,6 +331,7 @@ mod tests {
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
+                custom_label: None,
             })
             .expect("add credit card to database");
 
