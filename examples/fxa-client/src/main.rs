@@ -72,6 +72,8 @@ enum Command {
         #[clap(long = "scope", required = true)]
         scopes: Vec<String>,
     },
+    /// List the clients attached to the account (uses session-token auth).
+    AttachedClients,
     Disconnect,
 }
 
@@ -116,6 +118,17 @@ fn main() -> Result<()> {
                     println!("Requesting access token with scope: {scope}");
                     let tok = account.get_access_token(&scope, !ignore_cache)?;
                     println!("Success: {tok:?}");
+                }
+                Command::AttachedClients => {
+                    for client in account.get_attached_clients()? {
+                        println!(
+                            "{} (client_id: {}, current: {}, last access: {:?})",
+                            client.name.as_deref().unwrap_or("<unnamed>"),
+                            client.client_id.as_deref().unwrap_or("<none>"),
+                            client.is_current_session,
+                            client.last_access_time,
+                        );
+                    }
                 }
                 Command::Disconnect => {
                     account.disconnect();

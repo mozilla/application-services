@@ -1,5 +1,11 @@
 # v154.0 (In progress)
 
+## ✨ What's Changed ✨
+
+### Firefox Accounts
+
+- Session-token authenticated requests to the FxA auth-server now use the typed-Bearer token scheme (`Authorization: Bearer fxs_<token_id>`) instead of Hawk. This is an internal change with no consumer-facing API impact; production routes accept both schemes. See the [authentication schemes reference](https://mozilla.github.io/ecosystem-platform/reference/authentication-schemes). ([#PRNUM](https://github.com/mozilla/application-services/pull/PRNUM))
+
 [Full Changelog](In progress)
 
 ## ✨ What's New ✨
