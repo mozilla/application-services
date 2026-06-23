@@ -5,9 +5,9 @@
 Nightly builds are automatically generated using a taskcluster cron task.
 
 - The results of the latest successful nightly build is listed here:
-  https://firefox-ci-tc.services.mozilla.com/tasks/index/project.application-services.v2.nightly/latest
+  <https://firefox-ci-tc.services.mozilla.com/tasks/index/project.application-services.v2.nightly/latest>
 - The latest nightly decision task should be listed here:
-  https://firefox-ci-tc.services.mozilla.com/tasks/index/project.application-services.v2.branch.main.latest.taskgraph/decision-nightly
+  <https://firefox-ci-tc.services.mozilla.com/tasks/index/project.application-services.v2.branch.main.latest.taskgraph/decision-nightly>
 - If you don't see a decision task from the day before, then contact releng.  It's likely that the cron decision task is broken.
 
 ## Release builds
@@ -54,10 +54,10 @@ We build several artifacts for both nightlies and releases:
     - The version number for the nightly/release
     - The git commit ID
     - The maven channel for Kotlin packages:
-      - `maven-production`: https://maven.mozilla.org/?prefix=maven2/org/mozilla/appservices/
-      - `maven-nightly-production`: https://maven.mozilla.org/?prefix=maven2/org/mozilla/appservices/nightly/
-      - `maven-staging`: https://maven-default.stage.mozaws.net/?prefix=maven2/org/mozilla/appservices/
-      - `maven-nightly-staging`: https://maven-default.stage.mozaws.net/?prefix=maven2/org/mozilla/appservices/nightly/
+      - `maven-production`: <https://maven.mozilla.org/?prefix=maven2/org/mozilla/appservices/>
+      - `maven-nightly-production`: <https://maven.mozilla.org/?prefix=maven2/org/mozilla/appservices/nightly/>
+      - `maven-staging`: <https://maven-default.stage.mozaws.net/?prefix=maven2/org/mozilla/appservices/>
+      - `maven-nightly-staging`: <https://maven-default.stage.mozaws.net/?prefix=maven2/org/mozilla/appservices/nightly/>
     - Links to `nimbus-fml.*`: used to build Firefox/Focus on Android and iOS
     - Links to `*RustComponentsSwift.xcframework.zip`: XCFramework archives used to build Firefox/Focus on iOS
     - Link to `swift-components.tar.xz`: UniFFI-generated swift files which get extracted into the
@@ -68,7 +68,7 @@ We build several artifacts for both nightlies and releases:
 For nightly builds, consumers get the artifacts directly from the taskcluster.
 
   - For, `firefox-android`, the nightlies are handled by [relbot](https://github.com/mozilla-mobile/relbot/)
-  - For, `firefox-ios`, the nightlies are consumed by a local swift package in firefox-ios https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents
+  - For, `firefox-ios`, the nightlies are consumed by a local swift package in firefox-ios: <https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents>
 
 ## Release promotion
 
