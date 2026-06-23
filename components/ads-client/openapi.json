@@ -1,0 +1,1397 @@
+{
+  "openapi": "3.0.0",
+  "security": [],
+  "servers": [
+    {
+      "url": "https://ads.mozilla.org"
+    }
+  ],
+  "info": {
+    "description": "Mozilla Ad Routing Service",
+    "version": "1.0",
+    "title": "MARS"
+  },
+  "paths": {
+    "/v1/ads": {
+      "post": {
+        "summary": "Get Unified API ads",
+        "operationId": "getAds",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Agent",
+            "description": "For OHTTP requests, the X-User-Agent header must be populated with a valid User Agent string. This string will typically be acquired from a /v1/ads-preflight response.\n\nFor non-OHTTP requests, the header should be omitted.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Geo-Location",
+            "description": "For OHTTP requests, the X-Geo-Location header must be populated with a valide geo location string. This string will typically be acquired from a /v1/ads-preflight response.\n\nFor non-OHTTP requests, the header should be omitted.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(\\d+)?,(\\w+)?,(\\w+)?$",
+              "example": "506,MA,US"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response. The response can still be empty, no error codes will be returned if no ads can be served after being filtered for correctness and being on the block list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Requests are invalid if they contain unsupported placements or request too many ads for a placement."
+          }
+        }
+      }
+    },
+    "/v1/ads-preflight": {
+      "get": {
+        "summary": "Preflight request for OHTTP callers",
+        "description": "This endpoint is used to obtain information that OHTTP callers will need to include in OHTTP requests to the /v1/ads endpoint.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response. The response can still be empty, no error codes will be returned if no ads are available for the given device and location.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreflightResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Requests are expected to include a User-Agent header."
+          }
+        }
+      }
+    },
+    "/v1/t": {
+      "get": {
+        "summary": "Report ad interaction",
+        "description": "Interaction callback URLs are returned in an ad response. When the corresponding action on the client occurs, those URLs should be fetched.",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "query",
+            "description": "Encoded interaction data",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "placement_id",
+            "in": "query",
+            "description": "Identifier representing the instance of the placement (different identifier than placement from the ad request), used only in special situations.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "position",
+            "in": "query",
+            "description": "Identifier indicating the position of the placement (optional). May be a string or numeric.  If a numeric index is used it must be 0-based.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "description": "Identifier indicating the reason for the ad reporting interaction. Used only for, and required with, the 'report' action.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "inappropriate",
+                "not_interested",
+                "seen_too_many_times"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/log": {
+      "get": {
+        "summary": "Record client events",
+        "description": "This endpoint can be used to persist a prometheus metric.",
+        "parameters": [
+          {
+            "name": "event",
+            "in": "query",
+            "description": "Identifier of the event to capture.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "init",
+                "error"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Bad Request. Requests are invalid if they contain unsupported or empty events."
+          }
+        }
+      }
+    },
+    "/v1/delete_user": {
+      "delete": {
+        "summary": "Delete user data",
+        "description": "Delete any data persisted associated with a given context_id.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "context_id"
+                ],
+                "properties": {
+                  "context_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "12347fff-00b0-aaaa-0978-189231239808"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully deleted user data."
+          }
+        }
+      }
+    },
+    "/v1/images": {
+      "get": {
+        "summary": "Get ad image",
+        "description": "Proxies an ad image from an encoded URL. Encoded image URLs are returned in an ad response, calls to this endpoint shouldn't be constructed manually.",
+        "parameters": [
+          {
+            "name": "image_data",
+            "in": "query",
+            "description": "Encoded ad image url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/attribution": {
+      "get": {
+        "summary": "Get attribution reporting configuration",
+        "description": "The attribution reporting configuration is returned for the partner ID specified in the URL.",
+        "parameters": [
+          {
+            "name": "partner_id",
+            "in": "query",
+            "description": "The ID of the partner.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "295beef7-1e3b-4128-b8f8-858e12aa660b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response. Attribution reporting configuration found for the specified partner ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Not Found. Returned when no attribution reporting configuration is found for the specified partner ID."
+          },
+          "400": {
+            "description": "Bad Request. Requests are invalid if the parameter includes an invalid partner ID query parameter."
+          }
+        }
+      }
+    },
+    "/spocs": {
+      "post": {
+        "operationId": "getSpocs",
+        "summary": "(legacy) Get sponsored content",
+        "description": "Get a list of spocs based on region and pocket_id. The IP address is used to deduce a rough geographic region, for example \"Texas\" in the U.S. or \"England\" in the U.K. The IP is not stored or shared to preserve privacy.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "site",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "required": false,
+            "description": "override siteId in ad decision requests",
+            "example": 2500
+          },
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "override region in keywords of ad decision requests for testing"
+          },
+          {
+            "in": "query",
+            "name": "country",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "override country in keywords of ad decision requests for testing"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpocRequest"
+              },
+              "examples": {
+                "version_one": {
+                  "summary": "Request from client that does not support collections, FireFox version <= 74",
+                  "value": {
+                    "version": 1,
+                    "consumer_key": "40249-e88c401e1b1f2242d9e441c4",
+                    "pocket_id": "{12345678-8901-2345-aaaa-bbbbbbcccccc}"
+                  }
+                },
+                "version_one_collection_req": {
+                  "summary": "Request for collection placements with version=1",
+                  "value": {
+                    "version": 1,
+                    "consumer_key": "40249-e88c401e1b1f2242d9e441c4",
+                    "pocket_id": "{12345678-8901-2345-aaaa-bbbbbbcccccc}",
+                    "placements": [
+                      {
+                        "name": "collections-div",
+                        "ad_types": [
+                          1234
+                        ],
+                        "zone_ids": [
+                          5000
+                        ],
+                        "count": 10
+                      }
+                    ]
+                  }
+                },
+                "version_two_collection_req": {
+                  "summary": "Request for collection placements with version=2",
+                  "value": {
+                    "version": 2,
+                    "consumer_key": "40249-e88c401e1b1f2242d9e441c4",
+                    "pocket_id": "{12345678-8901-2345-aaaa-bbbbbbcccccc}",
+                    "placements": [
+                      {
+                        "name": "collections-div",
+                        "ad_types": [
+                          1234
+                        ],
+                        "zone_ids": [
+                          5000
+                        ],
+                        "count": 10
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Responds with settings and a list of spocs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/SpocFeed"
+                  },
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/components/schemas/Settings"
+                    },
+                    "__debug__": {
+                      "description": "Informational object returned in non-prod environments",
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user": {
+      "delete": {
+        "operationId": "deleteUser",
+        "summary": "(legacy) Delete a user's personal data",
+        "description": "Used when a user opts-out of sponsored content to delete the user's data.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pocket_id"
+                ],
+                "properties": {
+                  "pocket_id": {
+                    "description": "ID that uniquely identifies a session.",
+                    "example": "{12345678-8901-2345-aaaa-bbbbbbcccccc}",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully deleted user data."
+          }
+        }
+      }
+    },
+    "/v1/tiles": {
+      "get": {
+        "operationId": "getTiles",
+        "summary": "(legacy) Get tiles",
+        "responses": {
+          "200": {
+            "description": "Get a list of tiles based on region. The IP address is used to deduce a rough geographic region, for example \"Texas\" in the U.S. or \"England\" in the U.K.",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "indicates tiles valid duration."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tiles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LegacyTile"
+                      }
+                    },
+                    "sov": {
+                      "type": "string",
+                      "description": "SoV configuration",
+                      "example": "kdfsi90wfglmnds"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No tiles available"
+          },
+          "403": {
+            "description": "Tiles service is for Firefox only"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SpocRequest": {
+        "type": "object",
+        "required": [
+          "version",
+          "consumer_key",
+          "pocket_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "integer",
+            "description": "API version",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2,
+            "example": 2
+          },
+          "consumer_key": {
+            "type": "string",
+            "description": "Identifies that the request is coming from Firefox.",
+            "example": "40249-e88c401e1b1f2242d9e441c4"
+          },
+          "pocket_id": {
+            "type": "string",
+            "description": "ID that uniquely identifies a session.",
+            "example": "{12345678-8901-2345-aaaa-bbbbbbcccccc}",
+            "pattern": "^\\{[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\\}$"
+          },
+          "placements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Placement"
+            }
+          },
+          "site": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "override siteId in ad decision requests",
+            "example": 2500
+          },
+          "country": {
+            "type": "string",
+            "description": "override country in keywords of ad decision requests for testing"
+          },
+          "region": {
+            "type": "string",
+            "description": "override region in keywords of ad decision requests for testing"
+          }
+        }
+      },
+      "Placement": {
+        "type": "object",
+        "description": "Placement describes parameters for a set of ads to return",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "spocs",
+            "description": "Corresponds to the key in the response object."
+          },
+          "ad_types": {
+            "type": "array",
+            "description": "IDs of Ad Types, indicating the size & dimensions of the ads to return.",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "example": 1234,
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          "zone_ids": {
+            "type": "array",
+            "description": "ID of Zones, indicating what area these ads will be shown.",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "example": 123456,
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          "count": {
+            "type": "integer",
+            "example": 20,
+            "minimum": 1,
+            "maximum": 20,
+            "description": "number of ads to return for this placement"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "feature_flags",
+          "spocsPerNewTabs",
+          "domainAffinityParameterSets",
+          "timeSegments"
+        ],
+        "properties": {
+          "spocsPerNewTabs": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "domainAffinityParameterSets": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DomainAffinityParameterSet"
+            }
+          },
+          "timeSegments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeSegment"
+            }
+          },
+          "feature_flags": {
+            "type": "object",
+            "$ref": "#/components/schemas/FeatureFlags"
+          }
+        }
+      },
+      "FeatureFlags": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "spoc_v2",
+          "collections"
+        ],
+        "properties": {
+          "spoc_v2": {
+            "type": "boolean"
+          },
+          "collections": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DomainAffinityParameterSet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recencyFactor",
+          "frequencyFactor",
+          "combinedDomainFactor",
+          "perfectCombinedDomainScore",
+          "multiDomainBoost",
+          "itemScoreFactor"
+        ],
+        "properties": {
+          "recencyFactor": {
+            "type": "number"
+          },
+          "frequencyFactor": {
+            "type": "number"
+          },
+          "combinedDomainFactor": {
+            "type": "number"
+          },
+          "perfectFrequencyVisits": {
+            "type": "number"
+          },
+          "perfectCombinedDomainScore": {
+            "type": "number"
+          },
+          "multiDomainBoost": {
+            "type": "number"
+          },
+          "itemScoreFactor": {
+            "type": "number"
+          }
+        }
+      },
+      "TimeSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "startTime",
+          "endTime",
+          "weightPosition"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "startTime": {
+            "type": "integer"
+          },
+          "endTime": {
+            "type": "integer"
+          },
+          "weightPosition": {
+            "example": 1
+          }
+        }
+      },
+      "SpocFeed": {
+        "oneOf": [
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpocFeedItem"
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "title",
+              "flight_id"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "example": "Best of the Web"
+              },
+              "flight_id": {
+                "type": "integer",
+                "example": 4321
+              },
+              "sponsor": {
+                "type": "string",
+                "example": "AdvertiserName"
+              },
+              "context": {
+                "type": "string",
+                "example": "Sponsored by AdvertiserName"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SpocFeedItem"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Shim": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "click": {
+            "type": "string",
+            "example": "1234123asdf4tYadsfQ,xY-01BU12"
+          },
+          "impression": {
+            "type": "string",
+            "example": "a0c3943asdf4tYadsf300,xY-01BU9aadc"
+          },
+          "delete": {
+            "type": "string",
+            "example": "fdea123asdf4tYadsf1000,xY-01BUa654"
+          },
+          "save": {
+            "type": "string",
+            "example": "4567123asdf4tYadsfQcda,xY-01BU123"
+          }
+        }
+      },
+      "Caps": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifetime",
+          "flight",
+          "campaign"
+        ],
+        "properties": {
+          "lifetime": {
+            "type": "integer",
+            "example": 50
+          },
+          "flight": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "period"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "example": 10
+              },
+              "period": {
+                "type": "integer",
+                "description": "Period in seconds",
+                "example": 86400
+              }
+            }
+          },
+          "campaign": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "period"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "example": 10
+              },
+              "period": {
+                "type": "integer",
+                "description": "Period in seconds",
+                "example": 86400
+              }
+            }
+          }
+        }
+      },
+      "SpocFeedItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "campaign_id": {
+            "type": "integer",
+            "example": 784
+          },
+          "caps": {
+            "type": "object",
+            "$ref": "#/components/schemas/Caps"
+          },
+          "collection_title": {
+            "type": "string",
+            "description": "Shared title if all ads are one collection"
+          },
+          "context": {
+            "type": "string",
+            "description": "Deprecated. Use sponsor field instead.",
+            "example": "Sponsored by AdvertiserName"
+          },
+          "cta": {
+            "type": "string",
+            "description": "Text to display on CTA button",
+            "example": "Learn more"
+          },
+          "domain": {
+            "type": "string",
+            "example": "mozilla.net"
+          },
+          "domain_affinities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "example": {
+              "vanguard.com": 0.9956,
+              "wealthsimple.com": 0.9193
+            }
+          },
+          "excerpt": {
+            "type": "string",
+            "example": "Driving excerpt"
+          },
+          "flight_id": {
+            "type": "integer",
+            "example": 432
+          },
+          "id": {
+            "type": "integer",
+            "example": 30295
+          },
+          "image_src": {
+            "type": "string",
+            "example": "https://img-getpocket.cdn.mozilla.net/ad.gif"
+          },
+          "is_video": {
+            "type": "boolean"
+          },
+          "item_score": {
+            "type": "number",
+            "format": "float",
+            "example": 0.2
+          },
+          "min_score": {
+            "type": "number",
+            "format": "float",
+            "example": 0.1
+          },
+          "parameter_set": {
+            "type": "string",
+            "example": "default"
+          },
+          "personalization_models": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "priority": {
+            "type": "integer",
+            "description": "The priority order. 1-100, 1 is highest priority.",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "raw_image_src": {
+            "type": "string",
+            "example": "https://mozilla.net/ad.gif"
+          },
+          "shim": {
+            "type": "object",
+            "$ref": "#/components/schemas/Shim"
+          },
+          "sponsor": {
+            "type": "string",
+            "example": "AdvertiserName"
+          },
+          "sponsored_by_override": {
+            "type": "string",
+            "example": "AdvertiserName"
+          },
+          "title": {
+            "type": "string",
+            "example": "Why driving is hard—even for AIs"
+          },
+          "url": {
+            "type": "string",
+            "example": "http://mozilla.net/page"
+          }
+        }
+      },
+      "LegacyTile": {
+        "type": "object",
+        "description": "tile format",
+        "required": [
+          "id",
+          "name",
+          "url",
+          "click_url",
+          "image_url",
+          "image_size",
+          "impression_url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1234,
+            "description": "Partner specific id for ad",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "name": {
+            "type": "string",
+            "example": "Example COM",
+            "description": "Advertiser name"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://www.example.com/desktop_macos",
+            "description": "Advertiser URL"
+          },
+          "click_url": {
+            "type": "string",
+            "example": "https://example.com/desktop_macos?version=16.0.0&key=22.1&ci=6.2&ctag=1612376952400200000",
+            "description": "Click counting URL"
+          },
+          "image_url": {
+            "type": "string",
+            "example": "https://example.com/desktop_macos01.jpg",
+            "description": "Ad image"
+          },
+          "image_size": {
+            "type": "integer",
+            "nullable": true,
+            "format": "int32",
+            "example": 200,
+            "description": "Image size"
+          },
+          "impression_url": {
+            "type": "string",
+            "example": "https://example.com/desktop_macos?id=0001",
+            "description": "Impression counting URL"
+          }
+        }
+      },
+      "AdPlacement": {
+        "type": "object",
+        "properties": {
+          "placement": {
+            "type": "string",
+            "example": "placement_1",
+            "description": "Specifies the placement location of the ad. Values will be Mozilla supplied and specific to the integration."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 20,
+            "description": "The number of ads to be placed in the specified location."
+          },
+          "content": {
+            "type": "object",
+            "$ref": "#/components/schemas/AdContent"
+          }
+        },
+        "required": [
+          "placement"
+        ]
+      },
+      "AdRequest": {
+        "type": "object",
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "12347fff-00b0-aaaa-0978-189231239808",
+            "description": "An identifier for the user's context."
+          },
+          "placements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdPlacement"
+            },
+            "minItems": 1,
+            "description": "A list of `AdPlacement` objects, specifying where ads should be placed."
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "CAISEm15IHNwZWNpYWwgc3BvbnNvcg"
+            ],
+            "description": "A list of strings specifying blocked content. The string values come from the `block_key` field in returned ads."
+          },
+          "consent": {
+            "type": "object",
+            "$ref": "#/components/schemas/Consent"
+          }
+        },
+        "required": [
+          "context_id",
+          "placements"
+        ]
+      },
+      "AdContent": {
+        "type": "object",
+        "properties": {
+          "taxonomy": {
+            "type": "string",
+            "enum": [
+              "IAB-1.0",
+              "IAB-2.0",
+              "IAB-2.1",
+              "IAB-2.2",
+              "IAB-3.0"
+            ],
+            "description": "A valid taxonomy identifier recognized by MARS",
+            "example": "IAB-1.0"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "example": [
+              "IAB1-5"
+            ]
+          }
+        },
+        "required": [
+          "taxonomy",
+          "categories"
+        ]
+      },
+      "Consent": {
+        "type": "object",
+        "description": "An object to specify consent specifiers for this request",
+        "properties": {
+          "gpp": {
+            "type": "string",
+            "description": "Global Privacy Platform consent string"
+          }
+        }
+      },
+      "AdCallbacks": {
+        "type": "object",
+        "description": "An object containing callback URLs for interactions with an ad.",
+        "properties": {
+          "click": {
+            "type": "string",
+            "description": "This URL should be requested with an HTTP GET when the ad is clicked. Response should be ignored."
+          },
+          "impression": {
+            "type": "string",
+            "description": "This URL should be requested with an HTTP GET when half of the ad is visible in the viewport for 1 second. If the ad's pixel size is greater that 242500 (970 * 250) only 30% visibility is required. Response should be ignored."
+          },
+          "report": {
+            "type": "string",
+            "description": "This URL may be issued by a client on behalf of a user to report an ad that is inappropriate or otherwise unsatisfying. Response should be ignored. The reason parameter is required with this action."
+          }
+        }
+      },
+      "Attributions": {
+        "type": "object",
+        "description": "An object containing attribution configuration for enabled ads.",
+        "properties": {
+          "partner_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Advertising partner associated with the ad."
+          },
+          "index": {
+            "type": "number",
+            "description": "Index allocated to be used when a non-default report is sent."
+          }
+        },
+        "required": [
+          "partner_id",
+          "index"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "DAP task ID.",
+            "example": "pL9iVhsLWNFb_W044YEbdOYC5y5_RZlPJZovrlk-8Vs"
+          },
+          "vdaf": {
+            "type": "string",
+            "description": "DAP data type of the task.",
+            "example": "histogram"
+          },
+          "bits": {
+            "type": "number",
+            "description": "DAP data size of the task"
+          },
+          "length": {
+            "type": "number",
+            "description": "DAP legnth of the task.",
+            "example": 10
+          },
+          "time_precision": {
+            "type": "number",
+            "description": "DAP time precision. Determines rounding of dates in DAP report.",
+            "example": 3600
+          },
+          "default_measurement": {
+            "type": "number",
+            "description": "Measurement to be used when a default report is sent.",
+            "example": 0
+          }
+        },
+        "required": [
+          "task_id",
+          "vdaf",
+          "length",
+          "time_precision"
+        ]
+      },
+      "AdFormatBase": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The target destination URL of the ad."
+          },
+          "callbacks": {
+            "$ref": "#/components/schemas/AdCallbacks"
+          },
+          "attributions": {
+            "$ref": "#/components/schemas/Attributions"
+          }
+        },
+        "required": [
+          "url",
+          "callbacks"
+        ]
+      },
+      "SpocFrequencyCaps": {
+        "type": "object",
+        "description": "Client-side enforced frequency capping information.",
+        "properties": {
+          "cap_key": {
+            "type": "string",
+            "description": "A key that identifies the frequency cap.",
+            "example": 345678901
+          },
+          "day": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of times to show the same ad during a one day period.",
+            "example": 10
+          }
+        },
+        "required": [
+          "cap_key",
+          "day"
+        ]
+      },
+      "SpocRanking": {
+        "type": "object",
+        "description": "Ranking information for personalized content.",
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The priority in the ranking. Reranking of ads should prefer priority before personalization.",
+            "example": 1
+          },
+          "personalization_models": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "A map of model names to scores for personalization.",
+            "example": {
+              "arts_and_entertainment": 1,
+              "autos_and_vehicles": 1
+            }
+          },
+          "item_score": {
+            "type": "number",
+            "format": "float",
+            "description": "The overall score for the item.",
+            "example": 0.2
+          }
+        },
+        "required": [
+          "priority",
+          "item_score"
+        ]
+      },
+      "Image": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AdFormatBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "description": "The format of the ad, indicating it is an image ad of a specific size. Values include `rectangle`, `billboard`, `skyscraper`, `leaderboard`.",
+                "example": "rectangle"
+              },
+              "image_url": {
+                "type": "string",
+                "description": "URL of the ad image."
+              },
+              "alt_text": {
+                "type": "string",
+                "description": "Alt text to describe the ad image.",
+                "example": "ACME Corp. Spring Launcher"
+              },
+              "block_key": {
+                "type": "string",
+                "description": "The block key generated for the advertiser.",
+                "example": "CAISEm15IHNwZWNpYWwgc3BvbnNvcg"
+              }
+            },
+            "required": [
+              "format",
+              "image_url",
+              "block_key"
+            ]
+          }
+        ]
+      },
+      "Spoc": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AdFormatBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "description": "The format of the ad, `spoc`.",
+                "example": "spoc"
+              },
+              "image_url": {
+                "type": "string",
+                "description": "URL of the ad image."
+              },
+              "title": {
+                "type": "string",
+                "description": "Title of the sponsored content.",
+                "example": "Good news everyone!"
+              },
+              "domain": {
+                "type": "string",
+                "description": "The domain where the content is hosted.",
+                "example": "example.com"
+              },
+              "excerpt": {
+                "type": "string",
+                "description": "A short excerpt from the sponsored content.",
+                "example": "Read more about this..."
+              },
+              "sponsor": {
+                "type": "string",
+                "description": "The name of the sponsor.",
+                "example": "ACME Corp"
+              },
+              "sponsored_by_override": {
+                "type": "string",
+                "description": "An optional override for the sponsor name.",
+                "example": "Organized by ACME Corp"
+              },
+              "block_key": {
+                "type": "string",
+                "description": "The block key generated for the advertiser.",
+                "example": "CAISEm15IHNwZWNpYWwgc3BvbnNvcg"
+              },
+              "caps": {
+                "$ref": "#/components/schemas/SpocFrequencyCaps"
+              },
+              "ranking": {
+                "$ref": "#/components/schemas/SpocRanking"
+              }
+            },
+            "required": [
+              "format",
+              "image_url",
+              "title",
+              "domain",
+              "excerpt",
+              "sponsor",
+              "block_key",
+              "caps",
+              "ranking"
+            ]
+          }
+        ]
+      },
+      "Tile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AdFormatBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "description": "The format of the ad, `tile`.",
+                "example": "tile"
+              },
+              "image_url": {
+                "type": "string",
+                "description": "URL of the ad image."
+              },
+              "name": {
+                "type": "string",
+                "description": "The name displayed under the tile.",
+                "example": "Amazon"
+              },
+              "block_key": {
+                "type": "string",
+                "description": "The block key generated for the advertiser.",
+                "example": "CAISEm15IHNwZWNpYWwgc3BvbnNvcg"
+              }
+            },
+            "required": [
+              "format",
+              "image_url",
+              "name",
+              "block_key"
+            ]
+          }
+        ]
+      },
+      "AdResponse": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "$ref": "#/components/schemas/Spoc"
+              },
+              {
+                "$ref": "#/components/schemas/Tile"
+              }
+            ]
+          }
+        }
+      },
+      "TelemetryResponse": {
+        "type": "object",
+        "description": "An empty response object"
+      },
+      "PreflightResponse": {
+        "type": "object",
+        "properties": {
+          "geoname_id": {
+            "type": "string",
+            "pattern": "^\\s*\\d+\\s*(,\\s*\\d+\\s*)*$",
+            "description": "A comma delimited list of geoname IDs representing the caller's location, based on their IP address. The first member of the list is the most specific location, with subsequent members being less specific locations.",
+            "example": "6077243,6252001"
+          },
+          "geo_location": {
+            "type": "string",
+            "pattern": "^(\\d+)?,(\\w+)?,(\\w+)?$",
+            "description": "A structured representation of the caller's location, based on their IP address.",
+            "example": "506,MA,US"
+          },
+          "normalized_ua": {
+            "type": "string",
+            "description": "A user agent string that will be similar to the caller's user agent string in characteristics, but will have some data normalized to make it less unique."
+          }
+        },
+        "required": [
+          "geoname_id",
+          "geo_location"
+        ]
+      }
+    }
+  }
+}
