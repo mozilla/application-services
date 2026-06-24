@@ -47,15 +47,17 @@ impl<A: AdResponseValue> AdResponse<A> {
         let hash_str = request_hash.to_string();
         for (placement_id, ads) in self.data.iter_mut() {
             for (position, ad) in ads.iter_mut().enumerate() {
+                let cap_key = ad.cap_key();
                 let callbacks = ad.callbacks_mut();
                 callbacks
                     .click
                     .query_pairs_mut()
                     .append_pair("request_hash", &hash_str);
-                callbacks
-                    .impression
-                    .query_pairs_mut()
-                    .append_pair("request_hash", &hash_str);
+                let mut impression_callback_query = callbacks.impression.query_pairs_mut();
+                impression_callback_query.append_pair("request_hash", &hash_str);
+                if let Some(cap_key) = cap_key {
+                    impression_callback_query.append_pair("cap_key", &cap_key);
+                }
                 if let Some(report_url) = callbacks.report.as_mut() {
                     report_url
                         .query_pairs_mut()
@@ -161,6 +163,9 @@ pub struct AdCallbacks {
 
 pub trait AdResponseValue: DeserializeOwned {
     fn callbacks_mut(&mut self) -> &mut AdCallbacks;
+    fn cap_key(&self) -> Option<String> {
+        None
+    }
 }
 
 impl AdResponseValue for AdImage {
@@ -172,6 +177,10 @@ impl AdResponseValue for AdImage {
 impl AdResponseValue for AdSpoc {
     fn callbacks_mut(&mut self) -> &mut AdCallbacks {
         &mut self.callbacks
+    }
+
+    fn cap_key(&self) -> Option<String> {
+        Some(self.caps.cap_key.clone())
     }
 }
 
@@ -512,6 +521,86 @@ mod tests {
             .unwrap_or("");
         assert!(report_1.contains("placement_id=mock_tile_1"));
         assert!(report_1.contains("position=1"));
+    }
+
+    #[test]
+    fn test_enrich_callbacks_spoc_impressions_have_cap_key() {
+        let mut response = AdResponse {
+            data: HashMap::from([(
+                "tile1".into(),
+                vec![
+                    AdSpoc {
+                        block_key: "block_key1".into(),
+                        callbacks: AdCallbacks {
+                            click: Url::parse("https://example.com/click1").unwrap(),
+                            impression: Url::parse("https://example.com/impression1").unwrap(),
+                            report: Some(Url::parse("https://example.com/report1").unwrap()),
+                        },
+                        caps: SpocFrequencyCaps {
+                            cap_key: "cap_key1".into(),
+                            day: 100,
+                        },
+                        domain: "1.example.com".into(),
+                        excerpt: "excerpt1".into(),
+                        format: "format1".into(),
+                        image_url: "https://example.com/image1.png".into(),
+                        url: "https://example.com/ad1".into(),
+                        ranking: SpocRanking {
+                            priority: 1,
+                            personalization_models: None,
+                            item_score: 1.0,
+                        },
+                        sponsor: "sponsor1".into(),
+                        sponsored_by_override: None,
+                        title: "title1".into(),
+                    },
+                    AdSpoc {
+                        block_key: "block_key2".into(),
+                        callbacks: AdCallbacks {
+                            click: Url::parse("https://example.com/click2").unwrap(),
+                            impression: Url::parse("https://example.com/impression2").unwrap(),
+                            report: Some(Url::parse("https://example.com/report2").unwrap()),
+                        },
+                        caps: SpocFrequencyCaps {
+                            cap_key: "cap_key2".into(),
+                            day: 200,
+                        },
+                        domain: "2.example.com".into(),
+                        excerpt: "excerpt2".into(),
+                        format: "format2".into(),
+                        image_url: "https://example.com/image2.png".into(),
+                        url: "https://example.com/ad2".into(),
+                        ranking: SpocRanking {
+                            priority: 2,
+                            personalization_models: None,
+                            item_score: 2.0,
+                        },
+                        sponsor: "sponsor2".into(),
+                        sponsored_by_override: None,
+                        title: "title2".into(),
+                    },
+                ],
+            )]),
+        };
+
+        let request_hash = RequestHash::from("abc123def456");
+        response.enrich_callbacks(&request_hash);
+
+        let ads = &response.data["tile1"];
+
+        assert!(ads[0]
+            .callbacks
+            .impression
+            .query()
+            .unwrap_or("")
+            .contains("cap_key=cap_key1"));
+
+        assert!(ads[1]
+            .callbacks
+            .impression
+            .query()
+            .unwrap_or("")
+            .contains("cap_key=cap_key2"));
     }
 
     #[test]
