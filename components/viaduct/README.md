@@ -1,72 +1,15 @@
 # Viaduct
 
-Viaduct is our HTTP request library, which can make requests either via a
-rust-based (reqwest) networking stack (used on iOS and for local desktop use,
-for tests and the like), or using a stack that calls a function passed into it
-over the FFI (on android).
+Viaduct is our HTTP request library, which allows components to make HTTP request.
+Normally this means bridging to the application HTTP library.
 
-For usage info, you can run `cargo +nightly doc -p viaduct` (the `+nightly` is
-optional, however some intra-doc links require it), it has several examples.
+How the request is handled depends on the viaduct backend that the application sets up.
+This can either be a Rust crate or foreign code that implements the `Backend` interface.
+Here's how it works for different application:
 
-## Transition from the old to new backends
-
-`viaduct` is currently transitioning between the older, protobuf-based code and the newer, UniFFI-based codes.
-The current plan is:
-
-* Move applications over to using the new backend. Components will continue to use the legacy API,
-  which is possible because we have code to implement the old backend with the new backend.
-* Move components over to the new API (the `Client` type).
-* Drop support for the old backend.  This means we can drop the protobuf dependency
-
-Note: to keep things separate, the initialization functions for new backends are always named `init_backend_[name]`
-(the old backends were named `use_[name]_backend`).
-
-## Android/FFI Backend overview
-
-On Android, the backend works as follows:
-
-1. During megazord initialization, we are passed a `Lazy<Client>` (`Client` comes
-   from the [concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch)
-   android component, and `Lazy` is from the Kotlin stdlib).
-
-    - It also sets a flag that indicates that even if the FFI backend never gets
-      fully initialized (e.g. with a callback), we should error rather than use
-      the reqwest backend (which should not be compiled in, however we've had
-      trouble ensuring this in the past, although at this point we have checks
-      in CI to ensure it is not present).
-
-2. At this point, a JNA `Callback` instance is created and passed into Rust.
-    - This serves to proxy the request made by Rust to the `Client`.
-    - The `Callback` instance is never allowed to be GCed.
-    - To Rust, it's just a `extern "C"` function pointer that get's stored in an
-      atomic variable and never can be unset.
-
-3. When Rust makes a request:
-    1. We serialize the request info into a protobuf record
-    2. This record is passed into the function pointer we should have by this
-       point (erroring if it has not been set yet).
-    3. The callback (on the Java side now) deserializes the protobuf record,
-       converts it to a concept-fetch Request instance, and passes it to the
-       client.
-    4. The response (or error) is then converted into a protobuf record. The
-       java code then asks Rust for a buffer big enough to hold the serialized
-       response (or error).
-    5. The response is written to the buffer, and returned to Rust.
-    6. Rust then decodes the protobuf, and converts it to a
-      `viaduct::Response` object that it returns to the caller.
-
-Some notes:
-
-- This "request flow" is entirely synchronous, simplifying the implementation
-  considerably.
-
-- Cookies are explicitly not supported at the moment, adding them would
-  require a separate security review.
-
-- Generally, this is the way the FFI backend is expected to work on any
-  platform, but for concreteness (and because it's the only one currently using
-  the FFI backend), we explained it for Android.
-
-- Most of the code in `viaduct` is defining a ergonomic HTTP facade, and is
-  unrelated to this (or to the reqwest backend). This code is more or less
-  entirely (in the Kotlin layer and) in `src/backend/ffi.rs`.
+| Application | Backend | Notes |
+|-------------|---------|-------|
+| Desktop | `viaduct-necko` | Lives in the moz-central repo and forwards requests to the `necko` libary |
+| Android | Kotlin-implemented | Also handled by `necko`, but there's a longer chain of bridge code. Kotlin code implements a backend by forwarding requests to the `fetch` library, which then forwards to `GeckoView` and the end result is that `necko` handles the request.|
+| iOS | `viaduct-hyper` | Forwards requests to the Rust `hyper` library.  Creates and manages a thread to process the requests |
+| testing | `viaduct-dev` | Forwards requests to `minireq` |

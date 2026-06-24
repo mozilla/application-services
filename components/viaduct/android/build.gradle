@@ -1,40 +1,11 @@
-plugins {
-    alias libs.plugins.protobuf.plugin
-}
-
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 apply from: "$appServicesRootDir/publish.gradle"
 
-apply plugin: 'com.google.protobuf'
-
 android {
     namespace 'org.mozilla.appservices.httpconfig'
-    sourceSets {
-        main {
-            proto {
-                srcDir '../src'
-            }
-        }
-    }
-}
-
-protobuf {
-    protoc {
-        artifact = libs.protobuf.compiler.get().toString() // https://github.com/google/protobuf-gradle-plugin/issues/563
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option "lite"
-                }
-            }
-        }
-    }
 }
 
 dependencies {
-    implementation libs.protobuf.javalite
     implementation libs.kotlinx.coroutines
     if (gradle.hasProperty("mozconfig")) {
         api project(':components:concept-fetch')

@@ -510,8 +510,6 @@ The following text applies to code linked from these dependencies:
 [pollster](https://github.com/zesterer/pollster),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
-[prost-derive](https://github.com/tokio-rs/prost),
-[prost](https://github.com/tokio-rs/prost),
 [quote](https://github.com/dtolnay/quote),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),

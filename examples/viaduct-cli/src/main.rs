@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 use url::Url;
 #[cfg(feature = "ohttp")]
 use viaduct::{configure_ohttp_channel, OhttpConfig};
@@ -14,10 +14,6 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
-
-    /// Backend style
-    #[arg(short, long)]
-    backend: Option<BackendStyle>,
 
     /// Set a request timeout (ms)
     #[arg(short, long)]
@@ -58,16 +54,6 @@ enum Commands {
     },
 }
 
-#[derive(Clone, Debug, ValueEnum)]
-enum BackendStyle {
-    /// New backend: use the new async Backend trait
-    New,
-    /// Bridged backend: initialize the new backend, but use the old API
-    Bridged,
-    /// Old backend: use only the old sync Backend trait (reqwest-based)
-    Old,
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -79,7 +65,6 @@ fn main() -> Result<()> {
     });
 
     println!("{cli:?}");
-    let backend_style = cli.backend.unwrap_or(BackendStyle::New);
 
     match cli.command {
         Commands::Request { post } => {
@@ -89,31 +74,13 @@ fn main() -> Result<()> {
                 make_request()?
             };
 
-            match backend_style {
-                BackendStyle::New => {
-                    viaduct_hyper::viaduct_init_backend_hyper();
-                    let settings = ClientSettings {
-                        timeout: cli.timeout.unwrap_or(0) as u32,
-                        ..ClientSettings::default()
-                    };
-                    let client = Client::new(settings);
-                    print_response(client.send_sync(req));
-                }
-                BackendStyle::Bridged => {
-                    viaduct_hyper::viaduct_init_backend_hyper();
-                    if let Some(t) = cli.timeout {
-                        set_old_global_timeout(t);
-                    }
-                    print_response(req.send());
-                }
-                BackendStyle::Old => {
-                    viaduct_reqwest::use_reqwest_backend();
-                    if let Some(t) = cli.timeout {
-                        set_old_global_timeout(t);
-                    }
-                    print_response(req.send());
-                }
-            }
+            viaduct_hyper::viaduct_init_backend_hyper();
+            let settings = ClientSettings {
+                timeout: cli.timeout.unwrap_or(0) as u32,
+                ..ClientSettings::default()
+            };
+            let client = Client::new(settings);
+            print_response(client.send_sync(req));
         }
         #[cfg(feature = "ohttp")]
         Commands::Ohttp {
@@ -121,7 +88,7 @@ fn main() -> Result<()> {
             gateway_host,
             channel,
         } => {
-            return run_ohttp_example(relay_url, gateway_host, channel, backend_style);
+            return run_ohttp_example(relay_url, gateway_host, channel);
         }
     }
 
@@ -129,28 +96,10 @@ fn main() -> Result<()> {
 }
 
 #[cfg(feature = "ohttp")]
-fn run_ohttp_example(
-    relay_url: String,
-    gateway_host: String,
-    channel: String,
-    backend_style: BackendStyle,
-) -> Result<()> {
+fn run_ohttp_example(relay_url: String, gateway_host: String, channel: String) -> Result<()> {
     // Step 1: Initialize viaduct backend
     println!("Initializing viaduct backend...");
-
-    match backend_style {
-        BackendStyle::New | BackendStyle::Bridged => {
-            println!("Using new/bridged backend (hyper-based)");
-            viaduct_hyper::viaduct_init_backend_hyper();
-        }
-        BackendStyle::Old => {
-            println!("Using old backend (reqwest-based, global settings will be used)");
-            viaduct_reqwest::use_reqwest_backend();
-            // Set reasonable global settings for OHTTP
-            set_old_global_timeout(30000); // 30 second timeout
-        }
-    }
-
+    viaduct_hyper::viaduct_init_backend_hyper();
     println!("Backend initialized successfully");
 
     // Step 2: Configure the OHTTP channel
@@ -183,14 +132,8 @@ fn run_ohttp_example(
     Ok(())
 }
 
-fn set_old_global_timeout(timeout: u64) {
-    let mut s = viaduct::settings::GLOBAL_SETTINGS.write();
-    s.connect_timeout = Some(std::time::Duration::from_millis(timeout));
-    s.read_timeout = Some(std::time::Duration::from_millis(timeout));
-}
-
 fn make_request() -> Result<Request> {
-    let url = Url::parse("https://httpbun.org/anything")?;
+    let url = Url::parse("https://httpbun.com/anything")?;
     let mut req = Request::new(Method::Get, url);
     req = req.header(header_names::USER_AGENT, "viaduct-cli")?;
     Ok(req)
@@ -203,7 +146,7 @@ struct TestPostData {
 }
 
 fn make_post_request() -> Result<Request> {
-    let url = Url::parse("https://httpbun.org/anything")?;
+    let url = Url::parse("https://httpbun.com/anything")?;
     let mut req = Request::new(Method::Post, url);
     req = req.header(header_names::USER_AGENT, "viaduct-cli")?;
     let req = req.json(&TestPostData {

@@ -11,4 +11,3 @@ pub use nimbus;
 pub use remote_settings;
 pub use rust_log_forwarder;
 pub use viaduct;
-pub use viaduct_reqwest;

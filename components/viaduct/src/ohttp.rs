@@ -11,25 +11,10 @@ use url::Url;
 
 use crate::{Headers, Method, Request, Response, Result, ViaductError};
 
-/// Send a request using either the new backend or the old backend.
-///
-/// This function provides compatibility with both backend systems:
-/// - If the new backend is initialized, it uses it with the provided settings
-/// - Otherwise, it falls back to the old backend (which uses global settings)
-///
-/// Note: When using the old backend, the `settings` parameter is ignored and
-/// global settings from `GLOBAL_SETTINGS` are used instead.
+/// Send an OHTTP-enabled request
 async fn send_request(request: Request, settings: crate::ClientSettings) -> Result<Response> {
-    // Try to use the new backend first
-    if let Ok(backend) = crate::new_backend::get_backend() {
-        return backend.send_request(request, settings).await;
-    }
-
-    // Fall back to the old backend (synchronous, uses global settings)
-    crate::trace!(
-        "OHTTP: Using old backend (global settings will be used instead of per-request settings)"
-    );
-    crate::backend::send(request)
+    let backend = crate::backend::get_backend()?;
+    backend.send_request(request, settings).await
 }
 
 /// Configuration for an OHTTP channel
