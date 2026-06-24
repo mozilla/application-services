@@ -47,17 +47,17 @@ impl<A: AdResponseValue> AdResponse<A> {
         let hash_str = request_hash.to_string();
         for (placement_id, ads) in self.data.iter_mut() {
             for (position, ad) in ads.iter_mut().enumerate() {
-                let impression_enriching_params = ad.impression_enriching_params();
+                let cap_key = ad.cap_key();
                 let callbacks = ad.callbacks_mut();
                 callbacks
                     .click
                     .query_pairs_mut()
                     .append_pair("request_hash", &hash_str);
-                callbacks
-                    .impression
-                    .query_pairs_mut()
-                    .append_pair("request_hash", &hash_str)
-                    .extend_pairs(impression_enriching_params);
+                let mut impression_callback_query = callbacks.impression.query_pairs_mut();
+                impression_callback_query.append_pair("request_hash", &hash_str);
+                if let Some(cap_key) = cap_key {
+                    impression_callback_query.append_pair("cap_key", &cap_key);
+                }
                 if let Some(report_url) = callbacks.report.as_mut() {
                     report_url
                         .query_pairs_mut()
@@ -163,8 +163,8 @@ pub struct AdCallbacks {
 
 pub trait AdResponseValue: DeserializeOwned {
     fn callbacks_mut(&mut self) -> &mut AdCallbacks;
-    fn impression_enriching_params(&self) -> Vec<(String, String)> {
-        vec![]
+    fn cap_key(&self) -> Option<String> {
+        None
     }
 }
 
@@ -179,8 +179,8 @@ impl AdResponseValue for AdSpoc {
         &mut self.callbacks
     }
 
-    fn impression_enriching_params(&self) -> Vec<(String, String)> {
-        vec![("cap_key".to_owned(), self.caps.cap_key.clone())]
+    fn cap_key(&self) -> Option<String> {
+        Some(self.caps.cap_key.clone())
     }
 }
 

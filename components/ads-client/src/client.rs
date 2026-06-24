@@ -121,7 +121,7 @@ where
 
     pub fn record_impression(
         &self,
-        mut impression_url: Url,
+        impression_url: Url,
         ohttp: bool,
     ) -> Result<(), RecordImpressionError> {
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
@@ -132,23 +132,26 @@ where
         // }
 
         // TODO: Add count call with _cap_key for impression capping logic
-        if let Some((_, _cap_key)) = impression_url
+        let impression_url = if let Some((_, _cap_key)) = impression_url
             .query_pairs()
             .find(|(key, _)| key == "cap_key")
         {
-            let original_url = impression_url.clone();
-            impression_url
+            let mut new_url = impression_url.clone();
+            new_url
                 .query_pairs_mut()
                 .clear()
                 .extend_pairs(
-                    original_url
+                    impression_url
                         .query_pairs()
                         .collect::<Vec<_>>()
                         .iter()
                         .filter(|(key, _)| key != "cap_key"),
                 )
                 .finish();
-        }
+            new_url
+        } else {
+            impression_url
+        };
 
         self.client
             .record_impression(impression_url, ohttp)
