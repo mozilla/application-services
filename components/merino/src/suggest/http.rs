@@ -70,7 +70,11 @@ impl HttpClientTrait for HttpClient {
     ) -> Result<Option<Response>> {
         let url = build_suggest_url(query, &options, endpoint_url);
 
-        let client = Client::with_ohttp_channel("merino", ClientSettings::default())?;
+        let settings = ClientSettings {
+            timeout: 60000,
+            ..ClientSettings::default()
+        };
+        let client = Client::with_ohttp_channel("merino", settings)?;
 
         let mut request = Request::get(url);
         request = request.header("accept", "application/json")?;

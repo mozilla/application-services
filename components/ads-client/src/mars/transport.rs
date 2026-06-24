@@ -76,10 +76,14 @@ impl<T: Telemetry> MARSTransport<T> {
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {
+        let settings = ClientSettings {
+            timeout: 60000,
+            ..ClientSettings::default()
+        };
         if ohttp {
-            Client::with_ohttp_channel(OHTTP_CHANNEL_ID, ClientSettings::default())
+            Client::with_ohttp_channel(OHTTP_CHANNEL_ID, settings)
         } else {
-            Ok(Client::new(ClientSettings::default()))
+            Ok(Client::new(settings))
         }
     }
 }

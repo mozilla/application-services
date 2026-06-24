@@ -122,7 +122,10 @@ mod tests {
     use viaduct::ClientSettings;
 
     fn make_client() -> Client {
-        Client::new(ClientSettings::default())
+        Client::new(ClientSettings {
+            timeout: 60000,
+            ..ClientSettings::default()
+        })
     }
 
     /// Test-only hashable wrapper around Request.

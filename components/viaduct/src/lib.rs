@@ -12,7 +12,6 @@ mod headers;
 mod backend;
 mod client;
 pub mod error;
-mod new_backend;
 #[cfg(feature = "ohttp")]
 pub mod ohttp;
 #[cfg(feature = "ohttp")]
@@ -22,10 +21,9 @@ pub use error::*;
 // reexport logging helpers.
 pub use error_support::{debug, error, info, trace, warn};
 
-pub use backend::{note_backend, set_backend, Backend as OldBackend};
+pub use backend::{init_backend, Backend};
 pub use client::{Client, ClientSettings};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
-pub use new_backend::{init_backend, Backend};
 #[cfg(feature = "ohttp")]
 pub use ohttp::{clear_ohttp_channels, configure_ohttp_channel, list_ohttp_channels, OhttpConfig};
 pub use settings::{allow_android_emulator_loopback, GLOBAL_SETTINGS};
@@ -85,7 +83,7 @@ pub struct Request {
 
 impl Request {
     /// Construct a new request to the given `url` using the given `method`.
-    /// Note that the request is not made until `send()` is called.
+    /// Note that the request is not made until passed to [Client::send].
     pub fn new(method: Method, url: Url) -> Self {
         Self {
             method,
@@ -95,8 +93,12 @@ impl Request {
         }
     }
 
+    /// Send this request
+    ///
+    /// Note: newer code is encouraged to construct a `Client` instance and use that to send
+    /// requests.
     pub fn send(self) -> Result<Response, ViaductError> {
-        crate::backend::send(self)
+        Client::default().send_sync(self)
     }
 
     /// Alias for `Request::new(Method::Get, url)`, for convenience.

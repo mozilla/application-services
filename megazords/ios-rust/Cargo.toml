@@ -12,7 +12,6 @@ crate-type = ["staticlib", "rlib"]
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
 fxa-client = { path = "../../components/fxa-client" }
