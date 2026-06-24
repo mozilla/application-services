@@ -1797,7 +1797,7 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 [[package]]
 name = "glean-build"
 version = "20.0.0"
-source = "git+https://github.com/mozilla/glean?rev=3b00f26c4814a47044c6736563ee7589dfa3b399#3b00f26c4814a47044c6736563ee7589dfa3b399"
+source = "git+https://github.com/mozilla/glean?tag=v68.0.0#3b00f26c4814a47044c6736563ee7589dfa3b399"
 dependencies = [
  "xshell-venv",
 ]
@@ -1805,7 +1805,7 @@ dependencies = [
 [[package]]
 name = "glean-sym"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/glean?rev=a16cb6034dc2c37ba62eae85f6304c637e53b2ae#a16cb6034dc2c37ba62eae85f6304c637e53b2ae"
+source = "git+https://github.com/mozilla/glean?tag=v68.0.0#3b00f26c4814a47044c6736563ee7589dfa3b399"
 dependencies = [
  "libloading",
  "once_cell",

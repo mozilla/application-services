@@ -21,6 +21,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: glean-sym</name>
+    <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Mozilla Public License 2.0: hawk</name>
     <url>https://github.com/taskcluster/rust-hawk/blob/main/LICENSE</url>
   </license>
