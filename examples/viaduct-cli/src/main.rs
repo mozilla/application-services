@@ -91,7 +91,7 @@ fn main() -> Result<()> {
 
             match backend_style {
                 BackendStyle::New => {
-                    viaduct_hyper::viaduct_init_backend_hyper()?;
+                    viaduct_hyper::viaduct_init_backend_hyper();
                     let settings = ClientSettings {
                         timeout: cli.timeout.unwrap_or(0) as u32,
                         ..ClientSettings::default()
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
                     print_response(client.send_sync(req));
                 }
                 BackendStyle::Bridged => {
-                    viaduct_hyper::viaduct_init_backend_hyper()?;
+                    viaduct_hyper::viaduct_init_backend_hyper();
                     if let Some(t) = cli.timeout {
                         set_old_global_timeout(t);
                     }
@@ -141,7 +141,7 @@ fn run_ohttp_example(
     match backend_style {
         BackendStyle::New | BackendStyle::Bridged => {
             println!("Using new/bridged backend (hyper-based)");
-            viaduct_hyper::viaduct_init_backend_hyper()?;
+            viaduct_hyper::viaduct_init_backend_hyper();
         }
         BackendStyle::Old => {
             println!("Using old backend (reqwest-based, global settings will be used)");

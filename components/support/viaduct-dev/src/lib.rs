@@ -104,10 +104,7 @@ fn send_request(request: Request, settings: ClientSettings) -> Result<Response> 
 pub fn init_backend_dev() {
     info!("initializing dev backend");
     let backend = Arc::new(DevBackend::new());
-    // Register our backend with viaduct.  This is only used in the testing situations, so we can
-    // ignore any `BackendAlreadyInitialized` errors. The first call will take effect and all
-    // others can be safely ignored.
-    let _ = init_backend(backend);
+    init_backend(backend);
 }
 
 impl DevBackend {

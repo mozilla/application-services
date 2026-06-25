@@ -95,7 +95,7 @@ fn do_sync(
 
 fn main() -> Result<()> {
     nss_as::ensure_initialized();
-    viaduct_hyper::viaduct_init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper();
     cli_support::init_logging();
     let opts = Opts::parse();
 

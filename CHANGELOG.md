@@ -27,6 +27,11 @@
 - Removed NimbusInterface.getPreviousGeckoPrefsState since it is unimplemented and the underlying SDK method is only used by tests. ([#7412](https://github.com/mozilla/application-services/pull/7412/))
 - `setExperimentsLocally()` is no longer exposed by NimbusInterface. ([#7426](https://bugzilla.mozilla.org/show_bug.cgi?id=2048051))
 
+### Viaduct
+- init_backend and `viaduct_init_backend_hyper` no longer throw an error if they're called multiple times.
+  Instead, we report the error via the Rust components error ping.
+  This is a breaking change for iOS, since the functions no longer throw.
+
 ## 🔧 What's Fixed 🔧
 
 ### Logins

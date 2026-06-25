@@ -12,8 +12,7 @@ use ads_client::{
 };
 
 fn init_backend() {
-    // Err means the backend is already initialized.
-    let _ = viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_hyper::viaduct_init_backend_hyper();
 }
 
 fn prod_client() -> ads_client::MozAdsClient {
