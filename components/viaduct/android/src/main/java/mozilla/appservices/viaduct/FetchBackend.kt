@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.appservices.httpconfig
+package mozilla.appservices.viaduct
 
-import mozilla.appservices.viaduct.Backend
-import mozilla.appservices.viaduct.ClientSettings
-import mozilla.appservices.viaduct.Method
-import mozilla.appservices.viaduct.Request
-import mozilla.appservices.viaduct.Response
 import java.util.concurrent.TimeUnit
 import mozilla.components.concept.fetch.Client as FetchClient
 import mozilla.components.concept.fetch.Header as FetchHeader

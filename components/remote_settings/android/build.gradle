@@ -53,5 +53,5 @@ dependencies {
     } else {
         testImplementation libs.mozilla.concept.fetch
     }
-    testImplementation project(":httpconfig")
+    testImplementation project(":viaduct")
 }
