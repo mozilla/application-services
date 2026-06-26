@@ -7,10 +7,6 @@
 # AGP
 android-gradle-plugin = "8.13.2"
 
-# Google
-protobuf = "4.35.0"
-protobuf-plugin = "0.10.0"
-
 # Kotlin
 kotlin = "2.3.21"
 coroutines = "1.11.0"
@@ -52,10 +48,6 @@ python-envs-plugin = "0.0.31"
 [libraries]
 # AGP
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "android-gradle-plugin" }
-
-# Google
-protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobuf" }
-protobuf-compiler = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
 
 # Kotlin
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -100,4 +92,3 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 gradle-download-task = { id = "de.undercouch.download", version.ref = "gradle-download-task" }
 python-envs-plugin = {id = "com.jetbrains.python.envs", version.ref = "python-envs-plugin"}
-protobuf-plugin = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
