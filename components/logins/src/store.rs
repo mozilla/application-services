@@ -169,7 +169,7 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn find_login_to_update(&self, entry: LoginEntry) -> ApiResult<Option<Login>> {
         let db = self.lock_db()?;
-        db.find_login_to_update(entry, db.encdec.as_ref())
+        db.find_login_to_update(entry)
     }
 
     #[handle_error(Error)]
@@ -182,19 +182,19 @@ impl LoginStore {
         // Note: Vec<&str> is not supported with UDL, so we receive Vec<String> and convert
         let db = self.lock_db()?;
         let ids: Vec<&str> = ids.iter().map(|id| &**id).collect();
-        db.are_potentially_vulnerable_passwords(&ids, db.encdec.as_ref())
+        db.are_potentially_vulnerable_passwords(&ids)
     }
 
     #[handle_error(Error)]
     pub fn is_potentially_vulnerable_password(&self, id: &str) -> ApiResult<bool> {
         let db = self.lock_db()?;
-        db.is_potentially_vulnerable_password(id, db.encdec.as_ref())
+        db.is_potentially_vulnerable_password(id)
     }
 
     #[handle_error(Error)]
     pub fn record_potentially_vulnerable_passwords(&self, passwords: Vec<String>) -> ApiResult<()> {
         let db = self.lock_db()?;
-        db.record_potentially_vulnerable_passwords(passwords, db.encdec.as_ref())
+        db.record_potentially_vulnerable_passwords(passwords)
     }
 
     #[handle_error(Error)]
@@ -238,8 +238,7 @@ impl LoginStore {
         let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
 
         let db = self.lock_db()?;
-        let deletion_stats =
-            db.delete_undecryptable_records_for_remote_replacement(db.encdec.as_ref())?;
+        let deletion_stats = db.delete_undecryptable_records_for_remote_replacement()?;
         engine.set_last_sync(&db, ServerTimestamp(0))?;
         Ok(deletion_stats)
     }
@@ -263,24 +262,25 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn update(&self, id: &str, entry: LoginEntry) -> ApiResult<Login> {
         let db = self.lock_db()?;
-        db.update(id, entry, db.encdec.as_ref())
+        db.update(id, entry)
             .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add(&self, entry: LoginEntry) -> ApiResult<Login> {
         let db = self.lock_db()?;
-        db.add(entry, db.encdec.as_ref())
+        db.add(entry)
             .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add_many(&self, entries: Vec<LoginEntry>) -> ApiResult<Vec<BulkResultEntry>> {
         let db = self.lock_db()?;
-        db.add_many(entries, db.encdec.as_ref()).map(|enc_logins| {
+        let encdec = db.encdec.as_ref();
+        db.add_many(entries).map(|enc_logins| {
             enc_logins
                 .into_iter()
-                .map(|enc_login| map_bulk_result_entry(enc_login, db.encdec.as_ref()))
+                .map(|enc_login| map_bulk_result_entry(enc_login, encdec))
                 .collect()
         })
     }
@@ -291,7 +291,7 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn add_with_meta(&self, entry_with_meta: LoginEntryWithMeta) -> ApiResult<Login> {
         let db = self.lock_db()?;
-        db.add_with_meta(entry_with_meta, db.encdec.as_ref())
+        db.add_with_meta(entry_with_meta)
             .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
@@ -301,19 +301,19 @@ impl LoginStore {
         entries_with_meta: Vec<LoginEntryWithMeta>,
     ) -> ApiResult<Vec<BulkResultEntry>> {
         let db = self.lock_db()?;
-        db.add_many_with_meta(entries_with_meta, db.encdec.as_ref())
-            .map(|enc_logins| {
-                enc_logins
-                    .into_iter()
-                    .map(|enc_login| map_bulk_result_entry(enc_login, db.encdec.as_ref()))
-                    .collect()
-            })
+        let encdec = db.encdec.as_ref();
+        db.add_many_with_meta(entries_with_meta).map(|enc_logins| {
+            enc_logins
+                .into_iter()
+                .map(|enc_login| map_bulk_result_entry(enc_login, encdec))
+                .collect()
+        })
     }
 
     #[handle_error(Error)]
     pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login> {
         let db = self.lock_db()?;
-        db.add_or_update(entry, db.encdec.as_ref())
+        db.add_or_update(entry)
             .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
@@ -323,7 +323,7 @@ impl LoginStore {
         let options = options.unwrap_or_default();
         run_maintenance(&conn)?;
         if options.delete_undecryptable_records_for_remote_replacement {
-            conn.delete_undecryptable_records_for_remote_replacement(conn.encdec.as_ref())?;
+            conn.delete_undecryptable_records_for_remote_replacement()?;
         }
         Ok(())
     }
@@ -372,7 +372,6 @@ impl Default for RunMaintenanceOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
     use nss_as::ensure_initialized;
     use std::cmp::Reverse;
@@ -529,18 +528,15 @@ mod tests {
         ensure_initialized();
         // If the database has data, then wipe_local() returns > 0 rows deleted
         let db = LoginDb::open_in_memory();
-        db.add_or_update(
-            LoginEntry {
-                origin: "https://www.example.com".into(),
-                form_action_origin: Some("https://www.example.com".into()),
-                username_field: "user_input".into(),
-                password_field: "pass_input".into(),
-                username: "coolperson21".into(),
-                password: "p4ssw0rd".into(),
-                ..Default::default()
-            },
-            &TEST_ENCDEC.clone(),
-        )
+        db.add_or_update(LoginEntry {
+            origin: "https://www.example.com".into(),
+            form_action_origin: Some("https://www.example.com".into()),
+            username_field: "user_input".into(),
+            password_field: "pass_input".into(),
+            username: "coolperson21".into(),
+            password: "p4ssw0rd".into(),
+            ..Default::default()
+        })
         .unwrap();
         assert!(db.wipe_local().unwrap() > 0);
 
