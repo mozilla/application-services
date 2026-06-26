@@ -10,10 +10,6 @@ buildscript {
         jvmTargetCompatibility: 17,
     ]
 
-    ext {
-        protobuf_plugin = libs.versions.protobuf.plugin.get()
-    }
-
     repositories {
         mavenCentral()
         google()
