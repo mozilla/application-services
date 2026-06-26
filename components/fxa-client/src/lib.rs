@@ -22,10 +22,10 @@
 //!       calling [`FirefoxAccount::from_json`].
 //!
 //! * When the user wants to sign in to your application, direct them through
-//!   a web-based OAuth flow using [`begin_oauth_flow`](FirefoxAccount::begin_oauth_flow)
-//!   or [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow); when they return
-//!   to your registered `redirect_uri`, pass the resulting authorization state back to
-//!   [`complete_oauth_flow`](FirefoxAccount::complete_oauth_flow) to sign them in.
+//!   a web-based OAuth flow by sending the [`FxaEvent::BeginOAuthFlow`] or
+//!   [`FxaEvent::BeginPairingFlow`] event to [`FirefoxAccount::process_event`]; when they
+//!   return to your registered `redirect_uri`, pass the resulting authorization state back
+//!   via the [`FxaEvent::CompleteOAuthFlow`] event to sign them in.
 //!
 //! * Display information about the signed-in user by using the data from
 //!   [`get_profile`](FirefoxAccount::get_profile).
