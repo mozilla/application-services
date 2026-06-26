@@ -20,10 +20,10 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
+use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use url::Url;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -93,9 +93,9 @@ pub struct MozAdsPlacementRequestWithCount {
 
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsCallbacks {
-    pub click: Url,
-    pub impression: Url,
-    pub report: Option<Url>,
+    pub click: AdsClientUrl,
+    pub impression: AdsClientUrl,
+    pub report: Option<AdsClientUrl>,
 }
 
 #[derive(uniffi::Object)]
