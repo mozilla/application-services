@@ -361,14 +361,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/proc-macro2/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: prost</name>
-    <url>https://github.com/tokio-rs/prost/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: prost-derive</name>
-    <url>https://github.com/tokio-rs/prost/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: quote</name>
     <url>https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE</url>
   </license>

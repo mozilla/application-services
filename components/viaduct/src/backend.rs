@@ -1,44 +1,32 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
+*
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{info, settings::validate_request, trace};
-use ffi::FfiBackend;
-use once_cell::sync::OnceCell;
-mod ffi;
+use std::sync::{Arc, OnceLock};
 
-pub fn note_backend(which: &str) {
-    // If trace logs are enabled: log on every request. Otherwise, just log on
-    // the first request at `info` level. We remember if the Once was triggered
-    // to avoid logging twice in the first case.
-    static NOTE_BACKEND_ONCE: std::sync::Once = std::sync::Once::new();
-    let mut called = false;
-    NOTE_BACKEND_ONCE.call_once(|| {
-        info!("Using HTTP backend {}", which);
-        called = true;
-    });
-    if !called {
-        trace!("Using HTTP backend {}", which);
+use crate::{ClientSettings, Request, Response, Result, ViaductError};
+
+#[uniffi::export(with_foreign)]
+#[async_trait::async_trait]
+pub trait Backend: Send + Sync + 'static {
+    async fn send_request(&self, request: Request, settings: ClientSettings) -> Result<Response>;
+}
+
+static REGISTERED_BACKEND: OnceLock<Arc<dyn Backend>> = OnceLock::new();
+
+#[uniffi::export]
+pub fn init_backend(backend: Arc<dyn Backend>) {
+    if REGISTERED_BACKEND.set(backend).is_err() {
+        error_support::report_error!(
+            "viaduct-multiple-init-backend",
+            "init_backend called multiple times"
+        );
     }
 }
 
-pub trait Backend: Send + Sync + 'static {
-    fn send(&self, request: crate::Request) -> Result<crate::Response, crate::ViaductError>;
-}
-
-static BACKEND: OnceCell<&'static dyn Backend> = OnceCell::new();
-
-pub fn set_backend(b: &'static dyn Backend) {
-    // Ignore errors when setting the OnceCell multiple times.
-    // `new_backend::init_backend` will catch and report these.
-    let _ = BACKEND.set(b);
-}
-
-pub(crate) fn get_backend() -> &'static dyn Backend {
-    *BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend)))
-}
-
-pub fn send(request: crate::Request) -> Result<crate::Response, crate::ViaductError> {
-    validate_request(&request)?;
-    get_backend().send(request)
+pub fn get_backend() -> Result<&'static Arc<dyn Backend>> {
+    REGISTERED_BACKEND
+        .get()
+        .ok_or(ViaductError::BackendNotInitialized)
 }
