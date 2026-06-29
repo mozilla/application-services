@@ -22,6 +22,10 @@ pub fn add_to_main_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig
         builder.add_panel_third(overview_count_panel(config, *app, ReleaseChannel::Beta));
         builder.add_panel_third(overview_count_panel(config, *app, ReleaseChannel::Release));
     }
+    if config.team_name == "SYNC" {
+        builder.add_panel_full(sync_legacy_dashboard_panel());
+    }
+
     Ok(())
 }
 
@@ -378,4 +382,25 @@ WHERE
     );
 
     queries.join("\nUNION ALL\n")
+}
+
+fn sync_legacy_dashboard_panel() -> Panel {
+    let content = "\
+# Legacy Sync dashboards
+* [Desktop Sync Failures](https://sql.telemetry.mozilla.org/dashboard/sync-desktop?p_Days=60&p_engine_name=all-engines&p_w63728_engine_name=all-engines&p_w64027_engine_name=all-engines&p_w64028_engine_name=all-engines&p_w64029_engine_name=all-engines&p_w65780_channel=beta&p_w65780_days=30&p_w65780_engine_name=all-engines)
+* [Android Sync Failures](https://sql.telemetry.mozilla.org/dashboard/android-sync-failures?p_channel=org_mozilla_fenix&p_engine_name=credit-cards&p_w64121_Months=24&p_w64121_engine_name=all-engines&p_w64122_Months=24&p_w64122_engine_name=all-engines&p_w64123_Months=24&p_w64123_engine_name=all-engines&p_w73261_Months=1&p_w73261_engine=bookmarks&p_w73261_minimum_error_count=0&p_w73262_Months=1&p_w73262_engine=bookmarks&p_w73262_minimum_error_count=0&p_w73263_Months=1&p_w73263_engine=bookmarks&p_w73263_minimum_error_count=0)
+* [iOS Sync failures](https://sql.telemetry.mozilla.org/dashboard/ios-sync-failures?p_Days=60&p_Months=1&p_engine_name=all-engines&p_w67318_Months=1&p_w67318_engine=bookmarks&p_w67318_minimum%20error%20count=0&p_w67320_Months=1&p_w67320_engine=bookmarks&p_w67320_minimum%20error%20count=0)
+* [Android Logins key regeneration errors](https://sql.telemetry.mozilla.org/queries/83554#207048)
+* [iOS Logins Key Regeneration Metrics](https://sql.telemetry.mozilla.org/dashboard/ios-logins-key-regeneration-metrics)
+* [iOS Credit Cards Key Regeneration Metrics](https://sql.telemetry.mozilla.org/dashboard/ios-credit-cards-key-regeneration-metrics)
+* [iOS Credit Cards Verification Usage](https://sql.telemetry.mozilla.org/dashboard/ios-credit-cards-verification-usage)
+* [Mobile Logins Verification Usage](https://sql.telemetry.mozilla.org/dashboard/mobile-logins-verification-usage?p_channel=org_mozilla_ios_firefox)
+* [iOS FxA Keychain Rollout Enrollment](https://sql.telemetry.mozilla.org/dashboard/ios-credit-cards-key-regeneration-metrics)
+";
+    TextPanel {
+        content: content.to_string(),
+        mode: "markdown".into(),
+        grid_pos: GridPos::height(8),
+    }
+    .into()
 }
