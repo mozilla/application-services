@@ -3,16 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! State machine helpers: error wrapper, target-state extension trait, and
-//! a `RetryingAccount` wrapper.
-//!
-//! Holding `&mut RetryingAccount` instead of `&mut FirefoxAccount` makes it
-//! structurally impossible to call into the network without retry.
+//! `AccountWrapper`.
+
+use error_support::breadcrumb;
 
 use crate::{
-    internal::FirefoxAccount, DeviceCapability, DeviceType, Error, FxaError, FxaState, LocalDevice,
-    Result,
+    internal::FirefoxAccount, DeviceCapability, DeviceType, Error, FxaState, LocalDevice, Result,
 };
-use error_support::GetErrorHandling;
 
 /// Error returned from `transition()`.
 ///
@@ -61,32 +58,26 @@ impl<T> ResultExt<T> for Result<T> {
     }
 }
 
-/// Retry policy applied by [`RetryingAccount`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Retry policy applied by [`AccountWrapper`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetryPolicy {
     /// Number of times to retry a call after a transient network error.
     pub network_retries: u8,
-    /// Whether an authentication error triggers a single recovery attempt
-    /// (clear access token cache → check_authorization_status → retry on success).
-    pub auth_retry_with_cache_clear: bool,
 }
 
 impl RetryPolicy {
-    pub const DEFAULT: RetryPolicy = RetryPolicy {
-        network_retries: 3,
-        auth_retry_with_cache_clear: true,
-    };
+    pub const DEFAULT: RetryPolicy = RetryPolicy { network_retries: 3 };
 }
 
-/// Exposes only the [`FirefoxAccount`] methods the FSM uses, each with retry
-/// policy applied. Holding `&mut RetryingAccount` rather than `&mut FirefoxAccount`
-/// makes bypassing retry a compile error.
-pub struct RetryingAccount<'a> {
+/// Wraps [`FirefoxAccount`] and adds retry and authorization checking logic.
+///
+/// Network requests will be retried according to the RetryPolicy.
+pub struct AccountWrapper<'a> {
     inner: &'a mut FirefoxAccount,
     policy: RetryPolicy,
 }
 
-impl<'a> RetryingAccount<'a> {
+impl<'a> AccountWrapper<'a> {
     pub fn new(inner: &'a mut FirefoxAccount) -> Self {
         Self {
             inner,
@@ -95,11 +86,11 @@ impl<'a> RetryingAccount<'a> {
     }
 
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
-        self.with_auth_recovery(|a| a.complete_oauth_flow(code, state))
+        self.wrap_operation(|a| a.complete_oauth_flow(code, state))
     }
 
     pub fn handle_web_channel_password_change(&mut self, json_payload: &str) -> Result<()> {
-        self.with_auth_recovery(|a| a.handle_web_channel_password_change(json_payload))
+        self.wrap_operation(|a| a.handle_web_channel_password_change(json_payload))
     }
 
     /// Cancels any existing OAuth flow before starting a new one.
@@ -110,7 +101,7 @@ impl<'a> RetryingAccount<'a> {
         entrypoint: &str,
     ) -> Result<String> {
         self.inner.cancel_existing_oauth_flows();
-        self.with_auth_recovery(|a| a.begin_oauth_flow(service, scopes, entrypoint))
+        self.wrap_operation(|a| a.begin_oauth_flow(service, scopes, entrypoint))
     }
 
     /// Cancels any existing OAuth flow before starting a new one.
@@ -122,34 +113,37 @@ impl<'a> RetryingAccount<'a> {
         entrypoint: &str,
     ) -> Result<String> {
         self.inner.cancel_existing_oauth_flows();
-        self.with_auth_recovery(|a| a.begin_pairing_flow(pairing_url, service, scopes, entrypoint))
+        self.wrap_operation(|a| a.begin_pairing_flow(pairing_url, service, scopes, entrypoint))
     }
 
-    /// Auth errors land the FSM at `Disconnected`; no operation-level recovery.
+    /// Initialize a device after connecting
     pub fn initialize_device(
         &mut self,
         name: &str,
         device_type: DeviceType,
         capabilities: &[DeviceCapability],
     ) -> Result<LocalDevice> {
-        self.with_retry(|a| a.initialize_device(name, device_type, capabilities))
+        self.wrap_operation(|a| a.initialize_device(name, device_type, capabilities))
     }
 
     /// Finish initializing a connected account
     pub fn finish_initialize(&mut self, capabilities: &[DeviceCapability]) -> Result<()> {
-        self.with_auth_recovery(|a| {
+        self.wrap_operation(|a| {
             a.ensure_capabilities(capabilities)?;
             Ok(())
         })
     }
 
+    /// Check if the refresh token for this account is still valid
     pub fn check_authorization_status(&mut self) -> Result<bool> {
-        self.with_retry(|a| a.check_authorization_status())
+        let mut retrier = NetworkErrorRetrier::new(self.policy);
+        retrier
+            .with_retry(|| self.inner.check_authorization_status())
             .map(|info| info.active)
     }
 
     pub fn get_profile(&mut self) -> Result<()> {
-        self.with_auth_recovery(|a| {
+        self.wrap_operation(|a| {
             a.get_profile(true)?;
             Ok(())
         })
@@ -171,67 +165,29 @@ impl<'a> RetryingAccount<'a> {
             .expect("device_config must be set before transition runs (Initialize event seeds it)")
     }
 
-    fn with_retry<T>(&mut self, mut op: impl FnMut(&mut FirefoxAccount) -> Result<T>) -> Result<T> {
-        let mut network_retries: u8 = 0;
-        loop {
-            match op(self.inner) {
-                Ok(v) => return Ok(v),
-                Err(e) => {
-                    if matches!(e, Error::StateMachineLogicError(_)) {
-                        return Err(e);
-                    }
-                    crate::warn!("handling error: {e}");
-                    match e.get_error_handling().err {
-                        FxaError::Network if network_retries < self.policy.network_retries => {
-                            network_retries += 1;
-                            continue;
-                        }
-                        _ => return Err(e),
-                    }
-                }
-            }
-        }
-    }
-
-    /// Like `with_retry`, plus a single auth-error recovery: clear the access
-    /// token cache, check authorization, and retry if the account is still
-    /// active server-side.
-    fn with_auth_recovery<T>(
+    /// Wrap an operation on the underlying `FirefoxAccount` with retry and auth-checking logic.
+    fn wrap_operation<T>(
         &mut self,
         mut op: impl FnMut(&mut FirefoxAccount) -> Result<T>,
     ) -> Result<T> {
-        let mut network_retries: u8 = 0;
-        let mut auth_retried = false;
-        loop {
-            match op(self.inner) {
-                Ok(v) => return Ok(v),
-                Err(e) => {
-                    if matches!(e, Error::StateMachineLogicError(_)) {
-                        return Err(e);
+        let mut retrier = NetworkErrorRetrier::new(self.policy);
+        retrier.with_retry(|| op(self.inner)).or_else(|e| match e {
+            Error::RemoteError { code: 401, .. } => {
+                breadcrumb!("fxa-client: auth error, trying to recover");
+                // 401 error: clear the access token cache and check the authorization status.
+                self.inner.clear_access_token_cache();
+                match self.inner.check_authorization_status() {
+                    Ok(status) if status.active => {
+                        breadcrumb!("fxa-client: retrying after auth recovery");
+                        // Auth check succeeded, try the operation again.  Maybe we just needed to
+                        // fetch a new access token.
+                        retrier.with_retry(|| op(self.inner))
                     }
-                    crate::warn!("handling error: {e}");
-                    match e.get_error_handling().err {
-                        FxaError::Network if network_retries < self.policy.network_retries => {
-                            network_retries += 1;
-                            continue;
-                        }
-                        FxaError::Authentication
-                            if self.policy.auth_retry_with_cache_clear && !auth_retried =>
-                        {
-                            self.inner.clear_access_token_cache();
-                            match self.inner.check_authorization_status() {
-                                Ok(status) if status.active => {
-                                    auth_retried = true;
-                                    continue;
-                                }
-                                _ => return Err(e),
-                            }
-                        }
-                        _ => return Err(e),
-                    }
+                    _ => Err(e),
                 }
             }
-        }
+            e => Err(e),
+        })
     }
 
     /// Checks if enough time has passed since the last auth attempt that we should try checking the
@@ -248,6 +204,36 @@ impl<'a> RetryingAccount<'a> {
     }
 }
 
+struct NetworkErrorRetrier {
+    network_retries: u8,
+    policy: RetryPolicy,
+}
+
+impl NetworkErrorRetrier {
+    fn new(policy: RetryPolicy) -> Self {
+        Self {
+            network_retries: 0,
+            policy,
+        }
+    }
+
+    fn with_retry<T>(&mut self, mut op: impl FnMut() -> Result<T>) -> Result<T> {
+        loop {
+            match op() {
+                Ok(v) => return Ok(v),
+                Err(Error::RequestError(_))
+                    if self.network_retries < self.policy.network_retries =>
+                {
+                    breadcrumb!("fxa-client: retrying after network error");
+                    self.network_retries += 1;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,17 +245,6 @@ mod tests {
 
     fn auth_error() -> Error {
         Error::NoRefreshToken
-    }
-
-    #[test]
-    fn default_policy_pinned() {
-        assert_eq!(
-            RetryPolicy::DEFAULT,
-            RetryPolicy {
-                network_retries: 3,
-                auth_retry_with_cache_clear: true,
-            }
-        );
     }
 
     #[test]
@@ -317,9 +292,6 @@ mod tests {
         assert_eq!(mapped.unwrap(), 42);
     }
 
-    // The retry tests construct a real `FirefoxAccount` because `RetryingAccount`
-    // requires one structurally; the test closures don't actually touch it.
-
     fn mock_account() -> FirefoxAccount {
         use crate::internal::config::Config;
         FirefoxAccount::with_config(Config::new_with_mock_well_known_fxa_client_configuration(
@@ -331,11 +303,9 @@ mod tests {
 
     #[test]
     fn with_retry_succeeds_first_try() {
-        nss_as::ensure_initialized();
-        let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut retrier = NetworkErrorRetrier::new(RetryPolicy { network_retries: 3 });
         let mut calls = 0;
-        let result = wrapper.with_retry(|_| {
+        let result = retrier.with_retry(|| {
             calls += 1;
             Ok::<_, Error>(42)
         });
@@ -345,11 +315,9 @@ mod tests {
 
     #[test]
     fn with_retry_retries_network_errors_then_succeeds() {
-        nss_as::ensure_initialized();
-        let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut retrier = NetworkErrorRetrier::new(RetryPolicy { network_retries: 3 });
         let mut calls = 0;
-        let result = wrapper.with_retry(|_| {
+        let result = retrier.with_retry(|| {
             calls += 1;
             if calls <= 2 {
                 Err(network_error())
@@ -363,11 +331,9 @@ mod tests {
 
     #[test]
     fn with_retry_gives_up_after_network_retry_limit() {
-        nss_as::ensure_initialized();
-        let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut retrier = NetworkErrorRetrier::new(RetryPolicy { network_retries: 3 });
         let mut calls = 0;
-        let result: Result<i32> = wrapper.with_retry(|_| {
+        let result: Result<i32> = retrier.with_retry(|| {
             calls += 1;
             Err(network_error())
         });
@@ -377,11 +343,9 @@ mod tests {
 
     #[test]
     fn with_retry_does_not_retry_auth_errors() {
-        nss_as::ensure_initialized();
-        let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut retrier = NetworkErrorRetrier::new(RetryPolicy { network_retries: 3 });
         let mut calls = 0;
-        let result: Result<i32> = wrapper.with_retry(|_| {
+        let result: Result<i32> = retrier.with_retry(|| {
             calls += 1;
             Err(auth_error())
         });
@@ -391,11 +355,9 @@ mod tests {
 
     #[test]
     fn with_retry_propagates_logic_errors_immediately() {
-        nss_as::ensure_initialized();
-        let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut retrier = NetworkErrorRetrier::new(RetryPolicy { network_retries: 3 });
         let mut calls = 0;
-        let result: Result<i32> = wrapper.with_retry(|_| {
+        let result: Result<i32> = retrier.with_retry(|| {
             calls += 1;
             Err(Error::StateMachineLogicError("boom".into()))
         });
@@ -408,12 +370,11 @@ mod tests {
     // tests cover the paths that don't trigger recovery.
 
     #[test]
-    fn with_auth_recovery_succeeds_first_try() {
-        nss_as::ensure_initialized();
+    fn wrap_operation_succeeds_first_try() {
         let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut wrapper = AccountWrapper::new(&mut account);
         let mut calls = 0;
-        let result = wrapper.with_auth_recovery(|_| {
+        let result = wrapper.wrap_operation(|_| {
             calls += 1;
             Ok::<_, Error>("ok")
         });
@@ -422,12 +383,11 @@ mod tests {
     }
 
     #[test]
-    fn with_auth_recovery_retries_network_errors() {
-        nss_as::ensure_initialized();
+    fn wrap_operation_retries_network_errors() {
         let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut wrapper = AccountWrapper::new(&mut account);
         let mut calls = 0;
-        let result = wrapper.with_auth_recovery(|_| {
+        let result = wrapper.wrap_operation(|_| {
             calls += 1;
             if calls <= 1 {
                 Err(network_error())
@@ -440,12 +400,11 @@ mod tests {
     }
 
     #[test]
-    fn with_auth_recovery_propagates_logic_errors_immediately() {
-        nss_as::ensure_initialized();
+    fn wrap_operation_propagates_logic_errors_immediately() {
         let mut account = mock_account();
-        let mut wrapper = RetryingAccount::new(&mut account);
+        let mut wrapper = AccountWrapper::new(&mut account);
         let mut calls = 0;
-        let result: Result<i32> = wrapper.with_auth_recovery(|_| {
+        let result: Result<i32> = wrapper.wrap_operation(|_| {
             calls += 1;
             Err(Error::StateMachineLogicError("boom".into()))
         });
