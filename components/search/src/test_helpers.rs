@@ -137,6 +137,11 @@ impl EngineRecord {
         record
     }
 
+    pub fn classification(mut self, classification: &str) -> Self {
+        self.classification = classification.to_string();
+        self
+    }
+
     pub fn add_variant(mut self, vb: Variant) -> Self {
         self.variants.push(vb.build());
         self
@@ -357,6 +362,11 @@ impl ExpectedEngine {
         Self {
             engine: Self::expected_minimal_engine(identifier, name),
         }
+    }
+
+    pub fn classification(mut self, classification: SearchEngineClassification) -> Self {
+        self.engine.classification = classification;
+        self
     }
 
     pub fn partner_code(mut self, code: &str) -> Self {
