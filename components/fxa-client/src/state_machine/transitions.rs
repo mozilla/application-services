@@ -7,8 +7,7 @@
 //! Each `match` arm reads top-to-bottom as imperative Rust. Use
 //! `.to_state_machine_err(|| target)?` to attach the landing state on failure.
 
-use crate::{Error, FxaError, FxaEvent, FxaRustAuthState, FxaState};
-use error_support::{convert_log_report_error, GetErrorHandling};
+use crate::{Error, FxaEvent, FxaRustAuthState, FxaState};
 
 use super::helpers::{ResultExt, RetryingAccount, StateMachineErr};
 
@@ -27,20 +26,8 @@ pub fn transition(
                 FxaRustAuthState::Disconnected => Ok(S::Disconnected),
                 FxaRustAuthState::AuthIssues => Ok(S::AuthIssues),
                 FxaRustAuthState::Connected => {
-                    // Auth errors from ensure_capabilities recover via CheckAuthorizationStatus
-                    // rather than bailing to Disconnected.
-                    // FIXME: should re-run ensure_capabilities after recovery succeeds.
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=1868418
-                    match account.ensure_capabilities(&device_config.capabilities) {
-                        Ok(_) => Ok(S::Connected),
-                        Err(e) if is_auth_error(&e) => {
-                            // Report inline since we don't propagate this error to the driver.
-                            let _: FxaError = convert_log_report_error(e);
-                            let active = account
-                                .check_authorization_status()
-                                .to_state_machine_err(|| S::AuthIssues)?;
-                            Ok(if active { S::Connected } else { S::AuthIssues })
-                        }
+                    match account.finish_initialize(&device_config.capabilities) {
+                        Ok(()) => Ok(S::Connected),
                         Err(cause) => Err(StateMachineErr::new(cause, S::Disconnected)),
                     }
                 }
@@ -231,10 +218,6 @@ pub fn transition(
             Error::InvalidStateTransition(format!("{state} -> {event}")),
         ))),
     }
-}
-
-fn is_auth_error(e: &Error) -> bool {
-    matches!(e.get_error_handling().err, FxaError::Authentication)
 }
 
 #[cfg(test)]
