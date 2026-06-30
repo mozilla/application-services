@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["allow_android_emulator_loopback","set_global_default_user_agent","validate_request"],"static":["GLOBAL_SETTINGS"],"struct":["Settings"]};

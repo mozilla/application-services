@@ -1,0 +1,186 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/support/rc_crypto/nss/nss_sys/src/bindings/pk11pub.rs`."><title>pk11pub.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="nss_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">nss_sys/bindings/</div>pk11pub.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+<a href=#2 id=2 data-nosnippet>2</a> * License, v. 2.0. If a copy of the MPL was not distributed with this
+<a href=#3 id=3 data-nosnippet>3</a> * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">pub use crate</span>::<span class="kw-2">*</span>;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>std::os::raw::{c_char, c_int, c_uchar, c_uint, c_void};
+<a href=#7 id=7 data-nosnippet>7</a>
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">extern </span><span class="string">"C" </span>{
+<a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">pub fn </span>PK11_FreeSlot(slot: <span class="kw-2">*mut </span>PK11SlotInfo);
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="kw">pub fn </span>PK11_GetInternalSlot() -&gt; <span class="kw-2">*mut </span>PK11SlotInfo;
+<a href=#11 id=11 data-nosnippet>11</a>    <span class="kw">pub fn </span>PK11_GetInternalKeySlot() -&gt; <span class="kw-2">*mut </span>PK11SlotInfo;
+<a href=#12 id=12 data-nosnippet>12</a>    <span class="kw">pub fn </span>PK11_NeedUserInit(slot: <span class="kw-2">*mut </span>PK11SlotInfo) -&gt; PRBool;
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">pub fn </span>PK11_NeedLogin(slot: <span class="kw-2">*mut </span>PK11SlotInfo) -&gt; PRBool;
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">pub fn </span>PK11_IsLoggedIn(slot: <span class="kw-2">*mut </span>PK11SlotInfo, wincx: <span class="kw-2">*mut </span>c_void) -&gt; PRBool;
+<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">pub fn </span>PK11_CheckUserPassword(slot: <span class="kw-2">*mut </span>PK11SlotInfo, password: <span class="kw-2">*const </span>c_char) -&gt; SECStatus;
+<a href=#16 id=16 data-nosnippet>16</a>    <span class="kw">pub fn </span>PK11_GenerateRandom(data: <span class="kw-2">*mut </span>c_uchar, len: c_int) -&gt; SECStatus;
+<a href=#17 id=17 data-nosnippet>17</a>    <span class="kw">pub fn </span>PK11_FreeSymKey(key: <span class="kw-2">*mut </span>PK11SymKey);
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">pub fn </span>PK11_InitPin(
+<a href=#19 id=19 data-nosnippet>19</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#20 id=20 data-nosnippet>20</a>        ssopw: <span class="kw-2">*const </span>c_char,
+<a href=#21 id=21 data-nosnippet>21</a>        pk11_userpwd: <span class="kw-2">*const </span>c_char,
+<a href=#22 id=22 data-nosnippet>22</a>    ) -&gt; SECStatus;
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">pub fn </span>PK11_KeyGen(
+<a href=#24 id=24 data-nosnippet>24</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#25 id=25 data-nosnippet>25</a>        type_: CK_MECHANISM_TYPE,
+<a href=#26 id=26 data-nosnippet>26</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#27 id=27 data-nosnippet>27</a>        keySize: c_int,
+<a href=#28 id=28 data-nosnippet>28</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#29 id=29 data-nosnippet>29</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">pub fn </span>PK11_ImportSymKey(
+<a href=#31 id=31 data-nosnippet>31</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#32 id=32 data-nosnippet>32</a>        type_: CK_MECHANISM_TYPE,
+<a href=#33 id=33 data-nosnippet>33</a>        origin: u32, <span class="comment">/* PK11Origin */
+<a href=#34 id=34 data-nosnippet>34</a>        </span>operation: CK_ATTRIBUTE_TYPE,
+<a href=#35 id=35 data-nosnippet>35</a>        key: <span class="kw-2">*mut </span>SECItem,
+<a href=#36 id=36 data-nosnippet>36</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#37 id=37 data-nosnippet>37</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">pub fn </span>PK11_ImportSymKeyWithFlags(
+<a href=#39 id=39 data-nosnippet>39</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#40 id=40 data-nosnippet>40</a>        type_: CK_MECHANISM_TYPE,
+<a href=#41 id=41 data-nosnippet>41</a>        origin: u32, <span class="comment">/* PK11Origin */
+<a href=#42 id=42 data-nosnippet>42</a>        </span>operation: CK_ATTRIBUTE_TYPE,
+<a href=#43 id=43 data-nosnippet>43</a>        key: <span class="kw-2">*mut </span>SECItem,
+<a href=#44 id=44 data-nosnippet>44</a>        flags: CK_FLAGS,
+<a href=#45 id=45 data-nosnippet>45</a>        isPerm: PRBool,
+<a href=#46 id=46 data-nosnippet>46</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#47 id=47 data-nosnippet>47</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="kw">pub fn </span>PK11_SetSymKeyNickname(key: <span class="kw-2">*mut </span>PK11SymKey, name: <span class="kw-2">*const </span>c_char) -&gt; SECStatus;
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="kw">pub fn </span>PK11_Derive(
+<a href=#50 id=50 data-nosnippet>50</a>        baseKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#51 id=51 data-nosnippet>51</a>        mechanism: CK_MECHANISM_TYPE,
+<a href=#52 id=52 data-nosnippet>52</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#53 id=53 data-nosnippet>53</a>        target: CK_MECHANISM_TYPE,
+<a href=#54 id=54 data-nosnippet>54</a>        operation: CK_ATTRIBUTE_TYPE,
+<a href=#55 id=55 data-nosnippet>55</a>        keySize: c_int,
+<a href=#56 id=56 data-nosnippet>56</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">pub fn </span>PK11_PubDeriveWithKDF(
+<a href=#58 id=58 data-nosnippet>58</a>        privKey: <span class="kw-2">*mut </span>SECKEYPrivateKey,
+<a href=#59 id=59 data-nosnippet>59</a>        pubKey: <span class="kw-2">*mut </span>SECKEYPublicKey,
+<a href=#60 id=60 data-nosnippet>60</a>        isSender: PRBool,
+<a href=#61 id=61 data-nosnippet>61</a>        randomA: <span class="kw-2">*mut </span>SECItem,
+<a href=#62 id=62 data-nosnippet>62</a>        randomB: <span class="kw-2">*mut </span>SECItem,
+<a href=#63 id=63 data-nosnippet>63</a>        derive: CK_MECHANISM_TYPE,
+<a href=#64 id=64 data-nosnippet>64</a>        target: CK_MECHANISM_TYPE,
+<a href=#65 id=65 data-nosnippet>65</a>        operation: CK_ATTRIBUTE_TYPE,
+<a href=#66 id=66 data-nosnippet>66</a>        keySize: c_int,
+<a href=#67 id=67 data-nosnippet>67</a>        kdf: CK_ULONG,
+<a href=#68 id=68 data-nosnippet>68</a>        sharedData: <span class="kw-2">*mut </span>SECItem,
+<a href=#69 id=69 data-nosnippet>69</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#70 id=70 data-nosnippet>70</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">pub fn </span>PK11_WrapSymKey(
+<a href=#72 id=72 data-nosnippet>72</a>        type_: CK_MECHANISM_TYPE,
+<a href=#73 id=73 data-nosnippet>73</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#74 id=74 data-nosnippet>74</a>        wrappingKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#75 id=75 data-nosnippet>75</a>        symKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#76 id=76 data-nosnippet>76</a>        wrappedKey: <span class="kw-2">*mut </span>SECItem,
+<a href=#77 id=77 data-nosnippet>77</a>    ) -&gt; SECStatus;
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">pub fn </span>PK11_UnwrapSymKey(
+<a href=#79 id=79 data-nosnippet>79</a>        wrappingKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#80 id=80 data-nosnippet>80</a>        wrapType: CK_MECHANISM_TYPE,
+<a href=#81 id=81 data-nosnippet>81</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#82 id=82 data-nosnippet>82</a>        wrappedKey: <span class="kw-2">*mut </span>SECItem,
+<a href=#83 id=83 data-nosnippet>83</a>        target: CK_MECHANISM_TYPE,
+<a href=#84 id=84 data-nosnippet>84</a>        operation: CK_ATTRIBUTE_TYPE,
+<a href=#85 id=85 data-nosnippet>85</a>        keySize: c_int,
+<a href=#86 id=86 data-nosnippet>86</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#87 id=87 data-nosnippet>87</a>    <span class="kw">pub fn </span>PK11_ExtractKeyValue(symKey: <span class="kw-2">*mut </span>PK11SymKey) -&gt; SECStatus;
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">pub fn </span>PK11_GetKeyData(symKey: <span class="kw-2">*mut </span>PK11SymKey) -&gt; <span class="kw-2">*mut </span>SECItem;
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">pub fn </span>PK11_GenerateKeyPair(
+<a href=#90 id=90 data-nosnippet>90</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#91 id=91 data-nosnippet>91</a>        type_: CK_MECHANISM_TYPE,
+<a href=#92 id=92 data-nosnippet>92</a>        param: <span class="kw-2">*mut </span>c_void,
+<a href=#93 id=93 data-nosnippet>93</a>        pubk: <span class="kw-2">*mut *mut </span>SECKEYPublicKey,
+<a href=#94 id=94 data-nosnippet>94</a>        isPerm: PRBool,
+<a href=#95 id=95 data-nosnippet>95</a>        isSensitive: PRBool,
+<a href=#96 id=96 data-nosnippet>96</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#97 id=97 data-nosnippet>97</a>    ) -&gt; <span class="kw-2">*mut </span>SECKEYPrivateKey;
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">pub fn </span>PK11_FindKeyByKeyID(
+<a href=#99 id=99 data-nosnippet>99</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#100 id=100 data-nosnippet>100</a>        keyID: <span class="kw-2">*mut </span>SECItem,
+<a href=#101 id=101 data-nosnippet>101</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#102 id=102 data-nosnippet>102</a>    ) -&gt; <span class="kw-2">*mut </span>SECKEYPrivateKey;
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">pub fn </span>PK11_ListFixedKeysInSlot(
+<a href=#104 id=104 data-nosnippet>104</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#105 id=105 data-nosnippet>105</a>        nickname: <span class="kw-2">*mut </span>c_char,
+<a href=#106 id=106 data-nosnippet>106</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#107 id=107 data-nosnippet>107</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">pub fn </span>PK11_Decrypt(
+<a href=#109 id=109 data-nosnippet>109</a>        symkey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#110 id=110 data-nosnippet>110</a>        mechanism: CK_MECHANISM_TYPE,
+<a href=#111 id=111 data-nosnippet>111</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#112 id=112 data-nosnippet>112</a>        out: <span class="kw-2">*mut </span>c_uchar,
+<a href=#113 id=113 data-nosnippet>113</a>        outLen: <span class="kw-2">*mut </span>c_uint,
+<a href=#114 id=114 data-nosnippet>114</a>        maxLen: c_uint,
+<a href=#115 id=115 data-nosnippet>115</a>        enc: <span class="kw-2">*const </span>c_uchar,
+<a href=#116 id=116 data-nosnippet>116</a>        encLen: c_uint,
+<a href=#117 id=117 data-nosnippet>117</a>    ) -&gt; SECStatus;
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">pub fn </span>PK11_Encrypt(
+<a href=#119 id=119 data-nosnippet>119</a>        symKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#120 id=120 data-nosnippet>120</a>        mechanism: CK_MECHANISM_TYPE,
+<a href=#121 id=121 data-nosnippet>121</a>        param: <span class="kw-2">*mut </span>SECItem,
+<a href=#122 id=122 data-nosnippet>122</a>        out: <span class="kw-2">*mut </span>c_uchar,
+<a href=#123 id=123 data-nosnippet>123</a>        outLen: <span class="kw-2">*mut </span>c_uint,
+<a href=#124 id=124 data-nosnippet>124</a>        maxLen: c_uint,
+<a href=#125 id=125 data-nosnippet>125</a>        data: <span class="kw-2">*const </span>c_uchar,
+<a href=#126 id=126 data-nosnippet>126</a>        dataLen: c_uint,
+<a href=#127 id=127 data-nosnippet>127</a>    ) -&gt; SECStatus;
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">pub fn </span>PK11_VerifyWithMechanism(
+<a href=#129 id=129 data-nosnippet>129</a>        key: <span class="kw-2">*mut </span>SECKEYPublicKey,
+<a href=#130 id=130 data-nosnippet>130</a>        mechanism: CK_MECHANISM_TYPE,
+<a href=#131 id=131 data-nosnippet>131</a>        param: <span class="kw-2">*const </span>SECItem,
+<a href=#132 id=132 data-nosnippet>132</a>        sig: <span class="kw-2">*const </span>SECItem,
+<a href=#133 id=133 data-nosnippet>133</a>        hash: <span class="kw-2">*const </span>SECItem,
+<a href=#134 id=134 data-nosnippet>134</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#135 id=135 data-nosnippet>135</a>    ) -&gt; SECStatus;
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">pub fn </span>PK11_MapSignKeyType(keyType: u32 <span class="comment">/* KeyType */</span>) -&gt; CK_MECHANISM_TYPE;
+<a href=#137 id=137 data-nosnippet>137</a>    <span class="kw">pub fn </span>PK11_DestroyContext(context: <span class="kw-2">*mut </span>PK11Context, freeit: PRBool);
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="kw">pub fn </span>PK11_CreateContextBySymKey(
+<a href=#139 id=139 data-nosnippet>139</a>        type_: CK_MECHANISM_TYPE,
+<a href=#140 id=140 data-nosnippet>140</a>        operation: CK_ATTRIBUTE_TYPE,
+<a href=#141 id=141 data-nosnippet>141</a>        symKey: <span class="kw-2">*mut </span>PK11SymKey,
+<a href=#142 id=142 data-nosnippet>142</a>        param: <span class="kw-2">*const </span>SECItem,
+<a href=#143 id=143 data-nosnippet>143</a>    ) -&gt; <span class="kw-2">*mut </span>PK11Context;
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">pub fn </span>PK11_DigestBegin(cx: <span class="kw-2">*mut </span>PK11Context) -&gt; SECStatus;
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">pub fn </span>PK11_HashBuf(
+<a href=#146 id=146 data-nosnippet>146</a>        hashAlg: u32, <span class="comment">/* SECOidTag */
+<a href=#147 id=147 data-nosnippet>147</a>        </span>out: <span class="kw-2">*mut </span>c_uchar,
+<a href=#148 id=148 data-nosnippet>148</a>        in_: <span class="kw-2">*const </span>c_uchar,
+<a href=#149 id=149 data-nosnippet>149</a>        len: PRInt32,
+<a href=#150 id=150 data-nosnippet>150</a>    ) -&gt; SECStatus;
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">pub fn </span>PK11_DigestOp(context: <span class="kw-2">*mut </span>PK11Context, in_: <span class="kw-2">*const </span>c_uchar, len: c_uint) -&gt; SECStatus;
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="kw">pub fn </span>PK11_DigestFinal(
+<a href=#153 id=153 data-nosnippet>153</a>        context: <span class="kw-2">*mut </span>PK11Context,
+<a href=#154 id=154 data-nosnippet>154</a>        data: <span class="kw-2">*mut </span>c_uchar,
+<a href=#155 id=155 data-nosnippet>155</a>        outLen: <span class="kw-2">*mut </span>c_uint,
+<a href=#156 id=156 data-nosnippet>156</a>        length: c_uint,
+<a href=#157 id=157 data-nosnippet>157</a>    ) -&gt; SECStatus;
+<a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">pub fn </span>PK11_DestroyGenericObject(object: <span class="kw-2">*mut </span>PK11GenericObject) -&gt; SECStatus;
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">pub fn </span>PK11_CreateGenericObject(
+<a href=#160 id=160 data-nosnippet>160</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#161 id=161 data-nosnippet>161</a>        pTemplate: <span class="kw-2">*const </span>CK_ATTRIBUTE,
+<a href=#162 id=162 data-nosnippet>162</a>        count: c_int,
+<a href=#163 id=163 data-nosnippet>163</a>        token: PRBool,
+<a href=#164 id=164 data-nosnippet>164</a>    ) -&gt; <span class="kw-2">*mut </span>PK11GenericObject;
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">pub fn </span>PK11_ReadRawAttribute(
+<a href=#166 id=166 data-nosnippet>166</a>        type_: u32, <span class="comment">/* PK11ObjectType */
+<a href=#167 id=167 data-nosnippet>167</a>        </span>object: <span class="kw-2">*mut </span>c_void,
+<a href=#168 id=168 data-nosnippet>168</a>        attr: CK_ATTRIBUTE_TYPE,
+<a href=#169 id=169 data-nosnippet>169</a>        item: <span class="kw-2">*mut </span>SECItem,
+<a href=#170 id=170 data-nosnippet>170</a>    ) -&gt; SECStatus;
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="kw">pub fn </span>PK11_CreatePBEV2AlgorithmID(
+<a href=#172 id=172 data-nosnippet>172</a>        pbeAlgTag: u32,    <span class="comment">/* SECOidTag */
+<a href=#173 id=173 data-nosnippet>173</a>        </span>cipherAlgTag: u32, <span class="comment">/* SECOidTag */
+<a href=#174 id=174 data-nosnippet>174</a>        </span>prfAlgTag: u32,    <span class="comment">/* SECOidTag */
+<a href=#175 id=175 data-nosnippet>175</a>        </span>keyLength: c_int,
+<a href=#176 id=176 data-nosnippet>176</a>        iteration: c_int,
+<a href=#177 id=177 data-nosnippet>177</a>        salt: <span class="kw-2">*mut </span>SECItem,
+<a href=#178 id=178 data-nosnippet>178</a>    ) -&gt; <span class="kw-2">*mut </span>SECAlgorithmID;
+<a href=#179 id=179 data-nosnippet>179</a>    <span class="kw">pub fn </span>PK11_PBEKeyGen(
+<a href=#180 id=180 data-nosnippet>180</a>        slot: <span class="kw-2">*mut </span>PK11SlotInfo,
+<a href=#181 id=181 data-nosnippet>181</a>        algid: <span class="kw-2">*mut </span>SECAlgorithmID,
+<a href=#182 id=182 data-nosnippet>182</a>        pwitem: <span class="kw-2">*mut </span>SECItem,
+<a href=#183 id=183 data-nosnippet>183</a>        faulty3DES: PRBool,
+<a href=#184 id=184 data-nosnippet>184</a>        wincx: <span class="kw-2">*mut </span>c_void,
+<a href=#185 id=185 data-nosnippet>185</a>    ) -&gt; <span class="kw-2">*mut </span>PK11SymKey;
+<a href=#186 id=186 data-nosnippet>186</a>}</code></pre></div></section></main></body></html>

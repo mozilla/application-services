@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConnectionType"],"fn":["get_registered_sync_engine","places_api_new"],"struct":["PlacesApi"]};

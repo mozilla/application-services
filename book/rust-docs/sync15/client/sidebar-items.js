@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ServiceStatus","Sync15ClientResponse"],"fn":["sync_multiple","sync_multiple_with_command_processor"],"struct":["MemoryCachedState","Sync15StorageClient","Sync15StorageClientInit","SyncRequestInfo","SyncResult"],"trait":["SetupStorageClient"]};

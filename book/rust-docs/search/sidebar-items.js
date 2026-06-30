@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["JSONEngineMethod","SearchApiError"],"mod":["selector","types"],"struct":["JSONEngineUrl"],"type":["SearchApiResult"]};
