@@ -95,9 +95,10 @@ extern "C" {
         isSensitive: PRBool,
         wincx: *mut c_void,
     ) -> *mut SECKEYPrivateKey;
-    pub fn PK11_FindKeyByKeyID(
+    pub fn PK11_CreatePrivateKeyFromTemplate(
         slot: *mut PK11SlotInfo,
-        keyID: *mut SECItem,
+        template: *const CK_ATTRIBUTE,
+        count: c_uint,
         wincx: *mut c_void,
     ) -> *mut SECKEYPrivateKey;
     pub fn PK11_ListFixedKeysInSlot(
@@ -155,13 +156,6 @@ extern "C" {
         outLen: *mut c_uint,
         length: c_uint,
     ) -> SECStatus;
-    pub fn PK11_DestroyGenericObject(object: *mut PK11GenericObject) -> SECStatus;
-    pub fn PK11_CreateGenericObject(
-        slot: *mut PK11SlotInfo,
-        pTemplate: *const CK_ATTRIBUTE,
-        count: c_int,
-        token: PRBool,
-    ) -> *mut PK11GenericObject;
     pub fn PK11_ReadRawAttribute(
         type_: u32, /* PK11ObjectType */
         object: *mut c_void,
