@@ -4,7 +4,7 @@
 
 use super::super::{scopes, util, FirefoxAccount};
 use super::RefreshToken;
-use crate::{error, Error, Result, ScopedKey};
+use crate::{debug, error, info, Error, Result, ScopedKey};
 use serde_derive::*;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -37,6 +37,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method may alter the persisted account state.**
     pub fn get_access_token(&mut self, scope: &str, use_cache: bool) -> Result<AccessTokenInfo> {
+        debug!("get_access_token for scope={scope}, use_cache={use_cache}");
         let requested = normalize_scopes(scope);
         if requested.is_empty() {
             return Err(Error::IllegalState("No scopes requested."));
@@ -50,6 +51,11 @@ impl FirefoxAccount {
                     if oauth_info.check_missing_sync_scoped_key().is_ok() {
                         return Ok(oauth_info.clone());
                     }
+                    // but it missing should be impossible!?
+                    error_support::report_error!(
+                        "fxaclient-lost-scoped-key",
+                        "have cached token without a key"
+                    );
                 }
             }
         }
@@ -64,6 +70,10 @@ impl FirefoxAccount {
                     .collect();
                 if !missing.is_empty() {
                     // We don't currently have all scopes - try token exchange to upgrade.
+                    info!(
+                        "refresh token doing exchange; have {:?}, missing {missing:?})",
+                        refresh_token.scopes
+                    );
                     let exchange_resp = self.client.exchange_token_for_scope(
                         self.state.config(),
                         &refresh_token.token,
@@ -92,6 +102,9 @@ impl FirefoxAccount {
                     .iter()
                     .all(|s| refresh_token.scopes.contains(*s))
                 {
+                    info!(
+                        "using refresh token to request new token with scope {requested_scopes:?}"
+                    );
                     self.client.create_access_token_using_refresh_token(
                         self.state.config(),
                         &refresh_token.token,
@@ -106,14 +119,19 @@ impl FirefoxAccount {
                     return Err(Error::UnexpectedServerResponse);
                 }
             }
-            None => match self.state.session_token() {
-                Some(session_token) => self.client.create_access_token_using_session_token(
-                    self.state.config(),
-                    session_token,
-                    &requested_scopes,
-                )?,
-                None => return Err(Error::NoSessionToken),
-            },
+            None => {
+                match self.state.session_token() {
+                    Some(session_token) => {
+                        info!("using session token to request new token with scope {requested_scopes:?}");
+                        self.client.create_access_token_using_session_token(
+                            self.state.config(),
+                            session_token,
+                            &requested_scopes,
+                        )?
+                    }
+                    None => return Err(Error::NoSessionToken),
+                }
+            }
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
