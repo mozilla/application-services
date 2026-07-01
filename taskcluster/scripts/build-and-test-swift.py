@@ -156,6 +156,12 @@ def generate_uniffi_bindings_for_target(out_dir, megazord):
         ["cargo", "uniffi-bindgen-library-mode", "-l", lib_path, "swift", out_dir]
     )
 
+    # We do NOT want glean-sym UniFFI symbols exported.
+    # These only exist to make the glean-sym Rust part work, but won't be linked in.
+    (out_dir / "glean_sym.swift").unlink(missing_ok=True)
+    (out_dir / "glean_sym.h").unlink(missing_ok=True)
+
+
 def ensure_dir(path):
     if not path.exists():
         os.makedirs(path)
