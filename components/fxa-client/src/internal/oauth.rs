@@ -357,7 +357,8 @@ impl FirefoxAccount {
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
-        let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
+        // These are the keys granted by *this* response - any invariants about scopes vs keys
+        // must be checked after we've fully merged the scopes and keys.
         let scoped_keys = match resp.keys_jwe {
             Some(ref jwe) => {
                 let scoped_keys_flow = scoped_keys_flow.ok_or(Error::ApiClientError(
@@ -366,28 +367,12 @@ impl FirefoxAccount {
                 let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
                 let scoped_keys: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(&decrypted_keys)?;
-                if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
-                    error_support::report_error!(
-                        "fxaclient-scoped-key",
-                        "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
-                        resp.scope,
-                        scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
-                    );
-                }
                 scoped_keys
                     .into_iter()
                     .map(|(scope, key)| Ok((scope, serde_json::from_value(key)?)))
                     .collect::<Result<Vec<_>>>()?
             }
-            None => {
-                if sync_scope_granted {
-                    error_support::report_error!(
-                        "fxaclient-scoped-key",
-                        "Sync scope granted, but keys_jwe is None"
-                    );
-                }
-                vec![]
-            }
+            None => vec![],
         };
 
         // We are only interested in the refresh token at this time because we
@@ -485,6 +470,27 @@ impl FirefoxAccount {
             // and clear the old refresh token from our state, just in case we encounter an error before
             // we've set the new one as current.
             self.state.clear_refresh_token();
+        }
+
+        // Evaluate the sync-key invariant against the final state: the scopes the merged
+        // refresh token actually carries, and every key we'll hold afterwards (keys from this
+        // response plus keys we already had for other scopes).
+        let sync_scope_granted = new_refresh_token.scopes.contains(scopes::OLD_SYNC);
+        let have_sync_key = scoped_keys
+            .iter()
+            .any(|(scope, _)| scope == scopes::OLD_SYNC)
+            || self.state.get_scoped_key(scopes::OLD_SYNC).is_some();
+        if sync_scope_granted && !have_sync_key {
+            error_support::report_error!(
+                "fxaclient-scoped-key",
+                "Sync scope granted, but no sync scoped key held (final scopes: {})",
+                new_refresh_token
+                    .scopes
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
 
         self.state
@@ -1395,5 +1401,133 @@ mod tests {
 
         let scopes = &fxa.state.refresh_token().unwrap().scopes;
         assert_eq!(scopes, &["profile".to_string()].into());
+    }
+
+    // Test that adding a non-sync scope to an account that is already signed in with sync
+    // retains the sync scoped key we already hold, even though this response carries no keys.
+    #[test]
+    fn test_complete_oauth_flow_retains_existing_sync_key_when_adding_scope() {
+        nss_as::ensure_initialized();
+        let config = Config::new_with_mock_well_known_fxa_client_configuration(
+            "mock-fxa.example.com",
+            "12345678",
+            "https://foo.bar",
+        );
+        let mut fxa = FirefoxAccount::with_config(config);
+
+        // Start a flow requesting only a new, non-sync scope.
+        let url = fxa
+            .begin_oauth_flow("", &["new_scope"], "test_entrypoint")
+            .unwrap();
+        let url = Url::parse(&url).unwrap();
+        let state = url.query_pairs().find(|(name, _)| name == "state").unwrap();
+
+        // Pre-populate: signed in with the sync scope, holding its scoped key, plus a session
+        // token so the scope merge can happen.
+        fxa.state.force_refresh_token(RefreshToken {
+            token: "old_refresh".to_string(),
+            scopes: [OLD_SYNC.to_string()].into(),
+        });
+        fxa.state.insert_scoped_key(
+            OLD_SYNC,
+            crate::ScopedKey {
+                kty: "oct".to_string(),
+                scope: OLD_SYNC.to_string(),
+                k: "existing_sync_key_material".to_string(),
+                kid: "existing_sync_kid".to_string(),
+            },
+        );
+        fxa.set_session_token("mock_session_token");
+
+        let mut client = MockFxAClient::new();
+
+        // 1. Exchange auth code — narrow token with only the new scope and no keys.
+        client
+            .expect_create_refresh_token_using_authorization_code()
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(OAuthTokenResponse {
+                    keys_jwe: None,
+                    refresh_token: Some("new_narrow_refresh".to_string()),
+                    session_token: None,
+                    expires_in: 3600,
+                    scope: "new_scope".to_string(),
+                    access_token: "access_token".to_string(),
+                })
+            });
+
+        // 2. Destroy the over-scoped access token.
+        client
+            .expect_destroy_access_token()
+            .with(always(), always())
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        // 3. Fetch current device so it can be restored after the token swap.
+        client
+            .expect_get_devices()
+            .with(always(), eq("old_refresh"))
+            .times(1)
+            .returning(|_, _| Ok(vec![make_mock_device("Test Device")]));
+
+        // 4. Get merged refresh token covering both the old sync scope and the new scope.
+        client
+            .expect_create_refresh_token_using_session_token()
+            .withf(|_, session_token, _| session_token == "mock_session_token")
+            .times(1)
+            .returning(|_, _, _| {
+                Ok(OAuthTokenResponse {
+                    keys_jwe: None,
+                    refresh_token: Some("merged_refresh".to_string()),
+                    session_token: None,
+                    expires_in: 3600,
+                    scope: format!("{OLD_SYNC} new_scope"),
+                    access_token: "access_token2".to_string(),
+                })
+            });
+
+        // 5. Destroy the narrow new token (replaced by the merged one).
+        client
+            .expect_destroy_refresh_token()
+            .with(always(), eq("new_narrow_refresh"))
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        // 6. Destroy the old refresh token.
+        client
+            .expect_destroy_refresh_token()
+            .with(always(), eq("old_refresh"))
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        // 7. Restore the device record.
+        client
+            .expect_update_device_record()
+            .times(1)
+            .returning(|_, _, _| Ok(make_mock_update_device_response()));
+
+        fxa.set_client(Arc::new(client));
+
+        fxa.complete_oauth_flow("mock_code", state.1.as_ref())
+            .unwrap();
+
+        // The sync key we already held must survive, even though this flow carried no keys.
+        let sync_key = fxa
+            .state
+            .get_scoped_key(OLD_SYNC)
+            .expect("sync scoped key should be retained");
+        assert_eq!(sync_key.k, "existing_sync_key_material");
+
+        // And the merged refresh token should carry both scopes.
+        let scopes = &fxa.state.refresh_token().unwrap().scopes;
+        assert!(
+            scopes.contains(OLD_SYNC),
+            "expected sync scope, got {scopes:?}"
+        );
+        assert!(
+            scopes.contains("new_scope"),
+            "expected new_scope, got {scopes:?}"
+        );
+        assert_eq!(scopes.len(), 2);
     }
 }
