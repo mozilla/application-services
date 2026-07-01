@@ -26,6 +26,18 @@ use url::Url;
 pub const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
 
 impl FirefoxAccount {
+    /// Check whether every requested scope has been granted to the account's refresh token.
+    pub fn has_scope(&self, scope: &str) -> bool {
+        let mut requested = scope.split_ascii_whitespace().peekable();
+        if requested.peek().is_none() {
+            return false;
+        }
+        match self.state.refresh_token() {
+            Some(refresh_token) => requested.all(|s| refresh_token.scopes.contains(s)),
+            None => false,
+        }
+    }
+
     /// Extracts and stores the session token from a WebChannel login JSON payload.
     /// The JSON payload is the `data` object from the `fxaccounts:login` WebChannel command.
     pub fn handle_web_channel_login(&mut self, json_payload: &str) -> Result<()> {
@@ -650,6 +662,24 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
+
+    #[test]
+    fn test_has_scope() {
+        nss_as::ensure_initialized();
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        // No refresh token -> false.
+        assert!(!fxa.has_scope("profile"));
+        fxa.state.force_refresh_token(RefreshToken {
+            token: "rt".to_owned(),
+            scopes: ["profile", "sync"].iter().map(|s| s.to_string()).collect(),
+        });
+        assert!(fxa.has_scope("profile"));
+        assert!(fxa.has_scope("sync profile"));
+        assert!(fxa.has_scope("profile sync ")); // trailing whitespace too
+        assert!(!fxa.has_scope("sync unknown")); // one missing -> false
+        assert!(!fxa.has_scope("")); // empty -> false
+    }
 
     #[test]
     fn test_oauth_flow_url() {
