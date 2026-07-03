@@ -105,10 +105,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         Ok(())
     }
 
-    fn prepare_for_sync(
-        &self,
-        _get_client_data: &dyn Fn() -> sync15::ClientData,
-    ) -> anyhow::Result<()> {
+    fn sync_started(&self) -> anyhow::Result<()> {
         let db = &self.store.db.lock().unwrap();
         let signal = db.begin_interrupt_scope()?;
         crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
