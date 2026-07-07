@@ -21,10 +21,6 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Mozilla Public License 2.0: glean-sym</name>
-    <url>https://github.com/mozilla/glean/blob/main/LICENSE</url>
-  </license>
-  <license>
     <name>Mozilla Public License 2.0: hawk</name>
     <url>https://github.com/taskcluster/rust-hawk/blob/main/LICENSE</url>
   </license>
@@ -71,10 +67,6 @@ the details of which are reproduced below.
   <license>
     <name>Mozilla Public License 2.0: uniffi_udl</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: android-tzdata</name>
-    <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: android_system_properties</name>
@@ -314,7 +306,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
-    <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-num/num-traits/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ohttp</name>
@@ -394,7 +386,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: rustc-hash</name>
-    <url>https://github.com/rust-lang/rustc-hash/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/rustc-hash/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rustix</name>
@@ -483,10 +475,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: thread_local</name>
     <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: toml</name>
-    <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: toml</name>
