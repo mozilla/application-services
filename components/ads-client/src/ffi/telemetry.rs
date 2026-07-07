@@ -150,7 +150,7 @@ impl Telemetry for MozAdsTelemetryWrapper {
         if let Some(impression_log_builder_error) =
             event.downcast_ref::<ImpressionLogBuilderError>()
         {
-            self.inner.record_build_impression_log_error(
+            inner.record_build_impression_log_error(
                 match impression_log_builder_error {
                     ImpressionLogBuilderError::EmptyDbPath => "empty_db_path".to_string(),
                     ImpressionLogBuilderError::Database(_) => "database_error".to_string(),
@@ -160,7 +160,7 @@ impl Telemetry for MozAdsTelemetryWrapper {
             return;
         }
         if let Some(impression_log_outcome) = event.downcast_ref::<ImpressionLogOutcome>() {
-            self.inner.record_impression_log_outcome(
+            inner.record_impression_log_outcome(
                 match impression_log_outcome {
                     ImpressionLogOutcome::RetainImpressionsFailed(_) => {
                         "retain_impressions_failed".to_string()

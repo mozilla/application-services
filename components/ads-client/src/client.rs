@@ -586,6 +586,7 @@ mod tests {
             cache_config: None,
             context_id_provider: None,
             environment: Environment::Test,
+            impression_log_config: None,
             telemetry: noop_telemetry,
         };
         let mut client = AdsClient::new(config);
@@ -605,7 +606,7 @@ mod tests {
         let cache = HttpCache::builder("test_shutdown_telemetry")
             .build()
             .unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache), noop_telemetry);
+        let mars_client = MARSClient::new(Environment::Test, Some(cache), None, noop_telemetry);
         let mut client = new_with_mars_client(mars_client);
 
         // weak ref will show 0 strong references when the Arc<dyn MozAdsTelemetry> is gone.
