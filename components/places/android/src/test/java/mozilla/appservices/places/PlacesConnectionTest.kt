@@ -34,7 +34,6 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -622,15 +621,6 @@ class PlacesConnectionTest {
         } catch (e: PlacesApiException) {
             assert(e is PlacesApiException.UrlParseFailed)
         }
-    }
-
-    @Test
-    fun testRunMaintenanceMetrics() {
-        assertNull(PlacesManagerMetrics.runMaintenanceTime.testGetValue())
-        assertNull(PlacesManagerMetrics.dbSizeAfterMaintenance.testGetValue())
-        db.runMaintenance()
-        assertEquals(1, PlacesManagerMetrics.runMaintenanceTime.testGetValue()!!.values.values.sum())
-        assertEquals(1, PlacesManagerMetrics.dbSizeAfterMaintenance.testGetValue()!!.values.values.sum())
     }
 
     @Test

@@ -22,6 +22,7 @@ import mozilla.appservices.places.uniffi.InsertableBookmarkItem
 import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
 import mozilla.appservices.places.uniffi.NoteHistoryMetadataObservationOptions
 import mozilla.appservices.places.uniffi.PlacesApiException
+import mozilla.appservices.places.uniffi.RunMaintenanceOptions
 import mozilla.appservices.places.uniffi.SearchResult
 import mozilla.appservices.places.uniffi.SqlInterruptHandle
 import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
@@ -34,7 +35,6 @@ import mozilla.telemetry.glean.private.LabeledMetricType
 import java.lang.ref.WeakReference
 import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
 import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
-import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
 typealias Guid = String
@@ -284,25 +284,12 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
 
     @Suppress("MagicNumber")
     override fun runMaintenance(dbSizeLimit: UInt) {
-        val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
-            val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
-                this.conn.runMaintenancePrune(dbSizeLimit, 12U)
-            }
-
-            PlacesManagerMetrics.runMaintenanceVacuumTime.measure {
-                this.conn.runMaintenanceVacuum()
-            }
-
-            PlacesManagerMetrics.runMaintenanceOptimizeTime.measure {
-                this.conn.runMaintenanceOptimize()
-            }
-
-            PlacesManagerMetrics.runMaintenanceChkPntTime.measure {
-                this.conn.runMaintenanceCheckpoint()
-            }
-            pruneMetrics
-        }
-        PlacesManagerMetrics.dbSizeAfterMaintenance.accumulateSamples(listOf(pruneMetrics.dbSizeAfter.toLong() / 1024))
+        this.conn.runMaintenance(
+            RunMaintenanceOptions(
+            dbSizeLimit = dbSizeLimit,
+            pruneLimit = 12U,
+        ),
+        )
     }
 
     override fun deleteEverything() {
