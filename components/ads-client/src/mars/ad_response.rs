@@ -47,7 +47,7 @@ impl<A: AdResponseValue> AdResponse<A> {
         let hash_str = request_hash.to_string();
         for (placement_id, ads) in self.data.iter_mut() {
             for (position, ad) in ads.iter_mut().enumerate() {
-                let cap_key = ad.cap_key();
+                let cap_key = ad.cap_pair().map(|(cap_key, _)| cap_key.to_owned());
                 let callbacks = ad.callbacks_mut();
                 callbacks
                     .click
@@ -82,15 +82,13 @@ impl<A: AdResponseValue> AdResponse<A> {
     }
 }
 
-// TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
-#[allow(dead_code)]
-pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
+pub fn pop_query_param_from_url(url: &mut Url, query_param: &str) -> Option<String> {
     let mut request_hash = None;
     let mut query = url::form_urlencoded::Serializer::new(String::new());
 
     for (key, value) in url.query_pairs() {
-        if key == "request_hash" {
-            request_hash = Some(RequestHash::from(value.as_ref()));
+        if key == query_param {
+            request_hash = Some(value.into_owned());
         } else {
             query.append_pair(&key, &value);
         }
@@ -102,6 +100,7 @@ pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
     } else {
         url.set_query(Some(&query_string));
     }
+
     request_hash
 }
 
@@ -163,7 +162,7 @@ pub struct AdCallbacks {
 
 pub trait AdResponseValue: DeserializeOwned {
     fn callbacks_mut(&mut self) -> &mut AdCallbacks;
-    fn cap_key(&self) -> Option<String> {
+    fn cap_pair(&self) -> Option<(&str, &u32)> {
         None
     }
 }
@@ -179,8 +178,8 @@ impl AdResponseValue for AdSpoc {
         &mut self.callbacks
     }
 
-    fn cap_key(&self) -> Option<String> {
-        Some(self.caps.cap_key.clone())
+    fn cap_pair(&self) -> Option<(&str, &u32)> {
+        Some((&self.caps.cap_key, &self.caps.day))
     }
 }
 
@@ -645,21 +644,21 @@ mod tests {
     }
 
     #[test]
-    fn test_pop_request_hash_from_url() {
+    fn test_pop_query_param_from_url() {
         let mut url_with_hash =
             Url::parse("https://example.com/callback?request_hash=abc123def456&other=param")
                 .unwrap();
-        let extracted = pop_request_hash_from_url(&mut url_with_hash);
-        assert_eq!(extracted, Some(RequestHash::from("abc123def456")));
+        let extracted = pop_query_param_from_url(&mut url_with_hash, "request_hash");
+        assert_eq!(extracted, Some("abc123def456".into()));
         assert_eq!(url_with_hash.query(), Some("other=param"));
 
         let mut url_without_hash = Url::parse("https://example.com/callback?other=param").unwrap();
-        let extracted_none = pop_request_hash_from_url(&mut url_without_hash);
+        let extracted_none = pop_query_param_from_url(&mut url_without_hash, "request_hash");
         assert_eq!(extracted_none, None);
         assert_eq!(url_without_hash.query(), Some("other=param"));
 
         let mut url_no_query = Url::parse("https://example.com/callback").unwrap();
-        let extracted_empty = pop_request_hash_from_url(&mut url_no_query);
+        let extracted_empty = pop_query_param_from_url(&mut url_no_query, "request_hash");
         assert_eq!(extracted_empty, None);
         assert_eq!(url_no_query.query(), None);
     }

@@ -5,6 +5,7 @@
 
 pub mod ad_request;
 pub mod ad_response;
+mod capping;
 pub mod environment;
 pub mod error;
 mod preflight;
@@ -17,6 +18,7 @@ pub use report_reason::ReportReason;
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
     ad_response::{AdResponse, AdResponseValue},
+    capping::MARSCapping,
     error::{
         CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError,
     },
@@ -25,8 +27,9 @@ use self::{
 };
 use crate::{
     http_cache::{HttpCache, RequestHash},
+    impression_log::ImpressionLog,
     telemetry::Telemetry,
-    CachePolicy,
+    CachePolicy, ImpressionCappingPolicy,
 };
 use url::Url;
 use viaduct::{Headers, Request};
@@ -38,18 +41,26 @@ where
     environment: Environment,
     telemetry: T,
     transport: MARSTransport<T>,
+    capping: MARSCapping<T>,
 }
 
 impl<T> MARSClient<T>
 where
     T: Clone + Telemetry,
 {
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>, telemetry: T) -> Self {
+    pub fn new(
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+        impression_log: Option<ImpressionLog>,
+        telemetry: T,
+    ) -> Self {
         let transport = MARSTransport::new(http_cache, telemetry.clone());
+        let capping = MARSCapping::new(impression_log, telemetry.clone());
         Self {
             environment,
             telemetry,
             transport,
+            capping,
         }
     }
 
@@ -63,6 +74,7 @@ where
         flags: AdRequestFlags,
         placements: Vec<AdPlacementRequest>,
         cache_policy: CachePolicy,
+        impression_capping_policy: ImpressionCappingPolicy,
         ohttp: bool,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
@@ -80,7 +92,10 @@ where
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
         let ads = AdResponse::<A>::parse(response.json()?, &self.telemetry)?;
-        Ok((ads, request_hash))
+        let filtered_ads = self
+            .capping
+            .apply_impression_capping(ads, &impression_capping_policy);
+        Ok((filtered_ads, request_hash))
     }
 
     // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
@@ -100,7 +115,11 @@ where
         &self,
         callback: Url,
         ohttp: bool,
+        cap_key: Option<&str>,
     ) -> Result<(), RecordImpressionError> {
+        if let Some(cap_key) = cap_key {
+            self.capping.record_impression(cap_key);
+        }
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
@@ -151,10 +170,14 @@ mod tests {
     };
     use mockito::mock;
 
-    fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient<MozAdsTelemetryWrapper> {
+    fn make_test_client(
+        http_cache: Option<HttpCache>,
+        impression_log: Option<ImpressionLog>,
+    ) -> MARSClient<MozAdsTelemetryWrapper> {
         MARSClient::new(
             Environment::Test,
             http_cache,
+            impression_log,
             MozAdsTelemetryWrapper::noop(),
         )
     }
@@ -165,13 +188,13 @@ mod tests {
         let m = mock("GET", "/impression_callback_url")
             .with_status(200)
             .create();
-        let client = make_test_client(None);
+        let client = make_test_client(None, None);
         let url = Url::parse(&format!(
             "{}/impression_callback_url",
             &mockito::server_url()
         ))
         .unwrap();
-        let result = client.record_impression(url, false);
+        let result = client.record_impression(url, false, None);
         assert!(result.is_ok());
         m.assert();
     }
@@ -181,7 +204,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
         let m = mock("GET", "/click_callback_url").with_status(200).create();
 
-        let client = make_test_client(None);
+        let client = make_test_client(None, None);
         let url = Url::parse(&format!("{}/click_callback_url", &mockito::server_url())).unwrap();
         let result = client.record_click(url, false);
         assert!(result.is_ok());
@@ -199,7 +222,7 @@ mod tests {
             .with_status(200)
             .create();
 
-        let client = make_test_client(None);
+        let client = make_test_client(None, None);
         let url = Url::parse(&format!(
             "{}/report_ad_callback_url",
             &mockito::server_url()
@@ -222,13 +245,14 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let client = make_test_client(None);
+        let client = make_test_client(None, None);
 
         let result = client.fetch_ads::<AdImage>(
             TEST_CONTEXT_ID.to_string(),
             AdRequestFlags::default(),
             make_happy_placement_requests(),
             CachePolicy::default(),
+            ImpressionCappingPolicy::default(),
             false,
         );
         assert!(result.is_ok());
@@ -253,7 +277,7 @@ mod tests {
             .max_size(crate::http_cache::ByteSize::mib(1))
             .build()
             .unwrap();
-        let client = make_test_client(Some(cache));
+        let client = make_test_client(Some(cache), None);
 
         // First call should be a miss then warm the cache
         let (response1, _) = client
@@ -262,6 +286,7 @@ mod tests {
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
+                ImpressionCappingPolicy::default(),
                 false,
             )
             .unwrap();
@@ -274,6 +299,7 @@ mod tests {
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
+                ImpressionCappingPolicy::default(),
                 false,
             )
             .unwrap();
@@ -290,7 +316,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let client = make_test_client(Some(cache));
+        let client = make_test_client(Some(cache), None);
         let callback_url = Url::parse(&format!("{}/click", mockito::server_url())).unwrap();
 
         let m = mock("GET", "/click").with_status(200).create();
@@ -309,12 +335,12 @@ mod tests {
             .build()
             .unwrap();
 
-        let client = make_test_client(Some(cache));
+        let client = make_test_client(Some(cache), None);
         let callback_url = Url::parse(&format!("{}/impression", mockito::server_url())).unwrap();
 
         let m = mock("GET", "/impression").with_status(200).create();
 
-        let result = client.record_impression(callback_url, false);
+        let result = client.record_impression(callback_url, false, None);
         assert!(result.is_ok());
         m.assert();
     }

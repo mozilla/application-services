@@ -8,10 +8,11 @@ pub mod telemetry;
 
 use std::sync::Arc;
 
-use crate::client::config::{AdsCacheConfig, AdsClientConfig};
+use crate::client::config::{AdsCacheConfig, AdsClientConfig, ImpressionLogConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
+use crate::impression_log::ImpressionCappingPolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
 };
@@ -58,6 +59,7 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
+    pub impression_capping_policy: Option<MozAdsImpressionCappingPolicy>,
     #[uniffi(default)]
     pub flags: HashMap<String, bool>,
     #[uniffi(default = false)]
@@ -106,6 +108,7 @@ struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
     context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
+    impression_log_config: Option<MozAdsImpressionLogConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
@@ -132,6 +135,7 @@ impl MozAdsClientBuilder {
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
             environment: inner.environment.unwrap_or_default().into(),
+            impression_log_config: inner.impression_log_config.clone().map(Into::into),
             telemetry: inner
                 .telemetry
                 .clone()
@@ -186,6 +190,11 @@ pub struct MozAdsCacheConfig {
     pub max_size_mib: Option<u64>,
 }
 
+#[derive(Clone, uniffi::Record)]
+pub struct MozAdsImpressionLogConfig {
+    pub db_path: String,
+}
+
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsContentCategory {
     pub categories: Vec<String>,
@@ -230,6 +239,13 @@ pub enum MozAdsCacheMode {
     #[default]
     CacheFirst,
     NetworkFirst,
+}
+
+#[derive(Clone, Copy, Debug, Default, uniffi::Enum)]
+pub enum MozAdsImpressionCappingPolicy {
+    #[default]
+    TelemetryOnly,
+    ImpressionCapEnforced,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -421,6 +437,17 @@ impl From<MozAdsCachePolicy> for CachePolicy {
     }
 }
 
+impl From<MozAdsImpressionCappingPolicy> for ImpressionCappingPolicy {
+    fn from(policy: MozAdsImpressionCappingPolicy) -> Self {
+        match policy {
+            MozAdsImpressionCappingPolicy::TelemetryOnly => ImpressionCappingPolicy::TelemetryOnly,
+            MozAdsImpressionCappingPolicy::ImpressionCapEnforced => {
+                ImpressionCappingPolicy::ImpressionCapEnforced
+            }
+        }
+    }
+}
+
 impl From<&MozAdsIABContent> for AdContentCategory {
     fn from(content: &MozAdsIABContent) -> Self {
         Self {
@@ -436,9 +463,18 @@ impl From<&MozAdsRequestOptions> for AdRequestFlags {
     }
 }
 
-impl From<MozAdsRequestOptions> for CachePolicy {
-    fn from(options: MozAdsRequestOptions) -> Self {
+impl From<&MozAdsRequestOptions> for CachePolicy {
+    fn from(options: &MozAdsRequestOptions) -> Self {
         options.cache_policy.map(Into::into).unwrap_or_default()
+    }
+}
+
+impl From<&MozAdsRequestOptions> for ImpressionCappingPolicy {
+    fn from(options: &MozAdsRequestOptions) -> Self {
+        options
+            .impression_capping_policy
+            .map(Into::into)
+            .unwrap_or_default()
     }
 }
 
@@ -448,6 +484,14 @@ impl From<MozAdsCacheConfig> for AdsCacheConfig {
             db_path: config.db_path,
             default_cache_ttl_seconds: config.default_cache_ttl_seconds,
             max_size_mib: config.max_size_mib,
+        }
+    }
+}
+
+impl From<MozAdsImpressionLogConfig> for ImpressionLogConfig {
+    fn from(config: MozAdsImpressionLogConfig) -> Self {
+        Self {
+            db_path: config.db_path,
         }
     }
 }
