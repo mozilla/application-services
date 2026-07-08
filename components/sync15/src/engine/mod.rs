@@ -27,11 +27,25 @@
 //! We intend merging these engines - the first step will be to merge the
 //! types and payload management used by these traits, then to combine the
 //! requirements into a single trait that captures both use-cases.
+//!
+//! Steps so far, and what's left:
+//! * [bridged_engine::BridgedEngineAdaptor] lets a crate implement only
+//!   [SyncEngine] (plus a tiny adaptor) and get a [bridged_engine::BridgedEngine]
+//!   for free.
+//! * [bridged_engine::BridgedEngineWrapper] + the `uniffi_bridged_engine!` macro
+//!   remove the per-crate UniFFI facade boilerplate (the JSON<->BSO marshalling
+//!   and method delegation).
+//! * Still to do (#2841): remove `BridgedEngine`/`BridgedEngineAdaptor`/`ApplyResults`
+//!   entirely and have Desktop consume [SyncEngine] directly. This is blocked on a
+//!   coordinated mozilla-central change: Desktop must move off explicit timestamp
+//!   handling (`last_sync`/`set_last_sync`) to the `get_collection_request` model,
+//!   and the per-crate UDL `interface *BridgedEngine` blocks (the Desktop-visible
+//!   contract consumed via mozIBridgedSyncEngine) must be updated in lockstep.
 mod bridged_engine;
 mod request;
 mod sync_engine;
 
-pub use bridged_engine::{ApplyResults, BridgedEngine, BridgedEngineAdaptor};
+pub use bridged_engine::{ApplyResults, BridgedEngine, BridgedEngineAdaptor, BridgedEngineWrapper};
 #[cfg(feature = "sync-client")]
 pub(crate) use request::CollectionPost;
 
