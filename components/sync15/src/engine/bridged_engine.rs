@@ -241,3 +241,258 @@ impl From<Vec<OutgoingBso>> for ApplyResults {
         }
     }
 }
+
+/// Wraps a `Box<dyn BridgedEngine>` and centralizes the work every consuming
+/// crate's UniFFI-facing bridged engine needs to do: the JSON `String` <-> BSO
+/// marshalling that crosses the FFI boundary, and 1:1 delegation to the wrapped
+/// engine. Rather than each crate hand-writing this (it was ~100 identical lines
+/// per crate), they expose a thin newtype around this via the
+/// [`uniffi_bridged_engine!`] macro.
+///
+/// All methods return [`anyhow::Result`], which each crate maps onto its own
+/// UniFFI error type via an `impl From<anyhow::Error>`.
+///
+/// Note on the longer-term direction: this type, along with [`BridgedEngine`],
+/// [`BridgedEngineAdaptor`] and [`ApplyResults`], only exists because we still
+/// have two sync-engine traits. Once Desktop moves off explicit timestamp
+/// handling to the `get_collection_request` model (see #2841) we can remove
+/// `BridgedEngine` entirely, have Desktop consume [`SyncEngine`] directly, and
+/// this wrapper collapses into a thin `SyncEngine` -> FFI shim (or goes away).
+/// See the note in `engine/mod.rs` for the migration sequencing.
+pub struct BridgedEngineWrapper {
+    inner: Box<dyn BridgedEngine>,
+}
+
+impl BridgedEngineWrapper {
+    pub fn new(inner: Box<dyn BridgedEngine>) -> Self {
+        Self { inner }
+    }
+
+    pub fn last_sync(&self) -> Result<i64> {
+        self.inner.last_sync()
+    }
+
+    pub fn set_last_sync(&self, last_sync: i64) -> Result<()> {
+        self.inner.set_last_sync(last_sync)
+    }
+
+    pub fn sync_id(&self) -> Result<Option<String>> {
+        self.inner.sync_id()
+    }
+
+    pub fn reset_sync_id(&self) -> Result<String> {
+        self.inner.reset_sync_id()
+    }
+
+    pub fn ensure_current_sync_id(&self, sync_id: &str) -> Result<String> {
+        self.inner.ensure_current_sync_id(sync_id)
+    }
+
+    pub fn prepare_for_sync(&self, client_data: &str) -> Result<()> {
+        self.inner.prepare_for_sync(client_data)
+    }
+
+    pub fn sync_started(&self) -> Result<()> {
+        self.inner.sync_started()
+    }
+
+    /// Decode the JSON-encoded `IncomingBso`s that UniFFI passes to us, then
+    /// hand them to the wrapped engine.
+    pub fn store_incoming(&self, incoming: Vec<String>) -> Result<()> {
+        let mut bsos = Vec::with_capacity(incoming.len());
+        for inc in incoming {
+            bsos.push(serde_json::from_str::<IncomingBso>(&inc)?);
+        }
+        self.inner.store_incoming(bsos)
+    }
+
+    /// Apply staged records and encode the outgoing `OutgoingBso`s back into
+    /// JSON for UniFFI.
+    pub fn apply(&self) -> Result<Vec<String>> {
+        let apply_results = self.inner.apply()?;
+        let mut outgoing = Vec::with_capacity(apply_results.records.len());
+        for e in apply_results.records {
+            outgoing.push(serde_json::to_string(&e)?);
+        }
+        Ok(outgoing)
+    }
+
+    /// Accepts anything that turns into a [`Guid`], which reconciles the
+    /// per-crate id representation: logins hands us `Vec<String>`, while
+    /// tabs and webext-storage hand us `Vec<sync_guid::Guid>`. Both `String`
+    /// and `Guid` implement `Into<Guid>`.
+    pub fn set_uploaded<G: Into<Guid>>(
+        &self,
+        server_modified_millis: i64,
+        ids: Vec<G>,
+    ) -> Result<()> {
+        let guids: Vec<Guid> = ids.into_iter().map(Into::into).collect();
+        self.inner.set_uploaded(server_modified_millis, &guids)
+    }
+
+    pub fn sync_finished(&self) -> Result<()> {
+        self.inner.sync_finished()
+    }
+
+    pub fn reset(&self) -> Result<()> {
+        self.inner.reset()
+    }
+
+    pub fn wipe(&self) -> Result<()> {
+        self.inner.wipe()
+    }
+}
+
+/// Generates a UniFFI-exposable bridged engine newtype around
+/// [`BridgedEngineWrapper`], removing the ~100 lines of identical facade
+/// boilerplate each consuming crate used to hand-write.
+///
+/// Usage (invoke in the module the crate's UDL `interface` resolves against):
+/// ```ignore
+/// sync15::uniffi_bridged_engine!(LoginsBridgedEngine, String);
+/// sync15::uniffi_bridged_engine!(TabsBridgedEngine, sync_guid::Guid);
+/// ```
+///
+/// `$guid` is the element type the crate's UDL lowers `set_uploaded`'s ids to
+/// (`String` for logins' `sequence<string>`, `sync_guid::Guid` for the tabs and
+/// webext-storage custom-type sequences). The generated methods return
+/// `anyhow::Result`, which the crate's UDL `[Throws=...]` maps to its error type
+/// via the existing `impl From<anyhow::Error>`.
+///
+/// The macro always emits `prepare_for_sync`; a crate whose UDL doesn't declare
+/// it (logins) simply leaves that inherent method unbound, which is harmless.
+#[macro_export]
+macro_rules! uniffi_bridged_engine {
+    ($name:ident, $guid:ty) => {
+        // This is what UniFFI exposes; it does nothing other than delegate to
+        // the shared `BridgedEngineWrapper`. See
+        // services/interfaces/mozIBridgedSyncEngine.idl for the Desktop contract.
+        pub struct $name($crate::engine::BridgedEngineWrapper);
+
+        impl $name {
+            pub fn new(inner: ::std::boxed::Box<dyn $crate::engine::BridgedEngine>) -> Self {
+                Self($crate::engine::BridgedEngineWrapper::new(inner))
+            }
+
+            pub fn last_sync(&self) -> ::anyhow::Result<i64> {
+                self.0.last_sync()
+            }
+
+            pub fn set_last_sync(&self, last_sync: i64) -> ::anyhow::Result<()> {
+                self.0.set_last_sync(last_sync)
+            }
+
+            pub fn sync_id(&self) -> ::anyhow::Result<Option<String>> {
+                self.0.sync_id()
+            }
+
+            pub fn reset_sync_id(&self) -> ::anyhow::Result<String> {
+                self.0.reset_sync_id()
+            }
+
+            pub fn ensure_current_sync_id(&self, sync_id: &str) -> ::anyhow::Result<String> {
+                self.0.ensure_current_sync_id(sync_id)
+            }
+
+            pub fn prepare_for_sync(&self, client_data: &str) -> ::anyhow::Result<()> {
+                self.0.prepare_for_sync(client_data)
+            }
+
+            pub fn sync_started(&self) -> ::anyhow::Result<()> {
+                self.0.sync_started()
+            }
+
+            pub fn store_incoming(&self, incoming: Vec<String>) -> ::anyhow::Result<()> {
+                self.0.store_incoming(incoming)
+            }
+
+            pub fn apply(&self) -> ::anyhow::Result<Vec<String>> {
+                self.0.apply()
+            }
+
+            pub fn set_uploaded(
+                &self,
+                server_modified_millis: i64,
+                ids: Vec<$guid>,
+            ) -> ::anyhow::Result<()> {
+                self.0.set_uploaded(server_modified_millis, ids)
+            }
+
+            pub fn sync_finished(&self) -> ::anyhow::Result<()> {
+                self.0.sync_finished()
+            }
+
+            pub fn reset(&self) -> ::anyhow::Result<()> {
+                self.0.reset()
+            }
+
+            pub fn wipe(&self) -> ::anyhow::Result<()> {
+                self.0.wipe()
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+mod wrapper_tests {
+    use super::*;
+    use crate::bso::OutgoingBso;
+    use std::sync::Mutex;
+
+    // A minimal BridgedEngine that records the guids passed to `set_uploaded`,
+    // so we can lock in the `Into<Guid>` reconciliation for both `String` and
+    // `Guid` element types.
+    #[derive(Default)]
+    struct RecordingEngine {
+        uploaded: Mutex<Vec<Guid>>,
+    }
+
+    impl BridgedEngine for RecordingEngine {
+        fn last_sync(&self) -> Result<i64> {
+            Ok(0)
+        }
+        fn set_last_sync(&self, _: i64) -> Result<()> {
+            Ok(())
+        }
+        fn sync_id(&self) -> Result<Option<String>> {
+            Ok(None)
+        }
+        fn reset_sync_id(&self) -> Result<String> {
+            Ok(String::new())
+        }
+        fn ensure_current_sync_id(&self, id: &str) -> Result<String> {
+            Ok(id.to_string())
+        }
+        fn sync_started(&self) -> Result<()> {
+            Ok(())
+        }
+        fn store_incoming(&self, _: Vec<IncomingBso>) -> Result<()> {
+            Ok(())
+        }
+        fn apply(&self) -> Result<ApplyResults> {
+            Ok(Vec::<OutgoingBso>::new().into())
+        }
+        fn set_uploaded(&self, _millis: i64, ids: &[Guid]) -> Result<()> {
+            self.uploaded.lock().unwrap().extend_from_slice(ids);
+            Ok(())
+        }
+        fn sync_finished(&self) -> Result<()> {
+            Ok(())
+        }
+        fn reset(&self) -> Result<()> {
+            Ok(())
+        }
+        fn wipe(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn set_uploaded_accepts_strings_and_guids() {
+        let wrapper = BridgedEngineWrapper::new(Box::new(RecordingEngine::default()));
+        // logins-style: Vec<String>
+        wrapper.set_uploaded(1, vec!["aaaa".to_string()]).unwrap();
+        // tabs/webext-style: Vec<Guid>
+        wrapper.set_uploaded(2, vec![Guid::new("bbbb")]).unwrap();
+    }
+}
