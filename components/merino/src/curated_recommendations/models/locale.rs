@@ -29,6 +29,8 @@ pub enum CuratedRecommendationLocale {
     EnCa,
     #[serde(rename = "en-GB")]
     EnGb,
+    #[serde(rename = "en-IE")]
+    EnIe,
     #[serde(rename = "en-US")]
     EnUs,
     #[serde(rename = "de")]
@@ -39,6 +41,10 @@ pub enum CuratedRecommendationLocale {
     DeAt,
     #[serde(rename = "de-CH")]
     DeCh,
+    #[serde(rename = "pl")]
+    Pl,
+    #[serde(rename = "pl-PL")]
+    PlPl,
 }
 impl CuratedRecommendationLocale {
     /// Returns all supported locale strings (e.g. `"en-US"`, `"fr-FR"`).
@@ -55,11 +61,14 @@ impl CuratedRecommendationLocale {
             "en".to_string(),
             "en-CA".to_string(),
             "en-GB".to_string(),
+            "en-IE".to_string(),
             "en-US".to_string(),
             "de".to_string(),
             "de-DE".to_string(),
             "de-AT".to_string(),
             "de-CH".to_string(),
+            "pl".to_string(),
+            "pl-PL".to_string(),
         ]
     }
 
@@ -78,11 +87,14 @@ impl CuratedRecommendationLocale {
             "en" => Some(CuratedRecommendationLocale::En),
             "en-CA" => Some(CuratedRecommendationLocale::EnCa),
             "en-GB" => Some(CuratedRecommendationLocale::EnGb),
+            "en-IE" => Some(CuratedRecommendationLocale::EnIe),
             "en-US" => Some(CuratedRecommendationLocale::EnUs),
             "de" => Some(CuratedRecommendationLocale::De),
             "de-DE" => Some(CuratedRecommendationLocale::DeDe),
             "de-AT" => Some(CuratedRecommendationLocale::DeAt),
             "de-CH" => Some(CuratedRecommendationLocale::DeCh),
+            "pl" => Some(CuratedRecommendationLocale::Pl),
+            "pl-PL" => Some(CuratedRecommendationLocale::PlPl),
             _ => None,
         }
     }
