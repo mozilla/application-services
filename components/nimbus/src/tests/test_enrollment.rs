@@ -3667,6 +3667,55 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
 }
 
 #[test]
+fn test_evolver_relaunched_rollout_reenrolls_from_was_enrolled() -> Result<()> {
+    let rollout = get_bucketed_rollout("secure-gold", 10_000);
+    let existing_enrollment = ExperimentEnrollment {
+        slug: rollout.slug.clone(),
+        status: EnrollmentStatus::WasEnrolled {
+            branch: "control".to_owned(),
+            experiment_ended_at: now_secs(),
+        },
+    };
+    let (_, app_ctx, aru) = local_ctx();
+    let mut th = app_ctx.into();
+    let ids = no_coenrolling_features();
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
+    let mut events = vec![];
+
+    let enrollment = evolver
+        .evolve_enrollment(
+            true,
+            None,
+            Some(&rollout),
+            Some(&existing_enrollment),
+            &mut events,
+            #[cfg(feature = "stateful")]
+            None,
+        )?
+        .unwrap();
+
+    assert!(matches!(
+        enrollment.status,
+        EnrollmentStatus::Enrolled {
+            branch,
+            reason: EnrolledReason::Qualified,
+            ..
+        } if branch == "control"
+    ));
+    assert_eq!(
+        &events,
+        &[EnrollmentChangeEvent {
+            experiment_slug: "secure-gold".into(),
+            branch_slug: "control".into(),
+            reason: None,
+            change: EnrollmentChangeEventType::Enrollment,
+            feature_ids: vec!["a-feature".into()],
+        }]
+    );
+    Ok(())
+}
+
+#[test]
 fn test_evolver_existing_experiment_has_no_enrollment() {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
