@@ -1287,10 +1287,22 @@ impl<'a> EnrollmentsEvolver<'a> {
                 )?)
             }
             (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
-            (None, Some(_), Some(_)) => {
-                return Err(NimbusError::InternalError(
-                    "New experiment but enrollment already exists.",
-                ));
+            (None, Some(experiment), Some(enrollment)) => {
+                if experiment.is_rollout()
+                    && matches!(&enrollment.status, EnrollmentStatus::WasEnrolled { .. })
+                {
+                    Some(ExperimentEnrollment::from_new_experiment(
+                        is_user_participating,
+                        self.available_randomization_units,
+                        experiment,
+                        &targeting_helper,
+                        out_enrollment_events,
+                    )?)
+                } else {
+                    return Err(NimbusError::InternalError(
+                        "New experiment but enrollment already exists.",
+                    ));
+                }
             }
             (Some(_), None, None) | (Some(_), Some(_), None) => {
                 return Err(NimbusError::InternalError(
