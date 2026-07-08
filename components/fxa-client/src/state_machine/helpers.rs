@@ -151,14 +151,12 @@ impl<'a> RetryingAccount<'a> {
         self.with_retry(|a| a.initialize_device(name, device_type, capabilities))
     }
 
-    /// Auth errors propagate so the FSM can drive its own recovery via
-    /// `CheckAuthorizationStatus`. See
-    /// <https://bugzilla.mozilla.org/show_bug.cgi?id=1868418>.
-    pub fn ensure_capabilities(
-        &mut self,
-        capabilities: &[DeviceCapability],
-    ) -> Result<LocalDevice> {
-        self.with_retry(|a| a.ensure_capabilities(capabilities))
+    /// Finish initializing a connected account
+    pub fn finish_initialize(&mut self, capabilities: &[DeviceCapability]) -> Result<()> {
+        self.with_auth_recovery(|a| {
+            a.ensure_capabilities(capabilities)?;
+            Ok(())
+        })
     }
 
     pub fn check_authorization_status(&mut self) -> Result<bool> {
