@@ -8,9 +8,7 @@ use std::{collections::HashMap, fs, io::Write};
 use anyhow::Result;
 use url::Url;
 
-use fxa_client::{
-    DeviceConfig, DeviceType, FirefoxAccount, FxaConfig, FxaError, FxaEvent, FxaState,
-};
+use fxa_client::{DeviceConfig, DeviceType, FirefoxAccount, FxaConfig, FxaEvent, FxaState};
 use sync15::{client::Sync15StorageClientInit, KeyBundle};
 
 use crate::{prompt::prompt_string, workspace_root_dir};
@@ -133,26 +131,11 @@ impl CliFxa {
 
         match state {
             FxaState::Connected => {
-                crate::info!("FxA: already connected - checking if we have all the scopes.");
-                let mut have_all_scopes = true;
-                for scope in scopes {
-                    match account.get_access_token(scope, true) {
-                        Ok(_) => crate::debug!("Do already have the {scope:?} scope"),
-                        Err(FxaError::Forbidden) => {
-                            crate::info!("Don't have the {scope:?} scope, re-authenticating");
-                            have_all_scopes = false;
-                            break;
-                        }
-                        Err(e) => {
-                            crate::error!("Error checking for the {scope:?} scope: {e}");
-                            return Err(e.into());
-                        }
-                    }
-                }
+                let have_all_scopes = account.has_scope(&scopes.join(" "));
+                crate::info!("FxA: already connected, all scopes is {have_all_scopes}");
                 if !have_all_scopes {
                     self.handle_oauth_flow(service, scopes)?;
                 }
-                self.persist()?;
             }
             FxaState::Disconnected | FxaState::AuthIssues => {
                 crate::info!("FxA: need to authenticate (state was {state:?})");

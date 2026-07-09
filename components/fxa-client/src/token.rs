@@ -57,6 +57,16 @@ impl FirefoxAccount {
             .try_into()
     }
 
+    /// Check whether the account has already been granted the given OAuth scope(s).
+    ///
+    /// This checks whether the refresh token has *every* specified scope.
+    ///
+    /// # Arguments
+    ///    - `scope` - space-separated list of OAuth scopes. Order is not significant.
+    pub fn has_scope(&self, scope: &str) -> bool {
+        self.internal.lock().has_scope(scope)
+    }
+
     /// Builds a complete `signedInUser` JSON object for a WebChannel `fxaccounts:fxa_status`
     /// response, embedding the session token without exposing it to the browser layer. Email and
     /// uid are read from the cached profile in internal state. Returns `None` if no session token
