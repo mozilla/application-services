@@ -597,6 +597,14 @@ interface FirefoxAccount {
   [Throws=FxaError]
   AccessTokenInfo get_access_token([ByRef] string scope, optional boolean use_cache = true);
 
+  /// Check whether the account has already been granted the given OAuth scope(s).
+  ///
+  /// This checks whether the refresh token has *every* specified scope.
+  ///
+  /// # Arguments
+  ///    - `scope` - space-separated list of OAuth scopes. Order is not significant.
+  boolean has_scope([ByRef] string scope);
+
   /// Create a new OAuth authorization code using the stored session token.
   ///
   /// When a signed-in application receives an incoming device pairing request, it can

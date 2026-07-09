@@ -267,6 +267,15 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
         }
     }
 
+    /**
+     * Check whether the account has already been granted every given OAuth scope(s).
+     *
+     * @param scope space-separated list of OAuth scopes. Order is not significant.
+     */
+    fun hasScope(scope: String): Boolean {
+        return this.inner.hasScope(scope)
+    }
+
     fun checkAuthorizationStatus(): AuthorizationInfo {
         return this.inner.checkAuthorizationStatus()
     }
