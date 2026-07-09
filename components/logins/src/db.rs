@@ -874,6 +874,33 @@ impl LoginDb {
         Ok(results.pop().expect("there should be a single result"))
     }
 
+    // Delete all records. Return an array with the ids of the deleted logins
+    pub fn delete_all(&self) -> Result<Vec<String>> {
+        let ids: Vec<String> = self.db.query_rows_and_then_cached(
+            "SELECT guid FROM loginsL WHERE is_deleted = 0
+             UNION ALL
+             SELECT guid FROM loginsM WHERE is_overridden = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        self.delete_many(ids.iter().map(String::as_str).collect())?;
+        Ok(ids)
+    }
+
+    // Delete all records, except the FxA login. Return an array with the ids of
+    // the deleted logins
+    pub fn delete_all_except_fxa(&self) -> Result<Vec<String>> {
+        let ids: Vec<String> = self.db.query_rows_and_then_cached(
+            "SELECT guid FROM loginsL WHERE is_deleted = 0 AND origin != :fxa_origin
+             UNION ALL
+             SELECT guid FROM loginsM WHERE is_overridden = 0 AND origin != :fxa_origin",
+            named_params! { ":fxa_origin": FXA_CREDENTIALS_ORIGIN },
+            |row| row.get(0),
+        )?;
+        self.delete_many(ids.iter().map(String::as_str).collect())?;
+        Ok(ids)
+    }
+
     /// Delete the records with the specified IDs. Returns a list of Boolean values
     /// indicating whether the respective records already existed.
     pub fn delete_many(&self, ids: Vec<&str>) -> Result<Vec<bool>> {
@@ -1027,6 +1054,25 @@ impl LoginDb {
         let mut row_count = 0;
         row_count += self.execute("DELETE FROM loginsL", [])?;
         row_count += self.execute("DELETE FROM loginsM", [])?;
+        row_count += self.execute("DELETE FROM loginsSyncMeta", [])?;
+        row_count += self.execute("DELETE FROM breachesL", [])?;
+        tx.commit()?;
+        Ok(row_count)
+    }
+
+    /// Wipe all local data except the FxA login, returns the number of rows deleted
+    pub fn wipe_local_except_fxa(&self) -> Result<usize> {
+        info!("Executing wipe_local_except_fxa on password engine!");
+        let tx = self.unchecked_transaction()?;
+        let mut row_count = 0;
+        row_count += self.execute(
+            "DELETE FROM loginsL WHERE origin != :fxa_origin",
+            named_params! { ":fxa_origin": FXA_CREDENTIALS_ORIGIN },
+        )?;
+        row_count += self.execute(
+            "DELETE FROM loginsM WHERE origin != :fxa_origin",
+            named_params! { ":fxa_origin": FXA_CREDENTIALS_ORIGIN },
+        )?;
         row_count += self.execute("DELETE FROM loginsSyncMeta", [])?;
         row_count += self.execute("DELETE FROM breachesL", [])?;
         tx.commit()?;
@@ -2097,6 +2143,102 @@ mod tests {
 
         let result = db.delete_many(vec![&Guid::random()]).unwrap();
         assert!(!result[0]);
+    }
+
+    #[test]
+    fn test_delete_all() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let login_a = db
+            .add(LoginEntry {
+                origin: "https://a.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let login_b = db
+            .add(LoginEntry {
+                origin: "https://b.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let mut deleted = db.delete_all().unwrap();
+        deleted.sort();
+        let mut expected = vec![login_a.meta.id.clone(), login_b.meta.id.clone()];
+        expected.sort();
+        assert_eq!(deleted, expected);
+        assert!(!db.exists(login_a.guid_str()).unwrap());
+        assert!(!db.exists(login_b.guid_str()).unwrap());
+
+        // On an empty database it's a no-op returning no ids.
+        assert_eq!(db.delete_all().unwrap(), Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_delete_all_except_fxa() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(LoginEntry {
+                origin: "https://a.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let fxa_login = db
+            .add(LoginEntry {
+                origin: FXA_CREDENTIALS_ORIGIN.into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let deleted = db.delete_all_except_fxa().unwrap();
+        assert_eq!(deleted, vec![login.meta.id.clone()]);
+
+        // Only the FxA login remains.
+        assert!(!db.exists(login.guid_str()).unwrap());
+        assert!(db.exists(fxa_login.guid_str()).unwrap());
+    }
+
+    #[test]
+    fn test_wipe_local_except_fxa() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(LoginEntry {
+                origin: "https://a.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let fxa_login = db
+            .add(LoginEntry {
+                origin: FXA_CREDENTIALS_ORIGIN.into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user".into(),
+                password: "test_password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        db.wipe_local_except_fxa().unwrap();
+
+        // Only the FxA login remains.
+        assert!(!db.exists(login.guid_str()).unwrap());
+        assert!(db.exists(fxa_login.guid_str()).unwrap());
     }
 
     #[test]

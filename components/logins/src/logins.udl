@@ -199,6 +199,15 @@ interface LoginStore {
     [Throws=LoginsApiError, Self=ByArc]
     sequence<boolean> delete_many(sequence<string> ids);
 
+    /// Delete all logins. Returns the ids of the deleted logins.
+    [Throws=LoginsApiError]
+    sequence<string> delete_all();
+
+    /// Delete all logins except the FxA session-credentials login. Returns the
+    /// ids of the deleted logins.
+    [Throws=LoginsApiError]
+    sequence<string> delete_all_except_fxa();
+
     /// Clear out locally stored logins data
     ///
     /// If sync is enabled, then we will try to recover the data on the next sync.
@@ -212,6 +221,10 @@ interface LoginStore {
     /// generated.
     [Throws=LoginsApiError]
     void wipe_local();
+
+    /// Like `wipe_local`, but preserves the FxA session-credentials login.
+    [Throws=LoginsApiError]
+    void wipe_local_except_fxa();
 
     [Throws=LoginsApiError, Self=ByArc]
     void reset();

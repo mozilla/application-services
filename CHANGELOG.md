@@ -16,6 +16,10 @@
 ### Logins
 
 - Add `LoginStore.bridgedEngine()`, which exposes the logins sync engine to Desktop's Sync. ([bug 2049263](https://bugzilla.mozilla.org/show_bug.cgi?id=2049263))
+- Add `LoginStore.delete_all()`, which deletes all logins 
+  and `delete_all_axcept_fxa()`, which deletes all logins preserving the FxA session-credentials login
+  and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
+  ([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
 
 # v153.0 (_2026-06-15_)
 

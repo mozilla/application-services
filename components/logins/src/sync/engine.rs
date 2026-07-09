@@ -8,7 +8,7 @@ use super::SyncStatus;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::EncryptedLogin;
+use crate::login::{EncryptedLogin, FXA_CREDENTIALS_ORIGIN};
 use crate::schema;
 use crate::util;
 use crate::LoginDb;
@@ -23,13 +23,6 @@ use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
-
-// The Desktop FxA session-credentials pseudo-login. Firefox stores its account
-// credentials as a login under this origin; it must never be synced. This
-// mirrors the exclusion the JS `PasswordEngine` does via
-// `Utils.getSyncCredentialsHosts()`. Only relevant on Desktop (mobile never has
-// such a login), but it's harmless to filter everywhere.
-const FXA_CREDENTIALS_ORIGIN: &str = "chrome://FirefoxAccounts";
 
 // The sync engine.
 pub struct LoginsSyncEngine {

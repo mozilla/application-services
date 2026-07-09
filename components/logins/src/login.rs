@@ -284,6 +284,13 @@ use serde_derive::*;
 use sync_guid::Guid;
 use url::Url;
 
+// The Desktop FxA session-credentials pseudo-login. Firefox stores its account
+// credentials as a login under this origin; it must never be synced. This
+// mirrors the exclusion the JS `PasswordEngine` does via
+// `Utils.getSyncCredentialsHosts()`. Only relevant on Desktop (mobile never has
+// such a login), but it's harmless to filter everywhere.
+pub(crate) const FXA_CREDENTIALS_ORIGIN: &str = "chrome://FirefoxAccounts";
+
 // LoginEntry fields that are stored in cleartext
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct LoginFields {
