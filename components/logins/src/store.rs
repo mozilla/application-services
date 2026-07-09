@@ -227,6 +227,16 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn delete_all(&self) -> ApiResult<Vec<String>> {
+        self.lock_db()?.delete_all()
+    }
+
+    #[handle_error(Error)]
+    pub fn delete_all_except_fxa(&self) -> ApiResult<Vec<String>> {
+        self.lock_db()?.delete_all_except_fxa()
+    }
+
+    #[handle_error(Error)]
     pub fn delete_undecryptable_records_for_remote_replacement(
         self: Arc<Self>,
     ) -> ApiResult<LoginsDeletionMetrics> {
@@ -246,6 +256,12 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn wipe_local(&self) -> ApiResult<()> {
         self.lock_db()?.wipe_local()?;
+        Ok(())
+    }
+
+    #[handle_error(Error)]
+    pub fn wipe_local_except_fxa(&self) -> ApiResult<()> {
+        self.lock_db()?.wipe_local_except_fxa()?;
         Ok(())
     }
 
