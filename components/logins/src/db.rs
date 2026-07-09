@@ -1529,6 +1529,55 @@ mod tests {
     }
 
     #[test]
+    fn test_add_with_meta_duplicate_id() {
+        ensure_initialized();
+
+        let guid = Guid::random();
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let meta = LoginMeta {
+            id: guid.to_string(),
+            time_created: now_ms,
+            time_password_changed: now_ms,
+            time_last_used: now_ms,
+            times_used: 1,
+            time_last_breach_alert_dismissed: None,
+        };
+
+        let db = LoginDb::open_in_memory();
+        db.add_with_meta(LoginEntryWithMeta {
+            entry: LoginEntry {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test".into(),
+                password: "sekret".into(),
+                ..LoginEntry::default()
+            },
+            meta: meta.clone(),
+        })
+        .expect("should be able to add login with record");
+
+        // Adding a second login that reuses the same id (different origin so the
+        // dupe-check passes) succeeds and replaces the existing record.
+        db.add_with_meta(LoginEntryWithMeta {
+            entry: LoginEntry {
+                origin: "https://www.other.com".into(),
+                http_realm: Some("https://www.other.com".into()),
+                username: "test".into(),
+                password: "sekret".into(),
+                ..LoginEntry::default()
+            },
+            meta,
+        })
+        .expect("should be able to re-add a login with the same id");
+
+        let fetched = db
+            .get_by_id(&guid)
+            .expect("should work")
+            .expect("should get a record");
+        assert_eq!(fetched.fields.origin, "https://www.other.com");
+    }
+
+    #[test]
     fn test_record_potentially_vulnerable_passwords() {
         ensure_initialized();
         let db = LoginDb::open_in_memory();
