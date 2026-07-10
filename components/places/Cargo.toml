@@ -44,4 +44,4 @@ sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 uniffi = { version = "0.32", features=["build"]}
-glean-build = { git = "https://github.com/mozilla/glean", tag = "v70.0.0" }
+glean-build = { git = "https://github.com/mozilla/glean", tag = "v70.2.0" }
