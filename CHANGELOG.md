@@ -35,6 +35,7 @@
 - init_backend and `viaduct_init_backend_hyper` no longer throw an error if they're called multiple times.
   Instead, we report the error via the Rust components error ping.
   This is a breaking change for iOS, since the functions no longer throw.
+- Renamed the Android package to `mozilla.appservices.viaduct`
 
 ## 🔧 What's Fixed 🔧
 
