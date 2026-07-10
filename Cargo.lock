@@ -1253,6 +1253,8 @@ dependencies = [
  "backtrace",
  "env_logger",
  "error-support-macros",
+ "glean-build 20.1.0 (git+https://github.com/mozilla/glean?tag=v70.2.0)",
+ "glean-sym",
  "lazy_static",
  "log",
  "parking_lot",
@@ -1905,6 +1907,14 @@ dependencies = [
 name = "glean-build"
 version = "20.1.0"
 source = "git+https://github.com/mozilla/glean?tag=v70.0.0#915e1a5842103b90ac20cac25b3c97f7d424dd0c"
+dependencies = [
+ "xshell-venv",
+]
+
+[[package]]
+name = "glean-build"
+version = "20.1.0"
+source = "git+https://github.com/mozilla/glean?tag=v70.2.0#9d987fd33e1dc3f2a89e5f5c4565ae696245f6eb"
 dependencies = [
  "xshell-venv",
 ]
@@ -3524,7 +3534,7 @@ dependencies = [
  "dogear",
  "error-support",
  "glean",
- "glean-build",
+ "glean-build 20.1.0 (git+https://github.com/mozilla/glean?tag=v70.0.0)",
  "glean-sym",
  "icu_casemap",
  "idna",

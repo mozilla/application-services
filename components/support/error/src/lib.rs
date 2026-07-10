@@ -8,6 +8,11 @@ pub use tracing_support::{debug, error, info, trace, warn, Level};
 #[cfg(feature = "testing")]
 pub use tracing_support::{init_for_tests, init_for_tests_with_level};
 
+#[cfg(feature = "glean-sym")]
+pub mod glean_metrics {
+    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
+}
+
 mod macros;
 
 #[cfg(feature = "backtrace")]
