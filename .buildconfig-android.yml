@@ -63,13 +63,13 @@ projects:
     - name: rust-log-forwarder
       type: aar
     description: Forward logs from Rust
-  httpconfig:
+  viaduct:
     path: components/viaduct/android
-    artifactId: httpconfig
+    artifactId: viaduct
     publications:
-    - name: httpconfig
+    - name: viaduct
       type: aar
-    description: Component allowing the configuration of Rust HTTP stack.
+    description: Rust HTTP bridge.
   push:
     path: components/push/android
     artifactId: push
