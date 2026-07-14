@@ -7,12 +7,12 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use error_support::trace;
 use parking_lot::Mutex;
 use serde::Deserialize;
 use url::Url;
-use viaduct::Request;
+use viaduct::{Client, ClientSettings, Request};
 
 use crate::{
     client::RemoteState, config::BaseUrl, error::Error, storage::Storage,
@@ -22,22 +22,47 @@ use crate::{
 
 /// Internal Remote settings service API
 pub struct RemoteSettingsService {
-    inner: Mutex<RemoteSettingsServiceInner>,
+    storage_dir: Utf8PathBuf,
+    // RemoteSettingsService has several mutex fields in order to get finer-grained locking.
+    // However, this means we need to use some care to avoid holding locks for too long
+    // and creating potential deadlocks.
+    //
+    // To avoid this: put functionality in inner type methods, like [ClientState::update_config].
+    // Inside `RemoteSettingsService` methods, we only lock the field temporarily
+    // to call those inner methods or access the fields.
+    // Don't hold the lock for longer than that single statement
+    // and don't lock more than one field in that statement.
+    sync_client: Mutex<SyncClient>,
+    telemetry: Mutex<RemoteSettingsTelemetryWrapper>,
+    client_state: Mutex<ClientState>,
 }
 
-struct RemoteSettingsServiceInner {
-    storage_dir: Utf8PathBuf,
+#[derive(Clone)]
+struct RemoteSettingsServiceConfig {
     base_url: BaseUrl,
     bucket_name: String,
     app_context: Option<RemoteSettingsContext>,
-    remote_state: RemoteState,
-    telemetry: RemoteSettingsTelemetryWrapper,
+}
+
+/// Current config and client list
+///
+/// These are stored in the same mutex because we want to update them at the same time.
+/// For example, we want to serialize calls to `update_config` and `make_client` so that the new
+/// client gets the updated config.
+struct ClientState {
+    config: RemoteSettingsServiceConfig,
     /// Weakrefs for all clients that we've created.  Note: this stores the
     /// top-level/public `RemoteSettingsClient` structs rather than `client::RemoteSettingsClient`.
     /// The reason for this is that we return Arcs to the public struct to the foreign code, so we
     /// need to use the same type for our weakrefs.  The alternative would be to create 2 Arcs for
     /// each client, which is wasteful.
     clients: Vec<Weak<RemoteSettingsClient>>,
+}
+
+/// Handles the `RemoteSettingsService::sync` method
+struct SyncClient {
+    client: viaduct::Client,
+    remote_state: RemoteState,
 }
 
 impl RemoteSettingsService {
@@ -53,40 +78,35 @@ impl RemoteSettingsService {
         let bucket_name = config.bucket_name.unwrap_or_else(|| String::from("main"));
 
         Self {
-            inner: Mutex::new(RemoteSettingsServiceInner {
-                storage_dir,
-                base_url,
-                bucket_name,
-                app_context: config.app_context,
-                remote_state: RemoteState::default(),
-                telemetry: RemoteSettingsTelemetryWrapper::noop(),
+            storage_dir,
+            client_state: Mutex::new(ClientState {
                 clients: vec![],
+                config: RemoteSettingsServiceConfig {
+                    base_url,
+                    bucket_name,
+                    app_context: config.app_context,
+                },
             }),
+            sync_client: Mutex::new(SyncClient {
+                client: Client::new(ClientSettings::default()),
+                remote_state: RemoteState::default(),
+            }),
+            telemetry: Mutex::new(RemoteSettingsTelemetryWrapper::noop()),
         }
     }
 
+    fn telemetry(&self) -> RemoteSettingsTelemetryWrapper {
+        self.telemetry.lock().clone()
+    }
+
     pub fn set_telemetry(&self, telemetry: RemoteSettingsTelemetryWrapper) {
-        self.inner.lock().telemetry = telemetry;
+        *self.telemetry.lock() = telemetry;
     }
 
     pub fn make_client(&self, collection_name: String) -> Arc<RemoteSettingsClient> {
-        let mut inner = self.inner.lock();
-        // Allow using in-memory databases for testing of external crates.
-        let storage = if inner.storage_dir == ":memory:" {
-            Storage::new(inner.storage_dir.clone())
-        } else {
-            Storage::new(inner.storage_dir.join(format!("{collection_name}.sql")))
-        };
-
-        let client = Arc::new(RemoteSettingsClient::new(
-            inner.base_url.clone(),
-            inner.bucket_name.clone(),
-            collection_name.clone(),
-            inner.app_context.clone(),
-            storage,
-        ));
-        inner.clients.push(Arc::downgrade(&client));
-        client
+        self.client_state
+            .lock()
+            .make_client(&self.storage_dir, collection_name)
     }
 
     /// Sync collections for all active clients
@@ -94,26 +114,31 @@ impl RemoteSettingsService {
         // Make sure we only sync each collection once, even if there are multiple clients
         let mut synced_collections = HashSet::new();
 
-        let mut inner = self.inner.lock();
-        let changes = inner.fetch_changes()?;
+        let config = self.client_state.lock().config.clone();
+        let telemetry = self.telemetry();
+
+        let changes = self
+            .sync_client
+            .lock()
+            .fetch_changes(config.base_url, &telemetry)?;
         let change_map: HashMap<_, _> = changes
             .changes
             .iter()
             .map(|c| ((c.collection.as_str(), &c.bucket), c.last_modified))
             .collect();
-        let bucket_name = inner.bucket_name.clone();
+        let bucket_name = &config.bucket_name;
 
-        let active_clients = inner.active_clients();
+        let active_clients = self.client_state.lock().active_clients();
         for client in &active_clients {
             let client = &client.internal;
             let collection_name = client.collection_name();
             let cid = format!("{bucket_name}/{collection_name}");
             if let Some(client_last_modified) = client.get_last_modified_timestamp()? {
-                if let Some(server_last_modified) = change_map.get(&(collection_name, &bucket_name))
+                if let Some(server_last_modified) = change_map.get(&(collection_name, bucket_name))
                 {
                     if client_last_modified == *server_last_modified {
                         trace!("skipping up-to-date collection: {collection_name}");
-                        inner.telemetry.report_uptake_up_to_date(&cid, None);
+                        telemetry.report_uptake_up_to_date(&cid, None);
                         continue;
                     }
                 }
@@ -124,8 +149,8 @@ impl RemoteSettingsService {
                 let sync_result = client.sync();
                 let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
                 match &sync_result {
-                    Ok(()) => inner.telemetry.report_uptake_success(&cid, Some(duration)),
-                    Err(e) => inner.telemetry.report_uptake_error(e, &cid),
+                    Ok(()) => telemetry.report_uptake_success(&cid, Some(duration)),
+                    Err(e) => telemetry.report_uptake_error(e, &cid),
                 }
                 sync_result?;
             }
@@ -146,41 +171,64 @@ impl RemoteSettingsService {
         Ok(synced_collections.into_iter().collect())
     }
 
+    pub fn update_config(&self, config: RemoteSettingsConfig) -> Result<()> {
+        self.client_state.lock().update_config(config)
+    }
+
+    pub fn client_url(&self) -> Url {
+        self.client_state.lock().config.base_url.url().clone()
+    }
+}
+
+impl ClientState {
+    pub fn make_client(
+        &mut self,
+        storage_dir: &Utf8Path,
+        collection_name: String,
+    ) -> Arc<RemoteSettingsClient> {
+        // Allow using in-memory databases for testing of external crates.
+        let storage = if storage_dir == ":memory:" {
+            Storage::new(storage_dir.to_path_buf())
+        } else {
+            Storage::new(storage_dir.join(format!("{collection_name}.sql")))
+        };
+
+        let client = Arc::new(RemoteSettingsClient::new(
+            self.config.base_url.clone(),
+            self.config.bucket_name.clone(),
+            collection_name.clone(),
+            self.config.app_context.clone(),
+            storage,
+        ));
+        self.clients.push(Arc::downgrade(&client));
+        client
+    }
+
     /// Update the remote settings config
     ///
     /// This will cause all current and future clients to use new config and will delete any stored
     /// records causing the clients to return new results from the new config.
-    pub fn update_config(&self, config: RemoteSettingsConfig) -> Result<()> {
+    pub fn update_config(&mut self, config: RemoteSettingsConfig) -> Result<()> {
         let base_url = config
             .server
             .unwrap_or(RemoteSettingsServer::Prod)
             .get_base_url()?;
         let bucket_name = config.bucket_name.unwrap_or_else(|| String::from("main"));
-        let mut inner = self.inner.lock();
-        for client in inner.active_clients() {
+        for client in self.active_clients() {
             client.internal.update_config(
                 base_url.clone(),
                 bucket_name.clone(),
                 config.app_context.clone(),
             );
         }
-        inner.base_url = base_url;
-        inner.bucket_name = bucket_name;
-        inner.app_context = config.app_context;
+        self.config = RemoteSettingsServiceConfig {
+            base_url,
+            bucket_name,
+            app_context: config.app_context,
+        };
         Ok(())
     }
 
-    pub fn client_url(&self) -> Url {
-        let inner = self.inner.lock();
-        let base_url = inner.base_url.clone();
-        base_url.url().clone()
-    }
-}
-
-impl RemoteSettingsServiceInner {
-    // Find live clients in self.clients
-    //
-    // Also, drop dead weakrefs from the vec
     fn active_clients(&mut self) -> Vec<Arc<RemoteSettingsClient>> {
         let mut active_clients = vec![];
         self.clients.retain(|weak| {
@@ -193,9 +241,21 @@ impl RemoteSettingsServiceInner {
         });
         active_clients
     }
+}
 
-    fn fetch_changes(&mut self) -> Result<Changes> {
-        let mut url = self.base_url.clone();
+// RemoteSettingsService methods that lock the `telemetry` field.
+//
+// Let's keep all the calls in one place so that we can ensure that the lock will not be held for a
+// long time and these methods can be considered non-blocking.  For example, we will never hold the
+// lock while making a network request.
+impl RemoteSettingsService {}
+
+impl SyncClient {
+    fn fetch_changes(
+        &mut self,
+        mut url: BaseUrl,
+        telemetry: &RemoteSettingsTelemetryWrapper,
+    ) -> Result<Changes> {
         url.path_segments_mut()
             .push("buckets")
             .push("monitor")
@@ -214,7 +274,7 @@ impl RemoteSettingsServiceInner {
 
         let start_time = std::time::Instant::now();
         let req = Request::get(url);
-        let resp = req.send()?;
+        let resp = self.client.send_sync(req)?;
 
         self.remote_state.handle_backoff_hint(&resp)?;
 
@@ -222,13 +282,11 @@ impl RemoteSettingsServiceInner {
         if resp.is_success() {
             let body = resp.json()?;
             let duration: u64 = start_time.elapsed().as_millis().try_into().unwrap_or(0);
-            self.telemetry
-                .report_uptake_success(TELEMETRY_SOURCE_POLL, Some(duration));
+            telemetry.report_uptake_success(TELEMETRY_SOURCE_POLL, Some(duration));
             Ok(body)
         } else {
             let e = Error::response_error(&resp.url, format!("status code: {}", resp.status));
-            self.telemetry
-                .report_uptake_error(&e, TELEMETRY_SOURCE_POLL);
+            telemetry.report_uptake_error(&e, TELEMETRY_SOURCE_POLL);
             Err(e)
         }
     }
