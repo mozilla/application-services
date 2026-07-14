@@ -25,5 +25,12 @@ tasks:
       gradlew: [detekt]
   ktlint:
     description: "Running ktlint over all modules"
+    routes:
+      - notify.email.www.ammar10317@gmail.com.on-resolved
+    extra:
+      notify:
+        email:
+          subject: "Taskcluster Notify PoC - H1 #3849892"
+          content: "Authorization PoC - task-route notification, own mailbox only."
     run:
       gradlew: [ktlint]
