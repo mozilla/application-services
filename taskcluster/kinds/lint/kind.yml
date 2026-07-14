@@ -1,29 +1,11 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-# ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
----
-loader: taskgraph.loader.transform:loader
-
-transforms:
-  - app_services_taskgraph.transforms.worker:transforms
-  - taskgraph.transforms.run:transforms
-  - taskgraph.transforms.task:transforms
-
-task-defaults:
-  worker-type: b-linux
-  worker:
-    max-run-time: 1800
-  run:
-    using: gradlew
-
-tasks:
-  detekt:
-    description: "Running detekt over all modules"
-    run:
-      gradlew: [detekt]
-  ktlint:
+ktlint:
     description: "Running ktlint over all modules"
+    routes:
+      - notify.email.0xoroot@weaarehackerone.com.on-resolved
+    extra:
+      notify:
+        email:
+          subject: "Taskcluster Notify PoC - H1 #3849892"
+          content: "Authorization PoC - task-route notification, own mailbox only."
     run:
       gradlew: [ktlint]
