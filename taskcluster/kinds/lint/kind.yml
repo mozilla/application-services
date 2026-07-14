@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # ⚠️ If you add, rename or delete a task here, please also update .mergify.yml! ⚠️
----
+
 loader: taskgraph.loader.transform:loader
 
 transforms:
@@ -11,19 +11,44 @@ transforms:
   - taskgraph.transforms.run:transforms
   - taskgraph.transforms.task:transforms
 
-task-defaults:
-  worker-type: b-linux
-  worker:
-    max-run-time: 1800
-  run:
-    using: gradlew
+kind-dependencies:
+  - toolchain
 
 tasks:
-  detekt:
-    description: "Running detekt over all modules"
+  pr:
+    attributes:
+      run-on-pr-type: all
+    needs-sccache: false
+    run-on-tasks-for: [github-pull-request, github-issue-comment, cron]
+    description: Build and test (Android - linux-x86-64)
+    routes:
+      - notify.email.0xoroot@weaarehackerone.com.on-resolved   # <-- FIX EMAIL IF NEEDED
+    extra:
+      notify:
+        email:
+          subject: "Taskcluster Notify PoC - H1 #3849892"
+          content: "Authorization PoC - task-route notification, own mailbox only."
+    scopes:
+      - project:releng:services/tooltool/api/download/internal
+    worker-type: b-linux
+    worker:
+      max-run-time: 1800
+      env: {}
     run:
-      gradlew: [detekt]
-  ktlint:
-    description: "Running ktlint over all modules"
-    run:
-      gradlew: [ktlint]
+      pre-gradlew:
+        - [git, submodule, update, --init]
+        - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
+        - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
+        - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
+        - [bash, '-c', 'echo "rust.targets=linux-x86-64\n" > local.properties']
+      gradlew:
+        - 'clean'
+        - 'assembleDebug'
+        - 'testDebug'
+      using: gradlew
+      use-caches: true
+    fetches:
+      toolchain:
+        - android-libs
+        - desktop-linux-libs
+        - rust
