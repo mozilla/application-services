@@ -314,7 +314,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
-    <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-num/num-traits/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ohttp</name>
@@ -394,7 +394,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: rustc-hash</name>
-    <url>https://github.com/rust-lang/rustc-hash/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/rustc-hash/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rustix</name>
