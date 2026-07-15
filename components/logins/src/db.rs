@@ -22,7 +22,7 @@
 ///     server.
 ///   - After we sync, we move all records from loginsL to loginsM, overwriting any previous data.
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
-use crate::encryption::EncryptorDecryptor;
+use crate::encryption::{EncryptorDecryptor, NoopEncryptorDecryptor};
 use crate::error::*;
 use crate::login::*;
 use crate::schema;
@@ -1079,7 +1079,11 @@ impl LoginDb {
         Ok(row_count)
     }
 
-    pub fn shutdown(self) -> Result<()> {
+    pub fn shutdown(mut self) -> Result<()> {
+        // Drop our reference to the (possibly foreign/JS-backed) encryptor before
+        // we tear the rest down, so its callback handle is released during
+        // shutdown instead of lingering.
+        self.encdec = Arc::new(NoopEncryptorDecryptor);
         self.db.close().map_err(|(_, e)| Error::SqlError(e))
     }
 }
