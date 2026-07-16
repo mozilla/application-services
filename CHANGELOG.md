@@ -21,6 +21,10 @@
   and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
   ([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
 
+### Nimbus
+
+- `NimbusClient::get_available_firefox_labs()` now includes detailed debug level logging for each processed lab. ([#7482](https://github.com/mozilla/application-services/pull/7482))
+
 ## 🔧 What's Fixed 🔧
 
 ### Logins

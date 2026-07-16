@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::enrollment::{
     EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment, map_features_by_feature_id,
 };
-use crate::error::{NimbusError, Result, warn};
+use crate::error::{NimbusError, Result, debug, warn};
 use crate::evaluator::{CanEnrollResult, can_enroll};
 use crate::stateful::enrollment::get_enrollments;
 use crate::stateful::firefox_labs::FirefoxLabsMetadata;
@@ -230,7 +230,9 @@ impl DatabaseCache {
             let coenrolling_feature_ids: HashSet<&str> =
                 coenrolling_feature_ids.iter().map(|s| s.as_ref()).collect();
 
-            data.experiments
+            debug!("firefox labs: querying experiments...");
+            let available = data
+                .experiments
                 .iter()
                 .filter_map(|experiment| {
                     if !experiment.is_firefox_labs_opt_in {
@@ -238,25 +240,70 @@ impl DatabaseCache {
                     }
 
                     let enrolled = data.experiments_by_slug.contains_key(&experiment.slug);
-                    let enrollable = matches!(
-                        can_enroll(available_randomization_units, targeting_helper, experiment,),
-                        CanEnrollResult::Enrollable { .. }
-                    );
+                    match can_enroll(available_randomization_units, targeting_helper, experiment) {
+                        CanEnrollResult::Enrollable { .. } => {}
 
-                    if enrollable
-                        && (enrolled
-                            || (features_available(
-                                experiment,
-                                &enrolled_feature_ids,
-                                &coenrolling_feature_ids,
-                            ) && !experiment.is_enrollment_paused))
-                    {
-                        experiment.get_firefox_labs_metadata(enrolled)
-                    } else {
-                        None
+                        CanEnrollResult::Unavailable { reason } => {
+                            debug!("firefox labs: {}: unavailable: {}", experiment.slug, reason);
+                            return None;
+                        }
+
+                        CanEnrollResult::TargetingError { reason } => {
+                            debug!(
+                                "firefox labs: {}: targeting error: {}",
+                                experiment.slug, reason
+                            );
+                            return None;
+                        }
+
+                        CanEnrollResult::NotTargeted => {
+                            debug!("firefox labs: {}: not targeted", experiment.slug);
+                            return None;
+                        }
+
+                        CanEnrollResult::NotSelected => {
+                            debug!("firefox labs: {}: not selected", experiment.slug);
+                            return None;
+                        }
+
+                        CanEnrollResult::NoRandomizationUnit => {
+                            debug!("firefox labs: {}: no randomization unit", experiment.slug);
+                            return None;
+                        }
                     }
+
+                    if !enrolled {
+                        let feature_conflict = !features_available(
+                            experiment,
+                            &enrolled_feature_ids,
+                            &coenrolling_feature_ids,
+                        );
+
+                        if feature_conflict {
+                            debug!("firefox labs: {}: feature conflict", experiment.slug);
+                            return None;
+                        }
+
+                        if experiment.is_enrollment_paused {
+                            debug!("firefox labs: {}: enrollment paused", experiment.slug);
+                            return None;
+                        }
+                    }
+
+                    let metadata = experiment.get_firefox_labs_metadata(enrolled);
+                    if metadata.is_none() {
+                        debug!("firefox labs: {}: invalid lab", experiment.slug);
+                    } else {
+                        debug!("firefox labs: {}: available", experiment.slug);
+                    }
+
+                    metadata
                 })
-                .collect()
+                .collect();
+
+            debug!("firefox labs: finished querying experiments");
+
+            available
         })?;
 
         // XXX: This is maybe only useful for tests, but at least we get a
