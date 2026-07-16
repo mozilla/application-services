@@ -665,6 +665,7 @@ open class Nimbus(
                         NimbusEvents.UnenrollmentExtra(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
+                            reason = event.reason,
                         ),
                     )
 
