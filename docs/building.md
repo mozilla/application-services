@@ -54,10 +54,9 @@ a number of hours to complete.
                ```shell
                PYPATH=$(which python3); ln -s $PYPATH `dirname $PYPATH`/python
                ```
-                1. Recent brew installations of Python do not contain a `python`/`pip` symlink. You may be able to run the following to create them:
+                1. Recent brew installations of Python may create unversioned symlinks but not add them to your `PATH`. You can instead run `brew info python` to see their installation locations, and add the corresponding location to your `PATH`. For example:
                     ```shell
-                    brew uninstall python3
-                    brew install python3
+                        export PATH="/opt/homebrew/opt/python@3.14/libexec/bin:$PATH"
                     ```
                
         1. Install gyp:
@@ -72,7 +71,7 @@ a number of hours to complete.
                export PATH="~/tools/gyp:$PATH"
                ```
             1. If you have additional questions, consult [this guide](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP).
-            1. More recent version of Python (3.12+) have deprecated `distutils`, a dependency of the above script. If you encounter a ModuleNotFoundError, you can run first:
+            1. If you encounter a `ModuleNotFoundError`, try installing setup tools on your system. For example:
                 ```shell
                brew install python-setuptools
                ```
@@ -122,10 +121,9 @@ The following instructions assume that you are building `application-services` f
       1. Android SDK Command-line Tools (latest)
    1. Set environment variables based on the boostrapped code and the downloaded NDK. Add it to your rc file (either `.zshrc` or `.bashrc` depending on your shell) to make it permanent
       1. Set `JAVA_HOME` to point to the bootstraped JDK 17 installation directory. Ex: `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/` (or `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/Contents/Home` on Mac).
-      1. Set `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the bootstraped Android SDK. As an example:
+      1. Set `ANDROID_HOME` to the bootstraped Android SDK. As an example:
             ```shell
             export ANDROID_HOME=~/.mozbuild/android-sdk-linux
-            export ANDROID_SDK_ROOT=~/.mozbuild/android-sdk-linux
             ```
 
       1. Set `NSS_STATIC` to 1. Ex: `export NSS_STATIC=1`
