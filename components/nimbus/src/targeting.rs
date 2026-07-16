@@ -49,20 +49,20 @@ impl NimbusTargetingHelper {
         }
     }
 
-    pub fn eval_jexl(&self, expr: String) -> Result<bool> {
+    pub fn eval_jexl(&self, expr: &str) -> Result<bool> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {
-                jexl_eval(&expr, &self.context, self.event_store.clone(), self.gecko_pref_store.clone())
+                jexl_eval(expr, &self.context, self.event_store.clone(), self.gecko_pref_store.clone())
             } else {
-                jexl_eval(&expr, &self.context)
+                jexl_eval(expr, &self.context)
             }
         }
     }
 
     #[cfg(feature = "stateful")]
-    pub fn eval_jexl_debug(&self, expression: String) -> Result<String> {
+    pub fn eval_jexl_debug(&self, expression: &str) -> Result<String> {
         let eval_result = jexl_eval_raw(
-            &expression,
+            expression,
             &self.context,
             self.event_store.clone(),
             self.gecko_pref_store.clone(),

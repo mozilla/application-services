@@ -211,9 +211,9 @@ fn test_targeting_attributes_active_experiments() -> Result<()> {
     assert_eq!(ta.active_experiments, expected);
 
     let eval = client.create_targeting_helper(None)?;
-    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
-    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
-    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
+    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments")?);
+    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments")?);
+    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments")?);
 
     drop(client);
 
@@ -224,9 +224,9 @@ fn test_targeting_attributes_active_experiments() -> Result<()> {
     assert_eq!(ta.active_experiments, expected);
 
     let eval = client.create_targeting_helper(None)?;
-    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
-    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
-    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
+    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments")?);
+    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments")?);
+    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments")?);
 
     drop(client);
 
@@ -237,9 +237,9 @@ fn test_targeting_attributes_active_experiments() -> Result<()> {
     assert_eq!(ta.active_experiments, expected);
 
     let eval = client.create_targeting_helper(None)?;
-    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments".to_string())?);
-    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments".to_string())?);
-    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments".to_string())?);
+    assert!(eval.eval_jexl("'experiment_always_enroll' in active_experiments")?);
+    assert!(eval.eval_jexl("'experiment_target_false' in active_experiments")?);
+    assert!(!eval.eval_jexl("'experiment_zero_buckets' in active_experiments")?);
 
     Ok(())
 }
