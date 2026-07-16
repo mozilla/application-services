@@ -88,29 +88,6 @@ impl<T: EncryptorDecryptor> EncryptorDecryptor for Arc<T> {
     }
 }
 
-/// A placeholder `EncryptorDecryptor` used after the store has been shut down.
-///
-/// On shutdown we swap the real encryptor (which, for foreign consumers like
-/// Desktop, is a JS-backed callback interface) out for this one. That drops our
-/// reference to the foreign callback so its handle is unregistered during
-/// shutdown rather than lingering. Any call that still reaches it (e.g. via a
-/// stray clone) fails cleanly instead of calling into torn-down foreign code.
-pub struct NoopEncryptorDecryptor;
-
-impl EncryptorDecryptor for NoopEncryptorDecryptor {
-    fn encrypt(&self, _clearbytes: Vec<u8>) -> ApiResult<Vec<u8>> {
-        Err(LoginsApiError::UnexpectedLoginsApiError {
-            reason: "encrypt called on a shut-down store".to_string(),
-        })
-    }
-
-    fn decrypt(&self, _cipherbytes: Vec<u8>) -> ApiResult<Vec<u8>> {
-        Err(LoginsApiError::UnexpectedLoginsApiError {
-            reason: "decrypt called on a shut-down store".to_string(),
-        })
-    }
-}
-
 /// The ManagedEncryptorDecryptor makes use of the NSS provided cryptographic algorithms. The
 /// ManagedEncryptorDecryptor uses a KeyManager for encryption key retrieval.
 pub struct ManagedEncryptorDecryptor {
@@ -393,21 +370,6 @@ mod tests {
         let key = create_key().unwrap();
         let key_manager = StaticKeyManager { key: key.clone() };
         assert_eq!(key.as_bytes(), key_manager.get_key().unwrap());
-    }
-
-    #[test]
-    fn test_noop_encdec_errors() {
-        // The placeholder we swap in on shutdown must never encrypt/decrypt; it
-        // should fail cleanly instead.
-        let encdec = NoopEncryptorDecryptor;
-        assert!(matches!(
-            encdec.encrypt("secret".as_bytes().into()).err().unwrap(),
-            LoginsApiError::UnexpectedLoginsApiError { .. }
-        ));
-        assert!(matches!(
-            encdec.decrypt("secret".as_bytes().into()).err().unwrap(),
-            LoginsApiError::UnexpectedLoginsApiError { .. }
-        ));
     }
 
     #[test]
