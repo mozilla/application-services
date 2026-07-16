@@ -4,7 +4,7 @@
 
 ### Firefox Accounts
 
-- Session-token authenticated requests to the FxA auth-server now use the typed-Bearer token scheme (`Authorization: Bearer fxs_<token_id>`) instead of Hawk. This is an internal change with no consumer-facing API impact; production routes accept both schemes. See the [authentication schemes reference](https://mozilla.github.io/ecosystem-platform/reference/authentication-schemes). ([#PRNUM](https://github.com/mozilla/application-services/pull/PRNUM))
+- Session-token authenticated requests to the FxA auth-server now use the typed-Bearer token scheme (`Authorization: Bearer fxs_<token_id>`) instead of Hawk. This is an internal change with no consumer-facing API impact; production routes accept both schemes. See the [authentication schemes reference](https://mozilla.github.io/ecosystem-platform/reference/authentication-schemes). ([#7432](https://github.com/mozilla/application-services/pull/7432))
 
 [Full Changelog](In progress)
 
@@ -16,7 +16,7 @@
 ### Logins
 
 - Add `LoginStore.bridgedEngine()`, which exposes the logins sync engine to Desktop's Sync. ([bug 2049263](https://bugzilla.mozilla.org/show_bug.cgi?id=2049263))
-- Add `LoginStore.delete_all()`, which deletes all logins 
+- Add `LoginStore.delete_all()`, which deletes all logins
   and `delete_all_axcept_fxa()`, which deletes all logins preserving the FxA session-credentials login
   and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
   ([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
@@ -26,6 +26,10 @@
 ### Logins
 
 - The logins sync engine no longer holds its own long-lived clone of the `EncryptorDecryptor`, fetching it from the store on demand instead. This ensures no dangling reference keeps a foreign (e.g. JS) callback handle alive past `shutdown()`. ([#7478](https://github.com/mozilla/application-services/pull/7478))
+
+### Nimbus
+
+- Reasons are now reported in unenrollment events. ([#7480](https://github.com/mozilla/application-services/pull/7480))
 
 # v153.0 (_2026-06-15_)
 
