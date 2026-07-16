@@ -21,6 +21,12 @@
   and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
   ([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
 
+## 🔧 What's Fixed 🔧
+
+### Logins
+
+- The logins sync engine no longer holds its own long-lived clone of the `EncryptorDecryptor`, fetching it from the store on demand instead. This ensures no dangling reference keeps a foreign (e.g. JS) callback handle alive past `shutdown()`. ([#7478](https://github.com/mozilla/application-services/pull/7478))
+
 # v153.0 (_2026-06-15_)
 
 ## ⚠️ Breaking Changes ⚠️
