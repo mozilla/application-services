@@ -29,7 +29,7 @@ In the root of the app-services repo:
 
 Please be sure you have read [our guide to building Fenix](../building.md#building-for-fenix) and successfully built
 using the instructions there. In particular, this may lead you to adding `sdk.dir` and `ndk.dir` properties, and/or
-set environment variables `ANDROID_SDK_ROOT` and `ANDROID_HOME`.
+set environment variable `ANDROID_HOME`.
 
 In addition to those instructions, you will need:
 
