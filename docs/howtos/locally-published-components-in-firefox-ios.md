@@ -86,6 +86,12 @@ for example, from the root of your application-services directory:
 cp ./megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated/*.swift ../firefox-ios/MozillaRustComponents/Sources/MozillaRustComponentsWrapper/Generated/.
 ```
 
+4. Remove the copied over `glean_sym.swift` file. This exists to make glean-sym work in Rust, but is not needed in linking. From the same directory:
+
+```bash
+rm ../firefox-ios/MozillaRustComponents/Sources/MozillaRustComponentsWrapper/Generated/glean_sym.swift
+```
+
 ## Step 3 — Reset caches and build
 
 In Xcode:

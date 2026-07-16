@@ -54,6 +54,11 @@ a number of hours to complete.
                ```shell
                PYPATH=$(which python3); ln -s $PYPATH `dirname $PYPATH`/python
                ```
+                1. Recent brew installations of Python may create unversioned symlinks but not add them to your `PATH`. You can instead run `brew info python` to see their installation locations, and add the corresponding location to your `PATH`. For example:
+                    ```shell
+                        export PATH="/opt/homebrew/opt/python@3.14/libexec/bin:$PATH"
+                    ```
+               
         1. Install gyp:
             ```shell
             wget https://bootstrap.pypa.io/ez_setup.py -O - | python3 -
@@ -66,6 +71,14 @@ a number of hours to complete.
                export PATH="~/tools/gyp:$PATH"
                ```
             1. If you have additional questions, consult [this guide](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP).
+            1. If you encounter a `ModuleNotFoundError`, try installing setuptools on your system. For example:
+                ```shell
+               brew install python-setuptools
+               ```
+            1. Similarly, recent brew installations may result in **externally-managed-environment** errors. This can be addressed with `brew install pipx` and replacing the last line with `pipx install .`
+
+
+
         1. Make sure your homebrew python's bin folder is on your path by updating your bash/zsh profile with the following:
             ```shell
             export PATH="$PATH:$(brew --prefix)/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin"
@@ -107,8 +120,12 @@ The following instructions assume that you are building `application-services` f
       1. NDK (Side by side) version 29.0.14206865 [as configured](https://github.com/mozilla/application-services/blob/bb8cde8a5/taskcluster/docker/linux/Dockerfile#L25)
       1. Android SDK Command-line Tools (latest)
    1. Set environment variables based on the boostrapped code and the downloaded NDK. Add it to your rc file (either `.zshrc` or `.bashrc` depending on your shell) to make it permanent
-      1. Set `JAVA_HOME` to point to the bootstraped JDK 17 installation directory. Ex: `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/`
-      1. Set `ANDROID_HOME` to the bootstraped Android SDK. Ex: `export ANDROID_HOME=~/.mozbuild/android-sdk-linux`
+      1. Set `JAVA_HOME` to point to the bootstraped JDK 17 installation directory. Ex: `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/` (or `export JAVA_HOME=~/.mozbuild/jdk/jdk-17.0.18+8/Contents/Home` on Mac).
+      1. Set `ANDROID_HOME` to the bootstraped Android SDK. As an example:
+            ```shell
+            export ANDROID_HOME=~/.mozbuild/android-sdk-linux
+            ```
+
       1. Set `NSS_STATIC` to 1. Ex: `export NSS_STATIC=1`
       1. Set `NSS_DIR` to your local NSS folder. Ex: `export NSS_DIR=~/Mozilla/application-services/libs/desktop/linux-x86-64/nss`
       1. Set `ANDROID_NDK_ROOT` to the NDK you downloaded via Android Studio, Ex: `export ANDROID_NDK_ROOT=~/.mozbuild/android-sdk-linux/ndk/29.0.14206865`
