@@ -71,7 +71,7 @@ a number of hours to complete.
                export PATH="~/tools/gyp:$PATH"
                ```
             1. If you have additional questions, consult [this guide](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP).
-            1. If you encounter a `ModuleNotFoundError`, try installing setup tools on your system. For example:
+            1. If you encounter a `ModuleNotFoundError`, try installing setuptools on your system. For example:
                 ```shell
                brew install python-setuptools
                ```
