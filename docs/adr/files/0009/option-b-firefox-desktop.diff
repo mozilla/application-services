@@ -1,0 +1,130 @@
+diff --git a/browser/components/urlbar/private/SuggestBackendRust.sys.mjs b/browser/components/urlbar/private/SuggestBackendRust.sys.mjs
+index 5d9633ab60..8563e112aa 100644
+--- a/browser/components/urlbar/private/SuggestBackendRust.sys.mjs
++++ b/browser/components/urlbar/private/SuggestBackendRust.sys.mjs
+@@ -20,6 +20,7 @@
+   SuggestionProvider: "resource://gre/modules/RustSuggest.sys.mjs",
+   SuggestionProviderConstraints: "resource://gre/modules/RustSuggest.sys.mjs",
+   SuggestionQuery: "resource://gre/modules/RustSuggest.sys.mjs",
++  makeWorkerQueue: "resource://gre/modules/RustUniffiWorkerQueue.sys.mjs",
+   TaskQueue: "resource:///modules/UrlbarUtils.sys.mjs",
+   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
+   Utils: "resource://services-settings/Utils.sys.mjs",
+@@ -389,7 +390,7 @@
+       .remoteSettingsServer(this.#remoteSettingsServer)
+       .remoteSettingsBucketName(this.#remoteSettingsBucketName);
+     try {
+-      this.#store = builder.build();
++      this.#store = builder.buildAsync(makeWorkerQueue());
+     } catch (error) {
+       this.logger.error("Error initializing SuggestStore", error);
+       return;
+diff --git a/toolkit/components/uniffi-bindgen-gecko-js/components/Cargo.toml b/toolkit/components/uniffi-bindgen-gecko-js/components/Cargo.toml
+index a2c12729f9..bf67358981 100644
+--- a/toolkit/components/uniffi-bindgen-gecko-js/components/Cargo.toml
++++ b/toolkit/components/uniffi-bindgen-gecko-js/components/Cargo.toml
+@@ -21,7 +21,8 @@
+ suggest = "0.1"
+ relevancy = "0.1"
+ webext-storage = "0.1"
++worker-queue = { path = "worker-queue/" }
+ 
+ [features]
+ # Should we depend on xpcom crates?
+-xpcom = []
++xpcom = ["worker-queue/moz_task"]
+diff --git a/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/Cargo.toml b/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/Cargo.toml
+new file mode 100644
+index 0000000000..e1dddaeb51
+--- /dev/null
++++ b/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/Cargo.toml
+@@ -1,0 +1,18 @@
++[package]
++name = "uniffi-worker-queue"
++version = "0.21.0"
++edition = "2021"
++license = "MPL-2.0"
++publish = false
++
++[dependencies]
++# This needs to be optional, since we want to build this library to generate the bindings from, but
++# moz-task can only currently be built from inside `./mach build`.
++moz_task = { path = "../../../../../xpcom/rust/moz_task/", optional = true }
++# Needed for the WorkQueue trait, we should probably move that code into a shared app-services crate
++# if it's going to be used by multiple compnents
++suggest = "0.1"
++uniffi = { workspace = true }
++
++[build-dependencies]
++uniffi = { workspace = true, features = ["build"] }
+diff --git a/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/src/lib.rs b/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/src/lib.rs
+new file mode 100644
+index 0000000000..6c194c479e
+--- /dev/null
++++ b/toolkit/components/uniffi-bindgen-gecko-js/components/worker-queue/src/lib.rs
+@@ -1,0 +1,38 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++use std::sync::Arc;
++
++use suggest::{WorkerQueue, RustTask};
++
++/// Factory function to create a worker queue for JS using moz_task
++#[uniffi::export]
++pub fn make_worker_queue() -> Arc<dyn WorkerQueue> {
++    Arc::new(MozTaskWorkerQueue)
++}
++
++
++/// ZST that implements WorkerQueue using moz_task
++struct MozTaskWorkerQueue;
++
++impl WorkerQueue for MozTaskWorkerQueue {
++    // This version is what runs when we're linked into libgecko
++    #[cfg(feature = "moz_task")]
++    fn add_task(&self, task: Arc<dyn RustTask>) {
++        if let Err(e) = moz_task::dispatch_background_task("UniFFI task", move || task.run()) {
++            log::error!("Failed to dispatch background task: {e}");
++        }
++
++    }
++
++    // This is as stub that allows us to build a library for uniffi-bindgen to use, but without
++    // depending on gecko.  Gecko can only be built inside of `./mach build` and we want to build
++    // the library using plain `cargo build`.
++    #[cfg(not(feature = "moz_task"))]
++    fn add_task(&self, _task: Arc<dyn RustTask>) {
++        unimplemented!("moz_task not enabled");
++    }
++}
++
++uniffi::setup_scaffolding!("uniffi_worker_queue");
+diff --git a/toolkit/components/uniffi-bindgen-gecko-js/config.toml b/toolkit/components/uniffi-bindgen-gecko-js/config.toml
+index 5035b0671c..168f42479a 100644
+--- a/toolkit/components/uniffi-bindgen-gecko-js/config.toml
++++ b/toolkit/components/uniffi-bindgen-gecko-js/config.toml
+@@ -11,20 +11,8 @@
+ 
+ 
+ [suggest.async_wrappers]
+-# All functions/methods are wrapped to be async by default and must be `await`ed.
+-enable = true
+-# These are exceptions to the async wrapping.  These functions must not be `await`ed.
+-main_thread = [
+-  "raw_suggestion_url_matches",
+-  "SuggestStore.new",
+-  "SuggestStore.interrupt",
+-  "SuggestStoreBuilder.new",
+-  "SuggestStoreBuilder.data_path",
+-  "SuggestStoreBuilder.load_extension",
+-  "SuggestStoreBuilder.remote_settings_bucket_name",
+-  "SuggestStoreBuilder.remote_settings_server",
+-  "SuggestStoreBuilder.build",
+-]
++# Suggest implments async from Rust, so we don't need to enable the wrappers
++enable = false
+ 
+ [relevancy.async_wrappers]
+ # All functions/methods are wrapped to be async by default and must be `await`ed.
