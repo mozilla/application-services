@@ -1003,14 +1003,20 @@ impl NimbusClient {
     }
 
     pub fn get_available_firefox_labs(&self) -> Result<Vec<FirefoxLabsMetadata>> {
-        let targeting_attributes = self.get_targeting_attributes();
+        let mut state = self.mutable_state.lock().unwrap();
+        state.update_time_to_now(Utc::now());
+
         let targeting_helper = NimbusTargetingHelper::with_targeting_attributes(
-            &targeting_attributes,
+            &state.targeting_attributes,
             self.event_store.clone(),
             self.gecko_prefs.clone(),
         );
-        self.database_cache
-            .get_available_firefox_labs_metadata(&targeting_helper, &self.coenrolling_feature_ids)
+
+        self.database_cache.get_available_firefox_labs_metadata(
+            &state.available_randomization_units,
+            &targeting_helper,
+            &self.coenrolling_feature_ids,
+        )
     }
 
     pub fn enroll_in_firefox_lab(&self, slug: &str) -> Result<FirefoxLabsEnrollResult> {

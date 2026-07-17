@@ -34,6 +34,7 @@
 ### Nimbus
 
 - Reasons are now reported in unenrollment events. ([#7480](https://github.com/mozilla/application-services/pull/7480))
+- The available Firefox Labs are now filtered by targeting and bucketing. ([#7481](https://github.com/mozilla/application-services/pull/7481))
 
 # v153.0 (_2026-06-15_)
 

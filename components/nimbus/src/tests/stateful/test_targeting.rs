@@ -83,9 +83,7 @@ fn test_eval_jexl_debug_success() {
         "locale": "en-US",
     }));
 
-    let result = helper
-        .eval_jexl_debug("locale == 'en-US'".to_string())
-        .unwrap();
+    let result = helper.eval_jexl_debug("locale == 'en-US'").unwrap();
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["success"], true);
@@ -98,7 +96,7 @@ fn test_eval_jexl_debug_error() {
 
     let helper = create_helper(json!({}));
 
-    let result = helper.eval_jexl_debug("invalid {{".to_string()).unwrap();
+    let result = helper.eval_jexl_debug("invalid {{").unwrap();
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["success"], false);
@@ -111,7 +109,7 @@ fn test_eval_jexl_debug_json_structure() {
 
     let helper = create_helper(json!({"test": true}));
 
-    let result = helper.eval_jexl_debug("test".to_string()).unwrap();
+    let result = helper.eval_jexl_debug("test").unwrap();
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
@@ -128,7 +126,7 @@ fn test_eval_jexl_debug_returns_pretty_json() {
 
     let helper = create_helper(json!({"locale": "en-US"}));
 
-    let result = helper.eval_jexl_debug("locale".to_string()).unwrap();
+    let result = helper.eval_jexl_debug("locale").unwrap();
 
     // Pretty JSON should have newlines
     assert!(result.contains('\n'));
@@ -149,7 +147,7 @@ fn test_eval_jexl_debug_with_version_compare() {
     let helper = create_helper(serde_json::to_value(&targeting_attributes).unwrap());
 
     let result = helper
-        .eval_jexl_debug("app_version|versionCompare('114.0') > 0".to_string())
+        .eval_jexl_debug("app_version|versionCompare('114.0') > 0")
         .unwrap();
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();

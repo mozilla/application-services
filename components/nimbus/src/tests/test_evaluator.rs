@@ -7,10 +7,10 @@
 use serde_json::{Map, Value, json};
 
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
-use crate::evaluator::{ExperimentAvailable, choose_branch, is_experiment_available, targeting};
+use crate::evaluator::{ExperimentAvailable, choose_branch, is_experiment_available};
 use crate::{
-    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
-    Result, TargetingAttributes, evaluate_enrollment,
+    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, NimbusError,
+    NimbusTargetingHelper, RandomizationUnit, Result, TargetingAttributes, evaluate_enrollment,
 };
 
 pub fn ta_with_locale(locale: String) -> TargetingAttributes {
@@ -32,29 +32,19 @@ pub fn ta_with_locale(locale: String) -> TargetingAttributes {
 }
 
 #[test]
-fn test_locale_substring() -> Result<()> {
+fn test_locale_substring() {
     let expression_statement = "'en' in locale || 'de' in locale";
-    let ta = ta_with_locale("de-US".to_string());
+    let targeting_helper: NimbusTargetingHelper = ta_with_locale("de-US".to_string()).into();
 
-    assert_eq!(targeting(expression_statement, &ta.into()), None);
-    Ok(())
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 }
 
 #[test]
-fn test_locale_substring_fails() -> Result<()> {
+fn test_locale_substring_fails() {
     let expression_statement = "'en' in locale || 'de' in locale";
-    let ta = ta_with_locale("cz-US".to_string());
-    let enrollment_status = targeting(expression_statement, &ta.into()).unwrap();
-    if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
-        if let NotEnrolledReason::NotTargeted = reason {
-            // OK
-        } else {
-            panic!("Expected to fail on NotTargeted reason, got: {:?}", reason)
-        }
-    } else {
-        panic! {"Expected to fail targeting with NotEnrolled, got: {:?}", enrollment_status}
-    }
-    Ok(())
+    let targeting_helper: NimbusTargetingHelper = ta_with_locale("cz-US".to_string()).into();
+
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap());
 }
 
 #[test]
@@ -79,35 +69,25 @@ fn test_language_region_from_locale() {
 #[test]
 fn test_geo_targeting_one_locale() -> Result<()> {
     let expression_statement = "language in ['ro']";
-    let ta = ta_with_locale("ro".to_string());
+    let targeting_helper: NimbusTargetingHelper = ta_with_locale("ro".to_string()).into();
 
-    assert_eq!(targeting(expression_statement, &ta.into()), None);
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
     Ok(())
 }
 
 #[test]
-fn test_geo_targeting_multiple_locales() -> Result<()> {
+fn test_geo_targeting_multiple_locales() {
     let expression_statement = "language in ['en', 'ro']";
-    let ta = ta_with_locale("ro".to_string());
-    assert_eq!(targeting(expression_statement, &ta.into()), None);
-    Ok(())
+    let targeting_helper: NimbusTargetingHelper = ta_with_locale("ro".to_string()).into();
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 }
 
 #[test]
-fn test_geo_targeting_fails_properly() -> Result<()> {
+fn test_geo_targeting_fails_properly() {
     let expression_statement = "language in ['en', 'ro']";
-    let ta = ta_with_locale("ar".to_string());
-    let enrollment_status = targeting(expression_statement, &ta.into()).unwrap();
-    if let EnrollmentStatus::NotEnrolled { reason } = enrollment_status {
-        if let NotEnrolledReason::NotTargeted = reason {
-            // OK
-        } else {
-            panic!("Expected to fail on NotTargeted reason, got: {:?}", reason)
-        }
-    } else {
-        panic! {"Expected to fail targeting with NotEnrolled, got: {:?}", enrollment_status}
-    }
-    Ok(())
+    let targeting_helper: NimbusTargetingHelper = ta_with_locale("ar".to_string()).into();
+
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap());
 }
 
 #[cfg(feature = "stateful")]
@@ -115,11 +95,11 @@ fn test_geo_targeting_fails_properly() -> Result<()> {
 fn test_minimum_version_targeting_passes() -> Result<()> {
     // Here's our valid jexl statement
     let expression_statement = "app_version|versionCompare('96.!') >= 0";
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("97pre.1.0-beta.1".into()),
         ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    });
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
     Ok(())
 }
 
@@ -128,76 +108,52 @@ fn test_minimum_version_targeting_passes() -> Result<()> {
 fn test_minimum_version_targeting_fails() -> Result<()> {
     // Here's our valid jexl statement
     let expression_statement = "app_version|versionCompare('96+.0') >= 0";
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("96.1".into()),
         ..Default::default()
-    };
-    assert_eq!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
+    });
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap(),);
     Ok(())
 }
 
 #[cfg(feature = "stateful")]
 #[test]
-fn test_targeting_specific_version() -> Result<()> {
+fn test_targeting_specific_version() {
     // Here's our valid jexl statement that targets **only** 96 versions
     let expression_statement =
         "(app_version|versionCompare('96.!') >= 0) && (app_version|versionCompare('97.!') < 0)";
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("96.1".into()),
         ..Default::default()
-    };
+    });
     // OK 96.1 is a 96 version
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
-    let ctx = AppContext {
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("97.1".into()),
         ..Default::default()
-    };
+    });
     // Not targeted, version is 97
-    assert_eq!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap(),);
 
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("95.1".into()),
         ..Default::default()
-    };
+    });
     // Not targeted, version is 95
-    assert_eq!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    );
-
-    Ok(())
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap(),);
 }
 
 #[test]
-fn test_targeting_invalid_transform() -> Result<()> {
+fn test_targeting_invalid_transform() {
     let expression_statement = "app_version|invalid_transform('96+.0')";
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_version: Some("96.1".into()),
         ..Default::default()
-    };
-    let err = targeting(expression_statement, &ctx.into());
-    if let Some(e) = err {
-        if let EnrollmentStatus::Error { reason: _ } = e {
-            // OK
-        } else {
-            panic!("Should have returned an error since the transform doesn't exist")
-        }
-    } else {
-        panic!("Should not have been targeted")
-    }
-    Ok(())
+    });
+    assert!(matches!(
+        targeting_helper.eval_jexl(expression_statement).unwrap_err(),
+        NimbusError::EvaluationError(e) if e == "Unknown transform: invalid_transform",
+    ));
 }
 
 #[cfg(feature = "stateful")]
@@ -208,7 +164,7 @@ fn test_targeting() {
         "app_id == '1010' && (app_version|versionCompare('4.0') >= 0 || app_build == \"1234\")";
 
     // A matching context testing the logical AND + OR of the expression
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -216,11 +172,11 @@ fn test_targeting() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    });
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 
     // A matching context testing the logical OR of the expression
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -228,11 +184,11 @@ fn test_targeting() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    });
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 
     // A matching context testing the other branch of the logical OR
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -240,11 +196,11 @@ fn test_targeting() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    });
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 
     // A non-matching context testing the logical AND of the expression
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "not_nimbus_test".to_string(),
         app_id: "org.example.app".to_string(),
         channel: "test".to_string(),
@@ -252,16 +208,11 @@ fn test_targeting() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
-    assert!(matches!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    ));
+    });
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap());
 
     // A non-matching context testing the logical OR of the expression
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "not_nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -269,13 +220,8 @@ fn test_targeting() {
         app_build: Some("12345".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
-    assert!(matches!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
-        })
-    ));
+    });
+    assert!(!targeting_helper.eval_jexl(expression_statement).unwrap())
 }
 
 #[test]
@@ -287,7 +233,7 @@ fn test_targeting_custom_targeting_attributes() {
     custom_targeting_attributes.insert("is_first_run".into(), json!(true));
     custom_targeting_attributes.insert("ios_version".into(), json!("8.8"));
     // A matching context that includes the appropriate specific context
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -295,11 +241,11 @@ fn test_targeting_custom_targeting_attributes() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: Some(custom_targeting_attributes),
         ..Default::default()
-    };
-    assert_eq!(targeting(expression_statement, &ctx.into()), None);
+    });
+    assert!(targeting_helper.eval_jexl(expression_statement).unwrap());
 
     // A matching context without the specific context
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -307,11 +253,11 @@ fn test_targeting_custom_targeting_attributes() {
         app_build: Some("1234".to_string()),
         custom_targeting_attributes: None,
         ..Default::default()
-    };
+    });
     // We haven't defined `is_first_run` here, so this should error out, i.e. return an error.
     assert!(matches!(
-        targeting(expression_statement, &ctx.into()),
-        Some(EnrollmentStatus::Error { .. })
+        targeting_helper.eval_jexl(expression_statement).unwrap_err(),
+        NimbusError::EvaluationError(e) if e == "Identifier 'is_first_run' is undefined",
     ));
 }
 
@@ -319,23 +265,26 @@ fn test_targeting_custom_targeting_attributes() {
 fn test_invalid_expression() {
     // This expression doesn't return a bool
     let expression_statement = "2.0";
+    let targeting_helper = NimbusTargetingHelper::default();
 
-    assert_eq!(
-        targeting(expression_statement, &Default::default()),
-        Some(EnrollmentStatus::Error {
-            reason: "Invalid Expression - didn't evaluate to a bool".to_string()
-        })
-    )
+    assert!(matches!(
+        targeting_helper
+            .eval_jexl(expression_statement)
+            .unwrap_err(),
+        NimbusError::InvalidExpression
+    ));
 }
 
 #[test]
 fn test_evaluation_error() {
     // This is an invalid JEXL statement
     let expression_statement = "This is not a valid JEXL expression";
+    let targeting_helper = NimbusTargetingHelper::default();
 
     assert!(matches!(
-            targeting(expression_statement, &Default::default()),
-            Some(EnrollmentStatus::Error { reason }) if reason.starts_with("EvaluationError:")))
+        targeting_helper.eval_jexl(expression_statement).inspect_err(|e| eprintln!("{:?}", e)).unwrap_err(),
+        NimbusError::EvaluationError(e) if e.starts_with("Parsing error: Unrecognized token `is`"),
+    ));
 }
 
 #[test]
@@ -574,12 +523,12 @@ fn test_wrong_randomization_units() {
 
     // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
     // or `channel` doesn't match the experiment, then the client won't be enrolled.
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_name: "NimbusTest".to_string(),
         app_id: "org.example.app".to_string(),
         channel: "nightly".to_string(),
         ..Default::default()
-    };
+    });
 
     // We won't be enrolled in the experiment because we don't have the right randomization units since the
     // experiment is requesting the `UserId` and the `Default::default()` here will just have the
@@ -587,7 +536,7 @@ fn test_wrong_randomization_units() {
     let enrollment = evaluate_enrollment(
         &AvailableRandomizationUnits::with_nimbus_id(&uuid::Uuid::new_v4()),
         &experiment,
-        &ctx.clone().into(),
+        &targeting_helper,
     )
     .unwrap();
     // The status should be `Error`
@@ -595,8 +544,12 @@ fn test_wrong_randomization_units() {
 
     // Fits because of the user_id.
     let available_randomization_units = AvailableRandomizationUnits::with_user_id("bobo");
-    let enrollment =
-        evaluate_enrollment(&available_randomization_units, &experiment, &ctx.into()).unwrap();
+    let enrollment = evaluate_enrollment(
+        &available_randomization_units,
+        &experiment,
+        &targeting_helper,
+    )
+    .unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Enrolled {
@@ -726,16 +679,16 @@ fn test_enrollment_bucketing() {
     // Tested against the desktop implementation
     let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
     // Application context for matching exp3
-    let ctx = AppContext {
+    let targeting_helper = NimbusTargetingHelper::from(AppContext {
         app_id: "org.example.app".to_string(),
         channel: "nightly".to_string(),
         ..Default::default()
-    };
+    });
 
     let enrollment = evaluate_enrollment(
         &available_randomization_units.apply_nimbus_id(&id),
         &experiment,
-        &ctx.into(),
+        &targeting_helper,
     )
     .unwrap();
     assert!(matches!(

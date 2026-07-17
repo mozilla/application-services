@@ -50,79 +50,123 @@ pub fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 
 /// Determine the enrolment status for an experiment.
 ///
-/// # Arguments:
-/// - `available_randomization_units` The app provided available randomization units
-/// - `targeting_attributes` The attributes to use when evaluating targeting
-/// - `exp` The `Experiment` to evaluate.
+/// # Errors
 ///
-/// # Returns:
-/// An `ExperimentEnrollment` -  you need to inspect the EnrollmentStatus to
-/// determine if the user is actually enrolled.
-///
-/// # Errors:
-///
-/// The function can return errors in one of the following cases (but not limited to):
-///
-/// - If the bucket sampling failed (i.e we could not find if the user should or should not be enrolled in the experiment based on the bucketing)
-/// - If an error occurs while determining the branch the user should be enrolled in any of the experiments
+/// The function can return an error when branch selection fails due to an
+/// invalid bucketing configuration.
 pub fn evaluate_enrollment(
     available_randomization_units: &AvailableRandomizationUnits,
-    exp: &Experiment,
-    th: &NimbusTargetingHelper,
+    experiment: &Experiment,
+    targeting_helper: &NimbusTargetingHelper,
 ) -> Result<ExperimentEnrollment> {
-    if let ExperimentAvailable::Unavailable { reason } = is_experiment_available(th, exp, true) {
-        return Ok(ExperimentEnrollment {
-            slug: exp.slug.clone(),
-            status: EnrollmentStatus::NotEnrolled { reason },
-        });
+    let status = match can_enroll(available_randomization_units, targeting_helper, experiment) {
+        CanEnrollResult::Unavailable { reason } => EnrollmentStatus::NotEnrolled { reason },
+        CanEnrollResult::NotTargeted => EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotTargeted,
+        },
+        CanEnrollResult::NotSelected => EnrollmentStatus::NotEnrolled {
+            reason: NotEnrolledReason::NotSelected,
+        },
+        CanEnrollResult::TargetingError { reason } => EnrollmentStatus::Error { reason },
+        CanEnrollResult::NoRandomizationUnit => {
+            info!(
+                "Could not find a suitable randomization unit for {}. Skipping experiment.",
+                experiment.slug,
+            );
+            EnrollmentStatus::Error {
+                reason: "No randomization unit".into(),
+            }
+        }
+
+        CanEnrollResult::Enrollable { randomization_id } => EnrollmentStatus::new_enrolled(
+            EnrolledReason::Qualified,
+            &choose_branch(&experiment.slug, &experiment.branches, randomization_id)?.slug,
+        ),
+    };
+
+    Ok(ExperimentEnrollment {
+        slug: experiment.slug.clone(),
+        status,
+    })
+}
+
+/// Whether or not an experiment can be enrolled.
+pub enum CanEnrollResult<'aru> {
+    /// The experiment is enrollable.
+    Enrollable {
+        /// The randomization ID that should be used for branch selection.
+        randomization_id: &'aru str,
+    },
+
+    /// The experiment is not available for a reason outlined in [`NotEnrolledReason`]
+    Unavailable {
+        /// The reason the enrollment is not available.
+        reason: NotEnrolledReason,
+    },
+
+    /// The experiment is not enrollable due to a targeting error.
+    TargetingError {
+        /// The stringified error.
+        reason: String,
+    },
+
+    /// The experiment is not enrollable because targeting expression evaluated
+    /// to false.
+    NotTargeted,
+
+    /// The experiment is not enrollable because randomization ID did not fall
+    /// into a selected bucket.
+    NotSelected,
+
+    /// The experiment is not enrollable because it requires a randomization
+    /// unit that is not available.
+    NoRandomizationUnit,
+}
+
+/// Determine whether or not it is possible to enroll in the given experiment.
+pub fn can_enroll<'aru>(
+    available_randomization_units: &'aru AvailableRandomizationUnits,
+    targeting_helper: &NimbusTargetingHelper,
+    experiment: &Experiment,
+) -> CanEnrollResult<'aru> {
+    if let ExperimentAvailable::Unavailable { reason } =
+        is_experiment_available(targeting_helper, experiment, true)
+    {
+        return CanEnrollResult::Unavailable { reason };
     }
 
-    // Get targeting out of the way - "if let chains" are experimental,
-    // otherwise we could improve this.
-    if let Some(expr) = &exp.targeting
-        && let Some(status) = targeting(expr, th)
-    {
-        return Ok(ExperimentEnrollment {
-            slug: exp.slug.clone(),
-            status,
-        });
-    }
-    Ok(ExperimentEnrollment {
-        slug: exp.slug.clone(),
-        status: {
-            let bucket_config = exp.bucket_config.clone();
-            match available_randomization_units.get_value(&bucket_config.randomization_unit) {
-                Some(id) => {
-                    if sampling::bucket_sample(
-                        vec![id.to_owned(), bucket_config.namespace],
-                        bucket_config.start,
-                        bucket_config.count,
-                        bucket_config.total,
-                    )? {
-                        EnrollmentStatus::new_enrolled(
-                            EnrolledReason::Qualified,
-                            &choose_branch(&exp.slug, &exp.branches, id)?.clone().slug,
-                        )
-                    } else {
-                        EnrollmentStatus::NotEnrolled {
-                            reason: NotEnrolledReason::NotSelected,
-                        }
-                    }
-                }
-                None => {
-                    // XXX: When we link in glean, it would be nice if we could emit
-                    // a failure telemetry event here.
-                    info!(
-                        "Could not find a suitable randomization unit for {}. Skipping experiment.",
-                        &exp.slug
-                    );
-                    EnrollmentStatus::Error {
-                        reason: "No randomization unit".into(),
-                    }
-                }
+    if let Some(targeting_expression) = &experiment.targeting {
+        match targeting_helper.eval_jexl(targeting_expression) {
+            Err(e) => {
+                return CanEnrollResult::TargetingError {
+                    reason: e.to_string(),
+                };
             }
-        },
-    })
+            Ok(false) => return CanEnrollResult::NotTargeted,
+            Ok(true) => {}
+        };
+    }
+
+    let Some(randomization_id) =
+        available_randomization_units.get_value(&experiment.bucket_config.randomization_unit)
+    else {
+        return CanEnrollResult::NoRandomizationUnit;
+    };
+
+    let Ok(is_sampled) = sampling::bucket_sample(
+        [randomization_id, &experiment.bucket_config.namespace],
+        experiment.bucket_config.start,
+        experiment.bucket_config.count,
+        experiment.bucket_config.total,
+    ) else {
+        return CanEnrollResult::NoRandomizationUnit;
+    };
+
+    if is_sampled {
+        CanEnrollResult::Enrollable { randomization_id }
+    } else {
+        CanEnrollResult::NotSelected
+    }
 }
 
 /// Whether or not an experiment is available.
@@ -220,41 +264,6 @@ pub(crate) fn choose_branch<'a>(
     let input = format!("{:}-{:}-{:}-branch", "experimentmanager", id, slug);
     let index = sampling::ratio_sample(input, &ratios)?;
     branches.get(index).ok_or(NimbusError::OutOfBoundsError)
-}
-
-/// Checks if the client is targeted by an experiment
-/// This api evaluates the JEXL statement retrieved from the server
-/// against the application context provided by the client
-///
-/// # Arguments
-/// - `expression_statement`: The JEXL statement provided by the server
-/// - `targeting_attributes`: The client attributes to target against
-///
-/// If this app can not be targeted, returns an EnrollmentStatus to indicate
-/// why. Returns None if we should continue to evaluate the enrollment status.
-///
-/// In practice, if this returns an EnrollmentStatus, it will be either
-/// EnrollmentStatus::NotEnrolled, or EnrollmentStatus::Error in the following
-/// cases (But not limited to):
-/// - The `expression_statement` is not a valid JEXL statement
-/// - The `expression_statement` expects fields that do not exist in the AppContext definition
-/// - The result of evaluating the statement against the context is not a boolean
-/// - jexl-rs returned an error
-pub(crate) fn targeting(
-    expression_statement: &str,
-    targeting_helper: &NimbusTargetingHelper,
-) -> Option<EnrollmentStatus> {
-    match targeting_helper.eval_jexl(expression_statement.to_string()) {
-        Ok(res) => match res {
-            true => None,
-            false => Some(EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted,
-            }),
-        },
-        Err(e) => Some(EnrollmentStatus::Error {
-            reason: e.to_string(),
-        }),
-    }
 }
 
 #[cfg(test)]

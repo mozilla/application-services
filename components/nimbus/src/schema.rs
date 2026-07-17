@@ -347,7 +347,7 @@ pub enum RandomizationUnit {
     UserId,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct AvailableRandomizationUnits {
     pub user_id: Option<String>,
     pub nimbus_id: Option<String>,
@@ -377,7 +377,7 @@ impl AvailableRandomizationUnits {
         }
     }
 
-    pub fn get_value<'a>(&'a self, wanted: &'a RandomizationUnit) -> Option<&'a str> {
+    pub fn get_value(&self, wanted: &RandomizationUnit) -> Option<&str> {
         match wanted {
             RandomizationUnit::NimbusId => self.nimbus_id.as_deref(),
             RandomizationUnit::UserId => self.user_id.as_deref(),
