@@ -6,6 +6,10 @@
 
 - Session-token authenticated requests to the FxA auth-server now use the typed-Bearer token scheme (`Authorization: Bearer fxs_<token_id>`) instead of Hawk. This is an internal change with no consumer-facing API impact; production routes accept both schemes. See the [authentication schemes reference](https://mozilla.github.io/ecosystem-platform/reference/authentication-schemes). ([#7432](https://github.com/mozilla/application-services/pull/7432))
 
+### Remote Settings
+
+- Skip verification of signatures with unknown signature types ([Bug 2055147](https://bugzilla.mozilla.org/show_bug.cgi?id=2055147))
+
 [Full Changelog](In progress)
 
 ## ✨ What's New ✨

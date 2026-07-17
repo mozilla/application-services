@@ -917,6 +917,7 @@ mod tests {
             "signatures": [{
               "x5u": "fake",
               "signature": "fake",
+              "mode": "fake",
             }],
           },
           "timestamp": 1000,
@@ -982,6 +983,7 @@ mod tests {
             "signatures": [{
               "x5u": "fake",
               "signature": "fake",
+              "mode": "fake",
             }],
           },
           "timestamp": 1000,
@@ -1031,6 +1033,7 @@ mod tests {
             "signatures": [{
               "x5u": "fake",
               "signature": "fake",
+              "mode": "fake",
             }],
           },
           "timestamp": 1000,
@@ -1055,6 +1058,7 @@ mod tests {
                 "signatures": [{
                   "x5u": "fake",
                   "signature": "fake",
+                  "mode": "fake",
                 }],
               },
               "timestamp": 1000,
@@ -1142,6 +1146,7 @@ mod tests {
                  "signatures": [{
                    "x5u": "fake",
                    "signature": "fake",
+                   "mode": "fake",
                  }],
                },
                "timestamp": 1000,
