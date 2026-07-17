@@ -456,6 +456,12 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                     "No valid signatures found".into(),
                 ));
                 for signature in &metadata.signatures {
+                    if signature.mode != "p384ecdsa" {
+                        // We currently only support ECDSA P384.
+                        // Change this once `rc_crypto` will support more types (eg. post-quantum algorithms).
+                        continue;
+                    }
+
                     let cert_chain_bytes = inner.api_client.fetch_cert(&signature.x5u)?;
 
                     // The signer name is hard-coded. This would have to be modified in the very (very)
@@ -799,6 +805,8 @@ pub struct CollectionSignature {
     pub signature: String,
     /// X.509 certificate chain Url (x5u)
     pub x5u: String,
+    /// Signature type
+    pub mode: String,
 }
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
@@ -1375,6 +1383,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
@@ -1394,10 +1403,39 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
                 CollectionSignature {
                     signature: "invalid signature".to_string(),
                     x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
                 },
                 CollectionSignature {
                     signature: VALID_SIGNATURE.to_string(),
                     x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
+                },
+            ],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .expect("Valid signature");
+        Ok(())
+    }
+
+    #[test]
+    fn test_first_signature_has_unknown_type() -> Result<()> {
+        ensure_initialized();
+        run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[
+                CollectionSignature {
+                    signature: "unkown signature".to_string(),
+                    x5u: "http://mocked".into(),
+                    // Unknown signature type.
+                    mode: "mldsa".into(),
+                },
+                CollectionSignature {
+                    signature: VALID_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
                 },
             ],
             VALID_CERT_EPOCH_SECONDS,
@@ -1423,6 +1461,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
@@ -1441,6 +1480,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: "invalid signature".to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
@@ -1462,6 +1502,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
@@ -1489,6 +1530,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             december_20_2024,
             "main",
@@ -1522,6 +1564,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
@@ -1544,6 +1587,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[CollectionSignature {
                 signature: VALID_SIGNATURE.to_string(),
                 x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
             }],
             VALID_CERT_EPOCH_SECONDS,
             "security-state",

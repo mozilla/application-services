@@ -143,7 +143,8 @@ impl Storage {
             SELECT
                 cm.bucket,
                 json_extract(sig.value, '$.x5u') AS x5u,
-                json_extract(sig.value, '$.signature') AS signature
+                json_extract(sig.value, '$.signature') AS signature,
+                json_extract(sig.value, '$.mode') AS mode
             FROM collection_metadata AS cm
             LEFT JOIN json_each(cm.signatures) AS sig ON true
             WHERE cm.collection_url = ?
@@ -161,8 +162,13 @@ impl Storage {
             }
             let x5u: Option<String> = row.get(1)?;
             let signature: Option<String> = row.get(2)?;
-            if let (Some(x5u), Some(signature)) = (x5u, signature) {
-                signatures.push(CollectionSignature { signature, x5u });
+            let mode: Option<String> = row.get(3)?;
+            if let (Some(x5u), Some(signature), Some(mode)) = (x5u, signature, mode) {
+                signatures.push(CollectionSignature {
+                    signature,
+                    x5u,
+                    mode,
+                });
             }
         }
         match bucket {
@@ -1123,10 +1129,12 @@ mod tests {
                     CollectionSignature {
                         signature: "b64encodedsig".into(),
                         x5u: "http://15u/".into(),
+                        mode: "mldsa".into(),
                     },
                     CollectionSignature {
                         signature: "b64encodedsig2".into(),
                         x5u: "http://15u2/".into(),
+                        mode: "p384ecdsa".into(),
                     },
                 ],
             },
@@ -1136,8 +1144,10 @@ mod tests {
 
         assert_eq!(metadata.signatures[0].signature, "b64encodedsig");
         assert_eq!(metadata.signatures[0].x5u, "http://15u/");
+        assert_eq!(metadata.signatures[0].mode, "mldsa");
         assert_eq!(metadata.signatures[1].signature, "b64encodedsig2");
         assert_eq!(metadata.signatures[1].x5u, "http://15u2/");
+        assert_eq!(metadata.signatures[1].mode, "p384ecdsa");
 
         Ok(())
     }
