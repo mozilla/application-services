@@ -15,14 +15,23 @@ def step_msg(msg):
 
 
 def fatal_err(msg):
-    print(f"\033[31mError: {msg}\033[0m")
+    err_msg(msg)
     sys.exit(1)
+
+def err_msg(msg, allow_continue = False):
+    print(f"\033[31mError: {msg}\033[0m")
+    if not allow_continue:
+        sys.exit(1)
 
 
 def run_cmd_checked(*args, **kwargs):
     """Run a command, throwing an exception if it exits with non-zero status."""
     kwargs["check"] = True
     return subprocess.run(*args, **kwargs)  # noqa: PLW1510
+
+def run_cmd_is_successful(*args, **kwargs):
+    """Run a subprocess command, returning False if it exits with non-zero status (True otherwise)."""
+    return subprocess.run(*args, **kwargs).returncode == 0
 
 
 def check_output(*args, **kwargs):
@@ -69,6 +78,8 @@ def set_gradle_substitution_path(project_dir, name, value):
     If the named property already exists with the correct value then it will
     silently succeed; if the named property already exists with a different value
     then it will noisily fail.
+
+    Returns False on such a failure, otherwise returns True.
     """
     project_dir = Path(project_dir).resolve()
     properties_file = project_dir / "local.properties"
@@ -86,7 +97,9 @@ def set_gradle_substitution_path(project_dir, name, value):
                         fatal_err(
                             f"Conflicting property {name}={cur_value} (not {abs_value})"
                         )
-                    return
+                        return False
+                    else:
+                        return True
     # The file does not contain the required property, append it.
     # Note that the project probably expects a path relative to the project root.
     ancestor = Path(os.path.commonpath([project_dir, abs_value]))
@@ -98,6 +111,7 @@ def set_gradle_substitution_path(project_dir, name, value):
     step_msg(f"Setting relative path from {project_dir} to {abs_value} as {relpath}")
     with properties_file.open("a") as f:
         f.write(f"{name}={relpath}\n")
+    return True
 
 
 class RefNames:
