@@ -42,7 +42,9 @@ CREATE INDEX IF NOT EXISTS frecencyindex ON moz_places(frecency);
 CREATE INDEX IF NOT EXISTS lastvisitdatelocalindex ON moz_places(last_visit_date_local);
 CREATE INDEX IF NOT EXISTS lastvisitdateremoteindex ON moz_places(last_visit_date_remote);
 CREATE UNIQUE INDEX IF NOT EXISTS guid_uniqueindex ON moz_places(guid);
-CREATE INDEX IF NOT EXISTS originidindex ON moz_places(origin_id);
+
+-- speeds up the per-origin ORDER BY frecency DESC in api/matcher.rs URL_SQL
+CREATE INDEX IF NOT EXISTS idx_places_origin_frecency ON moz_places(origin_id, frecency);
 
 -- partial index to help speed up the fetch_outgoing query in history.rs
 CREATE INDEX IF NOT EXISTS idx_places_outgoing_by_frecency
@@ -156,6 +158,9 @@ CREATE TABLE IF NOT EXISTS moz_origins (
 );
 
 CREATE INDEX IF NOT EXISTS hostindex ON moz_origins(rev_host);
+
+-- speeds up the host range scan and TOTAL(frecency) in api/matcher.rs ORIGIN_SQL
+CREATE INDEX IF NOT EXISTS idx_origins_host_frecency ON moz_origins(host, frecency);
 
 
 -- This table holds key-value metadata for Places and its consumers. Sync stores
