@@ -5,7 +5,7 @@
 
 # Purpose: Run Firefox-iOS tests against this application-services working tree.
 # https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-firefox-ios.md
-# Requirements: 
+# Requirements:
 # - python
 # - application-services built and working.
 # - xcpretty (`gem install xcpretty`)
@@ -18,10 +18,10 @@
 #       --use-local-repo            => Use a local firefox-ios repository instead (at the provided path). Exclusive with `remote-repo-url`.
 #       --verbose                   => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 #       --clear-previous-bindings   => Clear existing uniffi binding swift files from both the iOS and A-S generated folders. Use if files were created that need to be cleared (eg: a file of a name that is no longer used).
-#       --clean-ios-caches          => Runs the code equivalent of Xcode's 'Clean Build Folder' 
+#       --clean-ios-caches          => Runs the code equivalent of Xcode's 'Clean Build Folder'
 #       --scheme                    => The XCode scheme to build with, such as 'Fennec' or 'Firefox'
 #       --test-plan                 => The XCode test plan to run tests with (if action is `run-tests`), such as 'Smoketest' or 'FullFunctionalTestPlan'
-# 
+#
 import argparse
 import subprocess
 import os
@@ -30,11 +30,20 @@ from pathlib import Path
 import shutil
 import glob
 import re
-from shared import fatal_err, find_app_services_root, run_cmd_checked, step_msg, err_msg, run_cmd_is_successful, dir_file_sanity_check
+from shared import (
+    fatal_err,
+    find_app_services_root,
+    run_cmd_checked,
+    step_msg,
+    err_msg,
+    run_cmd_is_successful,
+    dir_file_sanity_check,
+)
 
 DEFAULT_REMOTE_REPO_URL = "https://github.com/mozilla-mobile/firefox-ios.git"
 MOZILLA_RUST_COMPONENTS_IOS_PATH = "MozillaRustComponents/Package.swift"
 MOZILLA_RUST_COMPONENTS_AS_PATH = "megazords/ios-rust/MozillaRustComponents.xcframework"
+
 
 def replace_swift_package_artifact(ios_repo_path, as_repo_path):
     """
@@ -46,12 +55,18 @@ def replace_swift_package_artifact(ios_repo_path, as_repo_path):
     xcframework_file_path = Path(as_repo_path) / MOZILLA_RUST_COMPONENTS_AS_PATH
 
     if not os.path.isfile(package_file_path):
-        err_msg("Could not find an instance of `MozillaRustComponents/Package.swift` to modify. Please ensure the iOS directory is lined up correctly.")
+        err_msg(
+            "Could not find an instance of `MozillaRustComponents/Package.swift` to modify. Please ensure the iOS directory is lined up correctly."
+        )
         return False
     if not os.path.isdir(xcframework_file_path):
-        err_msg(f"Could not find an instance of `MozillaRustComponents.xcframework` to link at {xcframework_file_path}. Please ensure the a-s directory is lined up correctly.")
+        err_msg(
+            f"Could not find an instance of `MozillaRustComponents.xcframework` to link at {xcframework_file_path}. Please ensure the a-s directory is lined up correctly."
+        )
         return False
-    xcframework_file_path_relative = os.path.relpath(xcframework_file_path, Path(package_file_path.parent))
+    xcframework_file_path_relative = os.path.relpath(
+        xcframework_file_path, Path(package_file_path.parent)
+    )
 
     # Uses regex. Matches the binaryTarget listed and replaces it with the following string.
     replace_with = f"""
@@ -61,7 +76,9 @@ def replace_swift_package_artifact(ios_repo_path, as_repo_path):
     )
     """
     step_msg(f"Writing to MozillaRustComponents/Package.swift:\n{replace_with}")
-    regex = re.compile(r'binaryTarget\([\n\s]*name\: \"MozillaRustComponents\",[\S\n\t\v ]*MozillaRustComponents\.xcframework\"[\n\s]*\)')
+    regex = re.compile(
+        r"binaryTarget\([\n\s]*name\: \"MozillaRustComponents\",[\S\n\t\v ]*MozillaRustComponents\.xcframework\"[\n\s]*\)"
+    )
 
     with open(package_file_path, "r+") as f:
         data = f.read()
@@ -73,7 +90,17 @@ def replace_swift_package_artifact(ios_repo_path, as_repo_path):
 
     return True
 
-def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, clear_previous_bindings, clean_ios_caches, verbose, action):
+
+def build_against_ios(
+    local_ios_repo_path,
+    remote_repo_url,
+    scheme,
+    test_plan,
+    clear_previous_bindings,
+    clean_ios_caches,
+    verbose,
+    action,
+):
     subprocess_stdout = None if verbose else subprocess.DEVNULL
     subprocess_stderr = None if verbose else subprocess.DEVNULL
 
@@ -85,13 +112,16 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
 
     # Naive sanity check here. Not remotely exhaustive, just to make sure some extremely incorrect directory wasn't passed.
     step_msg("Checking for sanity of application-services repository...")
-    if not dir_file_sanity_check(app_services_path, "application-services", ["megazords", "components"]):
+    if not dir_file_sanity_check(
+        app_services_path, "application-services", ["megazords", "components"]
+    ):
         return False
-    
 
     step_msg("Checking for existence of xcodebuild...")
     if not run_cmd_is_successful("xcodebuild -version", cwd=ios_repo_path, shell=True):
-        err_msg("xcodebuild is required to compile application-services for iOS. Please clone the firefox-ios repository and follow the instructions therein.")
+        err_msg(
+            "xcodebuild is required to compile application-services for iOS. Please clone the firefox-ios repository and follow the instructions therein."
+        )
         return False
 
     # Creating temp directory and cloning repository
@@ -108,14 +138,14 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
 
     # Bootstrapping the iOS repository
     step_msg("Running the firefox-ios bootstrap script...")
-    if not run_cmd_is_successful("./bootstrap.sh", 
-        cwd=ios_repo_path,
-        shell=True,
-        stdout=subprocess_stdout
+    if not run_cmd_is_successful(
+        "./bootstrap.sh", cwd=ios_repo_path, shell=True, stdout=subprocess_stdout
     ):
-        err_msg("Failed to bootstrap firefox-ios repository. Please clone the firefox-ios repository and follow the instructions therein.")
+        err_msg(
+            "Failed to bootstrap firefox-ios repository. Please clone the firefox-ios repository and follow the instructions therein."
+        )
         return False
-    
+
     # Verification check
     step_msg("Verifying iOS environment...")
     if not run_cmd_is_successful(
@@ -123,19 +153,23 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         cwd=app_services_path,
         shell=True,
         stdout=subprocess_stdout,
-        stderr=subprocess_stderr
+        stderr=subprocess_stderr,
     ):
-            err_msg("Failed to verify environment for iOS. Please run `./libs/verify-ios-environment.sh`, making suggested changes until it succeeds.")
-            return False
-    
+        err_msg(
+            "Failed to verify environment for iOS. Please run `./libs/verify-ios-environment.sh`, making suggested changes until it succeeds."
+        )
+        return False
+
     # Uniffi sanity check
     if not os.path.isdir(ios_generated_uniffi_files_path):
-        err_msg(f"Expected path `{ios_generated_uniffi_files_path}` in firefox-ios is missing. Please confirm the repository structure or try cloning it again.")
+        err_msg(
+            f"Expected path `{ios_generated_uniffi_files_path}` in firefox-ios is missing. Please confirm the repository structure or try cloning it again."
+        )
         return False
 
     if clear_previous_bindings:
         step_msg("'clear-previous-bindings' is set, clearing uniffi folders")
-        
+
         # Clear the uniffi bindings in the A-S repository as extra files created are not deleted
         # Not relevant to tmp repository
         if os.path.isdir(local_repo_generated_uniffi_files_path):
@@ -144,10 +178,18 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
 
         # Clear equivalents from the ios repository
         # (Relevant if we are using an existing directory)
-        if not run_cmd_is_successful(["git", "checkout", "."], cwd=ios_generated_uniffi_files_path):
-            fatal_err("Found an error running git commands to clear previous uniffi folders. Exiting.")
-        if not run_cmd_is_successful(["git", "clean", "-f"], cwd=ios_generated_uniffi_files_path):
-            fatal_err("Found an error running git commands to clear previous uniffi folders. Exiting.")
+        if not run_cmd_is_successful(
+            ["git", "checkout", "."], cwd=ios_generated_uniffi_files_path
+        ):
+            fatal_err(
+                "Found an error running git commands to clear previous uniffi folders. Exiting."
+            )
+        if not run_cmd_is_successful(
+            ["git", "clean", "-f"], cwd=ios_generated_uniffi_files_path
+        ):
+            fatal_err(
+                "Found an error running git commands to clear previous uniffi folders. Exiting."
+            )
 
     # Build artifacts
     # Unfortunately build_ios_artifacts is writing to stderr, so we need to hide it when it's not verbose.
@@ -158,11 +200,13 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         shell=True,
         check=True,
         stdout=subprocess_stdout,
-        stderr=subprocess_stderr
+        stderr=subprocess_stderr,
     ):
-        err_msg("Failed to build ios artifacts. Please ensure the code compiles and try running `./automation/build_ios_artifacts.sh` from the folder.")
+        err_msg(
+            "Failed to build ios artifacts. Please ensure the code compiles and try running `./automation/build_ios_artifacts.sh` from the folder."
+        )
         return False
-    
+
     # Replace with regex some data in the swift package file
     # https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-firefox-ios.md#step-2--point-firefox-ios-to-your-local-artifact
     if not replace_swift_package_artifact(ios_repo_path, app_services_path):
@@ -170,16 +214,20 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         return False
 
     if not os.path.isdir(local_repo_generated_uniffi_files_path):
-        err_msg(f"Expected path `{local_repo_generated_uniffi_files_path}` in application-services is missing after building. Please confirm the repository structure or try cloning it again.")
+        err_msg(
+            f"Expected path `{local_repo_generated_uniffi_files_path}` in application-services is missing after building. Please confirm the repository structure or try cloning it again."
+        )
         return False
 
     # Copies folder of uniffi bindings.
     step_msg("Copying uniffi bindings from:")
-    step_msg(f"{local_repo_generated_uniffi_files_path} -> {ios_generated_uniffi_files_path}")
-    for file in glob.glob('*.swift', root_dir=local_repo_generated_uniffi_files_path):
+    step_msg(
+        f"{local_repo_generated_uniffi_files_path} -> {ios_generated_uniffi_files_path}"
+    )
+    for file in glob.glob("*.swift", root_dir=local_repo_generated_uniffi_files_path):
         shutil.copy(
             f"{local_repo_generated_uniffi_files_path}/{file}",
-            ios_generated_uniffi_files_path
+            ios_generated_uniffi_files_path,
         )
 
     # Remove the glean_sym file.
@@ -206,9 +254,11 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         """,
             cwd=ios_repo_path,
             shell=True,
-            stdout=subprocess_stdout
+            stdout=subprocess_stdout,
         ):
-            err_msg("Failed to clean and compile tests on iOS",)
+            err_msg(
+                "Failed to clean and compile tests on iOS",
+            )
             return False
 
     # Run the build action
@@ -226,12 +276,16 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         """,
             cwd=ios_repo_path,
             shell=True,
-            stdout=subprocess_stdout
+            stdout=subprocess_stdout,
         ):
-            err_msg("Failed to compile and run tests on iOS",)
+            err_msg(
+                "Failed to compile and run tests on iOS",
+            )
             return False
     elif action == "run-tests":
-        step_msg("Building firefox-ios and running tests (this may take a few minutes)...")
+        step_msg(
+            "Building firefox-ios and running tests (this may take a few minutes)..."
+        )
         if not run_cmd_is_successful(
             f"""\
         set -o pipefail && \
@@ -245,13 +299,15 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, c
         """,
             cwd=ios_repo_path,
             shell=True,
-            stdout=subprocess_stdout
+            stdout=subprocess_stdout,
         ):
             err_msg("Failed to compile and run tests on iOS")
             return False
 
     else:
-        err_msg("You must either run `--action run-tests` or `--action build-without-testing` ")
+        err_msg(
+            "You must either run `--action run-tests` or `--action build-without-testing` "
+        )
         return False
 
     step_msg("Successfully built against iOS!")
@@ -274,25 +330,33 @@ if __name__ == "__main__":
         help="Clone a different firefox-ios repository.",
     )
 
-    parser.add_argument("--verbose", help="Includes subprocess running logs.", action=argparse.BooleanOptionalAction)
-    parser.add_argument('--clear-previous-bindings', 
-                        help="Clear existing uniffi binding swift files from both the iOS and A-S generated folders. Use if files were created that need to be cleared (eg: a file of a name that is no longer used).",
-                        action=argparse.BooleanOptionalAction)
+    parser.add_argument(
+        "--verbose",
+        help="Includes subprocess running logs.",
+        action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--clear-previous-bindings",
+        help="Clear existing uniffi binding swift files from both the iOS and A-S generated folders. Use if files were created that need to be cleared (eg: a file of a name that is no longer used).",
+        action=argparse.BooleanOptionalAction,
+    )
 
-    parser.add_argument('--clean-ios-caches', 
-                        help="Run Xcode 'Clean Build Folder'",
-                        action=argparse.BooleanOptionalAction)
+    parser.add_argument(
+        "--clean-ios-caches",
+        help="Run Xcode 'Clean Build Folder'",
+        action=argparse.BooleanOptionalAction,
+    )
 
     parser.add_argument(
         "--scheme",
         help="The scheme to run. Likely: `Fennec` (default) or `Firefox`",
-        default="Fennec"
+        default="Fennec",
     )
 
     parser.add_argument(
         "--test-plan",
         help="The test plan to test with. Likely: `Smoketest` (default) or `FullFunctionalTestPlan`",
-        default="Smoketest"
+        default="Smoketest",
     )
 
     parser.add_argument(
@@ -311,4 +375,13 @@ if __name__ == "__main__":
     verbose = args.verbose
     action = args.action
 
-    build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, clear_previous_bindings, clean_ios_caches, verbose, action)
+    build_against_ios(
+        local_ios_repo_path,
+        remote_repo_url,
+        scheme,
+        test_plan,
+        clear_previous_bindings,
+        clean_ios_caches,
+        verbose,
+        action,
+    )

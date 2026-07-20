@@ -4,7 +4,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 # Purpose: Run various smoke tests against this application-services working tree.
-# Requirements: 
+# Requirements:
 # - python
 # - application-services built and working.
 # For the mac builds:
@@ -33,10 +33,16 @@ parser.add_argument(
     required=True,
     help="Path to existing mozilla-central directory.",
 )
-parser.add_argument("--verbose", help="Includes subprocess running logs.", action=argparse.BooleanOptionalAction)
-parser.add_argument('--allow-clears', 
-                    help="Clear existing uniffi bindings, swift files, and so on during the various build processes.",
-                    action=argparse.BooleanOptionalAction)
+parser.add_argument(
+    "--verbose",
+    help="Includes subprocess running logs.",
+    action=argparse.BooleanOptionalAction,
+)
+parser.add_argument(
+    "--allow-clears",
+    help="Clear existing uniffi bindings, swift files, and so on during the various build processes.",
+    action=argparse.BooleanOptionalAction,
+)
 parser.add_argument(
     "--action",
     required=True,
@@ -52,13 +58,29 @@ action = args.action
 
 # Build against iOS
 start_time_ios = time.time()
-success_ios = build_against_ios(None, None, scheme="Fennec", test_plan="Smoketest", 
-                                clear_previous_bindings=allow_clears, clean_ios_caches=allow_clears, verbose=verbose, action=action)
+success_ios = build_against_ios(
+    None,
+    None,
+    scheme="Fennec",
+    test_plan="Smoketest",
+    clear_previous_bindings=allow_clears,
+    clean_ios_caches=allow_clears,
+    verbose=verbose,
+    action=action,
+)
 time_diff_ios = time.time() - start_time_ios
 
 # Build against Fenix
 start_time_fenix = time.time()
-success_fenix = build_against_fenix(firefox_dir, None, prefix_ff="fenix", prefix_as=None, clear_bindings=allow_clears, verbose=verbose, action=action)
+success_fenix = build_against_fenix(
+    firefox_dir,
+    None,
+    prefix_ff="fenix",
+    prefix_as=None,
+    clear_bindings=allow_clears,
+    verbose=verbose,
+    action=action,
+)
 time_diff_fenix = time.time() - start_time_fenix
 
 
@@ -66,18 +88,18 @@ did_tests_string = "" if action != "run-tests" else " (and tested)"
 do_tests_string = "" if action != "run-tests" else " (and test)"
 step_msg("Finished building. Results:")
 if success_ios:
-    step_msg(f"Successfully built{did_tests_string} against iOS (elapsed {time_diff_ios:.2f}s)")
+    step_msg(
+        f"Successfully built{did_tests_string} against iOS (elapsed {time_diff_ios:.2f}s)"
+    )
 else:
-    err_msg(f"Failed to build{do_tests_string} against iOS (elapsed {time_diff_ios:.2f}s)")
+    err_msg(
+        f"Failed to build{do_tests_string} against iOS (elapsed {time_diff_ios:.2f}s)"
+    )
 if success_fenix:
-    step_msg(f"Successfully built{did_tests_string} against Fenix (elapsed {time_diff_fenix:.2f}s)")
+    step_msg(
+        f"Successfully built{did_tests_string} against Fenix (elapsed {time_diff_fenix:.2f}s)"
+    )
 else:
-    err_msg(f"Failed to build{do_tests_string} against Fenix (elapsed {time_diff_fenix:.2f}s)")
-
-# TODO: This is currently skipped for draft form of PR, pending discussion.
-# if skipped_hnt:
-#     print("Skipped building against HNT. Pass `--use-monorepo-a-s` to build using the `mozilla-central` A-S tree")
-# elif success_hnt:
-#     step_msg(f"Successfully built{did_tests_string} against HNT in (elapsed {time_diff_hnt:.2f}s)")
-# else:
-#     err_msg(f"Failed to build{do_tests_string} against HNT (elapsed {time_diff_hnt:.2f}s)")
+    err_msg(
+        f"Failed to build{do_tests_string} against Fenix (elapsed {time_diff_fenix:.2f}s)"
+    )

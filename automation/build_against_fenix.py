@@ -6,37 +6,53 @@
 # Purpose: Run Firefox fenix tests against this application-services working tree.
 # https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-fenix.md
 # So, for now, we need to use an existing respository.
-# 
-# Requirements: 
+#
+# Requirements:
 # - python
 # - application-services built and working.
-# - a `firefox`/`mozilla-central` repository set up and working to use. 
+# - a `firefox`/`mozilla-central` repository set up and working to use.
 #               - See: https://firefox-source-docs.mozilla.org/contributing/contribution_quickref.html
 #
 # Usage: ./automation/build_against_fenix.py --action build-without-testing --firefox-dir ../firefox --prefix-ff fenix --prefix-as ads-client --verbose
 #
 # Arguments:
 #       --action            => Can be either `run-tests` (default) or `build-without-testing`
-#       --firefox-dir       => Working mozilla-central directory 
+#       --firefox-dir       => Working mozilla-central directory
 #                              https://firefox-source-docs.mozilla.org/contributing/contribution_quickref.html
 #       --mozconfig         => Absolute path to the mozconfig file to be used.
-#       --prefix-ff         => Prefix to be used in gradle commands to firefox repo. eg: `./gradlew fenix:assembleDebug`. For example: `geckoview`, `fenix`, `focus`." 
-#       --prefix-as         => Crate prefix to be used in gradle commands to application-services repo. eg: `./gradlew ads-client:assembleDebug`. For example: `ads-client`, `fxaclient`." 
+#       --prefix-ff         => Prefix to be used in gradle commands to firefox repo. eg: `./gradlew fenix:assembleDebug`. For example: `geckoview`, `fenix`, `focus`."
+#       --prefix-as         => Crate prefix to be used in gradle commands to application-services repo. eg: `./gradlew ads-client:assembleDebug`. For example: `ads-client`, `fxaclient`."
 #       --verbose           => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 import argparse
 import subprocess
 import os
 import tempfile
 from pathlib import Path
-from shared import find_app_services_root, set_gradle_substitution_path, step_msg, err_msg, run_cmd_is_successful, dir_file_sanity_check
+from shared import (
+    find_app_services_root,
+    set_gradle_substitution_path,
+    step_msg,
+    err_msg,
+    run_cmd_is_successful,
+    dir_file_sanity_check,
+)
 
 DEFAULT_MOZ_CONFIG_LOCATION = "mozconfig_android"
 DEFAULT_MOZ_CONFIG = """
 ac_add_options --enable-project=mobile/android
 """
 
+
 # TODO: Disable the gradle cache in mozilla-central - edit ./gradle.properties, comment out org.gradle.configuration-cache=true
-def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, clear_bindings, verbose, action):
+def build_against_fenix(
+    firefox_dir,
+    moz_config_location,
+    prefix_ff,
+    prefix_as,
+    clear_bindings,
+    verbose,
+    action,
+):
     subprocess_stdout = None if verbose else subprocess.DEVNULL
     subprocess_stderr = None if verbose else subprocess.DEVNULL
 
@@ -49,7 +65,9 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
     app_services_path = find_app_services_root()
 
     step_msg("Checking for sanity of application-services repository...")
-    if not dir_file_sanity_check(app_services_path, "application-services", ["megazords", "components"]):
+    if not dir_file_sanity_check(
+        app_services_path, "application-services", ["megazords", "components"]
+    ):
         return False
 
     prefix_as_string = f"{prefix_as}:" if prefix_as else ""
@@ -59,12 +77,16 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
     # Idea here is that mozconfig settings (primary indicator of how firefox is built) can't be passed
     # without `configure`, which is not recommended. However, we can pass test fixture mozconfig files themselves as env variables.
     if moz_config_location is None:
-        moz_config_location = os.path.abspath(tmp_dir_path / DEFAULT_MOZ_CONFIG_LOCATION)
+        moz_config_location = os.path.abspath(
+            tmp_dir_path / DEFAULT_MOZ_CONFIG_LOCATION
+        )
         with open(moz_config_location, "w") as file:
             file.write(DEFAULT_MOZ_CONFIG)
- 
+
     if not os.path.isabs(moz_config_location):
-        err_msg(f"`mozconfig` path passed: `{moz_config_location}` must be an absolute path.")
+        err_msg(
+            f"`mozconfig` path passed: `{moz_config_location}` must be an absolute path."
+        )
         return False
     if not os.path.isfile(moz_config_location):
         err_msg(f"`mozconfig` path passed: `{moz_config_location}` could not be found.")
@@ -75,15 +97,23 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
 
     # Basic sanity check here. Not remotely exhaustive, just to make sure the wrong directory wasn't passed.
     step_msg("Checking for sanity of firefox repository...")
-    if not dir_file_sanity_check(firefox_repo_path, "mozilla-central", ["mach", "CLOBBER", "gradlew", "Cargo.toml", "local.properties"]):
+    if not dir_file_sanity_check(
+        firefox_repo_path,
+        "mozilla-central",
+        ["mach", "CLOBBER", "gradlew", "Cargo.toml", "local.properties"],
+    ):
         return False
 
     # Key step: gradle can use a different application-services directory
     step_msg(f"Configuring {firefox_repo_path} to autopublish appservices")
     if not set_gradle_substitution_path(
-        firefox_repo_path, "autoPublish.application-services.dir", find_app_services_root()
+        firefox_repo_path,
+        "autoPublish.application-services.dir",
+        find_app_services_root(),
     ):
-        err_msg("Failed in attempting to set `local.properties` `autoPublish.application-services.dir`")
+        err_msg(
+            "Failed in attempting to set `local.properties` `autoPublish.application-services.dir`"
+        )
         return False
 
     # Environment verification check
@@ -93,47 +123,61 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
         cwd=app_services_path,
         shell=True,
         stdout=subprocess_stdout,
-        stderr=subprocess_stderr
+        stderr=subprocess_stderr,
     ):
-        err_msg("Failed to run `./libs/verify-android-environment.sh` in app-services environment. Run this script and follow any instructions given until it succeeds, then try again.")
+        err_msg(
+            "Failed to run `./libs/verify-android-environment.sh` in app-services environment. Run this script and follow any instructions given until it succeeds, then try again."
+        )
         return False
 
     # Gradle clean cached files
     if clear_bindings:
-        step_msg("Cleaning application-services with gradle to clear cached android bindings...")
-        if not run_cmd_is_successful(f"./gradlew {prefix_as_string}clean", 
+        step_msg(
+            "Cleaning application-services with gradle to clear cached android bindings..."
+        )
+        if not run_cmd_is_successful(
+            f"./gradlew {prefix_as_string}clean",
             cwd=app_services_path,
             shell=True,
-            stdout=subprocess_stdout
+            stdout=subprocess_stdout,
         ):
-            err_msg("Could not run ./gradlew clean. Please check to ensure the mozilla-center folder structure is sound.")
+            err_msg(
+                "Could not run ./gradlew clean. Please check to ensure the mozilla-center folder structure is sound."
+            )
             return False
 
     # Run gradle compilations and tests
     step_msg("Compiling application-services with gradle to test android bindings...")
-    if not run_cmd_is_successful(f"./gradlew {prefix_as_string}assembleDebug", 
+    if not run_cmd_is_successful(
+        f"./gradlew {prefix_as_string}assembleDebug",
         cwd=app_services_path,
         shell=True,
-        stdout=subprocess_stdout
+        stdout=subprocess_stdout,
     ):
         err_msg("Failed to compile application-services with gradle.")
         return False
 
-    step_msg(f"Compiling firefox with mozconfig with `./gradlew {prefix_ff_string}assembleDebug` (mozconfig=`{moz_config_location}`)...")
-    if not run_cmd_is_successful(f"MOZCONFIG={moz_config_location} ./gradlew {prefix_ff_string}assembleDebug", 
+    step_msg(
+        f"Compiling firefox with mozconfig with `./gradlew {prefix_ff_string}assembleDebug` (mozconfig=`{moz_config_location}`)..."
+    )
+    if not run_cmd_is_successful(
+        f"MOZCONFIG={moz_config_location} ./gradlew {prefix_ff_string}assembleDebug",
         cwd=firefox_repo_path,
         shell=True,
-        stdout=subprocess_stdout
+        stdout=subprocess_stdout,
     ):
         err_msg("Failed to compile firefox with gradle.")
         return False
 
     if action == "run-tests":
-        step_msg(f"Compiling firefox with mozconfig with `./gradlew {prefix_ff_string}testDebug` (mozconfig=`{moz_config_location}`)...")
-        if not run_cmd_is_successful(f"MOZCONFIG={moz_config_location} ./gradlew {prefix_ff_string}testDebug", 
+        step_msg(
+            f"Compiling firefox with mozconfig with `./gradlew {prefix_ff_string}testDebug` (mozconfig=`{moz_config_location}`)..."
+        )
+        if not run_cmd_is_successful(
+            f"MOZCONFIG={moz_config_location} ./gradlew {prefix_ff_string}testDebug",
             cwd=firefox_repo_path,
             shell=True,
-            stdout=subprocess_stdout
+            stdout=subprocess_stdout,
         ):
             err_msg("Failed to run tests against firefox with gradle.")
             return False
@@ -146,7 +190,11 @@ if __name__ == "__main__":
         description="Run Firefox Android tests against this application-services working tree."
     )
 
-    parser.add_argument("--verbose", help="Includes subprocess running logs.", action=argparse.BooleanOptionalAction)
+    parser.add_argument(
+        "--verbose",
+        help="Includes subprocess running logs.",
+        action=argparse.BooleanOptionalAction,
+    )
     parser.add_argument(
         "--action",
         choices=["run-tests", "build-without-testing"],
@@ -169,9 +217,11 @@ if __name__ == "__main__":
         "--prefix-as",
         help="Crate name to pass for preliminary application-services android building step. For example: `ads-client`, `fxaclient`",
     )
-    parser.add_argument('--clear-previous-bindings', 
-                        help="Clear existing uniffi binding files from the firefox android build folder. (`/gradlew clean`). This shares any prefixes supplied by `--prefix-as`. If unrelated files need to be cleared, do not pass a --prefix-as argument",
-                        action=argparse.BooleanOptionalAction)
+    parser.add_argument(
+        "--clear-previous-bindings",
+        help="Clear existing uniffi binding files from the firefox android build folder. (`/gradlew clean`). This shares any prefixes supplied by `--prefix-as`. If unrelated files need to be cleared, do not pass a --prefix-as argument",
+        action=argparse.BooleanOptionalAction,
+    )
 
     args = parser.parse_args()
     firefox_dir = args.firefox_dir
@@ -181,4 +231,12 @@ if __name__ == "__main__":
     prefix_ff = args.prefix_ff
     prefix_as = args.prefix_as
     clear_bindings = args.clear_previous_bindings
-    build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, clear_bindings, verbose, action)
+    build_against_fenix(
+        firefox_dir,
+        moz_config_location,
+        prefix_ff,
+        prefix_as,
+        clear_bindings,
+        verbose,
+        action,
+    )
