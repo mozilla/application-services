@@ -239,7 +239,8 @@ def build_against_ios(
     scheme = "Fennec" if scheme is None else scheme
     test_plan = "Smoketest" if test_plan is None else test_plan
     if clean_ios_caches:
-        # TODO: "Reset package caches" part not done yet
+        # TODO: "Reset package caches" part not done yet. Currently not a great script way to do it seemingly other
+        # than deleting ~/Library files, so needs examination for a code or xcodebuild based solution.
 
         # Clean build folder
         step_msg("Cleaning build folder...")
