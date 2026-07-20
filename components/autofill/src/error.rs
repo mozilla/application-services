@@ -65,6 +65,9 @@ pub enum Error {
 
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
+
+    #[error("The store is closed")]
+    DatabaseClosed,
 }
 
 // Define how our internal errors are handled and converted to external errors
@@ -125,6 +128,13 @@ impl GetErrorHandling for Error {
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })
                     .log_warning()
+            }
+
+            Self::DatabaseClosed => {
+                ErrorHandling::convert(AutofillApiError::UnexpectedAutofillApiError {
+                    reason: "The store is closed".to_string(),
+                })
+                .report_error("autofill-database-closed")
             }
         }
     }

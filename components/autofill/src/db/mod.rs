@@ -11,6 +11,7 @@ pub mod store;
 
 use crate::error::*;
 
+use error_support::error;
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use rusqlite::{Connection, OpenFlags};
 use sql_support::open_database;
@@ -60,6 +61,13 @@ impl AutofillDb {
     #[inline]
     pub fn begin_interrupt_scope(&self) -> Result<SqlInterruptScope> {
         Ok(self.interrupt_handle.begin_interrupt_scope()?)
+    }
+
+    pub fn close(self) {
+        if let Err((_, err)) = self.writer.close() {
+            // Log the error, but continue with shutdown.
+            error!("Failed to close the connection: {:?}", err);
+        }
     }
 }
 
