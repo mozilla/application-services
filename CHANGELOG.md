@@ -1,4 +1,4 @@
-# v154.0 (In progress)
+# v154.0 (_2026-07-20_)
 
 ## ✨ What's Changed ✨
 
@@ -10,7 +10,7 @@
 
 - Skip verification of signatures with unknown signature types ([Bug 2055147](https://bugzilla.mozilla.org/show_bug.cgi?id=2055147))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v153.0...v154.0)
 
 ## ✨ What's New ✨
 
