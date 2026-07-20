@@ -15,7 +15,6 @@
 #       --use-local-repo    => Use a local firefox-ios repository instead (at the provided path). Exclusive with `remote-repo-url`.
 #       --verbose           => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 #       --allow-clears      => Clear existing uniffi bindings, swift files, and so on during the various build processes.
-#       --action            => Either 'run-tests' or 'build-without-testing
 
 import argparse
 import time

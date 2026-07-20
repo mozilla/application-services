@@ -23,6 +23,7 @@
 #       --prefix-ff         => Prefix to be used in gradle commands to firefox repo. eg: `./gradlew fenix:assembleDebug`. For example: `geckoview`, `fenix`, `focus`."
 #       --prefix-as         => Crate prefix to be used in gradle commands to application-services repo. eg: `./gradlew ads-client:assembleDebug`. For example: `ads-client`, `fxaclient`."
 #       --verbose           => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
+#       --clear-bindings    => Whether or not to clear existing bindings and cached artifacts, such as with "./gradlew fenix:clean"
 import argparse
 import subprocess
 import os
