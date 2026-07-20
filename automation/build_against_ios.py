@@ -332,7 +332,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--verbose",
-        help="Includes subprocess running logs.",
+        help="Display subprocess logs for compilation processes (off by default).",
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(

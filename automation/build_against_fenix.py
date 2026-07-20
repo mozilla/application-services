@@ -29,6 +29,7 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
+import re
 from shared import (
     find_app_services_root,
     set_gradle_substitution_path,
@@ -42,9 +43,39 @@ DEFAULT_MOZ_CONFIG_LOCATION = "mozconfig_android"
 DEFAULT_MOZ_CONFIG = """
 ac_add_options --enable-project=mobile/android
 """
+MOZILLA_FF_GRADLE_PROPERTIES_PATH = "gradle.properties"
 
 
-# TODO: Disable the gradle cache in mozilla-central - edit ./gradle.properties, comment out org.gradle.configuration-cache=true
+# Replaces org.gradle.configuration-cache=true with a commented version.
+def comment_gradle_cache_line(firefox_repo_path):
+    """
+    Comments out the gradle cache line pursuant to step 2 here.
+    https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-fenix.md#pre-requisites
+    """
+
+    properties_file_path = Path(firefox_repo_path) / MOZILLA_FF_GRADLE_PROPERTIES_PATH
+    if not os.path.isfile(properties_file_path):
+        err_msg(
+            "Could not find an instance of `gradle.properties` to modify. Please ensure the `m-c`/`firefox` directory is lined up correctly."
+        )
+        return False
+
+    # Uses regex. Matches the binaryTarget listed and replaces it with the following string.
+    replace_with = """# org.gradle.configuration-cache=true"""
+    step_msg(f"Writing to gradle.properties:\n{replace_with}")
+    regex = re.compile(r"^#*\s*org\.gradle\.configuration-cache=true\s*$", re.MULTILINE)
+
+    with open(properties_file_path, "r+") as f:
+        data = f.read()
+        # Regex string matches this tidbit.
+        package_file = regex.sub(replace_with, data)
+        f.seek(0)
+        f.write(package_file)
+        f.truncate()
+
+    return True
+
+
 def build_against_fenix(
     firefox_dir,
     moz_config_location,
@@ -105,6 +136,7 @@ def build_against_fenix(
     ):
         return False
 
+    # The following steps modify several property files in the m-c repository provided:
     # Key step: gradle can use a different application-services directory
     step_msg(f"Configuring {firefox_repo_path} to autopublish appservices")
     if not set_gradle_substitution_path(
@@ -114,6 +146,14 @@ def build_against_fenix(
     ):
         err_msg(
             "Failed in attempting to set `local.properties` `autoPublish.application-services.dir`"
+        )
+        return False
+
+    # Comments out gradle cache in local.properties
+    step_msg(f"Configuring {firefox_repo_path} to disable gradle configuration-cache")
+    if not comment_gradle_cache_line(firefox_repo_path):
+        err_msg(
+            "Failed in attempting to set `gradle.properties` `#org.gradle.configuration-cache=true`"
         )
         return False
 
@@ -193,7 +233,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--verbose",
-        help="Includes subprocess running logs.",
+        help="Display subprocess logs for compilation processes (off by default).",
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
@@ -204,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--firefox-dir",
         required=True,
-        help="Path to existing mozilla-central directory.",
+        help="Path to existing bootstrapped `mozilla-central` directory.",
     )
     parser.add_argument(
         "--mozconfig",

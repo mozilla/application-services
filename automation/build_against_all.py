@@ -30,16 +30,16 @@ group = parser.add_mutually_exclusive_group()
 parser.add_argument(
     "--firefox-dir",
     required=True,
-    help="Path to existing mozilla-central directory.",
+    help="Path to existing bootstrapped `mozilla-central` directory.",
 )
 parser.add_argument(
     "--verbose",
-    help="Includes subprocess running logs.",
+    help="Display subprocess logs for compilation processes (off by default).",
     action=argparse.BooleanOptionalAction,
 )
 parser.add_argument(
     "--allow-clears",
-    help="Clear existing uniffi bindings, swift files, and so on during the various build processes.",
+    help="Clear existing uniffi bindings, swift files, and so on during the various build processes (what gets cleared varies per platform test).",
     action=argparse.BooleanOptionalAction,
 )
 parser.add_argument(
