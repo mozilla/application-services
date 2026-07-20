@@ -529,3 +529,152 @@ pub fn bench_top_frecent(c: &mut Criterion) {
         });
     }
 }
+
+// -----------------------------------------------------------------------------------------
+// origin autocomplete benchmark, speeding up the moz_origins host scan via an index
+// -----------------------------------------------------------------------------------------
+
+// Insert many origins, spread over leading letters and frecencies, so the host scan and
+// GROUP BY in ORIGIN_SQL have real work to do. moz_origins has no insert triggers.
+fn seed_db_for_origin_autocomplete(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        r#"
+        WITH RECURSIVE seq(i) AS (
+            SELECT 1 UNION ALL SELECT i + 1 FROM seq WHERE i < 6000
+        )
+        INSERT OR IGNORE INTO moz_origins (prefix, host, rev_host, frecency)
+        SELECT
+            'https',
+            char(97 + (i % 26)) || 'host' || i || '.example.com',
+            reverse_host(char(97 + (i % 26)) || 'host' || i || '.example.com'),
+            (i * 7) % 100000
+        FROM seq;
+        "#,
+    )?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+fn create_origins_host_frecency_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_origins_host_frecency ON moz_origins(host, frecency);",
+    )?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+fn drop_origins_host_frecency_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch("DROP INDEX IF EXISTS idx_origins_host_frecency;")?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+pub fn bench_origin_autocomplete(c: &mut Criterion) {
+    // A single-letter query routes through looks_like_origin to ORIGIN_SQL.
+    const QUERY: &str = "a";
+
+    // Create two independent DBs so index state changes do not leak between benches.
+    let db_no_index = TestDb::new();
+    seed_db_for_origin_autocomplete(&db_no_index.db).unwrap();
+    drop_origins_host_frecency_index(&db_no_index.db).unwrap();
+
+    let db_with_index = TestDb::new();
+    seed_db_for_origin_autocomplete(&db_with_index.db).unwrap();
+    create_origins_host_frecency_index(&db_with_index.db).unwrap();
+
+    // 1) Without idx_origins_host_frecency
+    {
+        let tdb = db_no_index.clone();
+        c.bench_function("origin_autocomplete: NO idx_origins_host_frecency", move |b| {
+            let db = &tdb.db;
+            b.iter(|| match_url(db, QUERY).unwrap())
+        });
+    }
+
+    // 2) With idx_origins_host_frecency
+    {
+        let tdb = db_with_index.clone();
+        c.bench_function("origin_autocomplete: idx_origins_host_frecency", move |b| {
+            let db = &tdb.db;
+            b.iter(|| match_url(db, QUERY).unwrap())
+        });
+    }
+}
+
+// -----------------------------------------------------------------------------------------
+// per-origin url benchmark, replacing originidindex with an (origin_id, frecency) index
+// -----------------------------------------------------------------------------------------
+
+// Create many pages that all share one origin, so URL_SQL's per-origin ORDER BY frecency has
+// a large set to walk. Real URLs let the afterinsert trigger wire up origin_id, as init_db does.
+fn seed_db_for_origin_frecency(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        r#"
+        WITH RECURSIVE seq(i) AS (
+            SELECT 1 UNION ALL SELECT i + 1 FROM seq WHERE i < 12000
+        )
+        INSERT INTO moz_places (url, guid, frecency, hidden, url_hash)
+        SELECT
+            'https://example.com/page/' || i,
+            'bench_of_' || i,
+            (i * 7919) % 100000,
+            0,
+            hash('https://example.com/page/' || i)
+        FROM seq;
+        "#,
+    )?;
+    places::storage::delete_pending_temp_tables(db)?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+// Baseline: the single-column index that idx_places_origin_frecency replaces.
+fn create_origin_id_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        "DROP INDEX IF EXISTS idx_places_origin_frecency;
+         CREATE INDEX IF NOT EXISTS originidindex ON moz_places(origin_id);",
+    )?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+fn create_origin_frecency_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        "DROP INDEX IF EXISTS originidindex;
+         CREATE INDEX IF NOT EXISTS idx_places_origin_frecency ON moz_places(origin_id, frecency);",
+    )?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+pub fn bench_origin_frecency_index(c: &mut Criterion) {
+    // A query containing '/' routes to URL_SQL, scoped to the heavy origin.
+    const QUERY: &str = "example.com/";
+
+    // Create two independent DBs so index state changes do not leak between benches.
+    let db_origin_id = TestDb::new();
+    seed_db_for_origin_frecency(&db_origin_id.db).unwrap();
+    create_origin_id_index(&db_origin_id.db).unwrap();
+
+    let db_origin_frecency = TestDb::new();
+    seed_db_for_origin_frecency(&db_origin_frecency.db).unwrap();
+    create_origin_frecency_index(&db_origin_frecency.db).unwrap();
+
+    // 1) Old single-column originidindex
+    {
+        let tdb = db_origin_id.clone();
+        c.bench_function("origin_url: originidindex", move |b| {
+            let db = &tdb.db;
+            b.iter(|| match_url(db, QUERY).unwrap())
+        });
+    }
+
+    // 2) New idx_places_origin_frecency
+    {
+        let tdb = db_origin_frecency.clone();
+        c.bench_function("origin_url: idx_places_origin_frecency", move |b| {
+            let db = &tdb.db;
+            b.iter(|| match_url(db, QUERY).unwrap())
+        });
+    }
+}
