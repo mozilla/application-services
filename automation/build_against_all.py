@@ -14,15 +14,14 @@
 #       --action            => Can be either `run-tests` (default) or `build-without-testing`
 #       --use-local-repo    => Use a local firefox-ios repository instead (at the provided path). Exclusive with `remote-repo-url`.
 #       --verbose           => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
-#       --branch            => What branch of the firefox-ios repo to use
-# TODO: args
+#       --allow-clears      => Clear existing uniffi bindings, swift files, and so on during the various build processes.
+#       --action            => Either 'run-tests' or 'build-without-testing
 
 import argparse
 import time
 from shared import err_msg, step_msg
 from build_against_fenix import build_against_fenix
 from build_against_ios import build_against_ios
-from build_against_hnt import build_against_hnt
 
 parser = argparse.ArgumentParser(
     description="Run groups of tests against this application-services working tree."
@@ -42,7 +41,7 @@ parser.add_argument(
     "--action",
     required=True,
     choices=["run-tests", "build-without-testing"],
-    help="Run the following action once firefox-ios is set up.",
+    help="Run the following action for target's test",
 )
 
 args = parser.parse_args()
@@ -52,9 +51,9 @@ allow_clears = args.allow_clears
 action = args.action
 
 # Build against iOS
-# TODO: We *may* be able to run this one concurrently to the other two?
 start_time_ios = time.time()
-success_ios = build_against_ios(None, None, clear_previous_bindings=allow_clears, clean_ios_caches=allow_clears, verbose=verbose, action=action)
+success_ios = build_against_ios(None, None, scheme="Fennec", test_plan="Smoketest", 
+                                clear_previous_bindings=allow_clears, clean_ios_caches=allow_clears, verbose=verbose, action=action)
 time_diff_ios = time.time() - start_time_ios
 
 # Build against Fenix

@@ -53,6 +53,18 @@ def find_app_services_root():
     return cur_dir.absolute()
 
 
+def dir_file_sanity_check(directory_path, dir_name, example_file_names):
+    """
+    Extremely rudimentary and naive check for a few basic files in a directory, for better handling if the wrong directory is passed.
+    """
+    for example_file in example_file_names:
+        new_path = Path(directory_path) / example_file
+        if not os.path.isfile(new_path) and not os.path.isdir(new_path):
+            err_msg(f"`{example_file}` is missing in root of `{dir_name}` directory. Please confirm this is a valid local copy of `{dir_name}` at: {directory_path}")
+            return False
+    return True
+
+
 def get_moz_remote():
     """
     Get the name of the remote for the official mozilla application-services repo

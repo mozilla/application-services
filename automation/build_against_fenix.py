@@ -28,7 +28,7 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
-from shared import find_app_services_root, set_gradle_substitution_path, step_msg, err_msg, run_cmd_is_successful
+from shared import find_app_services_root, set_gradle_substitution_path, step_msg, err_msg, run_cmd_is_successful, dir_file_sanity_check
 
 DEFAULT_MOZ_CONFIG_LOCATION = "mozconfig_android"
 DEFAULT_MOZ_CONFIG = """
@@ -37,12 +37,8 @@ ac_add_options --enable-project=mobile/android
 
 # TODO: Disable the gradle cache in mozilla-central - edit ./gradle.properties, comment out org.gradle.configuration-cache=true
 def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, clear_bindings, verbose, action):
-    subprocess_stdout = None
-    if not verbose:
-        subprocess_stdout = subprocess.DEVNULL
-    subprocess_stderr = None
-    if not verbose:
-        subprocess_stderr = subprocess.DEVNULL
+    subprocess_stdout = None if verbose else subprocess.DEVNULL
+    subprocess_stderr = None if verbose else subprocess.DEVNULL
 
     if action is None:
         action = "run-tests"
@@ -52,33 +48,21 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
 
     app_services_path = find_app_services_root()
 
-    # Basic sanity check here. Not remotely exhaustive, just to make sure some very wrong directory wasn't passed.
-    # TODO: modularize this
     step_msg("Checking for sanity of application-services repository...")
-    for example_file in [
-        "megazords", "components"
-    ]:
-        if not os.path.isfile(app_services_path / example_file) and not os.path.isdir(app_services_path / example_file):
-            err_msg(f"`{example_file}` is missing in root of `application-services` directory. Please confirm this is a valid local copy of `application-services` at: {app_services_path}")
-            return False
+    if not dir_file_sanity_check(app_services_path, "application-services", ["megazords", "components"]):
+        return False
 
+    prefix_as_string = f"{prefix_as}:" if prefix_as else ""
+    prefix_ff_string = f"{prefix_ff}:" if prefix_ff else ""
 
-    prefix_as_string = ""
-    if prefix_as:
-        prefix_as_string = f"{prefix_as}:"
-    prefix_ff_string = ""
-    if prefix_ff:
-        prefix_ff_string = f"{prefix_ff}:"
-
-
-    ## MOZCONFIG handling.
+    # MOZCONFIG handling.
     # Idea here is that mozconfig settings (primary indicator of how firefox is built) can't be passed
     # without `configure`, which is not recommended. However, we can pass test fixture mozconfig files themselves as env variables.
     if moz_config_location is None:
         moz_config_location = os.path.abspath(tmp_dir_path / DEFAULT_MOZ_CONFIG_LOCATION)
         with open(moz_config_location, "w") as file:
             file.write(DEFAULT_MOZ_CONFIG)
-        
+ 
     if not os.path.isabs(moz_config_location):
         err_msg(f"`mozconfig` path passed: `{moz_config_location}` must be an absolute path.")
         return False
@@ -89,16 +73,12 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
     with open(moz_config_location) as f:
         print(f.read())
 
-
     # Basic sanity check here. Not remotely exhaustive, just to make sure the wrong directory wasn't passed.
     step_msg("Checking for sanity of firefox repository...")
-    for example_file in [
-        "mach", "CLOBBER", "gradlew", "Cargo.toml"
-    ]:
-        if not os.path.isfile(firefox_repo_path / example_file):
-            err_msg(f"`{example_file}` is missing in root of firefox directory. Please confirm this is a valid local copy of mozilla-central.")
-            return False
+    if not dir_file_sanity_check(firefox_repo_path, "mozilla-central", ["mach", "CLOBBER", "gradlew", "Cargo.toml", "local.properties"]):
+        return False
 
+    # Key step: gradle can use a different application-services directory
     step_msg(f"Configuring {firefox_repo_path} to autopublish appservices")
     if not set_gradle_substitution_path(
         firefox_repo_path, "autoPublish.application-services.dir", find_app_services_root()
@@ -106,7 +86,7 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
         err_msg("Failed in attempting to set `local.properties` `autoPublish.application-services.dir`")
         return False
 
-    # Verification check
+    # Environment verification check
     step_msg("Verifying Android environment...")
     if not run_cmd_is_successful(
         "./libs/verify-android-environment.sh",
@@ -118,6 +98,7 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
         err_msg("Failed to run `./libs/verify-android-environment.sh` in app-services environment. Run this script and follow any instructions given until it succeeds, then try again.")
         return False
 
+    # Gradle clean cached files
     if clear_bindings:
         step_msg("Cleaning application-services with gradle to clear cached android bindings...")
         if not run_cmd_is_successful(f"./gradlew {prefix_as_string}clean", 
@@ -128,6 +109,7 @@ def build_against_fenix(firefox_dir, moz_config_location, prefix_ff, prefix_as, 
             err_msg("Could not run ./gradlew clean. Please check to ensure the mozilla-center folder structure is sound.")
             return False
 
+    # Run gradle compilations and tests
     step_msg("Compiling application-services with gradle to test android bindings...")
     if not run_cmd_is_successful(f"./gradlew {prefix_as_string}assembleDebug", 
         cwd=app_services_path,
@@ -175,7 +157,6 @@ if __name__ == "__main__":
         required=True,
         help="Path to existing mozilla-central directory.",
     )
-
     parser.add_argument(
         "--mozconfig",
         help="Absolute path to the desired mozconfig file. This affects the build destination, ensure it specifies android if you override it.",
@@ -188,8 +169,6 @@ if __name__ == "__main__":
         "--prefix-as",
         help="Crate name to pass for preliminary application-services android building step. For example: `ads-client`, `fxaclient`",
     )
-
-    # TODO: Is this needed? It seems like rebuilding it doesn't clear 'old' files (eg: ones that are not overwritten but should be gone, such as one under a different name)
     parser.add_argument('--clear-previous-bindings', 
                         help="Clear existing uniffi binding files from the firefox android build folder. (`/gradlew clean`). This shares any prefixes supplied by `--prefix-as`. If unrelated files need to be cleared, do not pass a --prefix-as argument",
                         action=argparse.BooleanOptionalAction)
