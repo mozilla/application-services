@@ -230,13 +230,9 @@ impl CliFxa {
             other => anyhow::bail!("Unexpected FxA state after BeginOAuthFlow: {other:?}"),
         };
 
-        println!("Trying to open the auth URL — if your browser doesn't open, please open this URL manually:");
-        println!("    {oauth_url}\n");
-        match open::that(&oauth_url) {
-            Ok(()) => println!("Opened in your browser."),
-            Err(e) => crate::warn!("Could not open a browser: {e}"),
-        }
-
+        println!("In a (probably private) browser window, please open:");
+        println!(" {oauth_url}\n");
+        println!("paste the final 'Connected' URL from a successful flow below.");
         let final_url = Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
         let query_params: HashMap<String, String> = final_url.query_pairs().into_owned().collect();
 
