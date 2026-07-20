@@ -31,7 +31,7 @@ from shared import fatal_err, find_app_services_root, run_cmd_checked, step_msg,
 
 DEFAULT_REMOTE_REPO_URL = "https://github.com/mozilla-mobile/firefox-ios.git"
 
-def build_against_ios(local_ios_repo_path, remote_repo_url, clear_previous_bindings, clean_ios_caches, verbose, action):
+def build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, clear_previous_bindings, clean_ios_caches, verbose, action):
 
     subprocess_stdout = None
     if not verbose:
@@ -151,17 +151,19 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, clear_previous_bindi
     step_msg(f"Removing: {ios_generated_uniffi_files_path}/glean_sym.swift")
     os.remove(f"{ios_generated_uniffi_files_path}/glean_sym.swift")
 
+    scheme = "Fennec" if scheme is None else scheme
+    test_plan = "Smoketest" if test_plan is None else test_plan
     if clean_ios_caches:
         # TODO: "Reset package caches" part not done yet
 
         # Clean build folder
         step_msg("Cleaning build folder...")
         if not run_cmd_is_successful(
-            """\
+            f"""\
         set -o pipefail && \
         xcodebuild \
         -workspace ./firefox-ios/Client.xcodeproj/project.xcworkspace \
-        -scheme Fennec \
+        -scheme {scheme} \
         clean | \
         xcpretty
         """,
@@ -176,11 +178,11 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, clear_previous_bindi
     if action == "build-without-testing":
         step_msg("Running xcodebuild without testing (this may take a few minutes)...")
         if not run_cmd_is_successful(
-            """\
+            f"""\
         set -o pipefail && \
         xcodebuild \
         -workspace ./firefox-ios/Client.xcodeproj/project.xcworkspace \
-        -scheme Fennec \
+        -scheme {scheme} \
         -destination 'platform=iOS Simulator,name=iPhone 17' \
         build-for-testing | \
         xcpretty
@@ -195,12 +197,13 @@ def build_against_ios(local_ios_repo_path, remote_repo_url, clear_previous_bindi
     elif action == "run-tests":
         step_msg("Building firefox-ios and running tests (this may take a few minutes)...")
         if not run_cmd_is_successful(
-            """\
+            f"""\
         set -o pipefail && \
         xcodebuild \
         -workspace ./firefox-ios/Client.xcodeproj/project.xcworkspace \
-        -scheme Fennec \
+        -scheme {scheme} \
         -destination 'platform=iOS Simulator,name=iPhone 17' \
+        -testPlan {test_plan} \
         test | \
         xcpretty
         """,
@@ -245,6 +248,18 @@ if __name__ == "__main__":
                         action=argparse.BooleanOptionalAction)
 
     parser.add_argument(
+        "--scheme",
+        help="The scheme to run. Likely: `Fennec` (default) or `Firefox`",
+        default="Fennec"
+    )
+
+    parser.add_argument(
+        "--test-plan",
+        help="The test plan to test with. Likely: `Smoketest` (default) or `FullFunctionalTestPlan`",
+        default="Smoketest"
+    )
+
+    parser.add_argument(
         "--action",
         choices=["run-tests", "build-without-testing"],
         help="Run the following action once firefox-ios is set up.",
@@ -255,7 +270,9 @@ if __name__ == "__main__":
     remote_repo_url = args.remote_repo_url
     clear_previous_bindings = args.clear_previous_bindings
     clean_ios_caches = args.clean_ios_caches
+    scheme = args.scheme
+    test_plan = args.test_plan
     verbose = args.verbose
     action = args.action
 
-    build_against_ios(local_ios_repo_path, remote_repo_url, clear_previous_bindings, clean_ios_caches, verbose, action)
+    build_against_ios(local_ios_repo_path, remote_repo_url, scheme, test_plan, clear_previous_bindings, clean_ios_caches, verbose, action)

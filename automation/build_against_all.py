@@ -59,7 +59,7 @@ time_diff_ios = time.time() - start_time_ios
 
 # Build against Fenix
 start_time_fenix = time.time()
-success_fenix = build_against_fenix(firefox_dir, None, None, None, clear_bindings=allow_clears, verbose=verbose, action=action)
+success_fenix = build_against_fenix(firefox_dir, None, prefix_ff="fenix", prefix_as=None, clear_bindings=allow_clears, verbose=verbose, action=action)
 time_diff_fenix = time.time() - start_time_fenix
 
 
