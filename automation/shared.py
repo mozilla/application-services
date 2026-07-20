@@ -18,11 +18,8 @@ def fatal_err(msg):
     err_msg(msg)
     sys.exit(1)
 
-def err_msg(msg, allow_continue = False):
+def err_msg(msg):
     print(f"\033[31mError: {msg}\033[0m")
-    if not allow_continue:
-        sys.exit(1)
-
 
 def run_cmd_checked(*args, **kwargs):
     """Run a command, throwing an exception if it exits with non-zero status."""
