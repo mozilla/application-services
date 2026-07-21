@@ -235,9 +235,8 @@ impl SyncEngine for WebExtSyncEngine {
 // removes the facade + BSO marshalling boilerplate. The wrapper drives the
 // `SyncEngine` impl on the `BridgedEngine` defined above (webext-storage is
 // Desktop-only, but implements the one unified `SyncEngine` trait like everyone
-// else). Its `set_uploaded` UDL row is `sequence<Guid>` (a custom type over
-// `sync_guid::Guid`), so the id element type is `sync_guid::Guid`.
-sync15::uniffi_bridged_engine!(WebExtStorageBridgedEngine, sync_guid::Guid);
+// else).
+sync15::uniffi_bridged_engine!(WebExtStorageBridgedEngine);
 
 impl From<anyhow::Error> for crate::error::Error {
     fn from(value: anyhow::Error) -> Self {

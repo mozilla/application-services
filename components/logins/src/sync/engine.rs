@@ -474,6 +474,15 @@ impl SyncEngine for LoginsSyncEngine {
         Ok(self.get_last_sync(&db)?)
     }
 
+    // Force a full re-download next sync without a full reset. Desktop's bridged
+    // engine base calls this for every engine, so logins must implement it
+    // rather than fall back to the no-op default.
+    fn reset_last_sync(&self) -> anyhow::Result<()> {
+        let db = self.store.lock_db()?;
+        self.set_last_sync(&db, ServerTimestamp(0))?;
+        Ok(())
+    }
+
     fn get_collection_request(
         &self,
         server_timestamp: ServerTimestamp,

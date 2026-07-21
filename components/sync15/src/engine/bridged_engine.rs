@@ -130,16 +130,10 @@ impl BridgedEngineWrapper {
         Ok(outgoing)
     }
 
-    /// Accepts anything that turns into a [`Guid`], which reconciles the
-    /// per-crate id representation: logins hands us `Vec<String>`, while
-    /// tabs and webext-storage hand us `Vec<sync_guid::Guid>`. Both `String`
-    /// and `Guid` implement `Into<Guid>`.
-    pub fn set_uploaded<G: Into<Guid>>(
-        &self,
-        server_modified_millis: i64,
-        ids: Vec<G>,
-    ) -> Result<()> {
-        let guids: Vec<Guid> = ids.into_iter().map(Into::into).collect();
+    /// The uploaded ids always cross the UniFFI boundary as plain strings; we
+    /// convert them to [`Guid`] for the engine here.
+    pub fn set_uploaded(&self, server_modified_millis: i64, ids: Vec<String>) -> Result<()> {
+        let guids: Vec<Guid> = ids.into_iter().map(Guid::from).collect();
         self.inner
             .set_uploaded(ServerTimestamp::from_millis(server_modified_millis), guids)
     }
@@ -163,13 +157,12 @@ impl BridgedEngineWrapper {
 ///
 /// Usage (invoke in the module the crate's UDL `interface` resolves against):
 /// ```ignore
-/// sync15::uniffi_bridged_engine!(LoginsBridgedEngine, String);
-/// sync15::uniffi_bridged_engine!(TabsBridgedEngine, sync_guid::Guid);
+/// sync15::uniffi_bridged_engine!(LoginsBridgedEngine);
+/// sync15::uniffi_bridged_engine!(TabsBridgedEngine);
 /// ```
 ///
-/// `$guid` is the element type the crate's UDL lowers `set_uploaded`'s ids to
-/// (`String` for logins' `sequence<string>`, `sync_guid::Guid` for the tabs and
-/// webext-storage custom-type sequences). The generated methods return
+/// All bridged engines expose the same interface; `set_uploaded` takes ids as a
+/// plain `sequence<string>` in every crate's UDL. The generated methods return
 /// `anyhow::Result`, which the crate's UDL `[Throws=...]` maps to its error type
 /// via the existing `impl From<anyhow::Error>`.
 ///
@@ -178,7 +171,7 @@ impl BridgedEngineWrapper {
 /// harmless.
 #[macro_export]
 macro_rules! uniffi_bridged_engine {
-    ($name:ident, $guid:ty) => {
+    ($name:ident) => {
         // This is what UniFFI exposes; it does nothing other than delegate to
         // the shared `BridgedEngineWrapper`, which adapts our `SyncEngine`.
         pub struct $name($crate::engine::BridgedEngineWrapper);
@@ -229,7 +222,7 @@ macro_rules! uniffi_bridged_engine {
             pub fn set_uploaded(
                 &self,
                 server_modified_millis: i64,
-                ids: Vec<$guid>,
+                ids: Vec<String>,
             ) -> ::anyhow::Result<()> {
                 self.0.set_uploaded(server_modified_millis, ids)
             }
@@ -258,8 +251,8 @@ mod wrapper_tests {
     use std::sync::Mutex;
 
     // A minimal SyncEngine that records the guids passed to `set_uploaded`, so
-    // we can lock in the `Into<Guid>` reconciliation for both `String` and
-    // `Guid` element types, and confirm the wrapper drives a `SyncEngine`.
+    // we can confirm the wrapper converts the incoming string ids to `Guid` and
+    // drives a `SyncEngine`.
     #[derive(Default)]
     struct RecordingEngine {
         uploaded: Mutex<Vec<Guid>>,
@@ -302,11 +295,11 @@ mod wrapper_tests {
     }
 
     #[test]
-    fn set_uploaded_accepts_strings_and_guids() {
+    fn set_uploaded_converts_string_ids() {
         let wrapper = BridgedEngineWrapper::new(Box::new(RecordingEngine::default()));
-        // logins-style: Vec<String>
-        wrapper.set_uploaded(1, vec!["aaaa".to_string()]).unwrap();
-        // tabs/webext-style: Vec<Guid>
-        wrapper.set_uploaded(2, vec![Guid::new("bbbb")]).unwrap();
+        // Every crate now hands us string ids; the wrapper turns them into `Guid`.
+        wrapper
+            .set_uploaded(1, vec!["aaaa".to_string(), "bbbb".to_string()])
+            .unwrap();
     }
 }

@@ -5,9 +5,6 @@
 [Custom]
 typedef string JsonValue;
 
-[Custom]
-typedef string Guid;
-
 namespace webextstorage {
 
 };
@@ -100,7 +97,7 @@ interface WebExtStorageBridgedEngine {
     sequence<string> apply(i64 server_modified_millis);
 
     [Throws=WebExtStorageApiError]
-    void set_uploaded(i64 server_modified_millis, sequence<Guid> guids);
+    void set_uploaded(i64 server_modified_millis, sequence<string> guids);
 
     [Throws=WebExtStorageApiError]
     void sync_finished();

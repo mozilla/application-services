@@ -1,6 +1,3 @@
-[Custom]
-typedef string TabsGuid;
-
 // a local timestamp, a custom type to avoid using the int directly.
 [Custom]
 typedef i64 Timestamp;
@@ -124,7 +121,7 @@ interface TabsBridgedEngine {
     sequence<string> apply(i64 server_modified_millis);
 
     [Throws=TabsApiError]
-    void set_uploaded(i64 new_timestamp, sequence<TabsGuid> uploaded_ids);
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
 
     [Throws=TabsApiError]
     void sync_finished();

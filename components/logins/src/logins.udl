@@ -334,6 +334,9 @@ interface LoginsBridgedEngine {
     i64 last_sync();
 
     [Throws=LoginsApiError]
+    void reset_last_sync();
+
+    [Throws=LoginsApiError]
     string? sync_id();
 
     [Throws=LoginsApiError]
