@@ -84,15 +84,17 @@
 
 use crate::error::*;
 use lazy_static::lazy_static;
-use rusqlite::Connection;
+use rusqlite::{named_params, Connection};
 use sql_support::ConnExt;
+use sync_guid::Guid;
 
 /// Version 1: SQLCipher -> plaintext migration.
 /// Version 2: addition of `loginsM.enc_unknown_fields`.
 /// Version 3: addition of `timeOfLastBreach` and `timeLastBreachAlertDismissed`.
 /// Version 4: addition of `breachesL` table
 /// Version 5: removal of `timeOfLastBreach`.
-pub(super) const VERSION: i64 = 5;
+/// Version 6: repair of local guids that are invalid for the sync server (bug 2056116).
+pub(super) const VERSION: i64 = 6;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -272,9 +274,42 @@ fn upgrade_from(db: &Connection, from: i64) -> Result<()> {
         ALTER TABLE loginsM DROP COLUMN timeOfLastBreach;",
         )?),
 
+        5 => repair_invalid_local_guids(db),
+
         // next migration, add here
         _ => Err(Error::IncompatibleVersion(from)),
     }
+}
+
+/// Regenerates the guid of any local login whose guid is invalid for the sync
+/// server (empty, longer than 64 chars, or containing a comma / non-printable
+/// byte). Such logins could be persisted by the "with meta" import path before
+/// the guid was validated, and would panic the sync uploader (bug 2056116).
+///
+/// Only `loginsL` is touched: `loginsM` mirrors server records whose guids are
+/// always valid, and rewriting them would break the mirror's tie to the server.
+/// A login with an invalid guid can never have reached the server, so giving it a
+/// fresh guid loses no sync identity, and the guid is not used as part of the
+/// `secFields` encryption, so the credentials remain decryptable.
+fn repair_invalid_local_guids(db: &Connection) -> Result<()> {
+    let invalid_guids: Vec<String> = db
+        .query_rows_and_then("SELECT guid FROM loginsL", [], |row| {
+            row.get::<_, String>(0)
+        })?
+        .into_iter()
+        .filter(|guid| !Guid::new(guid).is_valid_for_sync_server())
+        .collect();
+    for old_guid in invalid_guids {
+        let new_guid = Guid::random();
+        db.execute(
+            "UPDATE loginsL SET guid = :new_guid WHERE guid = :old_guid",
+            named_params! {
+                ":new_guid": new_guid.as_str(),
+                ":old_guid": old_guid,
+            },
+        )?;
+    }
+    Ok(())
 }
 
 pub(crate) fn create(db: &Connection) -> Result<()> {
@@ -315,6 +350,7 @@ CREATE TABLE IF NOT EXISTS loginsL (
     timeLastUsed        INTEGER,
     timePasswordChanged INTEGER NOT NULL,
     secFields           TEXT,
+    guid                TEXT NOT NULL UNIQUE,
 
     local_modified INTEGER,
 
@@ -368,5 +404,32 @@ PRAGMA user_version=1;
         // all migrations should have succeeded.
         let version = db.conn_ext_query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);
+    }
+
+    #[test]
+    fn test_repair_invalid_local_guids() {
+        use crate::db::test_utils::insert_login;
+
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        // Insert (bypassing validation) a local login with a guid the sync server
+        // would reject, alongside a normal one.
+        insert_login(&db, "invalid,guid", Some("password"), None);
+        insert_login(&db, "valid", Some("password"), None);
+
+        repair_invalid_local_guids(&db).unwrap();
+
+        let guids: Vec<String> = db
+            .query_rows_and_then("SELECT guid FROM loginsL", [], |row| {
+                row.get::<_, String>(0)
+            })
+            .unwrap();
+        assert_eq!(guids.len(), 2);
+        // The valid guid is untouched; the invalid one was regenerated to a valid guid.
+        assert!(guids.contains(&"valid".to_string()));
+        assert!(!guids.contains(&"invalid,guid".to_string()));
+        assert!(guids
+            .iter()
+            .all(|g| Guid::new(g).is_valid_for_sync_server()));
     }
 }
