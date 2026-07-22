@@ -92,12 +92,14 @@ def build_against_hnt(
     signal.signal(signal.SIGINT, lambda _s, _h: safe_exit(firefox_repo_path))
     step_msg("Registered sigint trap...")
 
-    if build_against_hnt_inner(
+    success = build_against_hnt_inner(
         firefox_dir,
         moz_config_location,
         verbose,
         action,
-    ):
+    )
+    
+    if success:
         step_msg("Finished running against HNT.")
     else:
         err_msg("Building against HNT failed.")
@@ -110,6 +112,7 @@ def build_against_hnt(
             "Skipping cleanup step. Rerunning the command will cleanup before recompiling."
         )
 
+    return success
 
 def build_against_hnt_inner(
     firefox_dir,

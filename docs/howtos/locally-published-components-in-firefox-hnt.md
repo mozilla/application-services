@@ -3,34 +3,30 @@
 > This guide explains how to build and test **HNT against a local Application Services** checkout.
 
 ---
-# TODO: may not work on windows
-# TODO: add a note about the other strategy
+
 ## At a glance
 
 **Goal:** Build a local Firefox Desktop against a local Application Services.
 
 **Current workflow (recommended):**
 
-# TODO: Resummarize this
-
-1. Build an **XCFramework** from your local `application-services`.
-2. Point **Firefox iOS’s local Swift package** (`MozillaRustComponents/Package.swift`) at that artifact (either an HTTPS URL + checksum, **or** a local `path:`).
-3. Update UniFFI generated swift source files.
-3. Reset package caches in Xcode and build Firefox iOS.
-
-A legacy flow that uses the **`rust-components-swift`** package is documented at the end while we're in mid-transition to the new system.
+1. Verify the local build of `A-S` is ready for a desktop build.
+2. Move the A-S components folder in M-C/Firefox to a temporary rename.
+3. Create a symlink between the A-S and M-C components folders.
+4. Generate uniffi bindings.
+5. Run and build.
+6. Cleanup of symlink and temporary renames.
 
 ---
 
 ## Prerequisites
 
 1. Ensure you have a regular [build of application-services working](../building.md).
-2. Ensure you have a regular [build of firefox from mozilla-central](https://firefox-source-docs.mozilla.org/setup/index.html#for-firefox-desktop) testable with `./mach build` and ./mach run
-
+2. Ensure you have a regular [build of firefox from mozilla-central](https://firefox-source-docs.mozilla.org/setup/index.html#for-firefox-desktop) testable with `./mach build` and `./mach run`.
 
 ---
 
-## Step 1 — Verify the local build of A-S is ready for a desktop build.
+## Step 1 — Verify the local build of A-S is ready for a desktop build
 
 From the root of your `application-services` checkout, execute:
 
@@ -65,7 +61,6 @@ You may need to regenerate uniffi bindings, as if you vendored new `A-S` code. F
 ./mach uniffi generate
 ```
 
-
 ## Step 5 - Run and build!
 
 Now that `components` will read from your local build, you can build, run, and test. From your local m-c checkout, run:
@@ -75,6 +70,7 @@ Now that `components` will read from your local build, you can build, run, and t
 ```
 
 And if so desired:
+
 ```bash
 ./mach run
 ```
@@ -88,8 +84,6 @@ unlink third_party/application-services/components
 mv third_party/application-services/components-tmp third_party/application-services/components
 ```
 
-
 # Automated testing
 
 You can also automate this process by running the Desktop smoke test found at `automation/build_against_hnt.py`. You can see more detailed instructions about this [here](./smoke-testing-app-services.md).
-
