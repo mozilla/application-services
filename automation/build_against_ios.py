@@ -14,8 +14,8 @@
 # Usage: ./automation/build_against_ios.py
 # Arguments:
 #       --action                    => Can be either `run-tests` (default) or `build-without-testing`
-#       --remote-repo-url           => Fetch firefox-ios repository from this URL instead. Exclusive with `use-local-repo`
-#       --use-local-repo            => Use a local firefox-ios repository instead (at the provided path). Exclusive with `remote-repo-url`.
+#       --remote-ios-repo-url       => Fetch firefox-ios repository from this URL instead. Exclusive with `use-local-firefox-ios`
+#       --use-local-firefox-ios     => Use a local firefox-ios repository instead (at the provided path). Exclusive with `remote-ios-repo-url`.
 #       --verbose                   => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 #       --clear-previous-bindings   => Clear existing uniffi binding swift files from both the iOS and A-S generated folders. Use if files were created that need to be cleared (eg: a file of a name that is no longer used).
 #       --clean-ios-caches          => Runs the code equivalent of Xcode's 'Clean Build Folder'
@@ -93,7 +93,7 @@ def replace_swift_package_artifact(ios_repo_path, as_repo_path):
 
 def build_against_ios(
     local_ios_repo_path,
-    remote_repo_url,
+    remote_ios_repo_url,
     scheme,
     test_plan,
     clear_previous_bindings,
@@ -128,10 +128,10 @@ def build_against_ios(
     step_msg(f"Building application-services against iOS with action: `{action}`")
     if local_ios_repo_path is None:
         ios_repo_path = tempfile.mkdtemp(suffix="-test-ios")
-        if remote_repo_url is None:
-            remote_repo_url = DEFAULT_REMOTE_REPO_URL
-        step_msg(f"Cloning {remote_repo_url}")
-        run_cmd_checked(["git", "clone", remote_repo_url, ios_repo_path])
+        if remote_ios_repo_url is None:
+            remote_ios_repo_url = DEFAULT_REMOTE_REPO_URL
+        step_msg(f"Cloning {remote_ios_repo_url}")
+        run_cmd_checked(["git", "clone", remote_ios_repo_url, ios_repo_path])
 
     ios_generated_uniffi_files_path = f"{ios_repo_path}/MozillaRustComponents/Sources/MozillaRustComponentsWrapper/Generated"
     local_repo_generated_uniffi_files_path = f"{app_services_path}/megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated"
@@ -321,14 +321,14 @@ if __name__ == "__main__":
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--use-local-repo",
+        "--use-local-firefox-ios",
         metavar="LOCAL_IOS_REPO_PATH",
-        help="Use a local copy of firefox-ios instead of cloning it.",
+        help="Use a local copy of firefox-ios instead of cloning it. Exclusive with `remote-ios-repo-url`",
     )
     group.add_argument(
-        "--remote-repo-url",
+        "--remote-ios-repo-url",
         metavar="REMOTE_REPO_PATH",
-        help="Clone a different firefox-ios repository.",
+        help="Clone a different firefox-ios repository. Exclusive with `use-local-firefox-ios`",
     )
 
     parser.add_argument(
@@ -367,8 +367,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    local_ios_repo_path = args.use_local_repo
-    remote_repo_url = args.remote_repo_url
+    local_ios_repo_path = args.use_local_firefox_ios
+    remote_ios_repo_url = args.remote_ios_repo_url
     clear_previous_bindings = args.clear_previous_bindings
     clean_ios_caches = args.clean_ios_caches
     scheme = args.scheme
@@ -378,7 +378,7 @@ if __name__ == "__main__":
 
     build_against_ios(
         local_ios_repo_path,
-        remote_repo_url,
+        remote_ios_repo_url,
         scheme,
         test_plan,
         clear_previous_bindings,
