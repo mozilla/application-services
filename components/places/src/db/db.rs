@@ -211,7 +211,10 @@ impl Drop for PlacesDb {
             // A reader connection can't execute an optimize
             return;
         }
-        let res = self.db.execute_batch("PRAGMA optimize(0x02);");
+        // The 0x12 flags mean: run ANALYZE on tables that might benefit (0x02), with a row
+        // limit to keep runtime bounded (0x10). Mirrors the flags used on desktop since
+        // Bug 2017227.
+        let res = self.db.execute_batch("PRAGMA optimize(0x12);");
         if let Err(e) = res {
             warn!("Failed to execute pragma optimize (DB locked?): {}", e);
         }
