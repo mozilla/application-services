@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Remote Settings
+* Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
+
 # v154.0 (_2026-07-20_)
 
 ## ✨ What's Changed ✨
