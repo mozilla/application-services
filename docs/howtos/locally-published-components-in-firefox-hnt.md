@@ -36,7 +36,6 @@ From the root of your `application-services` checkout, execute:
 
 This will check for environment variables. If it provides any instruction on environment variables to set, follow the instructions until it passes.
 
-
 ## Step 2 - Move the A-S components folder in M-C/Firefox to a temporary rename
 
 We will be temporarily replacing the components in the `application-services` repository in `mozilla-central` with a symlink that points to our local `application-services` build. To conserve the old folder, we temporarily rename it. From the **mozilla-central** root.
@@ -84,6 +83,6 @@ unlink third_party/application-services/components
 mv third_party/application-services/components-tmp third_party/application-services/components
 ```
 
-# Automated testing
+## Automated testing
 
-You can also automate this process by running the Desktop smoke test found at `automation/build_against_hnt.py`. You can see more detailed instructions about this [here](./smoke-testing-app-services.md).
+You can also automate this process by running the Desktop smoke test found at `automation/build_against_hnt.py`. You can see more detailed instructions about this [at the smoke testing guide](./smoke-testing-app-services.md).
