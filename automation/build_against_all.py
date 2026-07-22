@@ -76,6 +76,13 @@ parser.add_argument(
     default="Smoketest",
 )
 
+# HNT argument to pass down
+parser.add_argument(
+    "--hnt-test",
+    help="Name of the test file to run, as if you were running `./mach test ARG`.",
+)
+
+
 # Fenix arguments to pass down
 parser.add_argument(
     "--prefix-ff",
@@ -94,6 +101,8 @@ local_firefox_ios = args.use_local_firefox_ios
 remote_ios_repo_url = args.remote_ios_repo_url
 ios_scheme = args.ios_scheme
 ios_test_plan = args.ios_test_plan
+
+hnt_test = args.hnt_test
 
 prefix_ff = args.prefix_ff
 
@@ -126,7 +135,7 @@ time_diff_fenix = time.time() - start_time_fenix
 
 # Build against Desktop
 start_time_hnt = time.time()
-success_hnt = build_against_hnt(firefox_dir, None, True, verbose=verbose, action=action)
+success_hnt = build_against_hnt(firefox_dir, None, True, hnt_test=hnt_test, verbose=verbose, action=action)
 time_diff_hnt = time.time() - start_time_hnt
 
 did_tests_string = "" if action != "run-tests" else " (and tested)"
