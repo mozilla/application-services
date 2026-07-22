@@ -19,8 +19,8 @@
 #       --verbose                   => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 #       --clear-previous-bindings   => Clear existing uniffi binding swift files from both the iOS and A-S generated folders. Use if files were created that need to be cleared (eg: a file of a name that is no longer used).
 #       --clean-ios-caches          => Runs the code equivalent of Xcode's 'Clean Build Folder'
-#       --scheme                    => The XCode scheme to build with, such as 'Fennec' or 'Firefox'
-#       --test-plan                 => The XCode test plan to run tests with (if action is `run-tests`), such as 'Smoketest' or 'FullFunctionalTestPlan'
+#       --ios-scheme                => The XCode scheme to build with, such as 'Fennec' or 'Firefox'
+#       --ios-test-plan             => The XCode test plan to run tests with (if action is `run-tests`), such as 'Smoketest' or 'FullFunctionalTestPlan'
 #
 import argparse
 import subprocess
@@ -349,13 +349,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--scheme",
+        "--ios-scheme",
         help="The scheme to run. Likely: `Fennec` (default) or `Firefox`",
         default="Fennec",
     )
 
     parser.add_argument(
-        "--test-plan",
+        "--ios-test-plan",
         help="The test plan to test with. Likely: `Smoketest` (default) or `FullFunctionalTestPlan`",
         default="Smoketest",
     )
@@ -371,8 +371,8 @@ if __name__ == "__main__":
     remote_ios_repo_url = args.remote_ios_repo_url
     clear_previous_bindings = args.clear_previous_bindings
     clean_ios_caches = args.clean_ios_caches
-    scheme = args.scheme
-    test_plan = args.test_plan
+    scheme = args.ios_scheme
+    test_plan = args.ios_test_plan
     verbose = args.verbose
     action = args.action
 

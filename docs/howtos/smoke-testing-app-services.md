@@ -28,11 +28,11 @@ You can also run against specific platforms directly with the following examples
 
     - By default, this script creates a `tmp` directory for `firefox-ios` and uses it. If you have a running `firefox-ios`, you can add the optional argument `--use-local-firefox-ios ../firefox-ios` (as shown), which may result in speed gains and the ability to run it on XCode immediately after a failure. This can also be passed to `./build_against_all.py`.
 
-    - You can also customize the run scheme (`--scheme`) or test plan (`--test-plan`). Available schemes include `Fennec` (default) and `Firefox`. Available test plans include: `Smoketest`, `FullFunctionalTestPlan` and `UnitTest`.
+    - You can also customize the run scheme (`--ios-scheme`) or test plan (`--ios-test-plan`). Available schemes include `Fennec` (default) and `Firefox`. Available test plans include: `Smoketest`, `FullFunctionalTestPlan` and `UnitTest`.
 
         - A full list of schemes and their corresponding test plans can be found [in the firefox-ios](https://github.com/mozilla-mobile/firefox-ios/tree/main/firefox-ios/Client.xcodeproj/xcshareddata/xcschemes) respository.
 
-        - These can be used in `./build_against_all.py` as `--ios-scheme` and `--ios-test-plan` respectively.
+        - Both of these arguments can be used in `./build_against_all.py`, and they will be passed to the underlying `build_against_ios.py` call.
 
 - Fenix: 
 
@@ -49,6 +49,8 @@ You can also run against specific platforms directly with the following examples
     - This script uses the symlink method described [here](./locally-published-components-in-firefox-hnt.md), cleaning up after a successful run. You can avoid this cleanup process (specifically on a successful run) by passing `--no-clean-up`, which will keep the symlinks. For example, you might run with `--action build-without-testing --no-clean-up` to experiment after with `./mach run`.
 
     - Unlike the other tests, HNT has the additional `action` variant of `--action run`, because it can be run from the terminal directly. 
+
+    - You can pass `--hnt-test` (eg: `--hnt-test dom/notification`) to pass a set of tests to use if the `action` argument is `run-tests`. Otherwise, `./mach test --auto` will be used, which takes a guess at which tests would be best to run. You can pass `--hnt-test` to the `build_against_all.py` script as well.
 
 
 All test scripts also accept the `--verbose` argument to show the output of run subprocesses (such as `./mach build`).
@@ -72,5 +74,6 @@ The `automation/smoke-test-fenix.py` script will clone (or use a local version) 
 run tests against the current `application-services` worktree.
 
 ### Firefox iOS
+
 The `automation/smoke-test-fxios.py` script will clone (or use a local version) of Firefox iOS and
 run tests against the current `application-services` worktree.
