@@ -136,7 +136,10 @@ def calcVersion(buildconfig) {
 }
 
 def calcGroupId(buildconfig) {
-    if (gradle.rootProject.hasProperty("nightlyVersion")) {
+    if (gradle.root.hasProperty("mozconfig")) {
+        // We are in m-c - always build `org.mozilla.appservices`.
+        return buildconfig.groupId
+    } else if (gradle.rootProject.hasProperty("nightlyVersion")) {
         return buildconfig.groupId + ".nightly"
     } else {
         return buildconfig.groupId
@@ -181,7 +184,7 @@ class Config {
 }
 
 gradle.projectsLoaded { ->
-    if (gradle.hasProperty("mozconfig")) {
+    if (gradle.root.hasProperty("mozconfig")) {
         gradle.rootProject.tasks.register("generateUniffiBindings")
     }
 
