@@ -23,29 +23,29 @@ pub enum LinkingKind {
 pub struct NoNssDir;
 
 pub fn link_nss() -> Result<(), NoNssDir> {
-    let is_gecko = env::var_os("MOZ_TOPOBJDIR").is_some();
-    if !is_gecko {
-        let (lib_dir, include_dir) = get_nss()?;
-        println!(
-            "cargo:rustc-link-search=native={}",
-            lib_dir.to_string_lossy()
-        );
-        println!("cargo:include={}", include_dir.to_string_lossy());
-        let kind = determine_kind();
-        link_nss_libs(kind);
-    } else {
-        let libs = match env::var("CARGO_CFG_TARGET_OS")
-            .as_ref()
-            .map(std::string::String::as_str)
-        {
-            Ok("android") | Ok("macos") => vec!["nss3"],
-            _ => vec!["nssutil3", "nss3", "plds4", "plc4", "nspr4"],
-        };
-        for lib in &libs {
-            println!("cargo:rustc-link-lib=dylib={}", lib);
-        }
+    if env::var_os("MOZ_TOPOBJDIR").is_some() {
+        mozbuild::link_nss();
+        return Ok(());
     }
+    let (lib_dir, include_dir) = get_nss()?;
+    println!(
+        "cargo:rustc-link-search=native={}",
+        lib_dir.to_string_lossy()
+    );
+    println!("cargo:include={}", include_dir.to_string_lossy());
+    let kind = determine_kind();
+    link_nss_libs(kind);
     Ok(())
+}
+
+pub fn link_nss_rustlib() -> Result<(), NoNssDir> {
+    if env::var_os("MOZ_TOPOBJDIR").is_some() {
+        mozbuild::link_nss_rustlib();
+        return Ok(());
+    }
+    // The standalone NSS_DIR path already produces a self-contained link
+    // (including mozpkix when statically linked), so this matches link_nss.
+    link_nss()
 }
 
 fn get_nss() -> Result<(PathBuf, PathBuf), NoNssDir> {

@@ -35,3 +35,11 @@ merino = { path = "../../components/merino" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }
+
+# Direct dep so this crate can forward the mozbuild-rustlib feature down the
+# NSS link chain. The megazord cdylib produces a self-contained Rust artifact
+# and needs static mozpkix + pure_virtual on top of the NSS dylibs.
+rc_crypto = { path = "../../components/support/rc_crypto" }
+
+[features]
+mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]
