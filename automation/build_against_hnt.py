@@ -234,7 +234,7 @@ def build_against_hnt_inner(
             shell=True,
             stdout=subprocess_stdout,
         ):
-            err_msg("Failed to run tests against firefox with ./mach test --auto.")
+            err_msg(f"Failed to run tests against firefox with ./mach test {test_string}.")
             return False
     elif action == "run":
         step_msg(
