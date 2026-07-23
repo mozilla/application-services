@@ -22,7 +22,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+            consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
 
@@ -72,32 +72,116 @@ dependencies {
     }
 }
 
-if (!gradle.hasProperty("mozconfig")) {
-    // Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
-    // into our own megazord-desktopLibraries JAR.
-    def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
-        from zipTree(configurations.jna.singleFile).matching {
-            include "**/libjnidispatch.*"
+abstract class GenerateJniLibsTask extends DefaultTask {
+    @Internal
+    abstract DirectoryProperty getNssLibsSourceDir()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @javax.inject.Inject
+    abstract FileSystemOperations getFs()
+
+    @TaskAction
+    void generate() {
+        // Copy NSS shared libs that libmegazord.so depends on (NEEDED) into
+        // the megazord's jniLibs staging area. Standalone consumers like
+        // samples-glean don't include GeckoView and need these in the megazord AAR.
+        def nssLibs = ["libnss3.so", "libfreebl3.so", "libsoftokn3.so", "libmozglue.so"]
+        def srcBase = nssLibsSourceDir.get().asFile
+        if (!srcBase.exists()) {
+            // Some builds do not stage GeckoView, so its native libraries
+            // are not present. There is nothing to copy in that case.
+            return
         }
-        into layout.buildDirectory.dir("libjnidispatch").get()
+        fs.copy {
+            from srcBase
+            include nssLibs.collect { "**/${it}" }
+            into outputDir.get().asFile
+        }
+    }
+}
+
+if (gradle.hasProperty("mozconfig")) {
+    def isFatAar = gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_ARCHITECTURES
+    def topobjdir = gradle.mozconfig.topobjdir
+    def generateJniLibs = tasks.register("generateJniLibs", GenerateJniLibsTask) { task ->
+        if (isFatAar) {
+            // Must match the appservices output prefix in `python/mozbuild/mozbuild/action/fat_aar.py`.
+            task.outputDir.set(file("${topobjdir}/dist/fat-aar/output/appservices/jni"))
+            task.nssLibsSourceDir.set(file("${topobjdir}/dist/fat-aar/output/geckoview/jni"))
+        } else {
+            // Must match the destdir in `mobile/android/installer/package-manifest.in`.
+            task.outputDir.set(file("${topobjdir}/dist/geckoview/appservices/lib"))
+            task.nssLibsSourceDir.set(file("${topobjdir}/dist/geckoview/lib"))
+        }
+
+        // Depending directly on a task declared in the root Gradle project
+        // seems to not be sufficiently lazy: `tasks.named(...)` is invoked
+        // during configuration of this project, which is too early and fails.
+        //
+        // But this is sufficiently lazy to be present when needed during
+        // configuration of this project, while still depending on a shared task
+        // in the root Gradle project.
+        if (findProject(":geckoview") != null) {
+            task.dependsOn(":machStagePackage")
+        }
     }
 
-    def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
-        archiveBaseName = "full-megazord-libsForTests"
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            variant.sources.jniLibs?.addGeneratedSourceDirectory(
+                generateJniLibs,
+                { task -> task.outputDir }
+            )
+        }
+    }
+}
 
-        from extractLibJniDispatch
+// Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
+// into our own megazord-desktopLibraries JAR.
+// Resolve the JNA JAR at configuration time so `--download-all-gradle-dependencies`
+// fetches it into the offline repository; a lazy resolution inside the task action
+// isn't reached during the dry-run dependency fetch.
+def jnaLibJniDispatch = zipTree(configurations.jna.singleFile).matching {
+    include "**/libjnidispatch.*"
+}
+
+def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
+    from jnaLibJniDispatch
+    into layout.buildDirectory.dir("libjnidispatch").get()
+}
+
+def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
+    archiveBaseName = "full-megazord-libsForTests"
+
+    from extractLibJniDispatch
+    if (!gradle.hasProperty("mozconfig")) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
     }
 
+    if (gradle.hasProperty("mozconfig")) {
+        if (gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_DESKTOP_ARCHITECTURES) {
+            from "${gradle.mozconfig.topobjdir}/dist/fat-aar/output/desktop/resources"
+        } else {
+            from "${gradle.mozconfig.topobjdir}/dist/host/bin/appservices/resources"
+        }
+    }
+}
+
+artifacts {
+    // Connect task output to configurations
+    libsForTests(packageLibsForTest)
+}
+
+if (!gradle.hasProperty("mozconfig")) {
     def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         into layout.buildDirectory.dir("megazordNative")
     }
 
     artifacts {
-        // Connect task output to configurations
-        libsForTests(packageLibsForTest)
         megazordNative(copyMegazordNative)
     }
 
@@ -147,51 +231,58 @@ if (!gradle.hasProperty("mozconfig")) {
 apply from: "$publishDir/publish.gradle"
 ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
 
-if (!gradle.hasProperty("mozconfig")) {
-    afterEvaluate {
-        publishing {
-            publications {
-                // Publish a second package named `full-megazord-libsForTests` to Maven with the
-                // `libsForTests` output.  This contains the same content as our `libsForTests`
-                // configuration. Publishing it allows the android-components code to depend on it.
-                libsForTests(MavenPublication) {
-                    artifact tasks['packageLibsForTest']
+afterEvaluate {
+    def libUrl="https://github.com/mozilla/application-services"
+    def libVcsUrl="https://github.com/mozilla/application-services.git"
+
+    def libLicense="MPL-2.0"
+    def libLicenseUrl="https://www.mozilla.org/en-US/MPL/2.0/"
+
+    publishing {
+        publications {
+            // Publish a second package named `full-megazord-libsForTests` to Maven with the
+            // `libsForTests` output.  This contains the same content as our `libsForTests`
+            // configuration. Publishing it allows the android-components code to depend on it.
+            libsForTests(MavenPublication) {
+                artifact tasks['packageLibsForTest']
+                if (!gradle.hasProperty("mozconfig")) {
                     artifact file("${projectDir}/../DEPENDENCIES.md"), {
                         extension "LICENSES.md"
                     }
-                    pom {
-                        groupId = rootProject.config.componentsGroupId
-                        artifactId = "${project.ext.artifactId}-libsForTests"
-                        description = project.ext.description
-                        // For mavenLocal publishing workflow, increment the version number every publish.
-                        version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
-                        packaging = "jar"
+                }
 
-                        licenses {
-                            license {
-                                name = libLicense
-                                url = libLicenseUrl
-                            }
-                        }
+                pom {
+                    groupId = "org.mozilla.appservices"
+                    artifactId = "${project.ext.artifactId}-libsForTests"
+                    description = project.ext.description
+                    // For mavenLocal publishing workflow, increment the version number every publish.
+                    version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                    packaging = "jar"
 
-                        developers {
-                            developer {
-                                name = 'Sync Team'
-                                email = 'sync-team@mozilla.com'
-                            }
-                        }
-
-                        scm {
-                            connection = libVcsUrl
-                            developerConnection = libVcsUrl
-                            url = libUrl
+                    licenses {
+                        license {
+                            name = libLicense
+                            url = libLicenseUrl
                         }
                     }
 
-                    // This is never the publication we want to use when publishing a
-                    // parent project with us as a child `project()` dependency.
-                    alias = true
+                    developers {
+                        developer {
+                            name = 'Sync Team'
+                            email = 'sync-team@mozilla.com'
+                        }
+                    }
+
+                    scm {
+                        connection = libVcsUrl
+                        developerConnection = libVcsUrl
+                        url = libUrl
+                    }
                 }
+
+                // This is never the publication we want to use when publishing a
+                // parent project with us as a child `project()` dependency.
+                alias = true
             }
         }
     }
