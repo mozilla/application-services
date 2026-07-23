@@ -144,8 +144,8 @@ if (!gradle.hasProperty("mozconfig")) {
     }
 }
 
-apply from: "$appServicesRootDir/publish.gradle"
-ext.configurePublish()
+apply from: "$publishDir/publish.gradle"
+ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
 
 if (!gradle.hasProperty("mozconfig")) {
     afterEvaluate {

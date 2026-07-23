@@ -76,9 +76,11 @@ def setupProject(name, projectProps, appServicesRootDir) {
             // Expose the rest of the project properties, mostly for validation reasons.
             project.ext.configProps = projectProps
             project.ext.appServicesRootDir = appServicesRootDir
+            project.ext.publishDir = appServicesRootDir
 
             if (gradle.hasProperty("mozconfig")) {
-                project.buildDir = "${gradle.mozconfig.topobjdir}/gradle/build/app-services/android/$name"
+                project.buildDir = "${gradle.mozconfig.topobjdir}/gradle/build/application-services/android/$name"
+                project.ext.publishDir = "${gradle.mozconfig.topsrcdir}/mobile/android/android-components"
             }
         }
     }
@@ -88,6 +90,19 @@ def yaml = new Yaml()
 def buildconfig = yaml.load(new File(appServicesRootDir, '.buildconfig-android.yml').newInputStream())
 buildconfig.projects.each { project ->
     setupProject(project.key, project.value, appServicesRootDir)
+}
+
+if (gradle.root.hasProperty("mozconfig")) {
+    // The mozilla-central android-components/fenix "second pass" build resolves
+    // these components as Maven AARs from target.maven.zip, so the geckoview
+    // archive build must publish every app-services component, not just the
+    // megazord. Aggregate their publish tasks behind a single task.
+    def appServicesPublishTasks = buildconfig.projects.keySet().collect { ":${it}:publish" }
+    gradle.rootProject { rootProject ->
+        rootProject.tasks.register("publishAppServicesAndroid") { task ->
+            task.dependsOn(appServicesPublishTasks)
+        }
+    }
 }
 
 Properties localProperties = new Properties();

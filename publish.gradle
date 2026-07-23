@@ -11,10 +11,10 @@ def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
-ext.configurePublish = {
-    def theGroupId = rootProject.config.componentsGroupId
-    def theArtifactId = project.ext.artifactId
-    def theDescription = project.ext.description
+ext.configurePublish = { groupId = null, artifactId = null, description = null ->
+    def theGroupId = groupId ?: rootProject.config.componentsGroupId
+    def theArtifactId = artifactId ?: project.ext.artifactId
+    def theDescription = description ?: project.ext.description
 
     // This is a little cludgey, but it seems unlikely to cause a problem, and
     // we are already doing it inside taskcluster.
