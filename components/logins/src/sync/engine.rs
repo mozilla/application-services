@@ -450,7 +450,15 @@ impl SyncEngine for LoginsSyncEngine {
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<Vec<OutgoingBso>> {
         let inbound = self.staged.lock().unwrap().drain(..).collect();
-        Ok(self.do_apply_incoming(inbound, timestamp, telem)?)
+        let outgoing = self.do_apply_incoming(inbound, timestamp, telem)?;
+        // The engine owns its last-sync timestamp but during a sync, that
+        // value is known differently in desktop v mobile. Record a
+        // timestamp if we are given one.
+        if timestamp != ServerTimestamp(0) {
+            let db = self.store.lock_db()?;
+            self.set_last_sync(&db, timestamp)?;
+        }
+        Ok(outgoing)
     }
 
     fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> anyhow::Result<()> {
@@ -458,6 +466,21 @@ impl SyncEngine for LoginsSyncEngine {
             &ids.iter().map(Guid::as_str).collect::<Vec<_>>(),
             new_timestamp,
         )?)
+    }
+
+    // For the Desktop bridge which makes the collection requests.
+    fn last_sync(&self) -> anyhow::Result<Option<ServerTimestamp>> {
+        let db = self.store.lock_db()?;
+        Ok(self.get_last_sync(&db)?)
+    }
+
+    // Force a full re-download next sync without a full reset. Desktop's bridged
+    // engine base calls this for every engine, so logins must implement it
+    // rather than fall back to the no-op default.
+    fn reset_last_sync(&self) -> anyhow::Result<()> {
+        let db = self.store.lock_db()?;
+        self.set_last_sync(&db, ServerTimestamp(0))?;
+        Ok(())
     }
 
     fn get_collection_request(
