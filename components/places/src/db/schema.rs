@@ -14,7 +14,7 @@ use sql_support::ConnExt;
 
 use super::db::{Pragma, PragmaGuard};
 
-pub const VERSION: u32 = 20;
+pub const VERSION: u32 = 21;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -340,6 +340,70 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             // Manually call analyze so the planner can start using the indexes immediately
             db.execute("ANALYZE moz_places", [])?;
             db.execute("ANALYZE moz_historyvisits", [])?;
+        }
+        20 => {
+            // Invert the moz_origins UNIQUE constraint to (host, prefix), so the
+            // higher cardinality column comes first and queries only filtering on
+            // host, like the address bar ones, can use the index.
+
+            // Skip the rebuild if the constraint is already inverted.
+            let already_inverted = db.exists(
+                "SELECT 1 FROM sqlite_schema
+                 WHERE type = 'table' AND name = 'moz_origins'
+                   AND sql LIKE '%UNIQUE (host, prefix)%'",
+                [],
+            )?;
+            if !already_inverted {
+                // The table must be rebuilt, and PRAGMA foreign_keys is a no-op
+                // inside the migration transaction, so the moz_places.origin_id
+                // foreign key stays enforced throughout. Since origin_id is
+                // nullable, we stash it and null it out, so that nothing
+                // references moz_origins while it's swapped out.
+                // The stash must be keyed, or the restore below would scan it
+                // for every row.
+                db.execute_batch(
+                    "CREATE TEMP TABLE moz_places_origin_id_stash (
+                         id INTEGER PRIMARY KEY,
+                         origin_id INTEGER NOT NULL
+                     );
+
+                     INSERT INTO moz_places_origin_id_stash (id, origin_id)
+                     SELECT id, origin_id FROM moz_places WHERE origin_id IS NOT NULL;
+
+                     CREATE TABLE moz_origins_new (
+                         id INTEGER PRIMARY KEY,
+                         prefix TEXT NOT NULL,
+                         host TEXT NOT NULL,
+                         rev_host TEXT NOT NULL,
+                         frecency INTEGER NOT NULL,
+                         UNIQUE (host, prefix)
+                     );
+
+                     INSERT INTO moz_origins_new (id, prefix, host, rev_host, frecency)
+                     SELECT id, prefix, host, rev_host, frecency FROM moz_origins;
+
+                     UPDATE moz_places SET origin_id = NULL WHERE origin_id IS NOT NULL;
+
+                     -- A rename would rewrite the REFERENCES clause in moz_places, while a
+                     -- drop leaves it dangling until the new table takes over the name.
+                     DROP TABLE moz_origins;
+
+                     ALTER TABLE moz_origins_new RENAME TO moz_origins;
+
+                     UPDATE moz_places
+                     SET origin_id = stash.origin_id
+                     FROM moz_places_origin_id_stash AS stash
+                     WHERE moz_places.id = stash.id;
+
+                     DROP TABLE moz_places_origin_id_stash;",
+                )?;
+                // Recreate hostindex, which was dropped along with the old table,
+                // by calling the shared schema file
+                db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+                // Manually call analyze so the planner has statistics for the
+                // rebuilt table
+                db.execute("ANALYZE moz_origins", [])?;
+            }
         }
         // Add more migrations here...
 
@@ -1170,6 +1234,218 @@ mod tests {
                     guid: "sep_guid____".into()
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn test_upgrade_schema_20_21() {
+        use std::sync::Arc;
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V17_DB);
+        db_file.upgrade_to(20);
+
+        // Seed origins, plus pages pointing at them, so the migration has both rows to
+        // rebuild and foreign keys to keep intact.
+        let conn = db_file.open();
+        conn.execute_batch(
+            "INSERT INTO moz_origins(id, prefix, host, rev_host, frecency)
+             VALUES (1, 'https://', 'example.com', 'moc.elpmaxe.', 100),
+                    (2, 'http://', 'example.com', 'moc.elpmaxe.', 50),
+                    (3, 'https://', 'mozilla.org', 'gro.allizom.', 75);
+
+             UPDATE moz_places SET origin_id = 1 WHERE id = 1;
+
+             INSERT INTO moz_places(id, guid, url, origin_id, frecency)
+             VALUES (2, 'page_guid__2', 'http://example.com/', 2, -1),
+                    (3, 'page_guid__3', 'https://mozilla.org/', 3, -1),
+                    (4, 'page_guid__4', 'https://unvisited.com/', NULL, -1);",
+        )
+        .expect("should seed origins and places");
+
+        fn unique_index_columns(conn: &Connection) -> Vec<String> {
+            let indexes = conn
+                .query_rows_and_then(
+                    "SELECT name FROM pragma_index_list('moz_origins') WHERE origin = 'u'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .expect("should query the unique indexes");
+            assert_eq!(
+                indexes.len(),
+                1,
+                "moz_origins should have a single unique index"
+            );
+            conn.query_rows_and_then(
+                "SELECT name FROM pragma_index_info(?) ORDER BY seqno",
+                (indexes[0].as_str(),),
+                |row| row.get::<_, String>(0),
+            )
+            .expect("should query the unique index columns")
+        }
+
+        // moz_origins should be keyed on (prefix, host) before the migration. The
+        // upgrades above replay the current shared schema, so check they left the
+        // constraint alone.
+        assert_eq!(unique_index_columns(&conn), &["prefix", "host"]);
+        drop(conn);
+
+        // Open through `PlacesDb`, so the migration runs with foreign keys enforced;
+        // otherwise the null-out step it relies on goes untested.
+        let db = PlacesDb::open(
+            &db_file.path,
+            ConnectionType::ReadWrite,
+            0,
+            Arc::new(parking_lot::Mutex::new(())),
+        )
+        .expect("should upgrade");
+
+        // The unique index should now lead with the higher cardinality column.
+        assert_eq!(unique_index_columns(&db), &["host", "prefix"]);
+
+        // The origins themselves should be untouched, ids included, since moz_places
+        // references them.
+        #[derive(Eq, PartialEq, Debug)]
+        struct OriginRow {
+            id: i64,
+            prefix: String,
+            host: String,
+            rev_host: String,
+            frecency: i64,
+        }
+        let origins = db
+            .query_rows_and_then(
+                "SELECT id, prefix, host, rev_host, frecency FROM moz_origins ORDER BY id",
+                [],
+                |row| -> rusqlite::Result<_> {
+                    Ok(OriginRow {
+                        id: row.get("id")?,
+                        prefix: row.get("prefix")?,
+                        host: row.get("host")?,
+                        rev_host: row.get("rev_host")?,
+                        frecency: row.get("frecency")?,
+                    })
+                },
+            )
+            .expect("should query all origins");
+        assert_eq!(
+            origins,
+            &[
+                OriginRow {
+                    id: 1,
+                    prefix: "https://".into(),
+                    host: "example.com".into(),
+                    rev_host: "moc.elpmaxe.".into(),
+                    frecency: 100,
+                },
+                OriginRow {
+                    id: 2,
+                    prefix: "http://".into(),
+                    host: "example.com".into(),
+                    rev_host: "moc.elpmaxe.".into(),
+                    frecency: 50,
+                },
+                OriginRow {
+                    id: 3,
+                    prefix: "https://".into(),
+                    host: "mozilla.org".into(),
+                    rev_host: "gro.allizom.".into(),
+                    frecency: 75,
+                },
+            ]
+        );
+
+        // ...And every page should still point at the origin it did before.
+        let pages = db
+            .query_rows_and_then(
+                "SELECT id, origin_id FROM moz_places ORDER BY id",
+                [],
+                |row| -> rusqlite::Result<_> {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, Option<i64>>(1)?))
+                },
+            )
+            .expect("should query all places");
+        assert_eq!(
+            pages,
+            &[(1, Some(1)), (2, Some(2)), (3, Some(3)), (4, None)]
+        );
+
+        // hostindex should have been recreated, since rebuilding the table dropped it.
+        assert!(db
+            .exists(
+                "SELECT 1 FROM sqlite_schema WHERE type = 'index' AND name = 'hostindex'",
+                []
+            )
+            .expect("should look for hostindex"));
+
+        // The table used to rebuild moz_origins should have been removed.
+        assert!(!db
+            .exists(
+                "SELECT 1 FROM sqlite_schema WHERE name = 'moz_origins_new'",
+                []
+            )
+            .expect("should look for moz_origins_new"));
+
+        // moz_places should still reference the rebuilt moz_origins.
+        let foreign_key = db
+            .query_row(
+                r#"SELECT "table", "from", "to" FROM pragma_foreign_key_list('moz_places')"#,
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .expect("should query the foreign key");
+        assert_eq!(
+            foreign_key,
+            ("moz_origins".into(), "origin_id".into(), "id".into())
+        );
+
+        let integrity_ok = db
+            .query_row("PRAGMA integrity_check", [], |row| {
+                Ok(row.get::<_, String>(0)? == "ok")
+            })
+            .expect("should perform integrity check");
+        assert!(integrity_ok);
+
+        let foreign_keys_ok = db
+            .prepare("PRAGMA foreign_key_check")
+            .and_then(|mut statement| Ok(statement.query([])?.next()?.is_none()))
+            .expect("should perform foreign key check");
+        assert!(foreign_keys_ok);
+
+        // The origin-creation trigger should still upsert against the rebuilt
+        // moz_origins.
+        db.execute(
+            "INSERT INTO moz_places(guid, url, url_hash)
+             VALUES ('page_guid__5', 'https://example.com/new-page',
+                     hash('https://example.com/new-page')),
+                    ('page_guid__6', 'https://example.org/',
+                     hash('https://example.org/'))",
+            [],
+        )
+        .expect("should insert pages");
+        // origins are maintained via triggers, so make sure they are done.
+        crate::storage::delete_pending_temp_tables(&db).expect("should update origins");
+
+        // Adding a page for a known origin should update it rather than add a new one...
+        assert_eq!(
+            db.conn_ext_query_one::<i64>(
+                "SELECT origin_id FROM moz_places WHERE guid = 'page_guid__5'"
+            )
+            .expect("should query the known origin"),
+            1
+        );
+        // ...And a page for an unknown origin should add one.
+        assert_eq!(
+            db.conn_ext_query_one::<i64>(
+                "SELECT COUNT(*) FROM moz_origins
+                 WHERE prefix = 'https://' AND host = 'example.org'"
+            )
+            .expect("should query the new origin"),
+            1
         );
     }
 

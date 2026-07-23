@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS moz_origins (
     host TEXT NOT NULL,
     rev_host TEXT NOT NULL,
     frecency INTEGER NOT NULL, -- XXX - why not default of -1 like in moz_places?
-    UNIQUE (prefix, host)
+    UNIQUE (host, prefix)
 );
 
 CREATE INDEX IF NOT EXISTS hostindex ON moz_origins(rev_host);
