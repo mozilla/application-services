@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## 🔧 What's Fixed 🔧
+
+### Logins
+
+- Fixed a parent-process crash ("record's ID is invalid") when syncing a login whose guid is invalid for the sync server. The sync engine now skips such records instead of panicking, `add_with_meta()` / `add_many_with_meta()` reject invalid guids on import (or regenerate them with the new `fixup_invalid_guids` feature), and a schema migration to version 6 repairs any already-stored invalid guids. ([Bug 2056116](https://bugzilla.mozilla.org/show_bug.cgi?id=2056116))
+
 # v154.0 (_2026-07-20_)
 
 ## ✨ What's Changed ✨
