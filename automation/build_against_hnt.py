@@ -187,11 +187,10 @@ def build_against_hnt_inner(
         return False
 
     # The following steps *modify* a couple key parts of the m-c directory.
-    # TODO: cleanup function on failure
     symlink_dest = app_services_path / COMPONENTS_FOLDER_AS_SUBPATH
     symlink_src = firefox_repo_path / COMPONENTS_FOLDER_MC_SUBPATH
     components_tmp_dir = firefox_repo_path / COMPONENTS_FOLDER_MC_SUBPATH_TMP
-    step_msg(f"Creating symlink {firefox_repo_path} to autopublish appservices")
+    step_msg(f"Creating symlink in {firefox_repo_path} to link to local appservices")
 
     # First, move /components folder in m-c to a temporary backup.
     os.rename(symlink_src, components_tmp_dir)
