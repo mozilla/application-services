@@ -20,6 +20,7 @@ use error_support::handle_error;
 use serde_derive::*;
 use std::convert::TryInto;
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Get a short-lived OAuth access token for the user's account.
     ///
@@ -50,6 +51,7 @@ impl FirefoxAccount {
     ///      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
     ///      before requesting a fresh token.
     #[handle_error(Error)]
+    #[uniffi::method(default(use_cache = true))]
     pub fn get_access_token(&self, scope: &str, use_cache: bool) -> ApiResult<AccessTokenInfo> {
         self.internal
             .lock()
@@ -158,13 +160,13 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(uniffi::Record, Debug)]
 /// An OAuth access token, with its associated keys and metadata.
 ///
 /// This struct represents an FxA OAuth access token, which can be used to access a resource
 /// or service on behalf of the user. For example, accessing the user's data in Firefox Sync
 /// an access token for the scope `https://identity.mozilla.com/apps/sync` along with the
 /// associated encryption key.
-#[derive(Debug)]
 pub struct AccessTokenInfo {
     /// The scope of access granted by token.
     pub scope: String,
@@ -190,13 +192,12 @@ pub struct AccessTokenInfo {
     pub expires_at: i64,
 }
 
+#[derive(uniffi::Record, Clone, Serialize, Deserialize)]
 /// A cryptographic key associated with an OAuth scope.
 ///
 /// Some OAuth scopes have a corresponding client-side encryption key that is required
 /// in order to access protected data. This struct represents such key material in a
 /// format compatible with the common "JWK" standard.
-///
-#[derive(Clone, Serialize, Deserialize)]
 pub struct ScopedKey {
     /// The type of key.
     ///
@@ -216,6 +217,7 @@ pub struct ScopedKey {
     pub kid: String,
 }
 
+#[derive(uniffi::Record)]
 /// Parameters provided in an incoming OAuth request.
 ///
 /// This struct represents parameters obtained from an incoming OAuth request - that is,

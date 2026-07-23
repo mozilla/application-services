@@ -74,19 +74,20 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
 pub type ApiResult<T> = std::result::Result<T, FxaError>;
 
+#[derive(uniffi::Object)]
 /// Object representing the signed-in state of an application.
 ///
 /// The `FirefoxAccount` object is the main interface provided by this crate.
 /// It represents the signed-in state of an application that may be connected to
 /// user's Firefox Account, and provides methods for inspecting the state of the
 /// account and accessing other services on behalf of the user.
-///
 pub struct FirefoxAccount {
     // For now, we serialize all access on a single `Mutex` for thread safety across
     // the FFI. We should make the locking more granular in future.
     internal: Mutex<internal::FirefoxAccount>,
 }
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Create a new [`FirefoxAccount`] instance, not connected to any account.
     ///
@@ -94,6 +95,7 @@ impl FirefoxAccount {
     ///
     /// This method constructs as new [`FirefoxAccount`] instance configured to connect
     /// the application to a user's account.
+    #[uniffi::constructor]
     pub fn new(config: FxaConfig) -> FirefoxAccount {
         FirefoxAccount {
             internal: Mutex::new(internal::FirefoxAccount::new(config)),
@@ -106,11 +108,11 @@ impl FirefoxAccount {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(uniffi::Record, Clone, Debug)]
 pub struct FxaConfig {
     /// FxaServer to connect with
     pub server: FxaServer,
-    /// registered OAuth client id of the application.
+    /// Registered OAuth client id of the application.
     pub client_id: String,
     /// `redirect_uri` - the registered OAuth redirect URI of the application.
     pub redirect_uri: String,
@@ -121,10 +123,11 @@ pub struct FxaConfig {
     ///  the token server URL they get from `fxa-client` to `SyncManager`.  It would be simpler to
     ///  cut out `fxa-client` out of the middle and have applications send the overridden URL
     ///  directly to `SyncManager`.
+    #[uniffi(default=None)]
     pub token_server_url_override: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(uniffi::Enum, Clone, Debug, PartialEq, Eq)]
 pub enum FxaServer {
     Release,
     Stable,
@@ -232,7 +235,7 @@ impl FxaConfig {
     }
 }
 
-uniffi::include_scaffolding!("fxa_client");
+uniffi::setup_scaffolding!("fxa_client");
 
 #[cfg(test)]
 mod tests {

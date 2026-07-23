@@ -15,6 +15,7 @@
 use crate::{ApiResult, Error, FirefoxAccount, FxaServer};
 use error_support::handle_error;
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Check if an account was created from a config
     #[handle_error(Error)]

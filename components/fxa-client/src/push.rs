@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{internal, ApiResult, CloseTabsResult, Device, Error, FirefoxAccount, LocalDevice};
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.
     ///
@@ -95,16 +96,17 @@ impl FirefoxAccount {
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
+    #[uniffi::method(default(is_private = false))]
     pub fn send_single_tab(
         &self,
         target_device_id: &str,
         title: &str,
         url: &str,
-        private: bool,
+        is_private: bool,
     ) -> ApiResult<()> {
         self.internal
             .lock()
-            .send_single_tab(target_device_id, title, url, private)
+            .send_single_tab(target_device_id, title, url, is_private)
     }
 
     /// Use device commands to close one or more tabs on another device.
@@ -123,6 +125,7 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, Serialize, Deserialize)]
 /// Details of a web-push subscription endpoint.
 ///
 /// This struct encapsulates the details of a web-push subscription endpoint,
@@ -132,13 +135,14 @@ impl FirefoxAccount {
 ///
 /// Managing a web-push subscription is outside of the scope of this component.
 ///
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevicePushSubscription {
     pub endpoint: String,
     pub public_key: String,
     pub auth_key: String,
 }
 
+#[allow(clippy::large_enum_variant)]
+#[derive(uniffi::Enum, Debug)]
 /// An event that happened on the user's account.
 ///
 /// If the application has registered a [`DevicePushSubscription`] as part of its
@@ -149,8 +153,6 @@ pub struct DevicePushSubscription {
 // Clippy suggests we Box<> the CommandReceiver variant here,
 // but UniFFI isn't able to look through boxes yet, so we
 // disable the warning.
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
 pub enum AccountEvent {
     /// Sent when another device has invoked a command for this device to execute.
     ///
@@ -198,26 +200,27 @@ pub enum AccountEvent {
     Unknown,
 }
 
+#[derive(uniffi::Enum, Debug)]
 /// A command invoked by another device.
 ///
 /// This enum represents all possible commands that can be invoked on
 /// the device. It is the responsibility of the application to interpret
 /// each command.
-#[derive(Debug)]
 pub enum IncomingDeviceCommand {
     /// Indicates that a tab has been sent to this device.
     TabReceived {
         sender: Option<Device>,
         payload: SendTabPayload,
     },
+    /// Indicates that the sender wants to close one or more tabs on this device.
     TabsClosed {
         sender: Option<Device>,
         payload: CloseTabsPayload,
     },
 }
 
+#[derive(uniffi::Record, Debug)]
 /// The payload sent when invoking a "send tab" command.
-#[derive(Debug)]
 pub struct SendTabPayload {
     /// The navigation history of the sent tab.
     ///
@@ -228,23 +231,27 @@ pub struct SendTabPayload {
     /// A unique identifier to be included in send-tab metrics.
     ///
     /// The application should treat this as opaque.
+    #[uniffi(default = "")]
     pub flow_id: String,
     /// A unique identifier to be included in send-tab metrics.
     ///
     /// The application should treat this as opaque.
+    #[uniffi(default = "")]
     pub stream_id: String,
 }
 
+#[derive(uniffi::Record, Debug)]
 /// The payload sent when invoking a "close tabs" command.
-#[derive(Debug)]
 pub struct CloseTabsPayload {
+    /// The URLs of the tabs to close.
     pub urls: Vec<String>,
 }
 
+#[derive(uniffi::Record, Debug)]
 /// An individual entry in the navigation history of a sent tab.
-#[derive(Debug)]
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,
+    #[uniffi(default = false)]
     pub is_private: bool,
 }
