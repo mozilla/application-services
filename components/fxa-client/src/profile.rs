@@ -9,6 +9,7 @@
 use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Get profile information for the signed-in user, if any.
     ///
@@ -36,6 +37,7 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(uniffi::Record)]
 /// Information about the user that controls a Firefox Account.
 ///
 /// This struct represents details about the user themselves, and would typically be
