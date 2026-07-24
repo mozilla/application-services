@@ -613,7 +613,7 @@ fn test_reconcile_addresses() -> Result<()> {
     for test_case in j.as_array().unwrap() {
         let desc = test_case["description"].as_str().unwrap();
         let store = Arc::new(Store::new_memory());
-        let db = store.db.lock().unwrap();
+        let db = store.lock_db().unwrap();
         let tx = db.unchecked_transaction().unwrap();
 
         create_empty_sync_temp_tables(&tx)?;
@@ -680,7 +680,7 @@ fn test_reconcile_addresses() -> Result<()> {
         };
 
         // get a DB reference back to we can check the results.
-        let db = store.db.lock().unwrap();
+        let db = store.lock_db().unwrap();
 
         let all = addresses::get_all_addresses(&db)?;
 

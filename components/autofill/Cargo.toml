@@ -14,6 +14,7 @@ error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 jwcrypto = { path = "../support/jwcrypto" }
 lazy_static = "1.4"
+parking_lot = ">=0.11,<=0.12"
 rusqlite = { version = "0.37.0", features = ["functions", "bundled", "serde_json", "unlock_notify"] }
 serde = "1"
 serde_derive = "1"

@@ -208,6 +208,8 @@ interface Store {
     [Throws=AutofillApiError]
     void run_maintenance();
 
+    void shutdown();
+
     [Self=ByArc]
     void register_with_sync_manager();
 };
