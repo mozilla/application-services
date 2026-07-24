@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
+use crate::impression_log::{ImpressionLogBuilderError, ImpressionLogOutcome};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
 
@@ -19,6 +20,8 @@ pub trait MozAdsTelemetry: Send + Sync {
     fn record_client_operation_total(&self, label: String);
     fn record_deserialization_error(&self, label: String, value: String);
     fn record_http_cache_outcome(&self, label: String, value: String);
+    fn record_build_impression_log_error(&self, label: String, value: String);
+    fn record_impression_log_outcome(&self, label: String, value: String);
 }
 
 pub struct NoopMozAdsTelemetry;
@@ -29,6 +32,8 @@ impl MozAdsTelemetry for NoopMozAdsTelemetry {
     fn record_client_operation_total(&self, _label: String) {}
     fn record_deserialization_error(&self, _label: String, _value: String) {}
     fn record_http_cache_outcome(&self, _label: String, _value: String) {}
+    fn record_build_impression_log_error(&self, _label: String, _value: String) {}
+    fn record_impression_log_outcome(&self, _label: String, _value: String) {}
 }
 
 #[derive(Clone)]
@@ -122,6 +127,47 @@ impl Telemetry for MozAdsTelemetryWrapper {
             self.inner.record_deserialization_error(
                 "invalid_ad_item".to_string(),
                 format!("{}", json_error),
+            );
+            return;
+        }
+        if let Some(impression_log_builder_error) =
+            event.downcast_ref::<ImpressionLogBuilderError>()
+        {
+            self.inner.record_build_impression_log_error(
+                match impression_log_builder_error {
+                    ImpressionLogBuilderError::EmptyDbPath => "empty_db_path".to_string(),
+                    ImpressionLogBuilderError::Database(_) => "database_error".to_string(),
+                },
+                format!("{}", impression_log_builder_error),
+            );
+            return;
+        }
+        if let Some(impression_log_outcome) = event.downcast_ref::<ImpressionLogOutcome>() {
+            self.inner.record_impression_log_outcome(
+                match impression_log_outcome {
+                    ImpressionLogOutcome::RetainImpressionsFailed(_) => {
+                        "retain_impressions_failed".to_string()
+                    }
+                    ImpressionLogOutcome::RecordImpressionFailed(_) => {
+                        "record_impression_failed".to_string()
+                    }
+                    ImpressionLogOutcome::CountImpressionsFailed(_) => {
+                        "count_impressions_failed".to_string()
+                    }
+                    ImpressionLogOutcome::ImpressionCapHit => "impression_cap_hit".to_string(),
+                    ImpressionLogOutcome::ImpressionCapEnforced => {
+                        "impression_cap_enforced".to_string()
+                    }
+                    ImpressionLogOutcome::ImpressionCapNotEnforced => {
+                        "impression_cap_not_enforced".to_string()
+                    }
+                },
+                match impression_log_outcome {
+                    ImpressionLogOutcome::RetainImpressionsFailed(e)
+                    | ImpressionLogOutcome::RecordImpressionFailed(e)
+                    | ImpressionLogOutcome::CountImpressionsFailed(e) => e.to_string(),
+                    _ => "".to_string(),
+                },
             );
             return;
         }
