@@ -8,8 +8,8 @@ use crate::api::matcher::{self, search_frecent, SearchParams};
 pub use crate::api::places_api::places_api_new;
 pub use crate::error::{warn, Result};
 pub use crate::error::{ApiResult, PlacesApiError};
-#[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-use crate::glean_metrics::places_manager;
+#[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+use crate::glean_metrics;
 pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
 use crate::storage;
@@ -20,7 +20,6 @@ pub use crate::storage::history_metadata::{
     HistoryMetadataObservation, HistoryMetadataPageMissingBehavior,
     NoteHistoryMetadataObservationOptions,
 };
-pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
@@ -113,9 +112,6 @@ pub struct PlacesConnection {
 
 impl PlacesConnection {
     pub fn new(db: PlacesDb) -> Self {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::connection_initialized.add(1);
-
         Self {
             interrupt_handle: db.new_interrupt_handle(),
             db: Mutex::new(db),
@@ -384,55 +380,55 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
-    pub fn run_maintenance_prune(
-        &self,
-        db_size_limit: u32,
-        prune_limit: u32,
-    ) -> ApiResult<RunMaintenanceMetrics> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_prune_time_temp.start();
+    pub fn run_maintenance(&self, options: RunMaintenanceOptions) -> ApiResult<()> {
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        let timer_id = glean_metrics::places_manager::run_maintenance_time.start();
+
+        self.run_maintenance_prune(options.db_size_limit, options.prune_limit)?;
+        self.run_maintenance_vacuum()?;
+        self.run_maintenance_optimize()?;
+        self.run_maintenance_checkpoint()?;
+
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        glean_metrics::places_manager::run_maintenance_time.stop_and_accumulate(timer_id);
+
+        Ok(())
+    }
+
+    fn run_maintenance_prune(&self, db_size_limit: u32, prune_limit: u32) -> Result<()> {
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        let timer_id = glean_metrics::places_manager::run_maintenance_prune_time.start();
         let res =
             self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit, prune_limit));
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_prune_time_temp.stop_and_accumulate(timer_id);
-
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        glean_metrics::places_manager::run_maintenance_prune_time.stop_and_accumulate(timer_id);
         res
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_vacuum(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_vacuum_time_temp.start();
+    fn run_maintenance_vacuum(&self) -> Result<()> {
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        let timer_id = glean_metrics::places_manager::run_maintenance_vacuum_time.start();
         let res = self.with_conn(storage::run_maintenance_vacuum);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_vacuum_time_temp.stop_and_accumulate(timer_id);
-
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        glean_metrics::places_manager::run_maintenance_vacuum_time.stop_and_accumulate(timer_id);
         res
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_optimize(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_optimize_time_temp.start();
-        let res = self.with_conn(storage::run_maintenance_optimize);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_optimize_time_temp.stop_and_accumulate(timer_id);
-
-        res
+    fn run_maintenance_optimize(&self) -> Result<()> {
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        let timer_id = glean_metrics::places_manager::run_maintenance_optimize_time.start();
+        self.with_conn(storage::run_maintenance_optimize)?;
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        glean_metrics::places_manager::run_maintenance_optimize_time.stop_and_accumulate(timer_id);
+        Ok(())
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_chk_pnt_time_temp.start();
+    fn run_maintenance_checkpoint(&self) -> Result<()> {
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        let timer_id = glean_metrics::places_manager::run_maintenance_chk_pnt_time.start();
         let res = self.with_conn(storage::run_maintenance_checkpoint);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_chk_pnt_time_temp.stop_and_accumulate(timer_id);
-
+        #[cfg(any(feature = "glean-sym", feature = "glean-fog"))]
+        glean_metrics::places_manager::run_maintenance_chk_pnt_time.stop_and_accumulate(timer_id);
         res
     }
 
@@ -621,6 +617,11 @@ pub struct SearchResult {
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 pub struct Dummy {
     pub md: Option<Vec<HistoryMetadata>>,
+}
+
+pub struct RunMaintenanceOptions {
+    pub db_size_limit: u32,
+    pub prune_limit: u32,
 }
 
 #[cfg(test)]
