@@ -26,6 +26,7 @@
 use crate::{ApiResult, DeviceConfig, Error, FirefoxAccount};
 use error_support::handle_error;
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Get the current state
     pub fn get_state(&self) -> FxaState {
@@ -122,6 +123,7 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(uniffi::Record)]
 /// Information about the authorization state of the application.
 ///
 /// This struct represents metadata about whether the application is currently
@@ -130,6 +132,7 @@ pub struct AuthorizationInfo {
     pub active: bool,
 }
 
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]
 /// High-level view of the authorization state
 ///
 /// This is named `FxaRustAuthState` because it doesn't track all the states we want yet and needs
@@ -138,17 +141,16 @@ pub struct AuthorizationInfo {
 ///
 /// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
 /// `FxaAuthState`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FxaRustAuthState {
     Disconnected,
     Connected,
     AuthIssues,
 }
 
+#[derive(uniffi::Enum, Clone, Debug, PartialEq, Eq)]
 /// Fxa state
 ///
 /// These are the states of [crate::FxaStateMachine] that consumers observe.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxaState {
     /// The state machine needs to be initialized via [Event::Initialize].
     Uninitialized,
@@ -177,10 +179,10 @@ impl From<FxaRustAuthState> for FxaState {
     }
 }
 
+#[derive(uniffi::Enum, Clone, Debug, PartialEq, Eq)]
 /// Fxa event
 ///
 /// These are the events that consumers send to [crate::FxaStateMachine::process_event]
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxaEvent {
     /// Initialize the state machine.  This must be the first event sent.
     Initialize { device_config: DeviceConfig },
@@ -219,14 +221,6 @@ pub enum FxaEvent {
     ///
     /// This event is valid for the `Authenticating` state.
     CompleteOAuthFlow { code: String, state: String },
-    /// An `fxaccounts:change_password` WebChannel message arrived on the device that just changed
-    /// its password. `json_payload` is the `data` object of that message and contains the new
-    /// session token. The state machine swaps the session token for a new refresh token and
-    /// re-initialises the device record.
-    ///
-    /// This event is valid for the `Connected` and `AuthIssues` states. In `Authenticating` it
-    /// is a no-op so the in-progress OAuth flow is not disrupted.
-    WebChannelPasswordChange { json_payload: String },
     /// Cancel an OAuth flow.
     ///
     /// Use this to cancel an in-progress OAuth, returning to [FxaState::Disconnected] so the
@@ -243,6 +237,14 @@ pub enum FxaEvent {
     ///
     /// This event is valid for the `Connected` state.
     CheckAuthorizationStatus,
+    /// An `fxaccounts:change_password` WebChannel message arrived on the device that just changed
+    /// its password. `json_payload` is the `data` object of that message and contains the new
+    /// session token. The state machine swaps the session token for a new refresh token and
+    /// re-initialises the device record.
+    ///
+    /// This event is valid for the `Connected` and `AuthIssues` states. In `Authenticating` it
+    /// is a no-op so the in-progress OAuth flow is not disrupted.
+    WebChannelPasswordChange { json_payload: String },
     /// Disconnect the user
     ///
     /// Send this when the user is asking to be logged out.  The state machine will transition to
