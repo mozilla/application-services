@@ -21,6 +21,7 @@ use sync15::DeviceType;
 
 use crate::{ApiResult, DevicePushSubscription, Error, FirefoxAccount};
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Create a new device record for this application.
     ///
@@ -189,16 +190,19 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(uniffi::Record, Clone, Debug, PartialEq, Eq)]
 /// Device configuration
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeviceConfig {
     pub name: String,
     pub device_type: sync15::DeviceType,
     pub capabilities: Vec<DeviceCapability>,
 }
 
+#[derive(uniffi::Record, Debug, Clone, Serialize, Deserialize)]
 /// Local device that's connecting to FxA
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// This is returned by the device update methods and represents the server's view of the local
+/// device.
 pub struct LocalDevice {
     pub id: String,
     pub display_name: String,
@@ -208,12 +212,12 @@ pub struct LocalDevice {
     pub push_endpoint_expired: bool,
 }
 
+#[derive(uniffi::Record, Debug)]
 /// A device connected to the user's account.
 ///
 /// This struct provides metadata about a device connected to the user's account.
 /// This data would typically be used to display e.g. the list of candidate devices
 /// in a "send tab" menu.
-#[derive(Debug)]
 pub struct Device {
     pub id: String,
     pub display_name: String,
@@ -225,6 +229,7 @@ pub struct Device {
     pub last_access_time: Option<i64>,
 }
 
+#[derive(uniffi::Enum, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 /// A "capability" offered by a device.
 ///
 /// In the FxA ecosystem, connected devices may advertise their ability to respond
@@ -232,12 +237,12 @@ pub struct Device {
 /// executing these commands are encapsulated as part of the FxA Client component,
 /// so consumers simply need to select which ones they want to support, and can
 /// use the variants of this enum to do so.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum DeviceCapability {
     SendTab,
     CloseTabs,
 }
 
+#[derive(uniffi::Record)]
 /// A client connected to the user's account.
 ///
 /// This struct provides metadata about a client connected to the user's account.
@@ -248,7 +253,6 @@ pub enum DeviceCapability {
 ///
 /// This data would typically be used for targeted messaging purposes, catering the
 /// contents of the message to what other applications the user has on their account.
-///
 pub struct AttachedClient {
     pub client_id: Option<String>,
     pub device_id: Option<String>,
@@ -260,8 +264,27 @@ pub struct AttachedClient {
     pub scope: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(uniffi::Enum, Clone, Debug, PartialEq, Eq)]
+/// The result of invoking a "close tabs" command.
+///
+/// If [`FirefoxAccount::close_tabs`] is called with more URLs than can fit
+/// into a single command payload, the URLs will be chunked and sent in
+/// multiple commands.
+///
+/// Chunking breaks the atomicity of a "close tabs" command, but
+/// reduces the number of these commands that FxA sends to other devices.
+/// This is critical for platforms like iOS, where every command triggers a
+/// push message that must show a user-visible notification.
 pub enum CloseTabsResult {
+    /// All URLs passed to [`FirefoxAccount::close_tabs`] were chunked and sent
+    /// in one or more device commands.
     Ok,
+    /// One or more URLs passed to [`FirefoxAccount::close_tabs`] couldn't be sent
+    /// in a device command. The caller can assume that:
+    ///
+    /// 1. Any URL in the returned list of `urls` was not sent, and
+    ///    should be retried.
+    /// 2. All other URLs that were passed to [`FirefoxAccount::close_tabs`], and
+    ///    that are _not_ in the list of `urls`, were chunked and sent.
     TabsNotClosed { urls: Vec<String> },
 }
