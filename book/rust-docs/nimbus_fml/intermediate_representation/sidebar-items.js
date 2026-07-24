@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ModuleId","PrefBranch","TargetLanguage","TypeRef"],"struct":["EnumDef","FeatureDef","FeatureManifest","GeckoPrefDef","ObjectDef","PropDef","VariantDef"],"trait":["TypeFinder"],"type":["Literal"]};

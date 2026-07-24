@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Rust Push Component"><title>push - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="push" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate push</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../push/index.html">push</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#rust-push-component" title="Rust Push Component">Rust Push Component</a><ul><li><a href="#background-concepts" title="Background Concepts">Background Concepts</a></li><li><a href="#api" title="API">API</a></li><li><a href="#initialization" title="Initialization">Initialization</a></li><li><a href="#new-subscription" title="New subscription">New subscription</a></li><li><a href="#end-a-subscription" title="End a subscription">End a subscription</a></li><li><a href="#decrypt-an-incoming-subscription-message" title="Decrypt an incoming subscription message">Decrypt an incoming subscription message</a></li></ul></li></ul><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>push</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/push/lib.rs.html#5-413">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rust-push-component"><a class="doc-anchor" href="#rust-push-component">§</a>Rust Push Component</h2>
+<p>This component helps an application to manage <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API">WebPush</a> subscriptions,
+acting as an intermediary between Mozilla’s <a href="https://autopush.readthedocs.io/en/latest/">autopush service</a>
+and platform native push infrastructure such as <a href="https://firebase.google.com/docs/cloud-messaging">Firebase Cloud Messaging</a> or <a href="https://developer.amazon.com/docs/adm/overview.html">Amazon Device Messaging</a>.</p>
+<h3 id="background-concepts"><a class="doc-anchor" href="#background-concepts">§</a>Background Concepts</h3><h4 id="webpush-subscriptions"><a class="doc-anchor" href="#webpush-subscriptions">§</a>WebPush Subscriptions</h4>
+<p>A WebPush client manages a number of <em>subscriptions</em>, each of which is used to deliver push
+notifications to a different part of the app. For example, a web browser might manage a separate
+subscription for each website that has registered a <a href="https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API">service worker</a>, and an application that includes Firefox Accounts would manage
+a dedicated subscription on which to receive account state updates.</p>
+<p>Each subscription is identified by a unique <em>channel id</em>, which is a randomly-generated identifier.
+It’s the responsibility of the application to know how to map a channel id to an appropriate function
+in the app to receive push notifications. Subscriptions also have an associated <em>scope</em> which is something
+to do which service workers that your humble author doesn’t really understand :-/.</p>
+<p>When a subscription is created for a channel id, we allocate <em>subscription info</em> consisting of:</p>
+<ul>
+<li>An HTTP endpoint URL at which push messages can be submitted.</li>
+<li>A cryptographic key and authentication secret with which push messages can be encrypted.</li>
+</ul>
+<p>This subscription info is distributed to other services that want to send push messages to
+the application.</p>
+<p>The HTTP endpoint is provided by Mozilla’s <a href="https://autopush.readthedocs.io/en/latest/">autopush service</a>,
+and we use the <a href="https://github.com/mozilla/rust-ece">rust-ece</a> to manage encryption with the cryptographic keys.</p>
+<p>Here’s a helpful diagram of how the <em>subscription</em> flow works at a high level across the moving parts:
+<img src="https://mozilla.github.io/application-services/book/diagrams/Push-Component-Subscription-flow.png" alt="A Sequence diagram showing how the different parts of push interact" title="Sequence diagram" /></p>
+<h4 id="autopush-bridging"><a class="doc-anchor" href="#autopush-bridging">§</a>AutoPush Bridging</h4>
+<p>Our target consumer platforms each have their own proprietary push-notification infrastructure,
+such as <a href="https://firebase.google.com/docs/cloud-messaging">Firebase Cloud Messaging</a> for Android
+and the <a href="https://developer.apple.com/notifications/">Apple Push Notification Service</a> for iOS.
+Mozilla’s <a href="https://autopush.readthedocs.io/en/latest/">autopush service</a> provides a bridge between
+these different mechanisms and the WebPush standard so that they can be used with a consistent
+interface.</p>
+<p>This component acts a client of the <a href="https://autopush.readthedocs.io/en/latest/http.html#push-service-bridge-http-interface">Push Service Bridge HTTP Interface</a>.</p>
+<p>We assume two things about the consuming application:</p>
+<ul>
+<li>It has registered with the autopush service and received a unique <code>app_id</code> identifying this registration.</li>
+<li>It has registered with whatever platform-specific notification infrastructure is appropriate, and is
+able to obtain a <code>token</code> corresponding to its native push notification state.</li>
+</ul>
+<p>On first use, this component will register itself as an <em>application instance</em> with the autopush service, providing the <code>app_id</code> and <code>token</code> and receiving a unique <code>uaid</code> (“user-agent id”) to identify its
+connection to the server.</p>
+<p>As the application adds or removes subscriptions using the API of this component, it will:</p>
+<ul>
+<li>Manage a local database of subscriptions and the corresponding cryptographic material.</li>
+<li>Make corresponding HTTP API calls to update the state associated with its <code>uaid</code> on the autopush server.</li>
+</ul>
+<p>Periodically, the application should call a special <code>verify_connection</code> method to check whether
+the state on the autopush server matches the local state and take any corrective action if it
+differs.</p>
+<p>For local development and debugging, it is possible to run a local instance of the autopush
+bridge service; see <a href="https://docs.google.com/document/d/18L_g2hIj_1mncF978A_SHXN4udDQLut5P_ZHYZEwGP8">this google doc</a> for details.</p>
+<h3 id="api"><a class="doc-anchor" href="#api">§</a>API</h3><h3 id="initialization"><a class="doc-anchor" href="#initialization">§</a>Initialization</h3>
+<p>Calls are handled by the <code>PushManager</code>, which provides a handle for future calls.</p>
+<p>example:</p>
+<div class="example-wrap"><pre class="language-kotlin"><code>
+import mozilla.appservices.push.(PushManager, BridgeTypes)
+
+// The following are mock calls for fetching application level configuration options.
+// &quot;SenderID&quot; is the native OS push message application identifier. See Native
+// messaging documentation for details.
+val sender_id = SystemConfigurationOptions.get(&quot;SenderID&quot;)
+
+// The &quot;bridge type&quot; is the identifier for the native OS push message system.
+// (e.g. FCM for Google Firebase Cloud Messaging, ADM for Amazon Direct Messaging,
+// etc.)
+val bridge_type = BridgeTypes.FCM
+
+// The &quot;registration_id&quot; is the native OS push message user registration number.
+// Native push message registration usually happens at application start, and returns
+// an opaque user identifier string. See Native messaging documentation for details.
+val registration_id = NativeMessagingSystem.register(sender_id)
+
+val push_manager = PushManager(
+    sender_id,
+    bridge_type,
+    registration_id
+)
+
+// It is strongly encouraged that the connection is verified at least once a day.
+// This will ensure that the server and UA have matching information regarding
+// subscriptions. This call usually returns quickly, but may take longer if the
+// UA has a large number of subscriptions and things have fallen out of sync.
+
+for change in push_manager.verify_connection() {
+    // fetch the subscriber from storage using the change[0] and
+    // notify them with a `pushsubscriptionchange` message containing the new
+    // endpoint change[1]
+}
+</code></pre></div><h3 id="new-subscription"><a class="doc-anchor" href="#new-subscription">§</a>New subscription</h3>
+<p>Before messages can be delivered, a new subscription must be requested. The subscription info block contains all the information a remote subscription provider service will need to encrypt and transmit a message to this user agent.</p>
+<p>example:</p>
+<div class="example-wrap"><pre class="language-kotlin"><code>
+// Each new request must have a unique &quot;channel&quot; identifier. This channel helps
+// later identify recipients and aid in routing. A ChannelID is a UUID4 value.
+// the &quot;scope&quot; is the ServiceWorkerRegistration scope. This will be used
+// later for push notification management.
+val channelID = GUID.randomUUID()
+
+val subscription_info = push_manager.subscribe(channelID, endpoint_scope)
+
+// the published subscription info has the following JSON format:
+// {&quot;endpoint&quot;: subscription_info.endpoint,
+//  &quot;keys&quot;: {
+//      &quot;auth&quot;: subscription_info.keys.auth,
+//      &quot;p256dh&quot;: subscription_info.keys.p256dh
+//  }}</code></pre></div><h3 id="end-a-subscription"><a class="doc-anchor" href="#end-a-subscription">§</a>End a subscription</h3>
+<p>A user may decide to no longer receive a given subscription. To remove a given subscription, pass the associated channelID</p>
+<div class="example-wrap"><pre class="language-kotlin"><code>push_manager.unsubscribe(channelID)  // Terminate a single subscription</code></pre></div>
+<p>If the user wishes to terminate all subscriptions, send and empty string for channelID</p>
+<div class="example-wrap"><pre class="language-kotlin"><code>push_manager.unsubscribe(&quot;&quot;)        // Terminate all subscriptions for a user</code></pre></div>
+<p>If this function returns <code>false</code> the subsequent <code>verify_connection</code> may result in new channel endpoints.</p>
+<h3 id="decrypt-an-incoming-subscription-message"><a class="doc-anchor" href="#decrypt-an-incoming-subscription-message">§</a>Decrypt an incoming subscription message</h3>
+<p>An incoming subscription body will contain a number of metadata elements along with the body of the message. Due to platform differences, how that metadata is provided may //! vary, however the most common form is that the messages “payload” looks like.</p>
+<div class="example-wrap"><pre class="language-javascript"><code>{&quot;chid&quot;: &quot;...&quot;,         // ChannelID
+ &quot;con&quot;: &quot;...&quot;,          // Encoding form
+ &quot;enc&quot;: &quot;...&quot;,          // Optional encryption header
+ &quot;crypto-key&quot;: &quot;...&quot;,   // Optional crypto key header
+ &quot;body&quot;: &quot;...&quot;,         // Encrypted message body
+}</code></pre></div>
+<p>These fields may be included as a sub-hash, or may be intermingled with other data fields. If you have doubts or concerns, please contact the Application Services team guidance</p>
+<p>Based on the above payload, an example call might look like:</p>
+<div class="example-wrap"><pre class="language-kotlin"><code>    val result = manager.decrypt(
+        channelID = payload[&quot;chid&quot;].toString(),
+        body = payload[&quot;body&quot;].toString(),
+        encoding = payload[&quot;con&quot;].toString(),
+        salt = payload.getOrElse(&quot;enc&quot;, &quot;&quot;).toString(),
+        dh = payload.getOrElse(&quot;dh&quot;, &quot;&quot;).toString()
+    )
+    // result returns a byte array. You may need to convert to a string
+    return result.toString(Charset.forName(&quot;UTF-8&quot;))</code></pre></div></div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.debug.html" title="macro push::debug">debug</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.KeyInfo.html" title="struct push::KeyInfo">KeyInfo</a></dt><dd>Key Information that can be used to encrypt payloads. These are encoded as base64
+so will need to be decoded before they can actually be used as keys.</dd><dt><a class="struct" href="struct.PushConfiguration.html" title="struct push::PushConfiguration">Push<wbr>Configuration</a></dt><dt><a class="struct" href="struct.PushManager.html" title="struct push::PushManager">Push<wbr>Manager</a></dt><dd>Object representing the PushManager used to manage subscriptions</dd><dt><a class="struct" href="struct.PushSubscriptionChanged.html" title="struct push::PushSubscriptionChanged">Push<wbr>Subscription<wbr>Changed</a></dt><dd>An dictionary describing the push subscription that changed, the caller
+will receive a list of <a href="struct.PushSubscriptionChanged.html" title="struct push::PushSubscriptionChanged"><code>PushSubscriptionChanged</code></a> when calling
+<a href="struct.PushManager.html#method.verify_connection" title="method push::PushManager::verify_connection"><code>PushManager::verify_connection</code></a>, one entry for each channel that the
+caller should resubscribe to</dd><dt><a class="struct" href="struct.SubscriptionInfo.html" title="struct push::SubscriptionInfo">Subscription<wbr>Info</a></dt><dd>Subscription Information, the endpoint to send push messages to and
+the key information that can be used to encrypt payloads</dd><dt><a class="struct" href="struct.SubscriptionResponse.html" title="struct push::SubscriptionResponse">Subscription<wbr>Response</a></dt><dd>The subscription response object returned from <a href="struct.PushManager.html#method.subscribe" title="method push::PushManager::subscribe"><code>PushManager::subscribe</code></a></dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BridgeType.html" title="enum push::BridgeType">Bridge<wbr>Type</a></dt><dd>The types of supported native bridges.</dd><dt><a class="enum" href="enum.PushApiError.html" title="enum push::PushApiError">Push<wbr>ApiError</a></dt><dt><a class="enum" href="enum.PushError.html" title="enum push::PushError">Push<wbr>Error</a></dt><dt><a class="enum" href="enum.PushHttpProtocol.html" title="enum push::PushHttpProtocol">Push<wbr>Http<wbr>Protocol</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ApiResult.html" title="type push::ApiResult">ApiResult</a></dt></dl></section></div></main></body></html>

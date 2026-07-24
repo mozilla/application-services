@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PrefBranch","PrefUnenrollReason"],"fn":["create_feature_prop_pref_map","query_gecko_pref_store"],"struct":["GeckoPref","GeckoPrefState","GeckoPrefStore","GeckoPrefStoreState","OriginalGeckoPref","PrefEnrollmentData"],"trait":["GeckoPrefHandler"],"type":["MapOfFeatureIdToPropertyNameToGeckoPrefState"]};
