@@ -6,7 +6,7 @@
 pub mod error;
 pub mod telemetry;
 
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
 
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::{AdsClient, ContextIdProvider};
@@ -20,7 +20,7 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::AdsClientUrl;
+use crate::{AdsClientUrl, DispatchCommand};
 use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -55,7 +55,7 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
     }
 }
 
-#[derive(Default, uniffi::Record)]
+#[derive(Default, Clone, Debug,  uniffi::Record)]
 pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
@@ -64,7 +64,7 @@ pub struct MozAdsRequestOptions {
     pub ohttp: bool,
 }
 
-#[derive(Default, uniffi::Record)]
+#[derive(Default, Debug, Clone, uniffi::Record)]
 pub struct MozAdsCallbackOptions {
     #[uniffi(default = false)]
     pub ohttp: bool,
@@ -138,9 +138,17 @@ impl MozAdsClientBuilder {
                 .map(MozAdsTelemetryWrapper::new)
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
         };
-        let client = AdsClient::new(client_config);
+        let client = Arc::new(Mutex::new(AdsClient::new(client_config)));
+        let client_clone = client.clone();
+        
+        let (tx, rx)= mpsc::channel::<DispatchCommand>();
+        let worker_thread_handle = std::thread::spawn(move || crate::worker::worker(client_clone, rx));
+
         MozAdsClient {
-            inner: Mutex::new(client),
+            inner: client,
+            _worker_thread_handle: worker_thread_handle,
+            command_tx: tx
+            
         }
     }
 

@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::{Arc, mpsc::Sender}, thread::JoinHandle};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -19,12 +19,12 @@ mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
+pub mod worker;
 pub mod telemetry;
 
 pub use ffi::*;
 
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
-
 #[cfg(test)]
 mod test_utils;
 
@@ -38,8 +38,12 @@ uniffi::custom_type!(AdsClientUrl, String, {
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
+    _worker_thread_handle : JoinHandle<()>,
+    command_tx: Sender<DispatchCommand>
+
 }
+pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 
 #[uniffi::export]
 impl MozAdsClient {
@@ -161,4 +165,55 @@ impl MozAdsClient {
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn dispatch(
+        &self,
+        command : DispatchCommand
+    ) -> AdsClientApiResult<()> {
+        self.command_tx.send(command).map_err(ComponentError::Dispatch)?;
+        Ok(())
+    }
+}
+
+#[derive(uniffi::Enum)]
+
+pub enum DispatchCommand {
+    RequestTileAd {
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Arc<dyn TileRequestCallback>,
+    }
+}
+
+impl DispatchCommand {
+
+    #[handle_error(ComponentError)]
+    pub fn run_command(self, ads_client_inner : &MozAdsClientInner) -> AdsClientApiResult<()> {
+        // TODO: Duplicated behavior with the sync functions- either they call this or you call those
+        match self {
+            DispatchCommand::RequestTileAd { moz_ad_requests, options, callback } => {
+                let inner = ads_client_inner.lock();
+                let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
+                let options = options.unwrap_or_default();
+                let flags = AdRequestFlags::from(&options);
+                let ohttp = options.ohttp;
+                let cache_policy: CachePolicy = options.into();
+                let response = inner
+                    .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
+                    .map_err(ComponentError::RequestAds)?;
+                let tiles = response.into_iter().map(|(k, v)| (k, v.into())).collect();
+                callback.on_ad(tiles);
+                // TODO: error, modular version
+            }
+        }
+        Ok(())
+    }
+}
+
+#[uniffi::export(with_foreign)]
+pub trait TileRequestCallback : Send + Sync {
+    fn on_ad(&self, tiles : HashMap<String, MozAdsTile>);
+    fn on_error(&self, err: MozAdsClientApiError);
 }

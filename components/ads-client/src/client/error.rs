@@ -3,7 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
+use std::sync::mpsc::SendError;
+
+use crate::{DispatchCommand, mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError}};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
@@ -18,6 +20,9 @@ pub enum ComponentError {
 
     #[error("Error requesting ads: {0}")]
     RequestAds(#[from] RequestAdsError),
+
+    #[error("Error dispatching an asynchronous command: {0}")]
+    Dispatch(SendError<DispatchCommand>)
 }
 
 #[derive(Debug, thiserror::Error)]
