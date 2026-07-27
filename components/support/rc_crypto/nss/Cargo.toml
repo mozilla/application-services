@@ -21,3 +21,4 @@ once_cell = { version = "1.20.2", optional = true }
 default = []
 keydb = ["dep:once_cell"]
 backtrace = ["error-support/backtrace"]
+mozbuild-rustlib = ["nss_sys/mozbuild-rustlib"]
