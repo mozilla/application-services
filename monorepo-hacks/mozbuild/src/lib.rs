@@ -25,3 +25,7 @@ pub mod config {
     pub const NSS_CFLAGS: [&str; 0] = [];
     pub const NSPR_CFLAGS: [&str; 0] = [];
 }
+
+pub fn link_nss() {}
+
+pub fn link_nss_rustlib() {}
