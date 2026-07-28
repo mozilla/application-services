@@ -1,35 +1,169 @@
-use std::{collections::HashMap, sync::{Arc, mpsc::Receiver}};
 use error_support::handle_error;
+use std::{
+    collections::HashMap,
+    sync::{mpsc::Receiver, Arc},
+};
+use url::Url as AdsClientUrl;
 
-use crate::{AdsClientApiResult, MozAdsClientApiError, MozAdsClientInner, MozAdsPlacementRequest, MozAdsRequestOptions, MozAdsTile, client::error::ComponentError, http_cache::CachePolicy, mars::ad_request::{AdPlacementRequest, AdRequestFlags}};
+use crate::{
+    client::error::ComponentError,
+    http_cache::CachePolicy,
+    mars::{
+        ad_request::{AdPlacementRequest, AdRequestFlags},
+        ad_response::AdSpoc,
+        error::CallbackRequestError,
+    },
+    AdsClientApiResult, MozAdsCallbackOptions, MozAdsClientApiError, MozAdsClientInner,
+    MozAdsImage, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount, MozAdsReportReason,
+    MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
+};
 
-pub fn worker(inner_client : MozAdsClientInner, rx : Receiver<DispatchCommand>) {
-    // TODO: This could be an async environment where we wait on buffered futures- can send many out at once, instead of FIFO.
+pub fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
     while let Ok(task) = rx.recv() {
-        let task : DispatchCommand = task;
-        task.run_command(&inner_client).expect("TODO: handle error here. maybe retries should be here?");
+        let task: DispatchCommand = task;
+        task.run_command(&inner_client)
+            .expect("TODO: handle error here. maybe retries should be here?");
     }
 }
 
 #[derive(uniffi::Enum)]
-
 pub enum DispatchCommand {
+    RecordClick {
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Arc<dyn ErrorOnlyRequestCallback>,
+    },
+    RecordImpression {
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Arc<dyn ErrorOnlyRequestCallback>,
+    },
+    ReportAd {
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Arc<dyn ErrorOnlyRequestCallback>,
+    },
+    RequestImageAds {
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Arc<dyn ImageRequestCallback>,
+    },
+    RequestSpocAds {
+        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Arc<dyn SpocRequestCallback>,
+    },
     RequestTileAd {
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
         callback: Arc<dyn TileRequestCallback>,
-    }
+    },
 }
 
 impl DispatchCommand {
-
     #[handle_error(ComponentError)]
-    pub fn run_command(self, ads_client_inner : &MozAdsClientInner) -> AdsClientApiResult<()> {
+    pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
         // TODO: Duplicated behavior with the sync functions- either they call this or you call those
         match self {
-            DispatchCommand::RequestTileAd { moz_ad_requests, options, callback } => {
+            DispatchCommand::RecordClick {
+                click_url,
+                options,
+                callback,
+            } => {
+                let url = AdsClientUrl::parse(&click_url).map_err(|e| {
+                    ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into())
+                })?;
+                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
                 let inner = ads_client_inner.lock();
-                let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
+                inner
+                    .record_click(url, ohttp)
+                    .map_err(ComponentError::RecordClick);
+                // TODO: error, modular version
+            }
+            DispatchCommand::RecordImpression {
+                impression_url,
+                options,
+                callback,
+            } => {
+                let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+                    ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+                })?;
+                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+                let inner = ads_client_inner.lock();
+                inner
+                    .record_impression(url, ohttp)
+                    .map_err(ComponentError::RecordImpression);
+                // TODO: error, modular version
+            }
+            DispatchCommand::ReportAd {
+                report_url,
+                reason,
+                options,
+                callback,
+            } => {
+                let url = AdsClientUrl::parse(&report_url).map_err(|e| {
+                    ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into())
+                })?;
+                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+                let inner = ads_client_inner.lock();
+                inner
+                    .report_ad(url, reason.into(), ohttp)
+                    .map_err(ComponentError::ReportAd);
+                // TODO: error, modular version
+            }
+            DispatchCommand::RequestImageAds {
+                moz_ad_requests,
+                options,
+                callback,
+            } => {
+                let inner = ads_client_inner.lock();
+                let requests: Vec<AdPlacementRequest> =
+                    moz_ad_requests.iter().map(|r| r.into()).collect();
+                let options = options.unwrap_or_default();
+                let flags = AdRequestFlags::from(&options);
+                let ohttp = options.ohttp;
+                let cache_policy: CachePolicy = options.into();
+                let response = inner
+                    .request_image_ads(requests, flags, Some(cache_policy), ohttp)
+                    .map_err(ComponentError::RequestAds)?;
+                let ads = response.into_iter().map(|(k, v)| (k, v.into())).collect();
+
+                callback.on_ad(ads);
+                // TODO: error, modular version
+            }
+
+            DispatchCommand::RequestSpocAds {
+                moz_ad_requests,
+                options,
+                callback,
+            } => {
+                let inner = ads_client_inner.lock();
+                let requests: Vec<AdPlacementRequest> =
+                    moz_ad_requests.iter().map(|r| r.into()).collect();
+                let options = options.unwrap_or_default();
+                let flags = AdRequestFlags::from(&options);
+                let ohttp = options.ohttp;
+                let cache_policy: CachePolicy = options.into();
+                let response: HashMap<String, Vec<AdSpoc>> = inner
+                    .request_spoc_ads(requests, flags, Some(cache_policy), ohttp)
+                    .map_err(ComponentError::RequestAds)?;
+                let ads = response
+                    .into_iter()
+                    .map(|(k, v)| (k, v.into_iter().map(|spoc| spoc.into()).collect()))
+                    .collect();
+                callback.on_ad(ads);
+                // TODO: error, modular version
+            }
+
+            DispatchCommand::RequestTileAd {
+                moz_ad_requests,
+                options,
+                callback,
+            } => {
+                let inner = ads_client_inner.lock();
+                let requests: Vec<AdPlacementRequest> =
+                    moz_ad_requests.iter().map(|r| r.into()).collect();
                 let options = options.unwrap_or_default();
                 let flags = AdRequestFlags::from(&options);
                 let ohttp = options.ohttp;
@@ -46,8 +180,26 @@ impl DispatchCommand {
     }
 }
 
+// TODO: Uniffi does not currently support generics here or direct function callbacks, so we use a few distinct interfaces.
 #[uniffi::export(with_foreign)]
-pub trait TileRequestCallback : Send + Sync {
-    fn on_ad(&self, tiles : HashMap<String, MozAdsTile>);
+pub trait ErrorOnlyRequestCallback: Send + Sync {
+    fn on_error(&self, err: MozAdsClientApiError);
+}
+
+#[uniffi::export(with_foreign)]
+pub trait ImageRequestCallback: Send + Sync {
+    fn on_ad(&self, ads: HashMap<String, MozAdsImage>);
+    fn on_error(&self, err: MozAdsClientApiError);
+}
+
+#[uniffi::export(with_foreign)]
+pub trait SpocRequestCallback: Send + Sync {
+    fn on_ad(&self, ads: HashMap<String, Vec<MozAdsSpoc>>);
+    fn on_error(&self, err: MozAdsClientApiError);
+}
+
+#[uniffi::export(with_foreign)]
+pub trait TileRequestCallback: Send + Sync {
+    fn on_ad(&self, tiles: HashMap<String, MozAdsTile>);
     fn on_error(&self, err: MozAdsClientApiError);
 }

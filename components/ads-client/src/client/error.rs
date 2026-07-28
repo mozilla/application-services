@@ -5,7 +5,10 @@
 
 use std::sync::mpsc::SendError;
 
-use crate::{mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError}, worker::DispatchCommand};
+use crate::{
+    mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError},
+    worker::DispatchCommand,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
@@ -22,7 +25,7 @@ pub enum ComponentError {
     RequestAds(#[from] RequestAdsError),
 
     #[error("Error dispatching an asynchronous command: {0}")]
-    Dispatch(SendError<DispatchCommand>)
+    Dispatch(SendError<DispatchCommand>),
 }
 
 #[derive(Debug, thiserror::Error)]

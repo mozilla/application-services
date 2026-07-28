@@ -3,7 +3,11 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::{collections::HashMap, sync::{Arc, mpsc::Sender}, thread::JoinHandle};
+use std::{
+    collections::HashMap,
+    sync::{mpsc::Sender, Arc},
+    thread::JoinHandle,
+};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -19,8 +23,8 @@ mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
-pub mod worker;
 pub mod telemetry;
+pub mod worker;
 
 pub use ffi::*;
 
@@ -39,9 +43,8 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
-    _worker_thread_handle : JoinHandle<()>,
-    command_tx: Sender<DispatchCommand>
-
+    _worker_thread_handle: JoinHandle<()>,
+    command_tx: Sender<DispatchCommand>,
 }
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 
@@ -168,11 +171,10 @@ impl MozAdsClient {
 
     #[handle_error(ComponentError)]
     #[uniffi::method()]
-    pub fn dispatch(
-        &self,
-        command : DispatchCommand
-    ) -> AdsClientApiResult<()> {
-        self.command_tx.send(command).map_err(ComponentError::Dispatch)?;
+    pub fn dispatch(&self, command: DispatchCommand) -> AdsClientApiResult<()> {
+        self.command_tx
+            .send(command)
+            .map_err(ComponentError::Dispatch)?;
         Ok(())
     }
 }
