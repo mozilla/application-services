@@ -8,7 +8,7 @@ use error_support::{ErrorHandling, GetErrorHandling};
 
 pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum MozAdsClientApiError {
     #[error("Something unexpected occurred.")]
     Other { reason: String },
@@ -29,5 +29,13 @@ impl GetErrorHandling for ComponentError {
         ErrorHandling::convert(MozAdsClientApiError::Other {
             reason: self.to_string(),
         })
+    }
+}
+
+impl From<ComponentError> for MozAdsClientApiError {
+    fn from(value: ComponentError) -> Self {
+        MozAdsClientApiError::Other {
+            reason: value.to_string(),
+        }
     }
 }

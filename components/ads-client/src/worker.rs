@@ -1,10 +1,3 @@
-use error_support::handle_error;
-use std::{
-    collections::HashMap,
-    sync::{mpsc::Receiver, Arc},
-};
-use url::Url as AdsClientUrl;
-
 use crate::{
     client::error::ComponentError,
     http_cache::CachePolicy,
@@ -17,6 +10,12 @@ use crate::{
     MozAdsImage, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount, MozAdsReportReason,
     MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
 };
+use error_support::handle_error;
+use std::{
+    collections::HashMap,
+    sync::{mpsc::Receiver, Arc},
+};
+use url::Url as AdsClientUrl;
 
 pub fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
     while let Ok(task) = rx.recv() {
@@ -71,30 +70,42 @@ impl DispatchCommand {
                 options,
                 callback,
             } => {
-                let url = AdsClientUrl::parse(&click_url).map_err(|e| {
-                    ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into())
-                })?;
-                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_click(url, ohttp)
-                    .map_err(ComponentError::RecordClick);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let url = AdsClientUrl::parse(&click_url).map_err(|e| {
+                        ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into())
+                    })?;
+                    let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+                    let inner = ads_client_inner.lock();
+                    inner
+                        .record_click(url, ohttp)
+                        .map_err(ComponentError::RecordClick)
+                })();
+
+                match resp {
+                    Ok(()) => (),
+                    Err(e) => callback.on_error(e.into()),
+                }
             }
             DispatchCommand::RecordImpression {
                 impression_url,
                 options,
                 callback,
             } => {
-                let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
-                    ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
-                })?;
-                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_impression(url, ohttp)
-                    .map_err(ComponentError::RecordImpression);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+                        ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+                    })?;
+                    let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+                    let inner = ads_client_inner.lock();
+                    inner
+                        .record_impression(url, ohttp)
+                        .map_err(ComponentError::RecordImpression)
+                })();
+
+                match resp {
+                    Ok(()) => (),
+                    Err(e) => callback.on_error(e.into()),
+                }
             }
             DispatchCommand::ReportAd {
                 report_url,
@@ -102,35 +113,44 @@ impl DispatchCommand {
                 options,
                 callback,
             } => {
-                let url = AdsClientUrl::parse(&report_url).map_err(|e| {
-                    ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into())
-                })?;
-                let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-                let inner = ads_client_inner.lock();
-                inner
-                    .report_ad(url, reason.into(), ohttp)
-                    .map_err(ComponentError::ReportAd);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let url = AdsClientUrl::parse(&report_url).map_err(|e| {
+                        ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into())
+                    })?;
+                    let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+                    let inner = ads_client_inner.lock();
+                    inner
+                        .report_ad(url, reason.into(), ohttp)
+                        .map_err(ComponentError::ReportAd)
+                })();
+
+                match resp {
+                    Ok(()) => (),
+                    Err(e) => callback.on_error(e.into()),
+                }
             }
             DispatchCommand::RequestImageAds {
                 moz_ad_requests,
                 options,
                 callback,
             } => {
-                let inner = ads_client_inner.lock();
-                let requests: Vec<AdPlacementRequest> =
-                    moz_ad_requests.iter().map(|r| r.into()).collect();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
-                let response = inner
-                    .request_image_ads(requests, flags, Some(cache_policy), ohttp)
-                    .map_err(ComponentError::RequestAds)?;
-                let ads = response.into_iter().map(|(k, v)| (k, v.into())).collect();
-
-                callback.on_ad(ads);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let inner = ads_client_inner.lock();
+                    let requests: Vec<AdPlacementRequest> =
+                        moz_ad_requests.iter().map(|r| r.into()).collect();
+                    let options = options.unwrap_or_default();
+                    let flags = AdRequestFlags::from(&options);
+                    let ohttp = options.ohttp;
+                    let cache_policy: CachePolicy = options.into();
+                    let response = inner
+                        .request_image_ads(requests, flags, Some(cache_policy), ohttp)
+                        .map_err(ComponentError::RequestAds)?;
+                    Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+                })();
+                match resp {
+                    Ok(ads) => callback.on_ad(ads),
+                    Err(e) => callback.on_error(e),
+                }
             }
 
             DispatchCommand::RequestSpocAds {
@@ -138,22 +158,28 @@ impl DispatchCommand {
                 options,
                 callback,
             } => {
-                let inner = ads_client_inner.lock();
-                let requests: Vec<AdPlacementRequest> =
-                    moz_ad_requests.iter().map(|r| r.into()).collect();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
-                let response: HashMap<String, Vec<AdSpoc>> = inner
-                    .request_spoc_ads(requests, flags, Some(cache_policy), ohttp)
-                    .map_err(ComponentError::RequestAds)?;
-                let ads = response
-                    .into_iter()
-                    .map(|(k, v)| (k, v.into_iter().map(|spoc| spoc.into()).collect()))
-                    .collect();
-                callback.on_ad(ads);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let inner = ads_client_inner.lock();
+                    let requests: Vec<AdPlacementRequest> =
+                        moz_ad_requests.iter().map(|r| r.into()).collect();
+                    let options = options.unwrap_or_default();
+                    let flags = AdRequestFlags::from(&options);
+                    let ohttp = options.ohttp;
+                    let cache_policy: CachePolicy = options.into();
+                    let response: HashMap<String, Vec<AdSpoc>> = inner
+                        .request_spoc_ads(requests, flags, Some(cache_policy), ohttp)
+                        .map_err(ComponentError::RequestAds)?;
+                    Ok::<_, ComponentError>(
+                        response
+                            .into_iter()
+                            .map(|(k, v)| (k, v.into_iter().map(|spoc| spoc.into()).collect()))
+                            .collect(),
+                    )
+                })();
+                match resp {
+                    Ok(ads) => callback.on_ad(ads),
+                    Err(e) => callback.on_error(e.into()),
+                }
             }
 
             DispatchCommand::RequestTileAd {
@@ -161,23 +187,28 @@ impl DispatchCommand {
                 options,
                 callback,
             } => {
-                let inner = ads_client_inner.lock();
-                let requests: Vec<AdPlacementRequest> =
-                    moz_ad_requests.iter().map(|r| r.into()).collect();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
-                let response = inner
-                    .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
-                    .map_err(ComponentError::RequestAds)?;
-                let tiles = response.into_iter().map(|(k, v)| (k, v.into())).collect();
-                callback.on_ad(tiles);
-                // TODO: error, modular version
+                let resp = (|| {
+                    let inner = ads_client_inner.lock();
+                    let requests: Vec<AdPlacementRequest> =
+                        moz_ad_requests.iter().map(|r| r.into()).collect();
+                    let options = options.unwrap_or_default();
+                    let flags = AdRequestFlags::from(&options);
+                    let ohttp = options.ohttp;
+                    let cache_policy: CachePolicy = options.into();
+                    let response = inner
+                        .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
+                        .map_err(ComponentError::RequestAds)?;
+                    Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+                })();
+                match resp {
+                    Ok(tiles) => callback.on_ad(tiles),
+                    Err(e) => callback.on_error(e),
+                }
             }
         }
         Ok(())
     }
+
 }
 
 // TODO: Uniffi does not currently support generics here or direct function callbacks, so we use a few distinct interfaces.
