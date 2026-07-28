@@ -95,7 +95,7 @@ commands:
   build-desktop-libs:
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install python tcl
+      - run: sudo apt-get install python3 tcl
       - run: sudo apt-get install python3-venv
       - run: sudo apt-get install libclang-dev
       - run:
@@ -196,7 +196,7 @@ executors:
   # Unfortunately some of our jobs can only run successfully on macos.
   docker:
     docker:
-      - image: cimg/rust:1.53.0
+      - image: cimg/rust:1.91.0
   macos:
     macos:
       xcode: "26.0"
