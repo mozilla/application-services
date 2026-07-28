@@ -292,7 +292,11 @@ pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
 /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
 /// it supports a stop-watch style API, not recording specific values).
 pub fn run_maintenance_optimize(conn: &PlacesDb) -> Result<()> {
-    conn.execute_one("PRAGMA optimize")?;
+    // 0x10012: run ANALYZE on tables that might benefit (0x02), with a row limit to keep
+    // runtime bounded (0x10), including tables not queried during this connection (0x10000).
+    // The 0x10000 bit lets maintenance refresh stats for tables the writer never queries;
+    // desktop added this alongside the Bug 2017227 shutdown fix.
+    conn.execute_one("PRAGMA optimize(0x10012)")?;
     Ok(())
 }
 

@@ -2,8 +2,14 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Autofill
+
+- Add `Store::shutdown()`, which closes the database connection early so it happens before Firefox Desktop's late-write shutdown barrier rather than during GC. Operations after shutdown return `DatabaseClosed`. ([Bug 2050036](https://bugzilla.mozilla.org/show_bug.cgi?id=2050036))
+
 ### Remote Settings
-* Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
+- Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
 
 # v154.0 (_2026-07-20_)
 

@@ -16,3 +16,8 @@ nss_build_common = { path = "../nss_build_common" }
 
 [features]
 default = []
+# Adds static linkage for mozpkix and pure_virtual on top of the dylib link.
+# Activate from crates that produce a self-contained Rust artifact (megazord
+# cdylib, rusttests). Do NOT activate from libxul's dependency graph; libxul
+# already links mozpkix itself, and duplicate linkage causes symbol conflicts.
+mozbuild-rustlib = []

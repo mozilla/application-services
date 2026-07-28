@@ -21,6 +21,7 @@ use crate::{internal, ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
 use parking_lot::Mutex;
 
+#[uniffi::export]
 impl FirefoxAccount {
     /// Restore a [`FirefoxAccount`] instance from serialized state.
     ///
@@ -31,6 +32,7 @@ impl FirefoxAccount {
     /// not call `from_json` multiple times on the same data. This would result
     /// in multiple live objects sharing the same access tokens and is likely to
     /// produce unexpected behaviour.
+    #[uniffi::constructor]
     #[handle_error(Error)]
     pub fn from_json(data: &str) -> ApiResult<FirefoxAccount> {
         Ok(FirefoxAccount {
