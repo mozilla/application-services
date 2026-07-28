@@ -6,7 +6,7 @@
 use std::{collections::HashMap, sync::{Arc, mpsc::{self, Sender}}};
 
 use ads_client::{
-    DispatchCommand, MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, worker::{DispatchCommand, TileRequestCallback},
 };
 
 fn init_backend() {
@@ -35,7 +35,7 @@ fn test_contract_tile_prod_async() {
         err_tx: Sender<ads_client::MozAdsClientApiError>,
     }
 
-    impl ads_client::TileRequestCallback for TileCallback {
+    impl TileRequestCallback for TileCallback {
         fn on_ad(&self,tiles: std::collections::HashMap<String,ads_client::MozAdsTile>) {
             (self.on_ad_fn)(tiles, self.success_tx.clone())
         }

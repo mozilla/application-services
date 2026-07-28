@@ -20,8 +20,9 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::{AdsClientUrl, DispatchCommand};
+use crate::AdsClientUrl;
 use crate::MozAdsClient;
+use crate::worker::DispatchCommand;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -148,7 +149,6 @@ impl MozAdsClientBuilder {
             inner: client,
             _worker_thread_handle: worker_thread_handle,
             command_tx: tx
-            
         }
     }
 

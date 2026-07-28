@@ -5,7 +5,7 @@
 
 use std::sync::mpsc::SendError;
 
-use crate::{DispatchCommand, mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError}};
+use crate::{mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError}, worker::DispatchCommand};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
