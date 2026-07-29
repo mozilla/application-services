@@ -4,7 +4,7 @@
 
 use error_support::{ErrorHandling, GetErrorHandling};
 // Re-export logging helpers.
-pub use error_support::{error, trace};
+pub use error_support::trace;
 
 /// Internal convenience wrapper for `std::Result`.
 pub type Result<T> = std::result::Result<T, Error>;
