@@ -1,5 +1,5 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$appServicesRootDir/publish.gradle"
+apply from: "$publishDir/publish.gradle"
 
 android {
     namespace 'org.mozilla.appservices.relay'
@@ -11,4 +11,4 @@ dependencies {
 
 ext.configureUniFFIBindgen("relay")
 ext.dependsOnTheMegazord()
-ext.configurePublish()
+ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)

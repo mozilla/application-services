@@ -29,7 +29,7 @@ plugins {
 apply plugin: 'kotlinx-serialization'
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$appServicesRootDir/publish.gradle"
+apply from: "$publishDir/publish.gradle"
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
@@ -54,4 +54,4 @@ android {
 
 ext.configureUniFFIBindgen("error_support")
 ext.dependsOnTheMegazord()
-ext.configurePublish()
+ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)

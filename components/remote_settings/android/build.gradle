@@ -22,7 +22,7 @@ plugins {
 }
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$appServicesRootDir/publish.gradle"
+apply from: "$publishDir/publish.gradle"
 
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
@@ -45,7 +45,7 @@ dependencies {
 
 ext.configureUniFFIBindgen("remote_settings")
 ext.dependsOnTheMegazord()
-ext.configurePublish()
+ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
 
 dependencies {
     if (gradle.hasProperty("mozconfig")) {

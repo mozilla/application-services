@@ -1,5 +1,5 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$appServicesRootDir/publish.gradle"
+apply from: "$publishDir/publish.gradle"
 
 android {
     namespace 'org.mozilla.appservices.{{ kotlin_module_name }}'
@@ -7,4 +7,4 @@ android {
 
 ext.configureUniFFIBindgen("{{ crate_name }}")
 ext.dependsOnTheMegazord()
-ext.configurePublish()
+ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
