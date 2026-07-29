@@ -4,7 +4,7 @@
 
 use error_support::{ErrorHandling, GetErrorHandling};
 // reexport logging helpers.
-pub use error_support::{debug, error, info, warn};
+pub use error_support::{debug, info, warn};
 
 pub type Result<T, E = PushError> = std::result::Result<T, E>;
 
