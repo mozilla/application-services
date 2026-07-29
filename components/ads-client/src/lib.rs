@@ -52,7 +52,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
-    _worker_thread_handle: JoinHandle<()>,
+    _worker_thread_handle: Option<JoinHandle<()>>,
     command_tx: SyncSender<DispatchCommand>,
 }
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
@@ -178,7 +178,6 @@ impl MozAdsClient {
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
-    // TODO: Remove the following functions when uniffi = 0.32 lands, and we can properly expose the available enum directly with `dispatch(command)`.
     #[handle_error(ComponentError)]
     #[uniffi::method()]
     pub fn dispatch_record_click(
@@ -273,10 +272,13 @@ impl MozAdsClient {
 }
 
 impl MozAdsClient {
-    // TODO: The following
+    // TODO: The following is the intended surface for dispatching commands with callbacks, but passing an enum with uniffi does not work yet in 0.31.
+    // When upgraded to 0.32, we can change the myriad #[uniffi::export(callback_interface)] usage to #[uniffi::export(impl = "foreign")],
+    // and attempt to expose this enum for direct use.
     pub fn dispatch(&self, command: DispatchCommand) -> Result<(), ComponentError> {
         // try_send provides an error on a disconnection or a SyncChannel full buffer
         // TODO: drop oldest on error, not newest
+        // TODO: This currently simply drops messages if the thread is killed for whatever reason- should we fall through to sync?
         self.command_tx
             .try_send(command)
             .map_err(ComponentError::Dispatch)?;

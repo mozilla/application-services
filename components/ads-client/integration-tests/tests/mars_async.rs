@@ -30,7 +30,8 @@ fn prod_client() -> ads_client::MozAdsClient {
         .build()
 }
 
-// TODO: explain
+// Reusable test structure that implements the varying callback traits with generics.
+// We can use a generic here, unlike in MAC, because it's not going through uniffi.
 pub struct CallbackTestStruct<T, E> {
     on_ad_fn: Box<dyn Fn(T, Sender<T>) + Send + Sync>,
     on_error_fn: Box<dyn Fn(E, Sender<E>) + Send + Sync>,

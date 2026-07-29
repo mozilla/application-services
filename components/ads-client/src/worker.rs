@@ -11,13 +11,27 @@ use crate::{
     MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
 };
 use error_support::handle_error;
-use std::{collections::HashMap, sync::mpsc::Receiver};
+use std::{collections::HashMap, sync::mpsc::Receiver, thread::JoinHandle};
 use url::Url as AdsClientUrl;
 
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
+pub const ADS_CLIENT_WORKER_THREAD_NAME : &'static str = "ads-client.worker";
 
-pub fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
+// Spawn worker thread with reference to client and dispatch command receiver.
+// Returns None if thread fails to build.
+pub fn worker_thread(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) -> Option<JoinHandle<()>> {
+    let worker_thread_handle = std::thread::Builder::new()
+        .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
+        .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
+            error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
+        }).ok()?;
+    Some(worker_thread_handle)
+}
+
+fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
     while let Ok(task) = rx.recv() {
+
+        // Synchronously run tasks in the order they are passed in this separate channel.
         let task: DispatchCommand = task;
         task.run_command(&inner_client)
             .expect("TODO: handle error here. maybe retries should be here?");
@@ -61,7 +75,7 @@ pub enum DispatchCommand {
 impl DispatchCommand {
     #[handle_error(ComponentError)]
     pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
-        // TODO: Duplicated behavior with the sync functions- either they call this or you call those
+        // TODO: Duplicated behavior with the sync functions. Behavior is pretty simple though- probably OK to duplicate.
         match self {
             DispatchCommand::RecordClick {
                 click_url,
@@ -214,7 +228,6 @@ impl DispatchCommand {
 // In the future, this should be changed to uniffi::export(impl = "foreign") alongside the enum change, when uniffi = 0.32
 #[uniffi::export(callback_interface)]
 pub trait ErrorOnlyRequestCallback: Send + Sync {
-    // TODO: We don't need this, but is useful for tests
     fn on_success(&self);
     fn on_error(&self, err: MozAdsClientApiError);
 }
