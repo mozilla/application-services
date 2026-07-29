@@ -10,7 +10,13 @@
 import javax.inject.Inject
 
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+
+// When built as part of mozilla-central (mozconfig present), AGP 9 provides
+// built-in Kotlin support and rejects this plugin; standalone builds still use
+// an older AGP that requires it.
+if (!gradle.hasProperty("mozconfig")) {
+    apply plugin: 'kotlin-android'
+}
 
 // Typed task used in the standalone app-services build, where the megazord
 // dynamic library is produced by a separate gradle task and only exists when
