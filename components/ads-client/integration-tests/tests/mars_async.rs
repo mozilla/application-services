@@ -8,9 +8,9 @@ use ads_client::{
         DispatchCommand, ErrorOnlyRequestCallback, ImageRequestCallback, SpocRequestCallback,
         TileRequestCallback,
     },
-    MozAdsClientApiError, MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent,
+    MozAdsClient, MozAdsClientApiError, MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent,
     MozAdsIABContentTaxonomy, MozAdsImage, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
-    MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
+    MozAdsReportReason, MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
 };
 use std::{
     collections::HashMap,
@@ -55,6 +55,9 @@ impl<T, E> CallbackTestStruct<T, E> {
 }
 
 impl ErrorOnlyRequestCallback for CallbackTestStruct<(), MozAdsClientApiError> {
+    fn on_success(&self) {
+        (self.on_ad_fn)((), self.success_tx.clone())
+    }
     fn on_error(&self, err: MozAdsClientApiError) {
         (self.on_error_fn)(err, self.err_tx.clone())
     }
@@ -91,9 +94,45 @@ impl TileRequestCallback for CallbackTestStruct<HashMap<String, MozAdsTile>, Moz
     }
 }
 
+// Helper function that runs the tile contract test and produces the result (for tests that require this in setup)
+// Callback setup in rust can be weighty for tests, so reuse makes a bit more concise
+// This should match the logic of `test_contract_tile_prod_async`
+fn generate_ad_test(client: &MozAdsClient) -> HashMap<String, MozAdsTile> {
+    // Create ad
+    let (success_tx, success_rx) = mpsc::channel();
+    let (err_tx, err_rx) = mpsc::channel();
+    let callback = CallbackTestStruct::<HashMap<String, MozAdsTile>, MozAdsClientApiError>::new(
+        success_tx, err_tx,
+    );
+
+    client
+        .dispatch(DispatchCommand::RequestTileAd {
+            moz_ad_requests: vec![MozAdsPlacementRequest {
+                placement_id: "mock_tile_1".to_string(),
+                iab_content: None,
+            }],
+            options: None,
+            callback: Box::new(callback),
+        })
+        .expect("Asynchronous dispatch should return Ok()");
+
+    let placements;
+    loop {
+        if let Ok(placements_res) = success_rx.recv() {
+            placements = placements_res;
+            break;
+        }
+        if let Ok(err) = err_rx.recv() {
+            panic!("Tile ad request failed: {:?}", err);
+        }
+    }
+
+    placements
+}
+
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_image_prod_async() {
+fn test_contract_image_prod_callback() {
     init_backend();
     let client = prod_client();
 
@@ -110,7 +149,7 @@ fn test_contract_image_prod_async() {
                 placement_id: "mock_billboard_1".to_string(),
             }],
             options: None,
-            callback: Arc::new(callback),
+            callback: Box::new(callback),
         })
         .expect("Asynchronous dispatch should return Ok()");
 
@@ -127,7 +166,7 @@ fn test_contract_image_prod_async() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_image_with_categories_prod_async() {
+fn test_contract_image_with_categories_prod_callback() {
     init_backend();
     let client = prod_client();
 
@@ -153,7 +192,7 @@ fn test_contract_image_with_categories_prod_async() {
                 )]),
                 ..Default::default()
             }),
-            callback: Arc::new(callback),
+            callback: Box::new(callback),
         })
         .expect("Asynchronous dispatch should return Ok()");
 
@@ -170,7 +209,7 @@ fn test_contract_image_with_categories_prod_async() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_spoc_prod_async() {
+fn test_contract_spoc_prod_callback() {
     init_backend();
     let client = prod_client();
 
@@ -189,7 +228,7 @@ fn test_contract_spoc_prod_async() {
                 placement_id: "mock_spoc_1".to_string(),
             }],
             options: None,
-            callback: Arc::new(callback),
+            callback: Box::new(callback),
         })
         .expect("Asynchronous dispatch should return Ok()");
 
@@ -208,7 +247,7 @@ fn test_contract_spoc_prod_async() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_tile_prod_async() {
+fn test_contract_tile_prod_callback() {
     init_backend();
     let client = prod_client();
 
@@ -225,7 +264,7 @@ fn test_contract_tile_prod_async() {
                 placement_id: "mock_tile_1".to_string(),
             }],
             options: None,
-            callback: Arc::new(callback),
+            callback: Box::new(callback),
         })
         .expect("Asynchronous dispatch should return Ok()");
 
@@ -236,6 +275,174 @@ fn test_contract_tile_prod_async() {
         }
         if let Ok(err) = err_rx.recv() {
             panic!("Tile ad request failed: {:?}", err);
+        }
+    }
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_impression_callback() {
+    init_backend();
+    let client = prod_client();
+
+    // Generate tiles
+    let placements = generate_ad_test(&client);
+    let ad = placements
+        .get("mock_tile_1")
+        .clone()
+        .expect("mock_tile_1 placement should be present");
+
+    // Record an impression
+    let (success_tx, success_rx) = mpsc::channel();
+    let (err_tx, err_rx) = mpsc::channel();
+    let callback = CallbackTestStruct::<(), MozAdsClientApiError>::new(success_tx, err_tx);
+
+    client
+        .dispatch(DispatchCommand::RecordImpression {
+            impression_url: ad.callbacks.impression.to_string(),
+            options: None,
+            callback: Box::new(callback),
+        })
+        .expect("Asynchronous dispatch should return Ok()");
+
+    loop {
+        if let Ok(_) = success_rx.recv() {
+            break;
+        }
+        if let Ok(err) = err_rx.recv() {
+            panic!("record_impression failed: {:?}", err);
+        }
+    }
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_click_callback() {
+    init_backend();
+    let client = prod_client();
+
+    // Generate tiles
+    let placements = generate_ad_test(&client);
+    let ad = placements
+        .get("mock_tile_1")
+        .clone()
+        .expect("mock_tile_1 placement should be present");
+
+    // Record a click
+    let (success_tx, success_rx) = mpsc::channel();
+    let (err_tx, err_rx) = mpsc::channel();
+    let callback = CallbackTestStruct::<(), MozAdsClientApiError>::new(success_tx, err_tx);
+
+    client
+        .dispatch(DispatchCommand::RecordClick {
+            click_url: ad.callbacks.click.to_string(),
+            options: None,
+            callback: Box::new(callback),
+        })
+        .expect("Asynchronous dispatch should return Ok()");
+
+    loop {
+        if let Ok(_) = success_rx.recv() {
+            break;
+        }
+        if let Ok(err) = err_rx.recv() {
+            panic!("record_click failed: {:?}", err);
+        }
+    }
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_report_ad_callback() {
+    init_backend();
+    let client = prod_client();
+
+    // Generate tiles
+    let placements = generate_ad_test(&client);
+    let ad = placements
+        .get("mock_tile_1")
+        .clone()
+        .expect("mock_tile_1 placement should be present");
+
+    // Assertions on the ad
+    let report_url = ad
+        .callbacks
+        .report
+        .as_ref()
+        .expect("mock_tile_1 should have a report URL");
+    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
+    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
+    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
+    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
+    assert_eq!(position_count, 1, "expected exactly one position");
+
+    // Report the ad
+    let (success_tx, success_rx) = mpsc::channel();
+    let (err_tx, err_rx) = mpsc::channel();
+    let callback = CallbackTestStruct::<(), MozAdsClientApiError>::new(success_tx, err_tx);
+
+    client
+        .dispatch(DispatchCommand::ReportAd {
+            report_url: report_url.to_string(),
+            reason: MozAdsReportReason::NotInterested,
+            options: None,
+            callback: Box::new(callback),
+        })
+        .expect("Asynchronous dispatch should return Ok()");
+
+    loop {
+        if let Ok(_) = success_rx.recv() {
+            break;
+        }
+        if let Ok(err) = err_rx.recv() {
+            panic!("report_ad failed: {:?}", err);
+        }
+    }
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_contract_tile_ohttp_prod_callback() {
+    init_backend();
+    viaduct::ohttp::configure_ohttp_channel(
+        "ads-client".to_string(),
+        viaduct::ohttp::OhttpConfig {
+            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
+            gateway_host: "prod.ohttp-gateway.prod.webservices.mozgcp.net".to_string(),
+        },
+    )
+    .expect("OHTTP channel configuration should succeed");
+
+    let client = prod_client();
+
+    let (success_tx, success_rx) = mpsc::channel();
+    let (err_tx, err_rx) = mpsc::channel();
+    let callback = CallbackTestStruct::<HashMap<String, MozAdsTile>, MozAdsClientApiError>::new(
+        success_tx, err_tx,
+    );
+
+    client
+        .dispatch(DispatchCommand::RequestTileAd {
+            moz_ad_requests: vec![MozAdsPlacementRequest {
+                placement_id: "mock_tile_1".to_string(),
+                iab_content: None,
+            }],
+            options: None,
+            callback: Box::new(callback),
+        })
+        .expect("Asynchronous dispatch should return Ok()");
+
+    loop {
+        if let Ok(placements) = success_rx.recv() {
+            assert!(
+                placements.contains_key("mock_tile_1"),
+                "OHTTP response should contain mock_tile_1"
+            );
+
+            break;
+        }
+        if let Ok(err) = err_rx.recv() {
+            panic!("Tile ad request over OHTTP should succeed: {:?}", err);
         }
     }
 }

@@ -20,7 +20,7 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::worker::DispatchCommand;
+use crate::worker::{DispatchCommand, ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE};
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -142,9 +142,12 @@ impl MozAdsClientBuilder {
         let client = Arc::new(Mutex::new(AdsClient::new(client_config)));
         let client_clone = client.clone();
 
-        let (tx, rx) = mpsc::channel::<DispatchCommand>();
-        let worker_thread_handle =
-            std::thread::spawn(move || crate::worker::worker(client_clone, rx));
+        let (tx, rx) = mpsc::sync_channel::<DispatchCommand>(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE);
+
+        let worker_thread_handle = std::thread::Builder::new()
+            .name("ads-client.worker".to_string())
+            .spawn(move || crate::worker::worker(client_clone, rx))
+            .expect("Failed to create an OS thread."); // TODO: Maybe this sets it to None and no background thread is used?
 
         MozAdsClient {
             inner: client,

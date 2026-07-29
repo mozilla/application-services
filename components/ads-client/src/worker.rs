@@ -11,11 +11,10 @@ use crate::{
     MozAdsRequestOptions, MozAdsSpoc, MozAdsTile,
 };
 use error_support::handle_error;
-use std::{
-    collections::HashMap,
-    sync::{mpsc::Receiver, Arc},
-};
+use std::{collections::HashMap, sync::mpsc::Receiver};
 use url::Url as AdsClientUrl;
+
+pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
 
 pub fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
     while let Ok(task) = rx.recv() {
@@ -25,38 +24,37 @@ pub fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
     }
 }
 
-#[derive(uniffi::Enum)]
 pub enum DispatchCommand {
     RecordClick {
         click_url: String,
         options: Option<MozAdsCallbackOptions>,
-        callback: Arc<dyn ErrorOnlyRequestCallback>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
     },
     RecordImpression {
         impression_url: String,
         options: Option<MozAdsCallbackOptions>,
-        callback: Arc<dyn ErrorOnlyRequestCallback>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
     },
     ReportAd {
         report_url: String,
         reason: MozAdsReportReason,
         options: Option<MozAdsCallbackOptions>,
-        callback: Arc<dyn ErrorOnlyRequestCallback>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
     },
     RequestImageAds {
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-        callback: Arc<dyn ImageRequestCallback>,
+        callback: Box<dyn ImageRequestCallback>,
     },
     RequestSpocAds {
         moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
         options: Option<MozAdsRequestOptions>,
-        callback: Arc<dyn SpocRequestCallback>,
+        callback: Box<dyn SpocRequestCallback>,
     },
     RequestTileAd {
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-        callback: Arc<dyn TileRequestCallback>,
+        callback: Box<dyn TileRequestCallback>,
     },
 }
 
@@ -82,7 +80,7 @@ impl DispatchCommand {
                 })();
 
                 match resp {
-                    Ok(()) => (),
+                    Ok(_) => callback.on_success(),
                     Err(e) => callback.on_error(e.into()),
                 }
             }
@@ -103,7 +101,7 @@ impl DispatchCommand {
                 })();
 
                 match resp {
-                    Ok(()) => (),
+                    Ok(_) => callback.on_success(),
                     Err(e) => callback.on_error(e.into()),
                 }
             }
@@ -125,7 +123,7 @@ impl DispatchCommand {
                 })();
 
                 match resp {
-                    Ok(()) => (),
+                    Ok(_) => callback.on_success(),
                     Err(e) => callback.on_error(e.into()),
                 }
             }
@@ -208,28 +206,32 @@ impl DispatchCommand {
         }
         Ok(())
     }
-
 }
 
 // TODO: Uniffi does not currently support generics here or direct function callbacks, so we use a few distinct interfaces.
-#[uniffi::export(with_foreign)]
+// TODO: We use #[uniffi::export(callback_interface)] rather than #[uniffi::export(with_foreign)] for reasons discussed here:
+// - https://github.com/mozilla/application-services/pull/7443
+// In the future, this should be changed to uniffi::export(impl = "foreign") alongside the enum change, when uniffi = 0.32
+#[uniffi::export(callback_interface)]
 pub trait ErrorOnlyRequestCallback: Send + Sync {
+    // TODO: We don't need this, but is useful for tests
+    fn on_success(&self);
     fn on_error(&self, err: MozAdsClientApiError);
 }
 
-#[uniffi::export(with_foreign)]
+#[uniffi::export(callback_interface)]
 pub trait ImageRequestCallback: Send + Sync {
     fn on_ad(&self, ads: HashMap<String, MozAdsImage>);
     fn on_error(&self, err: MozAdsClientApiError);
 }
 
-#[uniffi::export(with_foreign)]
+#[uniffi::export(callback_interface)]
 pub trait SpocRequestCallback: Send + Sync {
     fn on_ad(&self, ads: HashMap<String, Vec<MozAdsSpoc>>);
     fn on_error(&self, err: MozAdsClientApiError);
 }
 
-#[uniffi::export(with_foreign)]
+#[uniffi::export(callback_interface)]
 pub trait TileRequestCallback: Send + Sync {
     fn on_ad(&self, tiles: HashMap<String, MozAdsTile>);
     fn on_error(&self, err: MozAdsClientApiError);

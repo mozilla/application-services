@@ -5,7 +5,10 @@
 
 use std::{
     collections::HashMap,
-    sync::{mpsc::Sender, Arc},
+    sync::{
+        mpsc::SyncSender,
+        Arc,
+    },
     thread::JoinHandle,
 };
 
@@ -28,7 +31,13 @@ pub mod worker;
 
 pub use ffi::*;
 
-use crate::{ffi::telemetry::MozAdsTelemetryWrapper, worker::DispatchCommand};
+use crate::{
+    ffi::telemetry::MozAdsTelemetryWrapper,
+    worker::{
+        DispatchCommand, ErrorOnlyRequestCallback, ImageRequestCallback, SpocRequestCallback,
+        TileRequestCallback,
+    },
+};
 #[cfg(test)]
 mod test_utils;
 
@@ -44,7 +53,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 pub struct MozAdsClient {
     inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
     _worker_thread_handle: JoinHandle<()>,
-    command_tx: Sender<DispatchCommand>,
+    command_tx: SyncSender<DispatchCommand>,
 }
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 
@@ -169,11 +178,107 @@ impl MozAdsClient {
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
+    // TODO: Remove the following functions when uniffi = 0.32 lands, and we can properly expose the available enum directly with `dispatch(command)`.
     #[handle_error(ComponentError)]
     #[uniffi::method()]
-    pub fn dispatch(&self, command: DispatchCommand) -> AdsClientApiResult<()> {
+    pub fn dispatch_record_click(
+        &self,
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::RecordClick {
+            click_url,
+            options,
+            callback,
+        })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_record_impression(
+        &self,
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::RecordImpression {
+            impression_url,
+            options,
+            callback,
+        })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Box<dyn ErrorOnlyRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::ReportAd {
+            report_url,
+            reason,
+            options,
+            callback,
+        })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_request_image_ads(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Box<dyn ImageRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::RequestImageAds {
+            moz_ad_requests,
+            options,
+            callback,
+        })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_request_spoc_ads(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Box<dyn SpocRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::RequestSpocAds {
+            moz_ad_requests,
+            options,
+            callback,
+        })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_request_tile_ads(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Box<dyn TileRequestCallback>,
+    ) -> AdsClientApiResult<()> {
+        self.dispatch(DispatchCommand::RequestTileAd {
+            moz_ad_requests,
+            options,
+            callback,
+        })
+    }
+}
+
+impl MozAdsClient {
+    // TODO: The following
+    pub fn dispatch(&self, command: DispatchCommand) -> Result<(), ComponentError> {
+        // try_send provides an error on a disconnection or a SyncChannel full buffer
+        // TODO: drop oldest on error, not newest
         self.command_tx
-            .send(command)
+            .try_send(command)
             .map_err(ComponentError::Dispatch)?;
         Ok(())
     }
