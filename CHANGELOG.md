@@ -10,6 +10,7 @@
 
 ### Remote Settings
 - Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
+- Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518)) 
 
 # v154.0 (_2026-07-20_)
 
