@@ -206,7 +206,7 @@ PRAGMA user_version=0;
             "INSERT INTO records (id, collection_url, data) VALUES (?, ?, ?)",
             rusqlite::params![
                 "sponsored-suggestions-us-phone",
-                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                "https://firefox.settings.services.mozilla.com/v2/buckets/main/collections/quicksuggest-amp",
                 serde_json::to_vec(&record).unwrap(),
             ],
         ).unwrap();
@@ -216,7 +216,7 @@ PRAGMA user_version=0;
             "INSERT INTO attachments (id, collection_url, data) VALUES (?, ?, ?)",
             rusqlite::params![
                 "main-workspace/quicksuggest-amp/b.json",
-                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                "https://firefox.settings.services.mozilla.com/v2/buckets/main/collections/quicksuggest-amp",
                 b"current attachment data",
             ],
         ).unwrap();
@@ -226,7 +226,7 @@ PRAGMA user_version=0;
             "INSERT INTO attachments (id, collection_url, data) VALUES (?, ?, ?)",
             rusqlite::params![
                 "main-workspace/quicksuggest-amp/a.json",
-                "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/quicksuggest-amp",
+                "https://firefox.settings.services.mozilla.com/v2/buckets/main/collections/quicksuggest-amp",
                 b"orphaned attachment data that should be cleaned up",
             ],
         ).unwrap();

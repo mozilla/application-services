@@ -350,7 +350,7 @@ mod test {
     }
 
     fn mock_monitor_changes(collection: &str, timestamp: u64) -> mockito::Mock {
-        mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+        mock("GET", "/v2/buckets/monitor/collections/changes/changeset")
             .match_query(Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -363,7 +363,7 @@ mod test {
     fn mock_changeset(collection: &str, timestamp: u64) -> mockito::Mock {
         mock(
             "GET",
-            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+            format!("/v2/buckets/main/collections/{collection}/changeset").as_str(),
         )
         .match_query(Matcher::Any)
         .with_status(200)
@@ -377,7 +377,7 @@ mod test {
     fn mock_changeset_error(bucket: &str, collection: &str) -> mockito::Mock {
         mock(
             "GET",
-            format!("/v1/buckets/{bucket}/collections/{collection}/changeset").as_str(),
+            format!("/v2/buckets/{bucket}/collections/{collection}/changeset").as_str(),
         )
         .match_query(Matcher::Any)
         .with_status(500)
@@ -561,7 +561,7 @@ mod test {
         );
 
         // First sync creates a record that references the big attachment.
-        let _changes_1 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+        let _changes_1 = mock("GET", "/v2/buckets/monitor/collections/changes/changeset")
             .match_query(Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -577,7 +577,7 @@ mod test {
 
         let _changeset_1 = mock(
             "GET",
-            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+            format!("/v2/buckets/main/collections/{collection}/changeset").as_str(),
         )
         .match_query(Matcher::Any)
         .with_status(200)
@@ -606,7 +606,7 @@ mod test {
         service.sync()?;
 
         // Mock attachment discovery and download.
-        let _root = mock("GET", "/v1/")
+        let _root = mock("GET", "/v2/")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(format!(
@@ -659,7 +659,7 @@ mod test {
 
         // Second sync tombstones the record. This deletes the attachment row, and
         // post-sync maintenance should compact the database.
-        let _changes_2 = mock("GET", "/v1/buckets/monitor/collections/changes/changeset")
+        let _changes_2 = mock("GET", "/v2/buckets/monitor/collections/changes/changeset")
             .match_query(Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -675,7 +675,7 @@ mod test {
 
         let _changeset_2 = mock(
             "GET",
-            format!("/v1/buckets/main/collections/{collection}/changeset").as_str(),
+            format!("/v2/buckets/main/collections/{collection}/changeset").as_str(),
         )
         .match_query(Matcher::Any)
         .with_status(200)

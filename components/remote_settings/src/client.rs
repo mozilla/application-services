@@ -762,7 +762,7 @@ struct RemoteSettingsEndpoints {
 impl RemoteSettingsEndpoints {
     /// Construct a new RemoteSettingsEndpoints
     ///
-    /// `base_url` should have the form `https://[domain]/v1` (no trailing slash).
+    /// `base_url` should have the form `https://[domain]/v2` (no trailing slash).
     fn new(base_url: &BaseUrl, bucket_name: &str, collection_name: &str) -> Self {
         let mut root_url = base_url.clone();
         // Push the empty string to add the trailing slash.
@@ -944,18 +944,18 @@ mod test_new_client {
     #[test]
     fn test_endpoints() {
         let endpoints = RemoteSettingsEndpoints::new(
-            &BaseUrl::parse("http://rs.example.com/v1").unwrap(),
+            &BaseUrl::parse("http://rs.example.com/v2").unwrap(),
             "main",
             "test-collection",
         );
-        assert_eq!(endpoints.root_url.to_string(), "http://rs.example.com/v1/");
+        assert_eq!(endpoints.root_url.to_string(), "http://rs.example.com/v2/");
         assert_eq!(
             endpoints.collection_url.to_string(),
-            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            "http://rs.example.com/v2/buckets/main/collections/test-collection",
         );
         assert_eq!(
             endpoints.changeset_url.to_string(),
-            "http://rs.example.com/v1/buckets/main/collections/test-collection/changeset",
+            "http://rs.example.com/v2/buckets/main/collections/test-collection/changeset",
         );
     }
 }
@@ -986,7 +986,7 @@ mod jexl_tests {
             metadata: CollectionMetadata::default(),
         };
         api_client.expect_collection_url().returning(|| {
-            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+            "http://rs.example.com/v2/buckets/main/collections/test-collection".into()
         });
         api_client.expect_fetch_changeset().returning({
             let changeset = changeset.clone();
@@ -1004,7 +1004,7 @@ mod jexl_tests {
 
         let mut storage = Storage::new(":memory:".into());
         let _ = storage.insert_collection_content(
-            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            "http://rs.example.com/v2/buckets/main/collections/test-collection",
             &records,
             42,
             CollectionMetadata::default(),
@@ -1044,7 +1044,7 @@ mod jexl_tests {
             metadata: CollectionMetadata::default(),
         };
         api_client.expect_collection_url().returning(|| {
-            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+            "http://rs.example.com/v2/buckets/main/collections/test-collection".into()
         });
         api_client.expect_fetch_changeset().returning({
             let changeset = changeset.clone();
@@ -1062,7 +1062,7 @@ mod jexl_tests {
 
         let mut storage = Storage::new(":memory:".into());
         let _ = storage.insert_collection_content(
-            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            "http://rs.example.com/v2/buckets/main/collections/test-collection",
             &records,
             42,
             CollectionMetadata::default(),
@@ -1102,7 +1102,7 @@ mod jexl_tests {
             metadata: CollectionMetadata::default(),
         };
         api_client.expect_collection_url().returning(|| {
-            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+            "http://rs.example.com/v2/buckets/main/collections/test-collection".into()
         });
         api_client.expect_fetch_changeset().returning({
             let changeset = changeset.clone();
@@ -1120,7 +1120,7 @@ mod jexl_tests {
 
         let mut storage = Storage::new(":memory:".into());
         let _ = storage.insert_collection_content(
-            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            "http://rs.example.com/v2/buckets/main/collections/test-collection",
             &records,
             42,
             CollectionMetadata::default(),
@@ -1180,7 +1180,7 @@ mod jexl_tests {
                     "test-collection".to_string(),
                     None,
                 );
-            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+            "http://rs.example.com/v2/buckets/main/collections/test-collection".into()
         });
         api_client.expect_is_prod_server().returning(|| Ok(false));
 
@@ -1609,7 +1609,7 @@ mod test_reset_storage {
 
     #[test]
     fn test_reset_storage_deletes_records_and_attachments() {
-        let collection_url = "http://rs.example.com/v1/buckets/main/collections/test-collection";
+        let collection_url = "http://rs.example.com/v2/buckets/main/collections/test-collection";
 
         let mut api_client = MockApiClient::new();
         api_client
@@ -1675,7 +1675,7 @@ mod test_reset_storage {
 
     #[test]
     fn test_reset_storage_reverts_to_packaged_data() {
-        let collection_url = "http://rs.example.com/v1/buckets/main/collections/regions";
+        let collection_url = "http://rs.example.com/v2/buckets/main/collections/regions";
 
         let mut api_client = MockApiClient::new();
         api_client

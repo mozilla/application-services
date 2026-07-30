@@ -50,7 +50,7 @@ fn create_app(livereload: LiveReloadLayer, state: Db) -> Router {
         .route("/post", post(post_handler))
         .route("/buckets/:bucket/collections/:collection/records", get(rs))
         .route(
-            "/v1/buckets/:bucket/collections/:collection/records",
+            "/v2/buckets/:bucket/collections/:collection/records",
             get(rs),
         )
         .layer(livereload)
@@ -376,7 +376,7 @@ mod tests {
         let _ = post_payload(&payload, &format!("127.0.0.1:{port}")).await?;
 
         // Check the fake Remote Settings page
-        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        let s = get(port, "/v2/buckets/BUCKET/collections/COLLECTION/records").await?;
         assert_eq!(s, serde_json::to_string(&value)?);
 
         let s = get(port, "/buckets/BUCKET/collections/COLLECTION/records").await?;
@@ -392,7 +392,7 @@ mod tests {
         let (_, tx) = start_test_server(port)?;
 
         // Part 1: get from remote settings page before anything has been posted yet.
-        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        let s = get(port, "/v2/buckets/BUCKET/collections/COLLECTION/records").await?;
         assert_eq!(s, "null".to_string());
 
         // Part 2: Post a payload, but not with any experiments.
@@ -404,7 +404,7 @@ mod tests {
 
         // Check the fake Remote Settings page, should be empty, since an experiments payload
         // wasn't posted
-        let s = get(port, "/v1/buckets/BUCKET/collections/COLLECTION/records").await?;
+        let s = get(port, "/v2/buckets/BUCKET/collections/COLLECTION/records").await?;
         assert_eq!(s, "".to_string());
 
         let _ = tx.send(());
