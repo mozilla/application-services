@@ -99,7 +99,7 @@ where
     }
 
     // Shutdown the db connection and drop references to telemetry callbacks.
-    // Use only when dropping the ads client, further calls may return errors.
+    // Should be used only when dropping the ads client, this may be extended to drop more things.
     pub fn shutdown_client(&mut self) -> Result<(), rusqlite::Error> {
         // Shutdown DB
         self.client.shutdown_db()?;
