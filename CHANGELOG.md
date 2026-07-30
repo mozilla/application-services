@@ -8,6 +8,10 @@
 
 - Add `Store::shutdown()`, which closes the database connection early so it happens before Firefox Desktop's late-write shutdown barrier rather than during GC. Operations after shutdown return `DatabaseClosed`. ([Bug 2050036](https://bugzilla.mozilla.org/show_bug.cgi?id=2050036))
 
+### Nimbus
+
+- `NimbusClient::get_available_firefox_labs()` now includes detailed debug level logging for each processed lab. ([#7482](https://github.com/mozilla/application-services/pull/7482))
+
 ### Remote Settings
 - Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
 
