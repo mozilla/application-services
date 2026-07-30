@@ -492,6 +492,10 @@ impl SyncEngine for LoginsSyncEngine {
         self.do_reset(assoc)?;
         Ok(())
     }
+
+    fn wipe(&self) -> anyhow::Result<()> {
+        self.store.wipe_local().map_err(Into::into)
+    }
 }
 
 #[cfg(not(feature = "keydb"))]
