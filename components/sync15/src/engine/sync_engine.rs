@@ -223,15 +223,11 @@ pub trait SyncEngine {
     /// `assoc` defines how this store is to be associated with sync.
     fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()>;
 
-    /// Wipes the engine's data
-    /// This is typically triggered by a client command, which at the time of writing, only
-    /// supported wiping bookmarks.
-    ///
-    /// This panics if triggered on a sync engine that does not explicitly implement wipe, because
-    /// that implies a confustion that shouldn't occur.
-    fn wipe(&self) -> Result<()> {
-        unimplemented!("The engine does not implement wipe, no wipe should be requested")
-    }
+    /// Wipes the engine's local data.
+    /// Triggered by a client command (only bookmarks at time of writing),
+    /// or to wipe local data when disconnecting (currently only on desktop
+    /// via a bridged-engine).
+    fn wipe(&self) -> Result<()>;
 }
 
 #[cfg(test)]
