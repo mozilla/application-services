@@ -47,12 +47,12 @@ impl RemoteSettingsServer {
     pub fn get_base_url(&self) -> Result<BaseUrl> {
         let base_url = BaseUrl::parse(self.raw_url())?;
         // Custom URLs are weird and require a couple tricks for backwards compatibility.
-        // Normally we append `v1/` to match how this has historically worked.  However,
+        // Normally we append `v2/` to match how this has historically worked.  However,
         // don't do this for file:// schemes which normally don't make any sense, but it's
         // what Nimbus uses to indicate they want to use the file-based client, rather than
         // a remote-settings based one.
         if base_url.url().scheme() != "file" {
-            Ok(base_url.join("v1"))
+            Ok(base_url.join("v2"))
         } else {
             Ok(base_url)
         }
@@ -96,12 +96,12 @@ impl RemoteSettingsServer {
             Self::Custom { url } => {
                 let mut url = Url::parse(url)?;
                 // Custom URLs are weird and require a couple tricks for backwards compatibility.
-                // Normally we append `v1/` to match how this has historically worked.  However,
+                // Normally we append `v2/` to match how this has historically worked.  However,
                 // don't do this for file:// schemes which normally don't make any sense, but it's
                 // what Nimbus uses to indicate they want to use the file-based client, rather than
                 // a remote-settings based one.
                 if url.scheme() != "file" {
-                    url = url.join("v1")?
+                    url = url.join("v2")?
                 }
                 url
             }
