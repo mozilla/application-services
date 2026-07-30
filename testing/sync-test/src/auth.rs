@@ -4,10 +4,8 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use cli_support::fxa_creds::CliFxa;
+use db_crypto::{create_key, EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager};
 use fxa_client::{Device, FxaConfig, FxaServer};
-use logins::encryption::{
-    create_key, EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager,
-};
 use logins::LoginStore;
 use std::collections::{hash_map::RandomState, HashMap};
 use std::sync::Arc;
