@@ -1106,6 +1106,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "encryption"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "error-support",
+ "futures",
+ "jwcrypto",
+ "lazy_static",
+ "nss-as",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror 2.0.3",
+ "uniffi",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
