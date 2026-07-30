@@ -927,6 +927,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "db-crypto"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "error-support",
+ "futures",
+ "jwcrypto",
+ "nss-as",
+ "parking_lot",
+ "serde_json",
+ "thiserror 2.0.3",
+ "uniffi",
+]
+
+[[package]]
 name = "deflate64"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1293,6 +1309,7 @@ dependencies = [
  "chrono",
  "clap",
  "cli-support",
+ "db-crypto",
  "fxa-client",
  "init_rust_components",
  "log",
@@ -2533,6 +2550,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "db-crypto",
  "error-support",
  "futures",
  "interrupt-support",
@@ -2606,6 +2624,7 @@ dependencies = [
  "ads-client",
  "autofill",
  "crashtest",
+ "db-crypto",
  "error-support",
  "fxa-client",
  "init_rust_components",
@@ -2650,6 +2669,7 @@ dependencies = [
  "autofill",
  "context_id",
  "crashtest",
+ "db-crypto",
  "error-support",
  "fxa-client",
  "init_rust_components",
@@ -4290,6 +4310,7 @@ dependencies = [
  "base64 0.21.2",
  "clap",
  "cli-support",
+ "db-crypto",
  "env_logger",
  "fxa-client",
  "interrupt-support",
