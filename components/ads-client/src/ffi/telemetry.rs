@@ -46,6 +46,11 @@ impl MozAdsTelemetryWrapper {
             inner: Arc::new(NoopMozAdsTelemetry),
         }
     }
+
+    #[cfg(test)]
+    pub fn clone_inner_arc(&self) -> Arc<dyn MozAdsTelemetry> {
+        self.inner.clone()
+    }
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {

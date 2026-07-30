@@ -40,6 +40,11 @@ impl HttpCacheStore {
         }
     }
 
+    pub fn close(self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.into_inner();
+        conn.close().map_err(|(_, err)| err)
+    }
+
     #[cfg(test)]
     pub fn new_with_test_clock(conn: Connection) -> Self {
         use crate::http_cache::clock::TestClock;

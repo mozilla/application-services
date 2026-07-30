@@ -60,6 +60,10 @@ impl HttpCache {
         Ok(())
     }
 
+    pub fn shutdown(self) -> Result<(), rusqlite::Error> {
+        self.store.close()
+    }
+
     pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
         self.store.invalidate_by_hash(request_hash)?;
         Ok(())
