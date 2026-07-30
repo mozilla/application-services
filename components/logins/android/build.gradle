@@ -44,6 +44,7 @@ dependencies {
     // Part of the public API.
     api project(':init_rust_components')
     api project(':sync15')
+    api project(':db-crypto')
 
     implementation project(':init_rust_components')
 
