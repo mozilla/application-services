@@ -212,6 +212,22 @@ pub fn transition(
                 .to_state_machine_err(|| S::AuthIssues)?;
             Ok(S::Connected)
         }
+        (S::AuthIssues, FxaEvent::CheckAuthorizationStatus) => {
+            let active = account
+                .check_authorization_status()
+                .to_state_machine_err(|| S::AuthIssues)?;
+            Ok(if active { S::Connected } else { S::AuthIssues })
+        }
+
+        // ── Other transitions  ─────────────────────────────────
+        (from_state, FxaEvent::CheckAuthorizationStatus) => {
+            // Ignore `CheckAuthorizationStatus` from other states.
+            // We want the app to be able to send this event whenever they want,
+            // without generating an error.
+            // If we're in a state where we can't run a check, then just ignore it.
+            error_support::debug!("Ignoring `CheckAuthorizationStatus` from {from_state:?}");
+            Ok(from_state)
+        }
 
         // ── Invalid (state, event) pair ─────────────────────────────────
         (state, event) => Err(StateMachineErr::Fatal(Box::new(
