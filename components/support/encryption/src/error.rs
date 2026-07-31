@@ -4,7 +4,7 @@
 
 pub type Result<T> = std::result::Result<T, Error>;
 // Functions which are part of the public API should use this Result.
-pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
+pub type ApiResult<T> = std::result::Result<T, EncryptionApiError>;
 
 pub use error_support::{breadcrumb, handle_error, report_error};
 pub use error_support::{debug, error, info, trace, warn};
@@ -14,7 +14,7 @@ use jwcrypto::JwCryptoError;
 
 // Errors we return via the public interface.
 #[derive(Debug, thiserror::Error)]
-pub enum LoginsApiError {
+pub enum EncryptionApiError {
     #[error("NSS not initialized")]
     NSSUninitialized,
 
@@ -43,7 +43,7 @@ pub enum LoginsApiError {
     Interrupted { reason: String },
 
     #[error("Unexpected Error: {reason}")]
-    UnexpectedLoginsApiError { reason: String },
+    UnexpectedEncryptionApiError { reason: String },
 }
 
 /// Logins error type
@@ -74,7 +74,7 @@ pub enum Error {
 // Define how our internal errors are handled and converted to external errors
 // See `support/error/README.md` for how this works, especially the warning about PII.
 impl GetErrorHandling for Error {
-    type ExternalError = LoginsApiError;
+    type ExternalError = EncryptionApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
@@ -83,7 +83,7 @@ impl GetErrorHandling for Error {
             //   - Fix the underlying issue
             //   - Add breadcrumbs or other context to help uncover the issue
             //   - Decide that these are expected errors and move them to the above case
-            _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+            _ => ErrorHandling::convert(EncryptionApiError::UnexpectedEncryptionApiError {
                 reason: self.to_string(),
             })
             .report_error("logins-unexpected"),
@@ -94,17 +94,17 @@ impl GetErrorHandling for Error {
 // The bridged sync engine (`sync::bridge`) deals in `anyhow::Result`, as that's
 // what the `sync15` BridgedEngine traits use. This lets UniFFI map those errors
 // onto our public error type when the bridge methods are exposed via the UDL.
-impl From<anyhow::Error> for LoginsApiError {
+impl From<anyhow::Error> for EncryptionApiError {
     fn from(value: anyhow::Error) -> Self {
-        LoginsApiError::UnexpectedLoginsApiError {
+        EncryptionApiError::UnexpectedEncryptionApiError {
             reason: value.to_string(),
         }
     }
 }
 
-impl From<uniffi::UnexpectedUniFFICallbackError> for LoginsApiError {
+impl From<uniffi::UnexpectedUniFFICallbackError> for EncryptionApiError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
-        LoginsApiError::UnexpectedLoginsApiError {
+        EncryptionApiError::UnexpectedEncryptionApiError {
             reason: error.to_string(),
         }
     }

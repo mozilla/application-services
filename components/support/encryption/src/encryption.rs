@@ -104,20 +104,20 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
         let keybytes = self
             .key_manager
             .get_key()
-            .map_err(|_| LoginsApiError::MissingKey)?;
-        let key = std::str::from_utf8(&keybytes).map_err(|_| LoginsApiError::InvalidKey)?;
+            .map_err(|_| EncryptionApiError::MissingKey)?;
+        let key = std::str::from_utf8(&keybytes).map_err(|_| EncryptionApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
-            .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
+            .map_err(|_: jwcrypto::JwCryptoError| EncryptionApiError::InvalidKey)?;
 
         let cleartext =
-            std::str::from_utf8(&clearbytes).map_err(|e| LoginsApiError::EncryptionFailed {
+            std::str::from_utf8(&clearbytes).map_err(|e| EncryptionApiError::EncryptionFailed {
                 reason: e.to_string(),
             })?;
         encdec
             .encrypt(cleartext)
             .map_err(
-                |e: jwcrypto::JwCryptoError| LoginsApiError::EncryptionFailed {
+                |e: jwcrypto::JwCryptoError| EncryptionApiError::EncryptionFailed {
                     reason: e.to_string(),
                 },
             )
@@ -128,20 +128,20 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
         let keybytes = self
             .key_manager
             .get_key()
-            .map_err(|_| LoginsApiError::MissingKey)?;
-        let key = std::str::from_utf8(&keybytes).map_err(|_| LoginsApiError::InvalidKey)?;
+            .map_err(|_| EncryptionApiError::MissingKey)?;
+        let key = std::str::from_utf8(&keybytes).map_err(|_| EncryptionApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
-            .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
+            .map_err(|_: jwcrypto::JwCryptoError| EncryptionApiError::InvalidKey)?;
 
         let ciphertext =
-            std::str::from_utf8(&cipherbytes).map_err(|e| LoginsApiError::DecryptionFailed {
+            std::str::from_utf8(&cipherbytes).map_err(|e| EncryptionApiError::DecryptionFailed {
                 reason: e.to_string(),
             })?;
         encdec
             .decrypt(ciphertext)
             .map_err(
-                |e: jwcrypto::JwCryptoError| LoginsApiError::DecryptionFailed {
+                |e: jwcrypto::JwCryptoError| EncryptionApiError::DecryptionFailed {
                     reason: e.to_string(),
                 },
             )
@@ -200,25 +200,25 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 /// ```no_run
 /// use async_trait::async_trait;
 /// use encryption::KeyManager;
-/// use encryption::{PrimaryPasswordAuthenticator, LoginsApiError, NSSKeyManager};
+/// use encryption::{PrimaryPasswordAuthenticator, EncryptionApiError, NSSKeyManager};
 /// use std::sync::Arc;
 ///
 /// struct MyPrimaryPasswordAuthenticator {}
 ///
 /// #[async_trait]
 /// impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
-///     async fn get_primary_password(&self) -> Result<String, LoginsApiError> {
+///     async fn get_primary_password(&self) -> Result<String, EncryptionApiError> {
 ///         // Most likely, you would want to prompt for a password.
 ///         // let password = prompt_string("primary password").unwrap_or_default();
 ///         Ok("secret".to_string())
 ///     }
 ///
-///     async fn on_authentication_success(&self) -> Result<(), LoginsApiError> {
+///     async fn on_authentication_success(&self) -> Result<(), EncryptionApiError> {
 ///         println!("success");
 ///         Ok(())
 ///     }
 ///
-///     async fn on_authentication_failure(&self) -> Result<(), LoginsApiError> {
+///     async fn on_authentication_failure(&self) -> Result<(), EncryptionApiError> {
 ///         println!("this did not work, please try again:");
 ///         Ok(())
 ///     }
@@ -254,7 +254,7 @@ impl NSSKeyManager {
 #[cfg(feature = "keydb")]
 fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
     authentication_with_primary_password_is_needed().map_err(|e: nss_as::Error| {
-        LoginsApiError::NSSAuthenticationError {
+        EncryptionApiError::NSSAuthenticationError {
             reason: e.to_string(),
         }
     })
@@ -264,7 +264,7 @@ fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
 #[cfg(feature = "keydb")]
 fn api_authenticate_with_primary_password(primary_password: &str) -> ApiResult<bool> {
     authenticate_with_primary_password(primary_password).map_err(|e: nss_as::Error| {
-        LoginsApiError::NSSAuthenticationError {
+        EncryptionApiError::NSSAuthenticationError {
             reason: e.to_string(),
         }
     })
@@ -301,7 +301,7 @@ impl KeyManager for NSSKeyManager {
             }
         }
 
-        let key = get_or_create_aes256_key(self.key_name.as_str()).map_err(|_| LoginsApiError::MissingKey)?;
+        let key = get_or_create_aes256_key(self.key_name.as_str()).map_err(|_| EncryptionApiError::MissingKey)?;
         let mut bytes: Vec<u8> = Vec::new();
         serde_json::to_writer(
             &mut bytes,
@@ -319,7 +319,7 @@ pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
 
 pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
     let encdec = jwcrypto::EncryptorDecryptor::new(key)
-        .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
+        .map_err(|_: jwcrypto::JwCryptoError| EncryptionApiError::InvalidKey)?;
     Ok(encdec.check_canary(canary, text).unwrap_or(false))
 }
 
@@ -372,7 +372,7 @@ mod tests {
         let encdec = ManagedEncryptorDecryptor { key_manager };
         assert!(matches!(
             encdec.encrypt("secret".as_bytes().into()).err().unwrap(),
-            LoginsApiError::InvalidKey
+            EncryptionApiError::InvalidKey
         ));
     }
 
@@ -382,14 +382,14 @@ mod tests {
         struct MyKeyManager {}
         impl KeyManager for MyKeyManager {
             fn get_key(&self) -> ApiResult<Vec<u8>> {
-                Err(LoginsApiError::MissingKey)
+                Err(EncryptionApiError::MissingKey)
             }
         }
         let key_manager = Arc::new(MyKeyManager {});
         let encdec = ManagedEncryptorDecryptor { key_manager };
         assert!(matches!(
             encdec.encrypt("secret".as_bytes().into()).err().unwrap(),
-            LoginsApiError::MissingKey
+            EncryptionApiError::MissingKey
         ));
     }
 
@@ -438,7 +438,7 @@ mod tests {
         let bad_key = "bad_key".to_owned();
         assert!(matches!(
             check_canary(&canary, CANARY_TEXT, &bad_key).err().unwrap(),
-            LoginsApiError::InvalidKey
+            EncryptionApiError::InvalidKey
         ));
     }
 }
