@@ -3,9 +3,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-# Purpose: Run Firefox fenix tests against this application-services working tree.
-# https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-fenix.md
-# So, for now, we need to use an existing respository.
+# Purpose: Run Firefox desktop / HNT (Home & New Tab) tests against this application-services working tree.
+# https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-hnt.md
 #
 # Requirements:
 # - python
@@ -131,7 +130,7 @@ def build_against_hnt_inner(
         action = "run-tests"
 
     firefox_repo_path = Path(firefox_dir)
-    tmp_dir_path = Path(tempfile.mkdtemp(suffix="-test-fenix"))
+    tmp_dir_path = Path(tempfile.mkdtemp(suffix="-test-hnt"))
 
     app_services_path = find_app_services_root()
 

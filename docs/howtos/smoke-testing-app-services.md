@@ -41,7 +41,7 @@ You can also run against specific platforms directly with the following examples
 
   - The `--clear-previous-bindings` argument here runs a `./gradlew prefix:clear` before recompiling. It is not always necessary, and can be excluded for some speed gains, but can result in some cache reuse.
 
-- HNT / Desktop:
+- Desktop / HNT (Home & New Tab):
 
     ```./automation/build_against_hnt.py --action build-without-testing --firefox-dir ../firefox```
 
