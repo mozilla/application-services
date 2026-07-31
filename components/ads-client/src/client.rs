@@ -302,7 +302,7 @@ mod tests {
     use std::{assert_eq, assert_ne, sync::Arc};
 
     use crate::{
-        ffi::telemetry::{MozAdsTelemetryWrapper, NoopMozAdsTelemetry},
+        ffi::telemetry::MozAdsTelemetryWrapper,
         mars::Environment,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
