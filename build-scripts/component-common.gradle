@@ -115,6 +115,15 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
 }
 
+// Pick the publish group id by build context. In m-c, `config` belongs to
+// android-components (`config.componentsGroupId` is `org.mozilla.components`),
+// so we hardcode `org.mozilla.appservices`. Standalone app-services uses
+// `config.componentsGroupId`, which is the only place that appends the
+// `.nightly` suffix nightly builds publish under.
+ext.appServicesGroupId = gradle.root.hasProperty("mozconfig")
+    ? "org.mozilla.appservices"
+    : rootProject.config.componentsGroupId
+
 // Shared logic for projects that depend on libmegazord
 //
 // This ensures that libmegazord will be in the library path so that it can be loaded.  It also adds
