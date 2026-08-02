@@ -107,6 +107,10 @@ where
         self.ads_cache.cache_ads(ads , now);
     }
 
+    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id : &str) -> Option<&Vec<A>> {
+        self.ads_cache.get_cached_ads(&placement_id)
+    }
+
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
         self.context_id_provider.context_id()
     }

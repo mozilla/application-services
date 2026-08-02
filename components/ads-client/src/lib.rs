@@ -25,7 +25,7 @@ pub mod ads_cache;
 
 pub use ffi::*;
 
-use crate::{ffi::telemetry::MozAdsTelemetryWrapper, worker::DispatchCommand};
+use crate::{client::error::RequestAdsError, ffi::telemetry::MozAdsTelemetryWrapper, mars::ad_response::AdImage, worker::{DispatchCommand, ErrorOnlyRequestCallback}};
 
 #[cfg(test)]
 mod test_utils;
@@ -167,5 +167,32 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn prefetch_image_ads(
+        &self,
+        image_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Option<Box<dyn ErrorOnlyRequestCallback>>
+    ) -> AdsClientApiResult<()> {
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            worker_dispatch.try_send(DispatchCommand::RequestImageAds { image_ad_requests, options, callback }).map_err(RequestAdsError::from)?;
+            Ok(())
+        } else {
+            Err(RequestAdsError::BackgroundWorkerClosedError.into())
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_image_ads(
+        &self,
+        placement_id: String,
+    ) -> AdsClientApiResult<Option<MozAdsImage>> {
+        let inner = self.inner.lock();
+        let image_ads : Option<&Vec<AdImage>> = inner.get_cached_ads(&placement_id);
+        Ok(image_ads.and_then(|ad| ad.into_iter().next().cloned()).map(|ad| ad.into()))
     }
 }

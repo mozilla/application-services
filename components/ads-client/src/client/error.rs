@@ -3,7 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
+use std::sync::mpsc::TrySendError;
+use crate::{mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError}, worker::DispatchCommand};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
@@ -27,4 +28,10 @@ pub enum RequestAdsError {
 
     #[error("Error requesting ads from MARS: {0}")]
     FetchAds(#[from] FetchAdsError),
+
+    #[error("Error requesting new ads from the background worker: {0}")]
+    BackgroundWorkerFullError(#[from] TrySendError<DispatchCommand>),
+
+    #[error("Error requesting new ads from the background worker: background worker is closed")]
+    BackgroundWorkerClosedError
 }

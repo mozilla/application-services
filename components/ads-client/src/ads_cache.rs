@@ -20,11 +20,18 @@ impl AdsCache {
     pub fn cache_ads(&mut self, ads : HashMap<String, Vec<impl AdsCacheable>>, timestamp: u64) {
         AdsCacheable::cache_ads(ads, self, timestamp);
     }
+
+    pub fn get_cached_ads<'a, T: AdsCacheable>(&'a self, placement : &str) -> Option<&'a Vec<T>> {
+        // TODO: Note that some of them return T and some return Vec<T>. Where should this handling be done?
+        // TODO: separate functions here? separate functions in surface?
+        // TODO: also there are existing trait for ads- use this?
+        AdsCacheable::fetch_cached_ads(&self, placement)
+    }
 }
 
 pub trait AdsCacheable : Sized {
     fn cache_ads(ads : HashMap<String, Vec<Self>>, ads_cache : &mut AdsCache, timestamp: u64);
-    fn fetch_cached_ad(self, ads_cache : &AdsCache);
+    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<Self>>;
 }
 
 impl AdsCacheable for AdImage {
@@ -33,8 +40,8 @@ impl AdsCacheable for AdImage {
         ads_cache.image_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
     }
 
-    fn fetch_cached_ad(self, ads_cache : &AdsCache) {
-        todo!()
+    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdImage>> {
+        ads_cache.image_ads.get(id).map(|(_, ads)| ads)
     }
 }
 
@@ -43,8 +50,8 @@ impl AdsCacheable for AdSpoc {
         ads_cache.spoc_ads.extend(ads.into_iter().map(|(key, ad) |(key, (timestamp, ad))));
         ads_cache.spoc_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
     }
-    fn fetch_cached_ad(self, ads_cache : &AdsCache) {
-        todo!()
+    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdSpoc>> {
+        ads_cache.spoc_ads.get(id).map(|(_, ads)| ads)
     }
 }
 
@@ -53,7 +60,7 @@ impl AdsCacheable for AdTile {
         ads_cache.tile_ads.extend(ads.into_iter().map(|(key, ad) |(key, (timestamp, ad))));
         ads_cache.tile_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
     }
-    fn fetch_cached_ad(self, ads_cache : &AdsCache) {
-        todo!()
+    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdTile>> {
+        ads_cache.tile_ads.get(id).map(|(_, ads)| ads)
     }
 }
