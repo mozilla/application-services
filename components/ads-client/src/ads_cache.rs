@@ -1,27 +1,32 @@
 use crate::mars::ad_response::{AdImage, AdSpoc, AdTile};
 use std::{collections::HashMap, time::Duration};
 
-// TODO: This is an intentionally naive in-memory cache implementation of the ads cache. 
+// TODO: This is an intentionally naive in-memory cache implementation of the ads cache.
 // It functions as a skeleton to store ads fetched in the background, and has a naive expiration mechanism.
 // The subsequent vertical slice will replace this in its entirety with the http_cache sqlite database instead, with TTLs, persistent storage, etc.
 const DEFAULT_TTL: Duration = Duration::from_secs(300);
 
+#[derive(Debug)]
 pub struct AdsCache {
-    image_ads : HashMap<String, (u64, Vec<AdImage>)>,
-    spoc_ads : HashMap<String, (u64, Vec<AdSpoc>)>,
-    tile_ads : HashMap<String, (u64, Vec<AdTile>)>
+    image_ads: HashMap<String, (u64, Vec<AdImage>)>,
+    spoc_ads: HashMap<String, (u64, Vec<AdSpoc>)>,
+    tile_ads: HashMap<String, (u64, Vec<AdTile>)>,
 }
 
 impl AdsCache {
     pub fn new() -> Self {
-        AdsCache { image_ads: HashMap::new(), spoc_ads: HashMap::new(), tile_ads: HashMap::new() }
+        AdsCache {
+            image_ads: HashMap::new(),
+            spoc_ads: HashMap::new(),
+            tile_ads: HashMap::new(),
+        }
     }
 
-    pub fn cache_ads(&mut self, ads : HashMap<String, Vec<impl AdsCacheable>>, timestamp: u64) {
+    pub fn cache_ads(&mut self, ads: HashMap<String, Vec<impl AdsCacheable>>, timestamp: u64) {
         AdsCacheable::cache_ads(ads, self, timestamp);
     }
 
-    pub fn get_cached_ads<'a, T: AdsCacheable>(&'a self, placement : &str) -> Option<&'a Vec<T>> {
+    pub fn get_cached_ads<'a, T: AdsCacheable>(&'a self, placement: &str) -> Option<&'a Vec<T>> {
         // TODO: Note that some of them return T and some return Vec<T>. Where should this handling be done?
         // TODO: separate functions here? separate functions in surface?
         // TODO: also there are existing trait for ads- use this?
@@ -29,38 +34,50 @@ impl AdsCache {
     }
 }
 
-pub trait AdsCacheable : Sized {
-    fn cache_ads(ads : HashMap<String, Vec<Self>>, ads_cache : &mut AdsCache, timestamp: u64);
-    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<Self>>;
+pub trait AdsCacheable: Sized {
+    fn cache_ads(ads: HashMap<String, Vec<Self>>, ads_cache: &mut AdsCache, timestamp: u64);
+    fn fetch_cached_ads<'a>(ads_cache: &'a AdsCache, id: &str) -> Option<&'a Vec<Self>>;
 }
 
 impl AdsCacheable for AdImage {
-    fn cache_ads(ads: HashMap<String, Vec<AdImage>>, ads_cache : &mut AdsCache, timestamp : u64) {
-        ads_cache.image_ads.extend(ads.into_iter().map(|(key, ad) |(key, (timestamp, ad))));
-        ads_cache.image_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
+    fn cache_ads(ads: HashMap<String, Vec<AdImage>>, ads_cache: &mut AdsCache, timestamp: u64) {
+        ads_cache
+            .image_ads
+            .extend(ads.into_iter().map(|(key, ad)| (key, (timestamp, ad))));
+        ads_cache
+            .image_ads
+            .retain(|_, (x, _)| *x - timestamp < DEFAULT_TTL.as_secs());
     }
 
-    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdImage>> {
+    fn fetch_cached_ads<'a>(ads_cache: &'a AdsCache, id: &str) -> Option<&'a Vec<AdImage>> {
         ads_cache.image_ads.get(id).map(|(_, ads)| ads)
     }
 }
 
 impl AdsCacheable for AdSpoc {
-    fn cache_ads(ads: HashMap<String, Vec<AdSpoc>>, ads_cache : &mut AdsCache, timestamp : u64) {
-        ads_cache.spoc_ads.extend(ads.into_iter().map(|(key, ad) |(key, (timestamp, ad))));
-        ads_cache.spoc_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
+    fn cache_ads(ads: HashMap<String, Vec<AdSpoc>>, ads_cache: &mut AdsCache, timestamp: u64) {
+        ads_cache
+            .spoc_ads
+            .extend(ads.into_iter().map(|(key, ad)| (key, (timestamp, ad))));
+        ads_cache
+            .spoc_ads
+            .retain(|_, (x, _)| *x - timestamp < DEFAULT_TTL.as_secs());
     }
-    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdSpoc>> {
+    fn fetch_cached_ads<'a>(ads_cache: &'a AdsCache, id: &str) -> Option<&'a Vec<AdSpoc>> {
         ads_cache.spoc_ads.get(id).map(|(_, ads)| ads)
     }
 }
 
 impl AdsCacheable for AdTile {
-    fn cache_ads(ads: HashMap<String, Vec<AdTile>>, ads_cache : &mut AdsCache, timestamp : u64) {
-        ads_cache.tile_ads.extend(ads.into_iter().map(|(key, ad) |(key, (timestamp, ad))));
-        ads_cache.tile_ads.retain(|_, (x, _)| *x - timestamp > DEFAULT_TTL.as_secs());
+    fn cache_ads(ads: HashMap<String, Vec<AdTile>>, ads_cache: &mut AdsCache, timestamp: u64) {
+        ads_cache
+            .tile_ads
+            .extend(ads.into_iter().map(|(key, ad)| (key, (timestamp, ad))));
+        ads_cache
+            .tile_ads
+            .retain(|_, (x, _)| *x - timestamp < DEFAULT_TTL.as_secs());
     }
-    fn fetch_cached_ads<'a>(ads_cache : &'a AdsCache, id : &str) -> Option<&'a Vec<AdTile>> {
+    fn fetch_cached_ads<'a>(ads_cache: &'a AdsCache, id: &str) -> Option<&'a Vec<AdTile>> {
         ads_cache.tile_ads.get(id).map(|(_, ads)| ads)
     }
 }

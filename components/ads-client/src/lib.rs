@@ -3,7 +3,15 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::{collections::HashMap, sync::{Arc, mpsc::SyncSender}, thread::JoinHandle};
+use std::{
+    collections::HashMap,
+    sync::{
+        mpsc::{self, SyncSender},
+        Arc,
+    },
+    thread::JoinHandle,
+    time::Duration,
+};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -15,17 +23,22 @@ use client::AdsClient;
 use http_cache::CachePolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 
+pub mod ads_cache;
 mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
 pub mod telemetry;
 pub mod worker;
-pub mod ads_cache;
 
 pub use ffi::*;
 
-use crate::{client::error::RequestAdsError, ffi::telemetry::MozAdsTelemetryWrapper, mars::ad_response::AdImage, worker::{DispatchCommand, ErrorOnlyRequestCallback}};
+use crate::{
+    client::error::BackgroundWorkerError,
+    ffi::telemetry::MozAdsTelemetryWrapper,
+    mars::ad_response::AdImage,
+    worker::{Dispatch, DispatchCommand, ErrorOnlyRequestCallback},
+};
 
 #[cfg(test)]
 mod test_utils;
@@ -43,7 +56,7 @@ pub struct MozAdsClient {
     inner: MozAdsClientInner,
 
     _worker_thread: Option<JoinHandle<()>>,
-    worker_dispatch: Option<SyncSender<DispatchCommand>>,
+    worker_dispatch: Option<SyncSender<Dispatch>>,
 }
 
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
@@ -175,24 +188,62 @@ impl MozAdsClient {
         &self,
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-        callback: Option<Box<dyn ErrorOnlyRequestCallback>>
+        callback: Option<Box<dyn ErrorOnlyRequestCallback>>,
     ) -> AdsClientApiResult<()> {
         if let Some(worker_dispatch) = &self.worker_dispatch {
-            worker_dispatch.try_send(DispatchCommand::RequestImageAds { image_ad_requests, options, callback }).map_err(RequestAdsError::from)?;
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::RequestImageAds {
+                        image_ad_requests,
+                        options,
+                    },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
             Ok(())
         } else {
-            Err(RequestAdsError::BackgroundWorkerClosedError.into())
+            Err(BackgroundWorkerError::WorkerClosed.into())
         }
     }
 
     #[handle_error(ComponentError)]
     #[uniffi::method()]
-    pub fn query_image_ads(
-        &self,
-        placement_id: String,
-    ) -> AdsClientApiResult<Option<MozAdsImage>> {
+    pub fn query_image_ads(&self, placement_id: String) -> AdsClientApiResult<Option<MozAdsImage>> {
         let inner = self.inner.lock();
-        let image_ads : Option<&Vec<AdImage>> = inner.get_cached_ads(&placement_id);
-        Ok(image_ads.and_then(|ad| ad.into_iter().next().cloned()).map(|ad| ad.into()))
+        let image_ads: Option<&Vec<AdImage>> = inner.get_cached_ads(&placement_id);
+        Ok(image_ads
+            .and_then(|ad| ad.into_iter().next().cloned())
+            .map(|ad| ad.into()))
+    }
+
+    // Pings the background worker and waits for a response back.
+    // Because the background worker is synchronous, this returns if the worker is empty,
+    // making it useful for integration tests to wait until all tasks have completed.
+    #[handle_error(ComponentError)]
+    pub fn ping_background_worker(
+        &self,
+        timeout: Option<Duration>,
+        callback: Option<Box<dyn ErrorOnlyRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        // TODO: Qualify instead of use
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            let (tx, rx) = mpsc::sync_channel(0);
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::Ping(tx),
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+            if let Some(timeout) = timeout {
+                rx.recv_timeout(timeout)
+                    .map_err(BackgroundWorkerError::from)?;
+            } else {
+                // TODO: is this necessarily true? its the channel hanging up, not the worker
+                rx.recv().map_err(|_| BackgroundWorkerError::WorkerClosed)?;
+            }
+            return Ok(());
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
     }
 }

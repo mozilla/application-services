@@ -3,8 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-use std::time::Duration;
 use crate::ads_cache::{AdsCache, AdsCacheable};
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
@@ -15,6 +13,8 @@ use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
+use std::collections::HashMap;
+use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 
@@ -42,7 +42,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
-    ads_cache : AdsCache,
+    ads_cache: AdsCache,
 }
 
 impl<T> AdsClient<T>
@@ -92,7 +92,7 @@ where
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
-            ads_cache: AdsCache::new()
+            ads_cache: AdsCache::new(),
         }
     }
 
@@ -100,14 +100,14 @@ where
         self.client.clear_cache()
     }
 
-    pub fn cache_ads(&mut self, ads : HashMap<String, Vec<impl AdsCacheable>>) {
+    pub fn cache_ads(&mut self, ads: HashMap<String, Vec<impl AdsCacheable>>) {
         // TODO: is this timestamp correct?
         // TODO: cast
         let now = chrono::Utc::now().timestamp() as u64;
-        self.ads_cache.cache_ads(ads , now);
+        self.ads_cache.cache_ads(ads, now);
     }
 
-    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id : &str) -> Option<&Vec<A>> {
+    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id: &str) -> Option<&Vec<A>> {
         self.ads_cache.get_cached_ads(&placement_id)
     }
 
@@ -277,10 +277,12 @@ pub enum ClientOperationEvent {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ffi::telemetry::MozAdsTelemetryWrapper, mars::Environment, test_utils::{
+        ffi::telemetry::MozAdsTelemetryWrapper,
+        mars::Environment,
+        test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,
-        }
+        },
     };
 
     use super::*;
