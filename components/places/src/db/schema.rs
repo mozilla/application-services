@@ -354,54 +354,43 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
                 [],
             )?;
             if !already_inverted {
-                // The table must be rebuilt, and PRAGMA foreign_keys is a no-op
-                // inside the migration transaction, so the moz_places.origin_id
-                // foreign key stays enforced throughout. Since origin_id is
-                // nullable, we stash it and null it out, so that nothing
-                // references moz_origins while it's swapped out.
-                // The stash must be keyed, or the restore below would scan it
-                // for every row.
-                db.execute_batch(
-                    "CREATE TEMP TABLE moz_places_origin_id_stash (
-                         id INTEGER PRIMARY KEY,
-                         origin_id INTEGER NOT NULL
-                     );
+                // PRAGMA foreign_keys is a no-op inside the migration transaction,
+                // so dropping moz_origins to rebuild it would cascade to every
+                // page; we rewrite the stored schema in place instead.
+                // Must not change anything but the constraints; changing the column
+                // list will silently corrupt existing data.
+                const NEW_SQL: &str = "CREATE TABLE moz_origins ( \
+                    id INTEGER PRIMARY KEY, \
+                    prefix TEXT NOT NULL, \
+                    host TEXT NOT NULL, \
+                    rev_host TEXT NOT NULL, \
+                    frecency INTEGER NOT NULL, \
+                    UNIQUE (host, prefix))";
 
-                     INSERT INTO moz_places_origin_id_stash (id, origin_id)
-                     SELECT id, origin_id FROM moz_places WHERE origin_id IS NOT NULL;
+                let schema_version: i64 =
+                    db.query_row("PRAGMA schema_version", [], |row| row.get(0))?;
 
-                     CREATE TABLE moz_origins_new (
-                         id INTEGER PRIMARY KEY,
-                         prefix TEXT NOT NULL,
-                         host TEXT NOT NULL,
-                         rev_host TEXT NOT NULL,
-                         frecency INTEGER NOT NULL,
-                         UNIQUE (host, prefix)
-                     );
+                {
+                    let _w = PragmaGuard::new(db, Pragma::WritableSchema, true)?;
+                    db.execute(
+                        "UPDATE sqlite_schema SET
+                           sql = ?
+                         WHERE type = 'table' AND name = 'moz_origins'",
+                        // _Must_ be valid SQL; updating `sqlite_schema.sql` with
+                        // invalid SQL will corrupt the database.
+                        rusqlite::params![NEW_SQL],
+                    )?;
+                }
 
-                     INSERT INTO moz_origins_new (id, prefix, host, rev_host, frecency)
-                     SELECT id, prefix, host, rev_host, frecency FROM moz_origins;
+                // Reload the schema and rebuild the index with the new column order
+                db.execute_one("PRAGMA writable_schema = RESET")?;
+                db.execute("REINDEX moz_origins", [])?;
 
-                     UPDATE moz_places SET origin_id = NULL WHERE origin_id IS NOT NULL;
+                // Increment the schema version like an ALTER TABLE would, so that
+                // other connections reload the schema
+                db.execute_one(&format!("PRAGMA schema_version = {}", schema_version + 1))?;
 
-                     -- A rename would rewrite the REFERENCES clause in moz_places, while a
-                     -- drop leaves it dangling until the new table takes over the name.
-                     DROP TABLE moz_origins;
-
-                     ALTER TABLE moz_origins_new RENAME TO moz_origins;
-
-                     UPDATE moz_places
-                     SET origin_id = stash.origin_id
-                     FROM moz_places_origin_id_stash AS stash
-                     WHERE moz_places.id = stash.id;
-
-                     DROP TABLE moz_places_origin_id_stash;",
-                )?;
-                // Recreate hostindex, which was dropped along with the old table,
-                // by calling the shared schema file
-                db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
-                // Manually call analyze so the planner has statistics for the
-                // rebuilt table
+                // Manually call analyze so the planner can start using the index immediately
                 db.execute("ANALYZE moz_origins", [])?;
             }
         }
