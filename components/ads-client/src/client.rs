@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-
+use crate::ads_cache::{AdsCache, AdsCacheable};
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -42,6 +42,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
+    ads_cache : AdsCache,
 }
 
 impl<T> AdsClient<T>
@@ -91,11 +92,19 @@ where
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
+            ads_cache: AdsCache::new()
         }
     }
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         self.client.clear_cache()
+    }
+
+    pub fn cache_ads(&mut self, ads : HashMap<String, Vec<impl AdsCacheable>>) {
+        // TODO: is this timestamp correct?
+        // TODO: cast
+        let now = chrono::Utc::now().timestamp() as u64;
+        self.ads_cache.cache_ads(ads , now);
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -264,12 +273,10 @@ pub enum ClientOperationEvent {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ffi::telemetry::MozAdsTelemetryWrapper,
-        mars::Environment,
-        test_utils::{
+        ffi::telemetry::MozAdsTelemetryWrapper, mars::Environment, test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,
-        },
+        }
     };
 
     use super::*;
@@ -286,6 +293,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry: MozAdsTelemetryWrapper::noop(),
+            ads_cache: AdsCache::new(),
         }
     }
 

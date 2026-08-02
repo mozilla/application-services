@@ -7,7 +7,6 @@ pub mod error;
 pub mod telemetry;
 
 use std::sync::Arc;
-
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
@@ -20,14 +19,13 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::AdsClientUrl;
+use crate::{AdsClientUrl, worker};
 use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
-
 // TODO: Temporary workaround for HNT requirements — do not use for new integrations.
 // Context ID management should remain internal to the ads client and this interface should be removed.
 #[uniffi::export(with_foreign)]
@@ -139,8 +137,12 @@ impl MozAdsClientBuilder {
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
         };
         let client = AdsClient::new(client_config);
+        let inner = Arc::new(Mutex::new(client));
+        let (worker_dispatch, worker_thread) = Option::unzip(worker::build_worker_thread(inner.clone()));
         MozAdsClient {
-            inner: Mutex::new(client),
+            inner,
+            _worker_thread: worker_thread,
+            worker_dispatch
         }
     }
 

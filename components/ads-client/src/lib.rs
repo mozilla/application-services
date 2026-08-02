@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::{Arc, mpsc::SyncSender}, thread::JoinHandle};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -20,10 +20,12 @@ mod ffi;
 pub mod http_cache;
 mod mars;
 pub mod telemetry;
+pub mod worker;
+pub mod ads_cache;
 
 pub use ffi::*;
 
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+use crate::{ffi::telemetry::MozAdsTelemetryWrapper, worker::DispatchCommand};
 
 #[cfg(test)]
 mod test_utils;
@@ -38,8 +40,13 @@ uniffi::custom_type!(AdsClientUrl, String, {
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: MozAdsClientInner,
+
+    _worker_thread: Option<JoinHandle<()>>,
+    worker_dispatch: Option<SyncSender<DispatchCommand>>,
 }
+
+pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 
 #[uniffi::export]
 impl MozAdsClient {
