@@ -685,7 +685,7 @@ impl ApiClient for ViaductApiClient {
         url.query_pairs_mut().append_pair("_expected", "0");
         if let Some(timestamp) = timestamp {
             url.query_pairs_mut()
-                .append_pair("_since", &format!("\"{}\"", timestamp));
+                .append_pair("_since", &format!("{}", timestamp));
         }
 
         let resp = self.make_request(url)?;
@@ -959,6 +959,40 @@ mod test_new_client {
             endpoints.changeset_url.to_string(),
             "http://rs.example.com/v2/buckets/main/collections/test-collection/changeset",
         );
+    }
+}
+
+#[cfg(test)]
+mod viaduct_client_tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_uses_local_timestamp_as_unquoted_since() {
+        viaduct_dev::init_backend_dev();
+        let changeset = mockito::mock(
+            "GET",
+            "/v2/buckets/main/collections/test-collection/changeset",
+        )
+        // The mock only matches if `_since` is sent unquoted.
+        .match_query(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::UrlEncoded("_expected".into(), "0".into()),
+            mockito::Matcher::UrlEncoded("_since".into(), "42".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{"changes": [], "timestamp": 42, "metadata": {"bucket": "main", "signatures": []}}"#,
+        )
+        .create();
+
+        let mut api_client = ViaductApiClient::new(
+            BaseUrl::parse(&format!("{}/v2", mockito::server_url())).unwrap(),
+            "main",
+            "test-collection",
+        );
+        api_client.fetch_changeset(Some(42)).unwrap();
+
+        changeset.assert();
     }
 }
 
