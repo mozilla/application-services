@@ -12,7 +12,7 @@ default = []
 # `key4.db` (wrapped with a key derived from the primary password, if set).
 # Used on Desktop to integrate with the existing NSS key store and primary
 # password flow.
-keydb = ["nss-as/keydb", "dep:async-trait", "dep:futures"]
+keydb = ["nss-as/keydb", "encryption/keydb", "dep:async-trait", "dep:futures"]
 # Allows logins with empty passwords to be imported. Used on Desktop during
 # migration to accept existing logins that have empty passwords.
 allow_empty_passwords = []
@@ -53,6 +53,7 @@ anyhow = "1.0"
 uniffi = { version = "0.31" }
 async-trait = { version = "0.1", optional = true }
 futures = { version = "0.3", optional = true, features = ["executor"] }
+encryption = { path = "../support/encryption", default-features = false }
 
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }

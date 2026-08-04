@@ -343,18 +343,16 @@ impl KeyManager for NSSKeyManager {
 
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
-    Ok(jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)?)
+    Ok(encryption::create_canary(text, key)?)
 }
 
 pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
-    let encdec = jwcrypto::EncryptorDecryptor::new(key)
-        .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
-    Ok(encdec.check_canary(canary, text).unwrap_or(false))
+    Ok(encryption::check_canary(canary, text, key)?)
 }
 
 #[handle_error(Error)]
 pub fn create_key() -> ApiResult<String> {
-    Ok(jwcrypto::EncryptorDecryptor::create_key()?)
+    Ok(encryption::create_key()?)
 }
 
 #[cfg(test)]

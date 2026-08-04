@@ -2551,6 +2551,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "encryption",
  "error-support",
  "futures",
  "interrupt-support",
