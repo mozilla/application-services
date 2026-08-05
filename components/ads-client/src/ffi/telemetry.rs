@@ -59,8 +59,8 @@ impl MozAdsTelemetryWrapper {
 
 impl Telemetry for MozAdsTelemetryWrapper {
     fn shutdown(&self) {
-        // let mut inner = self.inner.lock();
-        // *inner = Arc::new(NoopMozAdsTelemetry);
+        let mut inner = self.inner.lock();
+        *inner = Arc::new(NoopMozAdsTelemetry);
     }
 
     fn record(&self, event: &dyn Any) {
