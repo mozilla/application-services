@@ -15,4 +15,4 @@ dependencies {
 
 ext.configureUniFFIBindgen("init_rust_components")
 ext.dependsOnTheMegazord()
-ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
+ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

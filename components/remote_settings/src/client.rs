@@ -325,26 +325,28 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
         let cached_records = inner.storage.get_records(&collection_url)?;
 
-        Ok(match (cached_records, sync_if_empty) {
+        match (cached_records, sync_if_empty) {
             // Case 2: We have cached records
             //
             // Note: we should return these even if it's an empty list and `sync_if_empty=true`.
             // The "if empty" part refers to the cache being empty, not the list.
-            (Some(cached_records), _) => Some(self.filter_records(cached_records, &inner)),
+            (Some(cached_records), _) => Ok(Some(self.filter_records(cached_records, &inner))),
             // Case 3: sync_if_empty=true
             (None, true) => {
-                let changeset = inner.api_client.fetch_changeset(None)?;
-                inner.storage.insert_collection_content(
-                    &collection_url,
-                    &changeset.changes,
-                    changeset.timestamp,
-                    changeset.metadata,
-                )?;
-                Some(self.filter_records(changeset.changes, &inner))
+                // `sync()` takes the lock, release it first.
+                drop(inner);
+                // Sync and verify content signatures.
+                self.sync()?;
+                // Return what was just stored.
+                let mut inner = self.lock_inner()?;
+                Ok(inner
+                    .storage
+                    .get_records(&collection_url)?
+                    .map(|records| self.filter_records(records, &inner)))
             }
             // Case 4: Nothing to return
-            (None, false) => None,
-        })
+            (None, false) => Ok(None),
+        }
     }
 
     /// Returns the last modified timestamp for the collection.
@@ -683,7 +685,7 @@ impl ApiClient for ViaductApiClient {
         url.query_pairs_mut().append_pair("_expected", "0");
         if let Some(timestamp) = timestamp {
             url.query_pairs_mut()
-                .append_pair("_since", &format!("\"{}\"", timestamp));
+                .append_pair("_since", &format!("{}", timestamp));
         }
 
         let resp = self.make_request(url)?;
@@ -957,6 +959,40 @@ mod test_new_client {
             endpoints.changeset_url.to_string(),
             "http://rs.example.com/v2/buckets/main/collections/test-collection/changeset",
         );
+    }
+}
+
+#[cfg(test)]
+mod viaduct_client_tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_uses_local_timestamp_as_unquoted_since() {
+        viaduct_dev::init_backend_dev();
+        let changeset = mockito::mock(
+            "GET",
+            "/v2/buckets/main/collections/test-collection/changeset",
+        )
+        // The mock only matches if `_since` is sent unquoted.
+        .match_query(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::UrlEncoded("_expected".into(), "0".into()),
+            mockito::Matcher::UrlEncoded("_since".into(), "42".into()),
+        ]))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{"changes": [], "timestamp": 42, "metadata": {"bucket": "main", "signatures": []}}"#,
+        )
+        .create();
+
+        let mut api_client = ViaductApiClient::new(
+            BaseUrl::parse(&format!("{}/v2", mockito::server_url())).unwrap(),
+            "main",
+            "test-collection",
+        );
+        api_client.fetch_changeset(Some(42)).unwrap();
+
+        changeset.assert();
     }
 }
 
@@ -1314,14 +1350,14 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
     const VALID_SIGNATURE: &str = r#"fJJcOpwdnkjEWFeHXfdOJN6GaGLuDTPGzQOxA2jn6ldIleIk6KqMhZcy2GZv2uYiGwl6DERWwpaoUfQFLyCAOcVjck1qlaaEFZGY1BQba9p99xEc9FNQ3YPPfvSSZqsw"#;
     const VALID_CERT_EPOCH_SECONDS: u64 = 1615559719;
 
-    fn run_client_sync(
+    fn build_client(
         diff_records: &[RemoteSettingsRecord],
         full_records: &[RemoteSettingsRecord],
         certificate: &str,
         signatures: &[CollectionSignature],
         epoch_secs: u64,
         bucket: &str,
-    ) -> Result<()> {
+    ) -> RemoteSettingsClient<MockApiClient> {
         let collection_name = "pioneer-study-addons";
 
         MOCK_TIME.with(|cell| cell.set(Some(epoch_secs)));
@@ -1363,14 +1399,31 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
         let storage = Storage::new(":memory:".into());
         let jexl_filter = JexlFilter::new(Some(RemoteSettingsContext::default()));
-        let rs_client = RemoteSettingsClient::new_from_parts(
+        RemoteSettingsClient::new_from_parts(
             collection_name.to_string(),
             storage,
             jexl_filter,
             api_client,
-        );
+        )
+    }
 
-        rs_client.sync()
+    fn run_client_sync(
+        diff_records: &[RemoteSettingsRecord],
+        full_records: &[RemoteSettingsRecord],
+        certificate: &str,
+        signatures: &[CollectionSignature],
+        epoch_secs: u64,
+        bucket: &str,
+    ) -> Result<()> {
+        build_client(
+            diff_records,
+            full_records,
+            certificate,
+            signatures,
+            epoch_secs,
+            bucket,
+        )
+        .sync()
     }
 
     #[test]
@@ -1598,6 +1651,57 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             format!("{}", err),
             "Signature could not be verified: Certificate subject mismatch"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_records_sync_if_empty_verifies_signature() -> Result<()> {
+        ensure_initialized();
+        let rs_client = build_client(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: "invalid signature".to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        );
+
+        let err = rs_client.get_records(true).unwrap_err();
+
+        assert!(matches!(err, Error::SignatureError(_)));
+        assert_eq!(format!("{}", err), "Signature could not be verified: Signature content error: Encoded text cannot have a 6-bit remainder.");
+
+        // Unverified data was not kept in storage.
+        let mut inner = rs_client.lock_inner()?;
+        let collection_url = inner.api_client.collection_url();
+        assert_eq!(inner.storage.get_records(&collection_url)?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_records_sync_if_empty_with_valid_signature() -> Result<()> {
+        ensure_initialized();
+        let rs_client = build_client(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        );
+
+        // The signature is only valid for an empty list of records.
+        assert_eq!(rs_client.get_records(true)?, Some(vec![]));
 
         Ok(())
     }
