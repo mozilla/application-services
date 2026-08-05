@@ -54,4 +54,4 @@ dependencies {
 
 ext.configureUniFFIBindgen("nimbus")
 ext.dependsOnTheMegazord()
-ext.configurePublish("org.mozilla.appservices", project.name, project.ext.description)
+ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
