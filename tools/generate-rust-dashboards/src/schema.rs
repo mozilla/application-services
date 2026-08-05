@@ -217,6 +217,7 @@ pub struct PieChartReduceOptions {
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Target {
+    pub datasource: Datasource,
     pub format: TargetFormat,
     pub raw_query: bool,
     pub raw_sql: String,
@@ -677,6 +678,7 @@ impl Datasource {
 impl Target {
     pub fn timeseries(sql: impl Into<String>) -> Self {
         Self {
+            datasource: Datasource::bigquery(),
             format: TargetFormat::Timeseries,
             raw_query: true,
             raw_sql: sql.into(),
@@ -685,6 +687,7 @@ impl Target {
 
     pub fn table(sql: impl Into<String>) -> Self {
         Self {
+            datasource: Datasource::bigquery(),
             format: TargetFormat::Table,
             raw_query: true,
             raw_sql: sql.into(),
