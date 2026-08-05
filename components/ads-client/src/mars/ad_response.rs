@@ -18,7 +18,7 @@ pub struct AdResponse<A: AdResponseValue> {
 impl<A: AdResponseValue> AdResponse<A> {
     pub fn parse<T: Telemetry>(
         data: serde_json::Value,
-        telemetry: Option<&T>,
+        telemetry: &T,
     ) -> Result<AdResponse<A>, serde_json::Error> {
         let raw: HashMap<String, serde_json::Value> = serde_json::from_value(data)?;
         let mut result = HashMap::new();
@@ -30,9 +30,7 @@ impl<A: AdResponseValue> AdResponse<A> {
                     match serde_json::from_value::<A>(item.clone()) {
                         Ok(ad) => ads.push(ad),
                         Err(e) => {
-                            if let Some(telemetry) = telemetry {
-                                telemetry.record(&e);
-                            }
+                            telemetry.record(&e);
                         }
                     }
                 }
@@ -337,8 +335,7 @@ mod tests {
         });
 
         let parsed =
-            AdResponse::<AdImage>::parse(raw_ad_response, Some(&MozAdsTelemetryWrapper::noop()))
-                .unwrap();
+            AdResponse::<AdImage>::parse(raw_ad_response, &MozAdsTelemetryWrapper::noop()).unwrap();
 
         let expected = AdResponse {
             data: HashMap::from([(
@@ -375,8 +372,7 @@ mod tests {
         });
 
         let parsed =
-            AdResponse::<AdImage>::parse(raw_ad_response, Some(&MozAdsTelemetryWrapper::noop()))
-                .unwrap();
+            AdResponse::<AdImage>::parse(raw_ad_response, &MozAdsTelemetryWrapper::noop()).unwrap();
 
         let expected = AdResponse {
             data: HashMap::from([]),

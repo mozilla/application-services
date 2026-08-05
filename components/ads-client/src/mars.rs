@@ -36,7 +36,7 @@ where
     T: Clone + Telemetry,
 {
     environment: Environment,
-    telemetry: Option<T>,
+    telemetry: T,
     transport: MARSTransport<T>,
 }
 
@@ -48,7 +48,7 @@ where
         let transport = MARSTransport::new(http_cache, telemetry.clone());
         Self {
             environment,
-            telemetry: Some(telemetry),
+            telemetry,
             transport,
         }
     }
@@ -59,11 +59,6 @@ where
 
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         self.transport.shutdown_db()
-    }
-
-    pub fn drop_telemetry(&mut self) {
-        self.telemetry = None;
-        self.transport.drop_telemetry();
     }
 
     pub fn fetch_ads<A>(
@@ -88,7 +83,7 @@ where
         }
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
-        let ads = AdResponse::<A>::parse(response.json()?, self.telemetry.as_ref())?;
+        let ads = AdResponse::<A>::parse(response.json()?, &self.telemetry)?;
         Ok((ads, request_hash))
     }
 
@@ -149,7 +144,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn get_telemetry(&self) -> Option<T> {
+    pub fn get_telemetry(&self) -> T {
         self.telemetry.clone()
     }
 }

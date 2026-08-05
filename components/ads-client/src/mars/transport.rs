@@ -18,26 +18,22 @@ const OHTTP_CHANNEL_ID: &str = "ads-client";
 
 pub struct MARSTransport<T: Telemetry> {
     http_cache: Option<HttpCache>,
-    telemetry: Option<T>,
+    telemetry: T,
 }
 
 impl<T: Telemetry> MARSTransport<T> {
     pub fn new(http_cache: Option<HttpCache>, telemetry: T) -> Self {
         Self {
             http_cache,
-            telemetry: Some(telemetry),
+            telemetry,
         }
     }
 
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         if let Some(cache) = self.http_cache.take() {
-            cache.shutdown()?;
+            cache.shutdown_db()?;
         }
         Ok(())
-    }
-
-    pub fn drop_telemetry(&mut self) {
-        self.telemetry = None;
     }
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
@@ -74,10 +70,8 @@ impl<T: Telemetry> MARSTransport<T> {
         let client = Self::client_for(ohttp)?;
         if let Some(cache) = &self.http_cache {
             let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
-            if let Some(telemetry) = &self.telemetry {
-                for outcome in &outcomes {
-                    telemetry.record(outcome);
-                }
+            for outcome in &outcomes {
+                self.telemetry.record(outcome);
             }
             HTTPError::check(&response)?;
             Ok(response)

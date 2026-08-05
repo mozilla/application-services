@@ -41,7 +41,7 @@ where
 {
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
-    telemetry: Option<T>,
+    telemetry: T,
 }
 
 impl<T> AdsClient<T>
@@ -90,7 +90,7 @@ where
         Self {
             client,
             context_id_provider,
-            telemetry: Some(telemetry.clone()),
+            telemetry: telemetry.clone(),
         }
     }
 
@@ -104,9 +104,8 @@ where
         // Shutdown DB
         self.client.shutdown_db()?;
 
-        // Drop telemetry recursively
-        self.telemetry = None;
-        self.client.drop_telemetry();
+        // Drop telemetry (within the telemetry wrapper)
+        self.telemetry.shutdown();
 
         Ok(())
     }
@@ -125,14 +124,10 @@ where
         self.client
             .record_click(click_url, ohttp)
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })
             .inspect(|_| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(&ClientOperationEvent::RecordClick);
-                }
+                self.telemetry.record(&ClientOperationEvent::RecordClick);
             })
     }
 
@@ -173,14 +168,11 @@ where
         self.client
             .record_impression(impression_url, ohttp)
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })
             .inspect(|_| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(&ClientOperationEvent::RecordImpression);
-                }
+                self.telemetry
+                    .record(&ClientOperationEvent::RecordImpression);
             })
     }
 
@@ -193,14 +185,10 @@ where
         self.client
             .report_ad(report_url, reason, ohttp)
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })
             .inspect(|_| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(&ClientOperationEvent::ReportAd);
-                }
+                self.telemetry.record(&ClientOperationEvent::ReportAd);
             })
     }
 
@@ -214,13 +202,9 @@ where
         let response = self
             .request_ads::<AdImage>(ad_placement_requests, flags, options, ohttp)
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })?;
-        if let Some(telemetry) = &self.telemetry {
-            telemetry.record(&ClientOperationEvent::RequestAds);
-        }
+        self.telemetry.record(&ClientOperationEvent::RequestAds);
         Ok(response.take_first())
     }
 
@@ -234,14 +218,10 @@ where
         let result = self.request_ads::<AdSpoc>(ad_placement_requests, flags, options, ohttp);
         result
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })
             .map(|response| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(&ClientOperationEvent::RequestAds);
-                }
+                self.telemetry.record(&ClientOperationEvent::RequestAds);
                 response.data
             })
     }
@@ -256,14 +236,10 @@ where
         let result = self.request_ads::<AdTile>(ad_placement_requests, flags, options, ohttp);
         result
             .inspect_err(|e| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(e);
-                }
+                self.telemetry.record(e);
             })
             .map(|response| {
-                if let Some(telemetry) = &self.telemetry {
-                    telemetry.record(&ClientOperationEvent::RequestAds);
-                }
+                self.telemetry.record(&ClientOperationEvent::RequestAds);
                 response.take_first()
             })
     }

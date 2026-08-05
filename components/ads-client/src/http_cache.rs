@@ -60,7 +60,7 @@ impl HttpCache {
         Ok(())
     }
 
-    pub fn shutdown(self) -> Result<(), rusqlite::Error> {
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
         self.store.close()
     }
 
