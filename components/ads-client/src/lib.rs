@@ -41,15 +41,6 @@ pub struct MozAdsClient {
     inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
 }
 
-impl Drop for MozAdsClient {
-    fn drop(&mut self) {
-        println!("Running 'drop' on MozAdsClient");
-        if let Err(e) = self.shutdown() {
-            eprintln!("Failed to drop: {e}");
-        }
-    }
-}
-
 #[uniffi::export]
 impl MozAdsClient {
     pub fn clear_cache(&self) -> AdsClientApiResult<()> {
