@@ -58,6 +58,8 @@ impl MozAdsTelemetryWrapper {
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {
+    // MozAdsTelemetry has hanging uniffi callbacks which need to be explicitly dropped before closing.
+    // This replaces it with a `NoopMozAdsTelemetry` call, meaning future calls will be noops.
     fn shutdown(&self) {
         let mut inner = self.inner.lock();
         *inner = Arc::new(NoopMozAdsTelemetry);
