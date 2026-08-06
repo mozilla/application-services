@@ -4,7 +4,7 @@
 */
 
 use super::AddressPayload;
-use crate::db::addresses::{add_internal_address, update_internal_address};
+use crate::db::addresses::{add_internal_address, update_internal_address, CounterUpdate};
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
@@ -309,7 +309,15 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         new_record: Self::Record,
         flag_as_changed: bool,
     ) -> Result<()> {
-        update_internal_address(tx, &new_record, flag_as_changed)?;
+        update_internal_address(
+            tx,
+            &new_record,
+            if flag_as_changed {
+                CounterUpdate::Increment
+            } else {
+                CounterUpdate::Leave
+            },
+        )?;
         Ok(())
     }
 

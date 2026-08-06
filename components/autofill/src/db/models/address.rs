@@ -27,6 +27,57 @@ pub struct UpdatableAddressFields {
     pub email: String,
 }
 
+/// Metadata fields managed internally by the library: the guid, timestamps and
+/// local sync state. These are automatically set on `add_address` and updated on
+/// operations like `touch` and `update_address`. Not included in
+/// `UpdatableAddressFields`; use `add_address_with_meta` when importing records
+/// that already have metadata.
+#[derive(Debug, Clone, Default)]
+pub struct AddressMeta {
+    pub guid: String,
+    pub time_created: i64,
+    pub time_last_used: Option<i64>,
+    pub time_last_modified: i64,
+    pub times_used: i64,
+    /// Local changes not yet uploaded; 0 means it matches what was last synced.
+    pub sync_change_counter: i64,
+}
+
+/// A tombstone for a record deleted locally but not yet uploaded, supplied to
+/// `add_many_address_tombstones` when migrating from another store.
+#[derive(Debug, Clone, Default)]
+pub struct AddressTombstone {
+    pub guid: String,
+    pub time_deleted: i64,
+}
+
+/// Per-record result of `add_many_address_tombstones`.
+#[derive(Debug)]
+pub enum AddressBulkTombstoneResultEntry {
+    Success { guid: String },
+    Error { message: String },
+}
+
+/// An address together with its metadata, passed to `add_address_with_meta` and
+/// `update_address_with_meta` when importing a record from another store.
+#[derive(Debug, Clone, Default)]
+pub struct UpdatableAddressFieldsWithMeta {
+    pub fields: UpdatableAddressFields,
+    pub meta: AddressMeta,
+}
+
+/// A bulk insert result entry, returned per input record by
+/// `add_many_addresses_with_meta` so that one record failing does not abort the
+/// batch. Note that although the success case is much larger than the error
+/// case, this is negligible in real life, as we expect a very small
+/// success/error ratio.
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
+pub enum AddressBulkResultEntry {
+    Success { address: Address },
+    Error { message: String },
+}
+
 // "Address" is what we return to consumers and has most of the metadata.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Address {
