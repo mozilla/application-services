@@ -31,6 +31,17 @@ pub enum AutofillApiError {
     UnexpectedAutofillApiError { reason: String },
 }
 
+// The `sync15` BridgedEngine traits use `anyhow::Result`, so the bridged engine
+// in `sync::bridge` needs those errors mapped onto the public error type before
+// UniFFI can expose its methods.
+impl From<anyhow::Error> for AutofillApiError {
+    fn from(value: anyhow::Error) -> Self {
+        AutofillApiError::UnexpectedAutofillApiError {
+            reason: value.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Error opening database: {0}")]

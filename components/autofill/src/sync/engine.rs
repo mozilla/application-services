@@ -29,7 +29,8 @@ pub const GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "sync_id";
 
 // A trait to abstract the broader sync processes.
-pub trait SyncEngineStorageImpl<T> {
+// Send + Sync is required to use a `ConfigSyncEngine` as a `BridgedEngine`.
+pub trait SyncEngineStorageImpl<T>: Send + Sync {
     fn get_incoming_impl(
         &self,
         enc_key: &Option<String>,
@@ -74,6 +75,19 @@ impl<T> ConfigSyncEngine<T> {
         let key = format!("{}.{}", self.config.namespace, tail);
         crate::db::store::delete_meta(conn, &key)
     }
+    /// The last-sync timestamp in milliseconds, 0 if never synced.
+    pub(crate) fn get_last_sync_millis(&self) -> Result<i64> {
+        let db = self.store.lock_db()?;
+        Ok(self
+            .get_meta::<i64>(&db.writer, LAST_SYNC_META_KEY)?
+            .unwrap_or_default())
+    }
+
+    pub(crate) fn set_last_sync_millis(&self, millis: i64) -> Result<()> {
+        let db = self.store.lock_db()?;
+        self.put_meta(&db.writer, LAST_SYNC_META_KEY, &millis)
+    }
+
     // Reset the local sync data so the next server request fetches all records.
     pub fn reset_local_sync_data(&self) -> Result<()> {
         let db = self.store.lock_db()?;

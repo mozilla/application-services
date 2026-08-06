@@ -4,6 +4,8 @@
 */
 
 pub mod address;
+mod bridge;
+pub use bridge::AddressesBridgedEngine;
 mod common;
 pub mod credit_card;
 pub mod engine;

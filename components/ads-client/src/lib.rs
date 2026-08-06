@@ -20,9 +20,9 @@ use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
 use client::AdsClient;
+use error_support::error;
 use http_cache::CachePolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
-
 pub mod ads_cache;
 mod client;
 mod ffi;
@@ -70,6 +70,18 @@ impl MozAdsClient {
             .map_err(|e| MozAdsClientApiError::Other {
                 reason: format!("Failed to clear cache: {}", e),
             })
+    }
+
+    // Allows the ads-client to unload some references and prepare for a safe shutdown.
+    // Other methods should not be called after this one.
+    #[uniffi::method()]
+    pub fn shutdown(&self) -> AdsClientApiResult<()> {
+        let mut inner = self.inner.lock();
+        if let Err(err) = inner.shutdown_client() {
+            // Log the error, but continue with shutdown.
+            error!("Failed to shutdown the ads client: {:?}", err);
+        }
+        Ok(())
     }
 
     #[handle_error(ComponentError)]

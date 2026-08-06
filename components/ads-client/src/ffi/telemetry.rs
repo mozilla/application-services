@@ -6,6 +6,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use parking_lot::RwLock;
+
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
@@ -33,25 +35,42 @@ impl MozAdsTelemetry for NoopMozAdsTelemetry {
 
 #[derive(Clone)]
 pub struct MozAdsTelemetryWrapper {
-    inner: Arc<dyn MozAdsTelemetry>,
+    inner: Arc<RwLock<Option<Arc<dyn MozAdsTelemetry>>>>,
 }
 
 impl MozAdsTelemetryWrapper {
     pub fn new(inner: Arc<dyn MozAdsTelemetry>) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(RwLock::new(Some(inner))),
+        }
     }
 
     pub fn noop() -> Self {
         Self {
-            inner: Arc::new(NoopMozAdsTelemetry),
+            inner: Arc::new(RwLock::new(Some(Arc::new(NoopMozAdsTelemetry)))),
         }
+    }
+
+    #[cfg(test)]
+    pub fn clone_inner_arc(&self) -> Option<Arc<dyn MozAdsTelemetry>> {
+        self.inner.read().clone()
     }
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {
+    // MozAdsTelemetry has hanging uniffi callbacks which need to be explicitly dropped before closing.
+    // This replaces it with a `None` internally, meaning future calls will be noops.
+    fn shutdown(&self) {
+        let _dropped = self.inner.write().take();
+    }
+
     fn record(&self, event: &dyn Any) {
+        let Some(inner) = self.inner.read().clone() else {
+            return;
+        };
+
         if let Some(cache_outcome) = event.downcast_ref::<CacheOutcome>() {
-            self.inner.record_http_cache_outcome(
+            inner.record_http_cache_outcome(
                 match cache_outcome {
                     CacheOutcome::Hit => "hit".to_string(),
                     CacheOutcome::LookupFailed(_) => "lookup_failed".to_string(),
@@ -73,7 +92,7 @@ impl Telemetry for MozAdsTelemetryWrapper {
             return;
         }
         if let Some(client_op) = event.downcast_ref::<ClientOperationEvent>() {
-            self.inner.record_client_operation_total(match client_op {
+            inner.record_client_operation_total(match client_op {
                 ClientOperationEvent::New => "new".to_string(),
                 ClientOperationEvent::RecordClick => "record_click".to_string(),
                 ClientOperationEvent::RecordImpression => "record_impression".to_string(),
@@ -83,7 +102,7 @@ impl Telemetry for MozAdsTelemetryWrapper {
             return;
         }
         if let Some(cache_builder_error) = event.downcast_ref::<HttpCacheBuilderError>() {
-            self.inner.record_build_cache_error(
+            inner.record_build_cache_error(
                 match cache_builder_error {
                     HttpCacheBuilderError::EmptyDbPath => "empty_db_path".to_string(),
                     HttpCacheBuilderError::Database(_) => "database_error".to_string(),
@@ -95,31 +114,29 @@ impl Telemetry for MozAdsTelemetryWrapper {
             return;
         }
         if let Some(record_click_error) = event.downcast_ref::<RecordClickError>() {
-            self.inner.record_client_error(
+            inner.record_client_error(
                 "record_click".to_string(),
                 format!("{}", record_click_error),
             );
             return;
         }
         if let Some(record_impression_error) = event.downcast_ref::<RecordImpressionError>() {
-            self.inner.record_client_error(
+            inner.record_client_error(
                 "record_impression".to_string(),
                 format!("{}", record_impression_error),
             );
             return;
         }
         if let Some(report_ad_error) = event.downcast_ref::<ReportAdError>() {
-            self.inner
-                .record_client_error("report_ad".to_string(), format!("{}", report_ad_error));
+            inner.record_client_error("report_ad".to_string(), format!("{}", report_ad_error));
             return;
         }
         if let Some(request_ads_error) = event.downcast_ref::<RequestAdsError>() {
-            self.inner
-                .record_client_error("request_ads".to_string(), format!("{}", request_ads_error));
+            inner.record_client_error("request_ads".to_string(), format!("{}", request_ads_error));
             return;
         }
         if let Some(json_error) = event.downcast_ref::<serde_json::Error>() {
-            self.inner.record_deserialization_error(
+            inner.record_deserialization_error(
                 "invalid_ad_item".to_string(),
                 format!("{}", json_error),
             );

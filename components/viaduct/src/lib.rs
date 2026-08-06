@@ -7,6 +7,7 @@
 
 // Force linking to `rusqlite` even though we don't use it directly.
 // See `Cargo.toml` for why this is needed.
+#[cfg(feature = "ohttp")]
 #[allow(unused_extern_crates)]
 extern crate rusqlite;
 
