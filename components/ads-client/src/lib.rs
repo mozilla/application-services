@@ -52,6 +52,9 @@ impl MozAdsClient {
             })
     }
 
+    // Allows the ads-client to unload some references and prepare for a safe shutdown.
+    // Other methods should not be called after this one.
+    #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
         let mut inner = self.inner.lock();
         if let Err(err) = inner.shutdown_client() {
