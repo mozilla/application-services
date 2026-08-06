@@ -524,7 +524,11 @@ mod tests {
 
         // test with client created from config
         let noop_telemetry = MozAdsTelemetryWrapper::noop();
-        let weak_reference = Arc::downgrade(&noop_telemetry.clone_inner_arc());
+        let weak_reference = Arc::downgrade(
+            &noop_telemetry
+                .clone_inner_arc()
+                .expect("Inner telemetry should be Some before dropping"),
+        );
         let config = AdsClientConfig {
             cache_config: None,
             context_id_provider: None,
@@ -540,7 +544,11 @@ mod tests {
 
         // test also with internal function from_mars
         let noop_telemetry = MozAdsTelemetryWrapper::noop();
-        let weak_reference = Arc::downgrade(&noop_telemetry.clone_inner_arc());
+        let weak_reference = Arc::downgrade(
+            &noop_telemetry
+                .clone_inner_arc()
+                .expect("Inner telemetry should be Some before dropping"),
+        );
         let cache = HttpCache::builder("test_shutdown_telemetry")
             .build()
             .unwrap();

@@ -6,7 +6,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
@@ -35,38 +35,40 @@ impl MozAdsTelemetry for NoopMozAdsTelemetry {
 
 #[derive(Clone)]
 pub struct MozAdsTelemetryWrapper {
-    inner: Arc<Mutex<Arc<dyn MozAdsTelemetry>>>,
+    inner: Arc<RwLock<Option<Arc<dyn MozAdsTelemetry>>>>,
 }
 
 impl MozAdsTelemetryWrapper {
     pub fn new(inner: Arc<dyn MozAdsTelemetry>) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(inner)),
+            inner: Arc::new(RwLock::new(Some(inner))),
         }
     }
 
     pub fn noop() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Arc::new(NoopMozAdsTelemetry))),
+            inner: Arc::new(RwLock::new(Some(Arc::new(NoopMozAdsTelemetry)))),
         }
     }
 
     #[cfg(test)]
-    pub fn clone_inner_arc(&self) -> Arc<dyn MozAdsTelemetry> {
-        self.inner.lock().clone()
+    pub fn clone_inner_arc(&self) -> Option<Arc<dyn MozAdsTelemetry>> {
+        self.inner.read().clone()
     }
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {
     // MozAdsTelemetry has hanging uniffi callbacks which need to be explicitly dropped before closing.
-    // This replaces it with a `NoopMozAdsTelemetry` call, meaning future calls will be noops.
+    // This replaces it with a `None` internally, meaning future calls will be noops.
     fn shutdown(&self) {
-        let mut inner = self.inner.lock();
-        *inner = Arc::new(NoopMozAdsTelemetry);
+        let _dropped = self.inner.write().take();
     }
 
     fn record(&self, event: &dyn Any) {
-        let inner = self.inner.lock();
+        let Some(inner) = self.inner.read().clone() else {
+            return;
+        };
+
         if let Some(cache_outcome) = event.downcast_ref::<CacheOutcome>() {
             inner.record_http_cache_outcome(
                 match cache_outcome {
