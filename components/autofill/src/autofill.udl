@@ -107,6 +107,48 @@ dictionary Passport {
     i64 times_used;
 };
 
+/// Metadata fields managed internally by the library: the guid, timestamps and
+/// local sync state. These are automatically set on `add_address` and updated on
+/// operations like `touch` and `update_address`. Not included in
+/// `UpdatableAddressFields`; use `add_address_with_meta` when importing records
+/// that already have metadata.
+dictionary AddressMeta {
+    string guid;
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+    i64 sync_change_counter;
+};
+
+/// An address together with its metadata, passed to `add_address_with_meta` and
+/// `update_address_with_meta` when importing a record from another store.
+dictionary UpdatableAddressFieldsWithMeta {
+    UpdatableAddressFields fields;
+    AddressMeta meta;
+};
+
+/// A bulk insert result entry, returned per input record by `add_many_addresses_with_meta`
+[Enum]
+interface AddressBulkResultEntry {
+    Success(Address address);
+    Error(string message);
+};
+
+/// A tombstone for a record deleted locally but not yet uploaded, supplied to
+/// `add_many_address_tombstones` when migrating from another store.
+dictionary AddressTombstone {
+    string guid;
+    i64 time_deleted;
+};
+
+/// Per-record result of `add_many_address_tombstones`.
+[Enum]
+interface AddressBulkTombstoneResultEntry {
+    Success(string guid);
+    Error(string message);
+};
+
 /// Metrics tracking scrubbing of credit cards that cannot be decrypted, see
 // `scrub_undecryptable_credit_card_data_for_remote_replacement` for more details
 dictionary CreditCardsDeletionMetrics {
@@ -151,6 +193,19 @@ interface Store {
     Address add_address(UpdatableAddressFields a);
 
     [Throws=AutofillApiError]
+    Address add_address_with_meta(UpdatableAddressFieldsWithMeta entry_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<AddressBulkResultEntry> add_many_addresses_with_meta(sequence<UpdatableAddressFieldsWithMeta> entries_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<AddressBulkTombstoneResultEntry> add_many_address_tombstones(sequence<AddressTombstone> tombstones);
+
+    /// Removes every address and every address tombstone.
+    [Throws=AutofillApiError]
+    void delete_all_addresses();
+
+    [Throws=AutofillApiError]
     Address get_address(string guid);
 
     [Throws=AutofillApiError]
@@ -161,6 +216,9 @@ interface Store {
 
     [Throws=AutofillApiError]
     void update_address(string guid, UpdatableAddressFields a);
+
+    [Throws=AutofillApiError]
+    void update_address_with_meta(UpdatableAddressFieldsWithMeta entry_with_meta);
 
     [Throws=AutofillApiError]
     boolean delete_address(string guid);
@@ -212,4 +270,54 @@ interface Store {
 
     [Self=ByArc]
     void register_with_sync_manager();
+
+    /// Returns a bridged sync engine for addresses, for use by Desktop's Sync
+    /// framework. Constructing it only assembles structs and never touches the
+    /// DB, so it cannot fail.
+    [Self=ByArc]
+    AddressesBridgedEngine addresses_bridged_engine();
+};
+
+/// The bridged sync engine for addresses. The canonical docs are in
+/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// NOTE: all timestamps here are milliseconds.
+interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    void set_last_sync(i64 last_sync);
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void prepare_for_sync([ByRef]string client_data);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply();
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
 };
