@@ -6,7 +6,7 @@
 
 ### Ads-Client
 
-- Add `AdsClient::shutdown_client()`, which closes the database connection early so it happens before Firefox Desktop's late-write shutdown barrier rather than during GC. In addition, this drops all held UniFFI callbacks (held in the MozAdsTelemetryWrapper) to avoid crash on a Firefox Desktop quit.
+- Add `AdsClient::shutdown()`, which closes the database connection early so it happens before Firefox Desktop's late-write shutdown barrier rather than during GC. In addition, this drops all held UniFFI callbacks (held in the MozAdsTelemetryWrapper) to avoid crash on a Firefox Desktop quit.
 
 ### Autofill
 
