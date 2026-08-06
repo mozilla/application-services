@@ -11,6 +11,8 @@
 ### Autofill
 
 - Add `Store::shutdown()`, which closes the database connection early so it happens before Firefox Desktop's late-write shutdown barrier rather than during GC. Operations after shutdown return `DatabaseClosed`. ([Bug 2050036](https://bugzilla.mozilla.org/show_bug.cgi?id=2050036))
+- Add address metadata APIs for importing records already persisted elsewhere: `add_address_with_meta`, `add_many_addresses_with_meta`, `update_address_with_meta` and `add_many_address_tombstones`, with the bulk variants isolating per-record failures. `AddressMeta` carries the guid, timestamps and `sync_change_counter`, so a record keeps whether it still has changes pending upload.
+- Add `Store::addresses_bridged_engine()`, exposing the existing address sync engine through `mozIBridgedSyncEngine` so Firefox Desktop can drive address sync.
 
 ### Nimbus
 
