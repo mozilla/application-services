@@ -57,6 +57,10 @@ where
         self.transport.clear_cache()
     }
 
+    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+        self.transport.shutdown_db()
+    }
+
     pub fn fetch_ads<A>(
         &self,
         context_id: String,
@@ -137,6 +141,11 @@ where
                 .extend(Headers::from(self.fetch_preflight()?));
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
+    }
+
+    #[cfg(test)]
+    pub fn get_telemetry(&self) -> T {
+        self.telemetry.clone()
     }
 }
 

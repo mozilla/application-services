@@ -7,4 +7,8 @@ use std::any::Any;
 
 pub trait Telemetry {
     fn record(&self, event: &dyn Any);
+
+    // Shuts down any telemetry structures. This should be called before dropping the struct implementing this trait.
+    // Future calls to `record` will not record anything.
+    fn shutdown(&self);
 }

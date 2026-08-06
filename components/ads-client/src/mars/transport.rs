@@ -29,6 +29,13 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
+    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+        if let Some(cache) = self.http_cache.take() {
+            cache.shutdown_db()?;
+        }
+        Ok(())
+    }
+
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
