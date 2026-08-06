@@ -40,7 +40,6 @@ impl AdsCache {
         &'a self,
         placement: &str,
     ) -> Option<&'a T::StorageType> {
-        // TODO: also there are existing trait for ads- use this?
         T::fetch_cached_ads(self, placement)
     }
 }

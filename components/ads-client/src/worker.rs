@@ -10,7 +10,10 @@ use crate::{
 };
 use error_support::handle_error;
 use std::{
-    sync::mpsc::{self, Receiver, SyncSender},
+    sync::{
+        mpsc::{self, Receiver, SyncSender},
+        Arc,
+    },
     thread::JoinHandle,
 };
 
@@ -32,15 +35,14 @@ pub fn build_worker_thread(
 }
 
 fn worker(inner_client: MozAdsClientInner, rx: Receiver<Dispatch>) {
+    // Synchronously run tasks in the order they are passed in this separate channel.
     while let Ok(task) = rx.recv() {
-        // Synchronously run tasks in the order they are passed in this separate channel.
         let Dispatch {
             command,
             error_callback,
         } = task;
 
         if let Err(e) = command.run_command(&inner_client) {
-            // TODO: document this more clearly
             // Error is logged through `handle_error` conversion macro.
             // If an error callback is provided by the surface, we send the error to that, too.
             if let Some(error_callback) = error_callback {
@@ -52,7 +54,7 @@ fn worker(inner_client: MozAdsClientInner, rx: Receiver<Dispatch>) {
 
 pub struct Dispatch {
     pub command: DispatchCommand,
-    pub error_callback: Option<Box<dyn ErrorRequestCallback>>,
+    pub error_callback: Option<Arc<Box<dyn ErrorRequestCallback>>>,
 }
 
 pub enum DispatchCommand {

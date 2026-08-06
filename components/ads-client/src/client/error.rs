@@ -52,8 +52,7 @@ pub enum BackgroundWorkerError {
 }
 
 impl From<TrySendError<Dispatch>> for BackgroundWorkerError {
-    // TODO: Should we keep the 'dispatch' here somehow instead of just dropping it for retry reasons?
-    // Intended strategy for retry is probably using sqlite instead.
+    // TODO: For future vertical slice (for retries), we may want to keep the failed dispatch for retrying
     fn from(value: TrySendError<Dispatch>) -> Self {
         match value {
             TrySendError::Disconnected(_) => BackgroundWorkerError::WorkerClosed,

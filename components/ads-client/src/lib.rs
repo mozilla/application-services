@@ -183,71 +183,55 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
-    pub fn prefetch_image_ads(
+    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None, callback = None))]
+    pub fn prefetch_ads(
         &self,
         image_ad_requests: Vec<MozAdsPlacementRequest>,
-        options: Option<MozAdsRequestOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
-    ) -> AdsClientApiResult<()> {
-        if let Some(worker_dispatch) = &self.worker_dispatch {
-            worker_dispatch
-                .try_send(Dispatch {
-                    command: DispatchCommand::RequestImageAds {
-                        image_ad_requests,
-                        options,
-                    },
-                    error_callback: callback,
-                })
-                .map_err(BackgroundWorkerError::from)?;
-            Ok(())
-        } else {
-            Err(BackgroundWorkerError::WorkerClosed.into())
-        }
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
-    pub fn prefetch_spoc_ads(
-        &self,
         spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
-        options: Option<MozAdsRequestOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
-    ) -> AdsClientApiResult<()> {
-        if let Some(worker_dispatch) = &self.worker_dispatch {
-            worker_dispatch
-                .try_send(Dispatch {
-                    command: DispatchCommand::RequestSpocAds {
-                        spoc_ad_requests,
-                        options,
-                    },
-                    error_callback: callback,
-                })
-                .map_err(BackgroundWorkerError::from)?;
-            Ok(())
-        } else {
-            Err(BackgroundWorkerError::WorkerClosed.into())
-        }
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
-    pub fn prefetch_tile_ads(
-        &self,
         tile_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
         callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
+        let callback = callback.map(Arc::new);
         if let Some(worker_dispatch) = &self.worker_dispatch {
-            worker_dispatch
-                .try_send(Dispatch {
-                    command: DispatchCommand::RequestTileAds {
-                        tile_ad_requests,
-                        options,
-                    },
-                    error_callback: callback,
-                })
-                .map_err(BackgroundWorkerError::from)?;
+            // Dispatch image requests
+            if !image_ad_requests.is_empty() {
+                worker_dispatch
+                    .try_send(Dispatch {
+                        command: DispatchCommand::RequestImageAds {
+                            image_ad_requests,
+                            options: options.clone(),
+                        },
+                        error_callback: callback.clone(),
+                    })
+                    .map_err(BackgroundWorkerError::from)?;
+            }
+
+            // Dispatch spoc requests
+            if !spoc_ad_requests.is_empty() {
+                worker_dispatch
+                    .try_send(Dispatch {
+                        command: DispatchCommand::RequestSpocAds {
+                            spoc_ad_requests,
+                            options: options.clone(),
+                        },
+                        error_callback: callback.clone(),
+                    })
+                    .map_err(BackgroundWorkerError::from)?;
+            }
+
+            // Dispatch tiles requests
+            if !tile_ad_requests.is_empty() {
+                worker_dispatch
+                    .try_send(Dispatch {
+                        command: DispatchCommand::RequestTileAds {
+                            tile_ad_requests,
+                            options: options.clone(),
+                        },
+                        error_callback: callback.clone(),
+                    })
+                    .map_err(BackgroundWorkerError::from)?;
+            }
             Ok(())
         } else {
             Err(BackgroundWorkerError::WorkerClosed.into())
@@ -281,7 +265,7 @@ impl MozAdsClient {
         Ok(image_ads.map(|ad| ad.clone().into()))
     }
 
-    // Pings the background worker and waits for a response back.
+    // Pings the background worker and waits for a response back, for use in tests.
     // Because the background worker is synchronous, this returns if the worker is empty,
     // making it useful for integration tests to wait until all tasks have completed.
     #[handle_error(ComponentError)]
@@ -295,14 +279,13 @@ impl MozAdsClient {
             worker_dispatch
                 .try_send(Dispatch {
                     command: DispatchCommand::Ping(tx),
-                    error_callback: callback,
+                    error_callback: callback.map(Arc::new),
                 })
                 .map_err(BackgroundWorkerError::from)?;
             if let Some(timeout) = timeout {
                 rx.recv_timeout(timeout)
                     .map_err(BackgroundWorkerError::from)?;
             } else {
-                // TODO: is this necessarily true? its the channel hanging up, not the worker
                 rx.recv().map_err(|_| BackgroundWorkerError::WorkerClosed)?;
             }
             return Ok(());

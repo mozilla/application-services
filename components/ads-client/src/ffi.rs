@@ -53,7 +53,7 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
     }
 }
 
-#[derive(Default, uniffi::Record)]
+#[derive(Default, uniffi::Record, Clone)]
 pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
