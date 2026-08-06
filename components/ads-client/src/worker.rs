@@ -3,20 +3,19 @@ use crate::{
     http_cache::CachePolicy,
     mars::{
         ad_request::{AdPlacementRequest, AdRequestFlags},
-        ad_response::AdImage,
+        ad_response::{AdImage, AdSpoc, AdTile},
     },
     AdsClientApiResult, MozAdsClientApiError, MozAdsClientInner, MozAdsPlacementRequest,
-    MozAdsRequestOptions,
+    MozAdsPlacementRequestWithCount, MozAdsRequestOptions,
 };
 use error_support::handle_error;
 use std::{
-    collections::HashMap,
     sync::mpsc::{self, Receiver, SyncSender},
     thread::JoinHandle,
 };
 
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
-pub const ADS_CLIENT_WORKER_THREAD_NAME: &'static str = "ads-client.worker";
+pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
 // Spawn worker thread from a reference to the client, returning a synchronous channel transmitter to the thread, and its JoinHandle.
 // Returns None if thread fails to build.
@@ -53,13 +52,21 @@ fn worker(inner_client: MozAdsClientInner, rx: Receiver<Dispatch>) {
 
 pub struct Dispatch {
     pub command: DispatchCommand,
-    pub error_callback: Option<Box<dyn ErrorOnlyRequestCallback>>,
+    pub error_callback: Option<Box<dyn ErrorRequestCallback>>,
 }
 
 pub enum DispatchCommand {
     // TODO: Extend this with other possible commands in V2.
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+    },
+    RequestSpocAds {
+        spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+    },
+    RequestTileAds {
+        tile_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
     },
     Ping(SyncSender<()>),
@@ -69,6 +76,7 @@ impl DispatchCommand {
     #[handle_error(ComponentError)]
     pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
         // TODO: Duplicated behavior with the sync functions. Behavior is pretty simple though- probably OK to duplicate.
+        // TODO: Should we skip these if cache exists?
         match self {
             DispatchCommand::RequestImageAds {
                 image_ad_requests,
@@ -81,20 +89,59 @@ impl DispatchCommand {
                 let cache_policy: CachePolicy = options.into();
 
                 // Image ads
-                if image_ad_requests.len() > 0 {
+                if !image_ad_requests.is_empty() {
                     let image_ad_requests: Vec<AdPlacementRequest> =
                         image_ad_requests.iter().map(|r| r.into()).collect();
                     let image_response = inner
                         .request_image_ads(image_ad_requests, flags, Some(cache_policy), ohttp)
                         .map_err(ComponentError::RequestAds)?;
-                    let image_response: HashMap<String, Vec<AdImage>> = image_response
-                        .into_iter()
-                        .map(|(k, v)| (k, vec![v.into()]))
-                        .collect();
-                    inner.cache_ads(image_response);
+                    inner.cache_ads::<AdImage>(image_response);
                 }
                 Ok(())
             }
+            DispatchCommand::RequestSpocAds {
+                spoc_ad_requests,
+                options,
+            } => {
+                let mut inner = ads_client_inner.lock();
+                let options = options.unwrap_or_default();
+                let flags = AdRequestFlags::from(&options);
+                let ohttp = options.ohttp;
+                let cache_policy: CachePolicy = options.into();
+
+                // Spoc ads
+                if !spoc_ad_requests.is_empty() {
+                    let spoc_ad_requests: Vec<AdPlacementRequest> =
+                        spoc_ad_requests.iter().map(|r| r.into()).collect();
+                    let spoc_response = inner
+                        .request_spoc_ads(spoc_ad_requests, flags, Some(cache_policy), ohttp)
+                        .map_err(ComponentError::RequestAds)?;
+                    inner.cache_ads::<AdSpoc>(spoc_response);
+                }
+                Ok(())
+            }
+            DispatchCommand::RequestTileAds {
+                tile_ad_requests,
+                options,
+            } => {
+                let mut inner = ads_client_inner.lock();
+                let options = options.unwrap_or_default();
+                let flags = AdRequestFlags::from(&options);
+                let ohttp = options.ohttp;
+                let cache_policy: CachePolicy = options.into();
+
+                // Image ads
+                if !tile_ad_requests.is_empty() {
+                    let tile_ad_requests: Vec<AdPlacementRequest> =
+                        tile_ad_requests.iter().map(|r| r.into()).collect();
+                    let tile_response = inner
+                        .request_tile_ads(tile_ad_requests, flags, Some(cache_policy), ohttp)
+                        .map_err(ComponentError::RequestAds)?;
+                    inner.cache_ads::<AdTile>(tile_response);
+                }
+                Ok(())
+            }
+
             DispatchCommand::Ping(sender) => {
                 sender
                     .try_send(())
@@ -110,6 +157,6 @@ impl DispatchCommand {
 // - https://github.com/mozilla/application-services/pull/7443
 // In the future, this should be changed to uniffi::export(impl = "foreign") alongside the enum change, when uniffi = 0.32
 #[uniffi::export(callback_interface)]
-pub trait ErrorOnlyRequestCallback: Send + Sync {
+pub trait ErrorRequestCallback: Send + Sync {
     fn on_error(&self, err: MozAdsClientApiError);
 }

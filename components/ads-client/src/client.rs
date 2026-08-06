@@ -100,15 +100,13 @@ where
         self.client.clear_cache()
     }
 
-    pub fn cache_ads(&mut self, ads: HashMap<String, Vec<impl AdsCacheable>>) {
-        // TODO: is this timestamp correct?
-        // TODO: cast
-        let now = chrono::Utc::now().timestamp() as u64;
-        self.ads_cache.cache_ads(ads, now);
+    pub fn cache_ads<A: AdsCacheable>(&mut self, ads: HashMap<String, A::StorageType>) {
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        self.ads_cache.cache_ads::<A>(ads, now);
     }
 
-    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id: &str) -> Option<&Vec<A>> {
-        self.ads_cache.get_cached_ads(&placement_id)
+    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id: &str) -> Option<&A::StorageType> {
+        self.ads_cache.get_cached_ads::<A>(placement_id)
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {

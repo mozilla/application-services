@@ -5,7 +5,7 @@
 
 use crate::{
     mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError},
-    worker::{Dispatch, DispatchCommand},
+    worker::Dispatch,
 };
 use std::sync::mpsc::{RecvTimeoutError, TrySendError};
 

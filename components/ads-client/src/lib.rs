@@ -36,8 +36,8 @@ pub use ffi::*;
 use crate::{
     client::error::BackgroundWorkerError,
     ffi::telemetry::MozAdsTelemetryWrapper,
-    mars::ad_response::AdImage,
-    worker::{Dispatch, DispatchCommand, ErrorOnlyRequestCallback},
+    mars::ad_response::{AdImage, AdSpoc, AdTile},
+    worker::{Dispatch, DispatchCommand, ErrorRequestCallback},
 };
 
 #[cfg(test)]
@@ -188,7 +188,7 @@ impl MozAdsClient {
         &self,
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-        callback: Option<Box<dyn ErrorOnlyRequestCallback>>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
         if let Some(worker_dispatch) = &self.worker_dispatch {
             worker_dispatch
@@ -207,13 +207,78 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn prefetch_spoc_ads(
+        &self,
+        spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::RequestSpocAds {
+                        spoc_ad_requests,
+                        options,
+                    },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn prefetch_tile_ads(
+        &self,
+        tile_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::RequestTileAds {
+                        tile_ad_requests,
+                        options,
+                    },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
+    }
+
+    #[handle_error(ComponentError)]
     #[uniffi::method()]
     pub fn query_image_ads(&self, placement_id: String) -> AdsClientApiResult<Option<MozAdsImage>> {
         let inner = self.inner.lock();
-        let image_ads: Option<&Vec<AdImage>> = inner.get_cached_ads(&placement_id);
-        Ok(image_ads
-            .and_then(|ad| ad.into_iter().next().cloned())
-            .map(|ad| ad.into()))
+        let image_ads: Option<&AdImage> = inner.get_cached_ads::<AdImage>(&placement_id);
+        Ok(image_ads.map(|ad| ad.clone().into()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_spoc_ads(
+        &self,
+        placement_id: String,
+    ) -> AdsClientApiResult<Option<Vec<MozAdsSpoc>>> {
+        let inner = self.inner.lock();
+        let spoc_ads: Option<&Vec<AdSpoc>> = inner.get_cached_ads::<AdSpoc>(&placement_id);
+        Ok(spoc_ads.map(|res| res.iter().map(|ad| ad.clone().into()).collect()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_tile_ads(&self, placement_id: String) -> AdsClientApiResult<Option<MozAdsTile>> {
+        let inner = self.inner.lock();
+        let image_ads: Option<&AdTile> = inner.get_cached_ads::<AdTile>(&placement_id);
+        Ok(image_ads.map(|ad| ad.clone().into()))
     }
 
     // Pings the background worker and waits for a response back.
@@ -223,9 +288,8 @@ impl MozAdsClient {
     pub fn ping_background_worker(
         &self,
         timeout: Option<Duration>,
-        callback: Option<Box<dyn ErrorOnlyRequestCallback>>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
-        // TODO: Qualify instead of use
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let (tx, rx) = mpsc::sync_channel(0);
             worker_dispatch
