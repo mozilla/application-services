@@ -228,6 +228,13 @@ pub fn transition(
             error_support::debug!("Ignoring `CheckAuthorizationStatus` from {from_state:?}");
             Ok(from_state)
         }
+        (S::Disconnected, FxaEvent::Disconnect) => {
+            // Ignore Disconnect from the Disconnected state.
+            //
+            // This makes it idempotent and safe to send from any state.
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=2061224
+            Ok(S::Disconnected)
+        }
 
         // ── Invalid (state, event) pair ─────────────────────────────────
         (state, event) => Err(StateMachineErr::Fatal(Box::new(
@@ -319,12 +326,40 @@ mod tests {
     }
 
     #[test]
-    fn disconnected_invalid_event_returns_fatal_invalid_state_transition() {
+    fn disconnect_is_idempotent() {
         nss_as::ensure_initialized();
+        // `Disconnect` should be valid from all states and always result in the user being
+        // disconnected.
         let mut account = mock_account();
         let mut wrapper = RetryingAccount::new(&mut account);
-        let result = transition(&mut wrapper, FxaState::Disconnected, FxaEvent::Disconnect);
-        assert_fatal_invalid_transition(result);
+
+        assert_eq!(
+            transition(&mut wrapper, FxaState::Connected, FxaEvent::Disconnect).unwrap(),
+            FxaState::Disconnected
+        );
+
+        assert_eq!(
+            transition(&mut wrapper, FxaState::AuthIssues, FxaEvent::Disconnect).unwrap(),
+            FxaState::Disconnected
+        );
+
+        assert_eq!(
+            transition(
+                &mut wrapper,
+                FxaState::Authenticating {
+                    oauth_url: "test".into(),
+                    initial_state: FxaRustAuthState::Disconnected
+                },
+                FxaEvent::Disconnect
+            )
+            .unwrap(),
+            FxaState::Disconnected
+        );
+
+        assert_eq!(
+            transition(&mut wrapper, FxaState::Disconnected, FxaEvent::Disconnect).unwrap(),
+            FxaState::Disconnected
+        );
     }
 
     fn assert_handled_lands_at(
