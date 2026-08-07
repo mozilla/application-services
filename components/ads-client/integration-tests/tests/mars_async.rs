@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 use ads_client::{
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsRequestOptions, worker::ErrorRequestCallback,
+    MozAdsClient, MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsReportReason, MozAdsRequestOptions, worker::ErrorRequestCallback, MozAdsTile,
 };
 use ads_client::MozAdsIABContentTaxonomy;
 use ads_client::MozAdsIABContent;
@@ -26,8 +26,44 @@ fn prod_client() -> ads_client::MozAdsClient {
 struct TestErrorCallback;
 impl ErrorRequestCallback for TestErrorCallback {
     fn on_error(&self,err: ads_client::MozAdsClientApiError) {
-        panic!("Error received in background worker callback: {err}")
+        let ads_client::MozAdsClientApiError::Other { reason } = err;
+        panic!("Error received in background worker callback: {:?}", reason)
     }
+}
+
+// Reusable helper to prefetches a tile ad, wait for completion, and query it.
+// Should mimic the `test_contract_tile_prod_async` test.
+fn generate_tile_ad_async_helper(client : &MozAdsClient) -> MozAdsTile {
+    // Prefetch
+    let placement_id= "mock_tile_1".to_string();
+    let result = client.prefetch_ads(        vec![], vec![], vec![MozAdsPlacementRequest {
+            iab_content: None,
+            placement_id: placement_id.clone()
+        }],
+        None, Some(Box::new(TestErrorCallback)));
+        
+    assert!(
+        result.is_ok(),
+        "Tile ad dispatch request failed: {:?}",
+        result.err()
+    );
+
+    // Ping
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), Some(Box::new(TestErrorCallback)));
+    assert!(
+        ping.is_ok(),
+        "Ping failed: {:?}",
+        ping.err()
+    );
+
+    // Query
+    let result = client.query_tile_ads(placement_id);
+        assert!(
+        result.is_ok(),
+        "Querying for ads failed: {:?}",
+        result.err()
+    );
+    result.unwrap().expect("`query_tile_ads` in `generate_tile_ad_sync` should return Some")
 }
 
 #[test]
@@ -199,6 +235,93 @@ fn test_contract_tile_prod_async() {
 
     assert!(placements.is_some());
 }
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_impression_async() {
+    init_backend();
+
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    // Dispatch record_impression asynchronously
+    let result = client.dispatch_record_impression(ad.callbacks.impression.to_string(), None, Some(Box::new(TestErrorCallback)));
+    assert!(
+        result.is_ok(),
+        "record_impression failed: {:?}",
+        result.err()
+    );
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
+    assert!(
+        ping.is_ok(),
+        "Ping failed: {:?}",
+        ping.err()
+    );
+
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_click_async() {
+    init_backend();
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    // Dispatch record_click asynchronously
+    let result = client.dispatch_record_click(ad.callbacks.click.to_string(), None, Some(Box::new(TestErrorCallback)));
+    assert!(result.is_ok(), "record_click failed: {:?}", result.err());
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
+    assert!(
+        ping.is_ok(),
+        "Ping failed: {:?}",
+        ping.err()
+    );
+
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_report_ad_async() {
+    init_backend();
+
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    let report_url = ad
+        .callbacks
+        .report
+        .as_ref()
+        .expect("mock_tile_1 should have a report URL");
+
+    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
+    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
+    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
+    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
+    assert_eq!(position_count, 1, "expected exactly one position");
+
+    // Dispatch report_ad asynchronously
+    let result = client.dispatch_report_ad(
+        report_url.to_string(),
+        MozAdsReportReason::NotInterested,
+        None,
+        Some(Box::new(TestErrorCallback))
+    );
+    assert!(result.is_ok(), "report_ad failed: {:?}", result.err());
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
+    assert!(
+        ping.is_ok(),
+        "Ping failed: {:?}",
+        ping.err()
+    );
+
+}
+
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]

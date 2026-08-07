@@ -2,20 +2,23 @@ use crate::{
     client::error::{BackgroundWorkerError, ComponentError},
     http_cache::CachePolicy,
     mars::{
-        ad_request::{AdPlacementRequest, AdRequestFlags},
+        ad_request::AdPlacementRequest,
         ad_response::{AdImage, AdSpoc, AdTile},
+        ReportReason,
     },
     AdsClientApiResult, MozAdsClientApiError, MozAdsClientInner, MozAdsPlacementRequest,
-    MozAdsPlacementRequestWithCount, MozAdsRequestOptions,
+    MozAdsPlacementRequestWithCount,
 };
 use error_support::handle_error;
 use std::{
+    collections::HashMap,
     sync::{
         mpsc::{self, Receiver, SyncSender},
         Arc,
     },
     thread::JoinHandle,
 };
+use url::Url;
 
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
@@ -58,18 +61,36 @@ pub struct Dispatch {
 }
 
 pub enum DispatchCommand {
-    // TODO: Extend this with other possible commands in V2.
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
-        options: Option<MozAdsRequestOptions>,
+        cache_policy: CachePolicy,
+        ohttp: bool,
+        flags: HashMap<String, bool>,
     },
     RequestSpocAds {
         spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
-        options: Option<MozAdsRequestOptions>,
+        cache_policy: CachePolicy,
+        ohttp: bool,
+        flags: HashMap<String, bool>,
     },
     RequestTileAds {
         tile_ad_requests: Vec<MozAdsPlacementRequest>,
-        options: Option<MozAdsRequestOptions>,
+        cache_policy: CachePolicy,
+        ohttp: bool,
+        flags: HashMap<String, bool>,
+    },
+    RecordClick {
+        url: Url,
+        ohttp: bool,
+    },
+    RecordImpression {
+        url: Url,
+        ohttp: bool,
+    },
+    ReportAd {
+        url: Url,
+        reason: ReportReason,
+        ohttp: bool,
     },
     Ping(SyncSender<()>),
 }
@@ -77,18 +98,14 @@ pub enum DispatchCommand {
 impl DispatchCommand {
     #[handle_error(ComponentError)]
     pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
-        // TODO: Duplicated behavior with the sync functions. Behavior is pretty simple though- probably OK to duplicate.
-        // TODO: Should we skip these if cache exists?
         match self {
             DispatchCommand::RequestImageAds {
                 image_ad_requests,
-                options,
+                cache_policy,
+                flags,
+                ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
 
                 // Image ads
                 if !image_ad_requests.is_empty() {
@@ -103,13 +120,11 @@ impl DispatchCommand {
             }
             DispatchCommand::RequestSpocAds {
                 spoc_ad_requests,
-                options,
+                cache_policy,
+                flags,
+                ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
 
                 // Spoc ads
                 if !spoc_ad_requests.is_empty() {
@@ -124,15 +139,13 @@ impl DispatchCommand {
             }
             DispatchCommand::RequestTileAds {
                 tile_ad_requests,
-                options,
+                cache_policy,
+                flags,
+                ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-                let options = options.unwrap_or_default();
-                let flags = AdRequestFlags::from(&options);
-                let ohttp = options.ohttp;
-                let cache_policy: CachePolicy = options.into();
 
-                // Image ads
+                // Tile ads
                 if !tile_ad_requests.is_empty() {
                     let tile_ad_requests: Vec<AdPlacementRequest> =
                         tile_ad_requests.iter().map(|r| r.into()).collect();
@@ -142,6 +155,24 @@ impl DispatchCommand {
                     inner.cache_ads::<AdTile>(tile_response);
                 }
                 Ok(())
+            }
+            DispatchCommand::RecordClick { url, ohttp } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .record_click(url, ohttp)
+                    .map_err(ComponentError::RecordClick)
+            }
+            DispatchCommand::RecordImpression { url, ohttp } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .record_impression(url, ohttp)
+                    .map_err(ComponentError::RecordImpression)
+            }
+            DispatchCommand::ReportAd { url, ohttp, reason } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .report_ad(url, reason, ohttp)
+                    .map_err(ComponentError::ReportAd)
             }
 
             DispatchCommand::Ping(sender) => {

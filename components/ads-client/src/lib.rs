@@ -205,6 +205,11 @@ impl MozAdsClient {
         callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
         let callback = callback.map(Arc::new);
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
+        let cache_policy: CachePolicy = options.into();
+
         if let Some(worker_dispatch) = &self.worker_dispatch {
             // Dispatch image requests
             if !image_ad_requests.is_empty() {
@@ -212,7 +217,9 @@ impl MozAdsClient {
                     .try_send(Dispatch {
                         command: DispatchCommand::RequestImageAds {
                             image_ad_requests,
-                            options: options.clone(),
+                            ohttp,
+                            cache_policy,
+                            flags: flags.clone(),
                         },
                         error_callback: callback.clone(),
                     })
@@ -225,7 +232,9 @@ impl MozAdsClient {
                     .try_send(Dispatch {
                         command: DispatchCommand::RequestSpocAds {
                             spoc_ad_requests,
-                            options: options.clone(),
+                            ohttp,
+                            cache_policy,
+                            flags: flags.clone(),
                         },
                         error_callback: callback.clone(),
                     })
@@ -238,7 +247,9 @@ impl MozAdsClient {
                     .try_send(Dispatch {
                         command: DispatchCommand::RequestTileAds {
                             tile_ad_requests,
-                            options: options.clone(),
+                            ohttp,
+                            cache_policy,
+                            flags: flags.clone(),
                         },
                         error_callback: callback.clone(),
                     })
@@ -275,6 +286,92 @@ impl MozAdsClient {
         let inner = self.inner.lock();
         let image_ads: Option<&AdTile> = inner.get_cached_ads::<AdTile>(&placement_id);
         Ok(image_ads.map(|ad| ad.clone().into()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_record_click(
+        &self,
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        let callback = callback.map(Arc::new);
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            let url = AdsClientUrl::parse(&click_url).map_err(|e| {
+                ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into())
+            })?;
+            let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::RecordClick { url, ohttp },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_record_impression(
+        &self,
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        let callback = callback.map(Arc::new);
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+                ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+            })?;
+            let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::RecordImpression { url, ohttp },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
+        let callback = callback.map(Arc::new);
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            let url = AdsClientUrl::parse(&report_url).map_err(|e| {
+                ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into())
+            })?;
+            let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+            worker_dispatch
+                .try_send(Dispatch {
+                    command: DispatchCommand::ReportAd {
+                        url,
+                        reason: reason.into(),
+                        ohttp,
+                    },
+                    error_callback: callback,
+                })
+                .map_err(BackgroundWorkerError::from)?;
+
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
     }
 
     // Pings the background worker and waits for a response back, for use in tests.
