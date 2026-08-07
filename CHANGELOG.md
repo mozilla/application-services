@@ -14,6 +14,10 @@
 - Add address metadata APIs for importing records already persisted elsewhere: `add_address_with_meta`, `add_many_addresses_with_meta`, `update_address_with_meta` and `add_many_address_tombstones`, with the bulk variants isolating per-record failures. `AddressMeta` carries the guid, timestamps and `sync_change_counter`, so a record keeps whether it still has changes pending upload.
 - Add `Store::addresses_bridged_engine()`, exposing the existing address sync engine through `mozIBridgedSyncEngine` so Firefox Desktop can drive address sync.
 
+### Fxa Client
+- The `CheckAuthorizationStatus` and `Disconnect` events are now valid from all states except `Uninitialized`.
+  In the cases where the failed before, they're now no-ops.
+
 ### Nimbus
 
 - `NimbusClient::get_available_firefox_labs()` now includes detailed debug level logging for each processed lab. ([#7482](https://github.com/mozilla/application-services/pull/7482))
