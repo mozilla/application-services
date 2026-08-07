@@ -37,7 +37,7 @@ use crate::{
     client::error::BackgroundWorkerError,
     ffi::telemetry::MozAdsTelemetryWrapper,
     mars::ad_response::{AdImage, AdSpoc, AdTile},
-    worker::{Dispatch, DispatchCommand},
+    worker::{Dispatch, DispatchCommand, ErrorRequestCallback},
 };
 
 #[cfg(test)]
@@ -195,14 +195,16 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None))]
+    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None, callback = None))]
     pub fn prefetch_ads(
         &self,
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
         tile_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
+        let callback = callback.map(Arc::new);
         if let Some(worker_dispatch) = &self.worker_dispatch {
             // Dispatch image requests
             if !image_ad_requests.is_empty() {
@@ -212,6 +214,7 @@ impl MozAdsClient {
                             image_ad_requests,
                             options: options.clone(),
                         },
+                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -224,6 +227,7 @@ impl MozAdsClient {
                             spoc_ad_requests,
                             options: options.clone(),
                         },
+                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -236,6 +240,7 @@ impl MozAdsClient {
                             tile_ad_requests,
                             options: options.clone(),
                         },
+                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -276,12 +281,17 @@ impl MozAdsClient {
     // Because the background worker is synchronous, this returns if the worker is empty,
     // making it useful for integration tests to wait until all tasks have completed.
     #[handle_error(ComponentError)]
-    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
+    pub fn ping_background_worker(
+        &self,
+        timeout: Option<Duration>,
+        callback: Option<Box<dyn ErrorRequestCallback>>,
+    ) -> AdsClientApiResult<()> {
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let (tx, rx) = mpsc::sync_channel(0);
             worker_dispatch
                 .try_send(Dispatch {
                     command: DispatchCommand::Ping(tx),
+                    error_callback: callback.map(Arc::new),
                 })
                 .map_err(BackgroundWorkerError::from)?;
             if let Some(timeout) = timeout {

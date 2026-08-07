@@ -5,12 +5,15 @@ use crate::{
         ad_request::{AdPlacementRequest, AdRequestFlags},
         ad_response::{AdImage, AdSpoc, AdTile},
     },
-    AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest,
+    AdsClientApiResult, MozAdsClientApiError, MozAdsClientInner, MozAdsPlacementRequest,
     MozAdsPlacementRequestWithCount, MozAdsRequestOptions,
 };
 use error_support::handle_error;
 use std::{
-    sync::mpsc::{self, Receiver, SyncSender},
+    sync::{
+        mpsc::{self, Receiver, SyncSender},
+        Arc,
+    },
     thread::JoinHandle,
 };
 
@@ -34,15 +37,24 @@ pub fn build_worker_thread(
 fn worker(inner_client: MozAdsClientInner, rx: Receiver<Dispatch>) {
     // Synchronously run tasks in the order they are passed in this separate channel.
     while let Ok(task) = rx.recv() {
-        let Dispatch { command } = task;
+        let Dispatch {
+            command,
+            error_callback,
+        } = task;
 
-        // Error is logged through `handle_error` conversion macro.
-        let _ = command.run_command(&inner_client);
+        if let Err(e) = command.run_command(&inner_client) {
+            // Error is logged through `handle_error` conversion macro.
+            // If an error callback is provided by the surface, we send the error to that, too.
+            if let Some(error_callback) = error_callback {
+                error_callback.on_error(e);
+            }
+        }
     }
 }
 
 pub struct Dispatch {
     pub command: DispatchCommand,
+    pub error_callback: Option<Arc<Box<dyn ErrorRequestCallback>>>,
 }
 
 pub enum DispatchCommand {
@@ -140,4 +152,13 @@ impl DispatchCommand {
             }
         }
     }
+}
+
+// TODO: Uniffi does not currently support direct function callbacks, so we use an interface.
+// TODO: We use #[uniffi::export(callback_interface)] rather than #[uniffi::export(with_foreign)] for reasons discussed here:
+// - https://github.com/mozilla/application-services/pull/7443
+// In the future, this should be changed to uniffi::export(impl = "foreign") alongside the enum change, when uniffi = 0.32
+#[uniffi::export(callback_interface)]
+pub trait ErrorRequestCallback: Send + Sync {
+    fn on_error(&self, err: MozAdsClientApiError);
 }

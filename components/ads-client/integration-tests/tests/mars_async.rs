@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 use ads_client::{
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsRequestOptions,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsRequestOptions, worker::ErrorRequestCallback,
 };
 use ads_client::MozAdsIABContentTaxonomy;
 use ads_client::MozAdsIABContent;
@@ -23,6 +23,13 @@ fn prod_client() -> ads_client::MozAdsClient {
         .build()
 }
 
+struct TestErrorCallback;
+impl ErrorRequestCallback for TestErrorCallback {
+    fn on_error(&self,err: ads_client::MozAdsClientApiError) {
+        panic!("Error received in background worker callback: {err}")
+    }
+}
+
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_contract_image_prod_async() {
@@ -35,7 +42,7 @@ fn test_contract_image_prod_async() {
             iab_content: None,
             placement_id: placement_id.clone(),
         }], vec![], vec![],
-        None);
+        None, Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -44,7 +51,7 @@ fn test_contract_image_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
@@ -81,7 +88,7 @@ fn test_contract_image_with_categories_prod_async() {
         Some(MozAdsRequestOptions {
             flags: std::collections::HashMap::from([("contextual_placement".to_string(), true)]),
             ..Default::default()
-        }));
+        }), Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -90,7 +97,7 @@ fn test_contract_image_with_categories_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
@@ -125,7 +132,7 @@ fn test_contract_spoc_prod_async() {
             iab_content: None,
             placement_id: placement_id.clone(),
         }],  vec![],
-        None);
+        None, Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -134,7 +141,7 @@ fn test_contract_spoc_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
@@ -165,7 +172,7 @@ fn test_contract_tile_prod_async() {
             iab_content: None,
             placement_id: placement_id.clone()
         }],
-        None);
+        None, Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -174,7 +181,7 @@ fn test_contract_tile_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
@@ -216,7 +223,7 @@ fn test_contract_tile_ohttp_prod_async() {
                     Some(MozAdsRequestOptions {
                 ohttp: true,
                 ..Default::default()
-            }));
+            }), Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -225,7 +232,7 @@ fn test_contract_tile_ohttp_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
@@ -267,7 +274,7 @@ fn test_contract_multi_ad_type_prod_async() {
             iab_content: None,
             placement_id: placement_tile_id.clone(),
         }],
-        None);
+        None, Some(Box::new(TestErrorCallback)));
         
     assert!(
         result.is_ok(),
@@ -276,7 +283,7 @@ fn test_contract_multi_ad_type_prod_async() {
     );
 
     // Ping
-    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION), None);
     assert!(
         ping.is_ok(),
         "Ping failed: {:?}",
