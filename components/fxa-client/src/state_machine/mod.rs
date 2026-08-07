@@ -170,7 +170,10 @@ mod driver_tests {
             .unwrap();
         assert_eq!(account.get_state(), FxaState::Disconnected);
 
-        let result = account.process_event(FxaEvent::Disconnect);
+        let result = account.process_event(FxaEvent::CompleteOAuthFlow {
+            code: "test".into(),
+            state: "test".into(),
+        });
 
         match result {
             Err(Error::InvalidStateTransition(_)) => {}
