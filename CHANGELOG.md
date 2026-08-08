@@ -27,6 +27,10 @@
 - Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518)) 
 - Do not quote `_since` values with the v2 API ([#7523](https://github.com/mozilla/application-services/pull/7523))
 
+### Sync Manager
+
+- `SyncManager::sync()` now fails immediately with a new `SyncManagerError::Busy` when a sync is already in progress, instead of blocking until it finishes.
+
 # v154.0 (_2026-07-20_)
 
 ## ✨ What's Changed ✨

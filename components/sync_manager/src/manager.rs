@@ -83,9 +83,14 @@ impl SyncManager {
     }
 
     /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
+    ///
+    /// Fails with [SyncManagerError::Busy] if a sync is already in progress.
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
         breadcrumb!("SyncManager::sync started");
-        let mut state = self.mem_cached_state.lock();
+        let Some(mut state) = self.mem_cached_state.try_lock() else {
+            breadcrumb!("SyncManager::sync is already in progress, bailing out early");
+            return Err(SyncManagerError::Busy);
+        };
         let engines = self.calc_engines_to_sync(&params.engines)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         let result = if !backoff_in_effect(next_sync_after, &params) {
@@ -312,11 +317,43 @@ impl CommandProcessor for SyncClient {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::types::{DeviceSettings, SyncAuthInfo};
 
     #[test]
     fn test_engine_id_sanity() {
         for engine_id in SyncEngineId::iter() {
             assert_eq!(engine_id, SyncEngineId::try_from(engine_id.name()).unwrap());
         }
+    }
+
+    fn dummy_sync_params() -> SyncParams {
+        SyncParams {
+            reason: SyncReason::Scheduled,
+            engines: SyncEngineSelection::All,
+            enabled_changes: HashMap::new(),
+            local_encryption_keys: HashMap::new(),
+            auth_info: SyncAuthInfo {
+                kid: "kid".to_string(),
+                fxa_access_token: "token".to_string(),
+                sync_key: "sync-key".to_string(),
+                tokenserver_url: "https://example.com/token/1.0/sync/1.5".to_string(),
+            },
+            persisted_state: None,
+            device_settings: DeviceSettings {
+                fxa_device_id: "device-id".to_string(),
+                name: "Test Device".to_string(),
+                kind: sync15::DeviceType::Mobile,
+            },
+        }
+    }
+
+    #[test]
+    fn test_sync_is_busy_while_a_sync_is_in_progress() {
+        let manager = SyncManager::new();
+        let _in_progress = manager.mem_cached_state.lock();
+        assert!(matches!(
+            manager.sync(dummy_sync_params()),
+            Err(SyncManagerError::Busy)
+        ));
     }
 }
