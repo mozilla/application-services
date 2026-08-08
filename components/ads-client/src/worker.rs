@@ -87,7 +87,7 @@ fn worker<T: Telemetry + Send + 'static>(
         let failure_telemetry_event = command.failed_telemetry_event();
 
         // Error is naturally logged through `handle_error` conversion macro.
-        if let Err(_) = command.run_command(&inner_client, &telemetry) {
+        if command.run_command(&inner_client, &telemetry).is_err() {
             // This telemetry logs which command fails, but does not separately record the error itself.
             // Because the command hits the underlying client's method, it reuses the `.record(e)` call (eg: for RequestAdsError)
             telemetry.record(&failure_telemetry_event);

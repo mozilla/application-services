@@ -9,7 +9,10 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use crate::client::error::RequestAdsError;
-use crate::client::{ClientOperationEvent, CommandDispatchedOperationEvent, CommandFailedOperationEvent, CommandProcessedOperationEvent, WorkerMetaEvent};
+use crate::client::{
+    ClientOperationEvent, CommandDispatchedOperationEvent, CommandFailedOperationEvent,
+    CommandProcessedOperationEvent, WorkerMetaEvent,
+};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
@@ -104,7 +107,9 @@ impl Telemetry for MozAdsTelemetryWrapper {
 
         if let Some(client_op) = event.downcast_ref::<CommandDispatchedOperationEvent>() {
             inner.record_client_operation_total(match client_op {
-                CommandDispatchedOperationEvent::RecordClick => "cmd_dispatch_record_click".to_string(),
+                CommandDispatchedOperationEvent::RecordClick => {
+                    "cmd_dispatch_record_click".to_string()
+                }
                 CommandDispatchedOperationEvent::RecordImpression => {
                     "cmd_dispatch_record_impression".to_string()
                 }
@@ -116,7 +121,9 @@ impl Telemetry for MozAdsTelemetryWrapper {
 
         if let Some(client_op) = event.downcast_ref::<CommandProcessedOperationEvent>() {
             inner.record_client_operation_total(match client_op {
-                CommandProcessedOperationEvent::RecordClick => "cmd_processed_record_click".to_string(),
+                CommandProcessedOperationEvent::RecordClick => {
+                    "cmd_processed_record_click".to_string()
+                }
                 CommandProcessedOperationEvent::RecordImpression => {
                     "cmd_processed_record_impression".to_string()
                 }
