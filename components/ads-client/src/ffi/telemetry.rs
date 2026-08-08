@@ -9,7 +9,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use crate::client::error::RequestAdsError;
-use crate::client::{ClientOperationEvent, CommandDispatchedOperationEvent, WorkerMetaEvent};
+use crate::client::{ClientOperationEvent, CommandDispatchedOperationEvent, CommandFailedOperationEvent, CommandProcessedOperationEvent, WorkerMetaEvent};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
@@ -104,12 +104,36 @@ impl Telemetry for MozAdsTelemetryWrapper {
 
         if let Some(client_op) = event.downcast_ref::<CommandDispatchedOperationEvent>() {
             inner.record_client_operation_total(match client_op {
-                CommandDispatchedOperationEvent::RecordClick => "dispatch_record_click".to_string(),
+                CommandDispatchedOperationEvent::RecordClick => "cmd_dispatch_record_click".to_string(),
                 CommandDispatchedOperationEvent::RecordImpression => {
-                    "dispatch_record_impression".to_string()
+                    "cmd_dispatch_record_impression".to_string()
                 }
-                CommandDispatchedOperationEvent::ReportAd => "dispatch_report_ad".to_string(),
-                CommandDispatchedOperationEvent::RequestAds => "dispatch_report_ad".to_string(),
+                CommandDispatchedOperationEvent::ReportAd => "cmd_dispatch_report_ad".to_string(),
+                CommandDispatchedOperationEvent::RequestAds => "cmd_dispatch_report_ad".to_string(),
+            });
+            return;
+        }
+
+        if let Some(client_op) = event.downcast_ref::<CommandProcessedOperationEvent>() {
+            inner.record_client_operation_total(match client_op {
+                CommandProcessedOperationEvent::RecordClick => "cmd_processed_record_click".to_string(),
+                CommandProcessedOperationEvent::RecordImpression => {
+                    "cmd_processed_record_impression".to_string()
+                }
+                CommandProcessedOperationEvent::ReportAd => "cmd_processed_report_ad".to_string(),
+                CommandProcessedOperationEvent::RequestAds => "cmd_processed_report_ad".to_string(),
+            });
+            return;
+        }
+
+        if let Some(client_op) = event.downcast_ref::<CommandFailedOperationEvent>() {
+            inner.record_client_operation_total(match client_op {
+                CommandFailedOperationEvent::RecordClick => "cmd_failed_record_click".to_string(),
+                CommandFailedOperationEvent::RecordImpression => {
+                    "cmd_failed_record_impression".to_string()
+                }
+                CommandFailedOperationEvent::ReportAd => "cmd_failed_report_ad".to_string(),
+                CommandFailedOperationEvent::RequestAds => "cmd_failed_report_ad".to_string(),
             });
             return;
         }
