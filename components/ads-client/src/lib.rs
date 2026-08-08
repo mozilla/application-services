@@ -37,7 +37,7 @@ use crate::{
     client::error::BackgroundWorkerError,
     ffi::telemetry::MozAdsTelemetryWrapper,
     mars::ad_response::{AdImage, AdSpoc, AdTile},
-    worker::{Dispatch, DispatchCommand, ErrorRequestCallback},
+    worker::{Dispatch, DispatchCommand},
 };
 
 #[cfg(test)]
@@ -195,16 +195,14 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None, callback = None))]
+    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None))]
     pub fn prefetch_ads(
         &self,
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
         tile_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
-        let callback = callback.map(Arc::new);
         let options = options.unwrap_or_default();
         let flags = AdRequestFlags::from(&options);
         let ohttp = options.ohttp;
@@ -221,7 +219,6 @@ impl MozAdsClient {
                             cache_policy,
                             flags: flags.clone(),
                         },
-                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -236,7 +233,6 @@ impl MozAdsClient {
                             cache_policy,
                             flags: flags.clone(),
                         },
-                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -251,7 +247,6 @@ impl MozAdsClient {
                             cache_policy,
                             flags: flags.clone(),
                         },
-                        error_callback: callback.clone(),
                     })
                     .map_err(BackgroundWorkerError::from)?;
             }
@@ -294,9 +289,7 @@ impl MozAdsClient {
         &self,
         click_url: String,
         options: Option<MozAdsCallbackOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
-        let callback = callback.map(Arc::new);
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let url = AdsClientUrl::parse(&click_url).map_err(|e| {
                 ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into())
@@ -305,7 +298,6 @@ impl MozAdsClient {
             worker_dispatch
                 .try_send(Dispatch {
                     command: DispatchCommand::RecordClick { url, ohttp },
-                    error_callback: callback,
                 })
                 .map_err(BackgroundWorkerError::from)?;
             Ok(())
@@ -320,9 +312,7 @@ impl MozAdsClient {
         &self,
         impression_url: String,
         options: Option<MozAdsCallbackOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
-        let callback = callback.map(Arc::new);
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
                 ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
@@ -332,7 +322,6 @@ impl MozAdsClient {
             worker_dispatch
                 .try_send(Dispatch {
                     command: DispatchCommand::RecordImpression { url, ohttp },
-                    error_callback: callback,
                 })
                 .map_err(BackgroundWorkerError::from)?;
 
@@ -349,9 +338,7 @@ impl MozAdsClient {
         report_url: String,
         reason: MozAdsReportReason,
         options: Option<MozAdsCallbackOptions>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
     ) -> AdsClientApiResult<()> {
-        let callback = callback.map(Arc::new);
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let url = AdsClientUrl::parse(&report_url).map_err(|e| {
                 ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into())
@@ -364,7 +351,6 @@ impl MozAdsClient {
                         reason: reason.into(),
                         ohttp,
                     },
-                    error_callback: callback,
                 })
                 .map_err(BackgroundWorkerError::from)?;
 
@@ -378,17 +364,12 @@ impl MozAdsClient {
     // Because the background worker is synchronous, this returns if the worker is empty,
     // making it useful for integration tests to wait until all tasks have completed.
     #[handle_error(ComponentError)]
-    pub fn ping_background_worker(
-        &self,
-        timeout: Option<Duration>,
-        callback: Option<Box<dyn ErrorRequestCallback>>,
-    ) -> AdsClientApiResult<()> {
+    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
         if let Some(worker_dispatch) = &self.worker_dispatch {
             let (tx, rx) = mpsc::sync_channel(0);
             worker_dispatch
                 .try_send(Dispatch {
                     command: DispatchCommand::Ping(tx),
-                    error_callback: callback.map(Arc::new),
                 })
                 .map_err(BackgroundWorkerError::from)?;
             if let Some(timeout) = timeout {
