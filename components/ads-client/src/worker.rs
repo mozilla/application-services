@@ -1,174 +1,97 @@
 use crate::{
-    client::error::{BackgroundWorkerError, ComponentError},
-    http_cache::CachePolicy,
-    mars::{
-        ad_request::AdPlacementRequest,
-        ad_response::{AdImage, AdSpoc, AdTile},
-        ReportReason,
+    client::{
+        error::{BackgroundWorkerError, ComponentError},
+        WorkerMetaEvent,
     },
-    AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest,
-    MozAdsPlacementRequestWithCount,
+    telemetry::Telemetry,
+    worker::command::DispatchCommand,
+    MozAdsClientInner,
 };
-use error_support::handle_error;
 use std::{
-    collections::HashMap,
     sync::mpsc::{self, Receiver, SyncSender},
     thread::JoinHandle,
 };
-use url::Url;
+
+pub mod command;
 
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
+pub struct AdsClientWorkerWrapper<T>
+where
+    T: Clone + Telemetry,
+{
+    _worker_thread: Option<JoinHandle<()>>,
+    worker_dispatch: Option<SyncSender<DispatchCommand>>,
+
+    telemetry: T,
+}
+
+impl<T: Clone + Telemetry + Send + 'static> AdsClientWorkerWrapper<T> {
+    pub fn new(inner: MozAdsClientInner, telemetry: T) -> AdsClientWorkerWrapper<T> {
+        let (worker_dispatch, worker_thread) =
+            Option::unzip(build_worker_thread(inner.clone(), telemetry.clone()));
+        AdsClientWorkerWrapper {
+            _worker_thread: worker_thread,
+            worker_dispatch,
+            telemetry,
+        }
+    }
+
+    pub fn dispatch(&self, command: DispatchCommand) -> Result<(), ComponentError> {
+        let telemetry_event = command.dispatch_telemetry_event();
+        if let Some(worker_dispatch) = &self.worker_dispatch {
+            worker_dispatch
+                .try_send(command)
+                .map_err(BackgroundWorkerError::from)
+                .inspect_err(|e| {
+                    self.telemetry.record(e);
+                })
+                .inspect(|_| {
+                    if let Some(event) = telemetry_event {
+                        self.telemetry.record(&event);
+                    }
+                })?;
+
+            Ok(())
+        } else {
+            Err(BackgroundWorkerError::WorkerClosed.into())
+        }
+    }
+}
+
 // Spawn worker thread from a reference to the client, returning a synchronous channel transmitter to the thread, and its JoinHandle.
 // Returns None if thread fails to build.
-pub fn build_worker_thread(
+pub fn build_worker_thread<T: Telemetry + Send + 'static>(
     inner_client: MozAdsClientInner,
-) -> Option<(SyncSender<Dispatch>, JoinHandle<()>)> {
+    telemetry: T,
+) -> Option<(SyncSender<DispatchCommand>, JoinHandle<()>)> {
     let (tx, rx) = mpsc::sync_channel(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE);
     let worker_thread_handle = std::thread::Builder::new()
         .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-        .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
+        .spawn(move || crate::worker::worker(inner_client, rx, telemetry)).inspect_err(|err| {
             error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
         }).ok()?;
     Some((tx, worker_thread_handle))
 }
 
-fn worker(inner_client: MozAdsClientInner, rx: Receiver<Dispatch>) {
+fn worker<T: Telemetry + Send + 'static>(
+    inner_client: MozAdsClientInner,
+    rx: Receiver<DispatchCommand>,
+    telemetry: T,
+) {
+    telemetry.record(&WorkerMetaEvent::Start);
+
     // Synchronously run tasks in the order they are passed in this separate channel.
-    while let Ok(task) = rx.recv() {
-        let Dispatch { command } = task;
+    while let Ok(command) = rx.recv() {
+        let failure_telemetry_event = command.failed_telemetry_event();
 
-        // Error is logged through `handle_error` conversion macro.
-        let _ = command.run_command(&inner_client);
-    }
-}
-
-pub struct Dispatch {
-    pub command: DispatchCommand,
-}
-
-pub enum DispatchCommand {
-    RequestImageAds {
-        image_ad_requests: Vec<MozAdsPlacementRequest>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        flags: HashMap<String, bool>,
-    },
-    RequestSpocAds {
-        spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        flags: HashMap<String, bool>,
-    },
-    RequestTileAds {
-        tile_ad_requests: Vec<MozAdsPlacementRequest>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        flags: HashMap<String, bool>,
-    },
-    RecordClick {
-        url: Url,
-        ohttp: bool,
-    },
-    RecordImpression {
-        url: Url,
-        ohttp: bool,
-    },
-    ReportAd {
-        url: Url,
-        reason: ReportReason,
-        ohttp: bool,
-    },
-    Ping(SyncSender<()>),
-}
-
-impl DispatchCommand {
-    #[handle_error(ComponentError)]
-    pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
-        match self {
-            DispatchCommand::RequestImageAds {
-                image_ad_requests,
-                cache_policy,
-                flags,
-                ohttp,
-            } => {
-                let mut inner = ads_client_inner.lock();
-
-                // Image ads
-                if !image_ad_requests.is_empty() {
-                    let image_ad_requests: Vec<AdPlacementRequest> =
-                        image_ad_requests.iter().map(|r| r.into()).collect();
-                    let image_response = inner
-                        .request_image_ads(image_ad_requests, flags, Some(cache_policy), ohttp)
-                        .map_err(ComponentError::RequestAds)?;
-                    inner.cache_ads::<AdImage>(image_response);
-                }
-                Ok(())
-            }
-            DispatchCommand::RequestSpocAds {
-                spoc_ad_requests,
-                cache_policy,
-                flags,
-                ohttp,
-            } => {
-                let mut inner = ads_client_inner.lock();
-
-                // Spoc ads
-                if !spoc_ad_requests.is_empty() {
-                    let spoc_ad_requests: Vec<AdPlacementRequest> =
-                        spoc_ad_requests.iter().map(|r| r.into()).collect();
-                    let spoc_response = inner
-                        .request_spoc_ads(spoc_ad_requests, flags, Some(cache_policy), ohttp)
-                        .map_err(ComponentError::RequestAds)?;
-                    inner.cache_ads::<AdSpoc>(spoc_response);
-                }
-                Ok(())
-            }
-            DispatchCommand::RequestTileAds {
-                tile_ad_requests,
-                cache_policy,
-                flags,
-                ohttp,
-            } => {
-                let mut inner = ads_client_inner.lock();
-
-                // Tile ads
-                if !tile_ad_requests.is_empty() {
-                    let tile_ad_requests: Vec<AdPlacementRequest> =
-                        tile_ad_requests.iter().map(|r| r.into()).collect();
-                    let tile_response = inner
-                        .request_tile_ads(tile_ad_requests, flags, Some(cache_policy), ohttp)
-                        .map_err(ComponentError::RequestAds)?;
-                    inner.cache_ads::<AdTile>(tile_response);
-                }
-                Ok(())
-            }
-            DispatchCommand::RecordClick { url, ohttp } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_click(url, ohttp)
-                    .map_err(ComponentError::RecordClick)
-            }
-            DispatchCommand::RecordImpression { url, ohttp } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_impression(url, ohttp)
-                    .map_err(ComponentError::RecordImpression)
-            }
-            DispatchCommand::ReportAd { url, ohttp, reason } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .report_ad(url, reason, ohttp)
-                    .map_err(ComponentError::ReportAd)
-            }
-
-            DispatchCommand::Ping(sender) => {
-                sender
-                    .try_send(())
-                    .map_err(|err| BackgroundWorkerError::PongFailure(Box::new(err)))?;
-                Ok(())
-            }
+        // Error is naturally logged through `handle_error` conversion macro.
+        if let Err(_) = command.run_command(&inner_client, &telemetry) {
+            // This telemetry logs which command fails, but does not separately record the error itself.
+            // Because the command hits the underlying client's method, it reuses the `.record(e)` call (eg: for RequestAdsError)
+            telemetry.record(&failure_telemetry_event);
         }
     }
+    telemetry.record(&WorkerMetaEvent::Stop);
 }

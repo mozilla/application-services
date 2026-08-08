@@ -275,6 +275,7 @@ where
     }
 }
 
+// Event fires in both sync and background strategies.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientOperationEvent {
     New,
@@ -282,6 +283,35 @@ pub enum ClientOperationEvent {
     RecordImpression,
     ReportAd,
     RequestAds,
+}
+
+// Event fires when dispatch is fired, not when the event resolves.
+pub enum CommandDispatchedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+// Event fires when the corresponding background event resolves.
+pub enum CommandProcessedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+// Event fires when the corresponding background event fails to resolve.
+pub enum CommandFailedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+pub enum WorkerMetaEvent {
+    Start,
+    Stop,
 }
 
 #[cfg(test)]

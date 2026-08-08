@@ -122,6 +122,11 @@ impl MozAdsClientBuilder {
 
     pub fn build(&self) -> MozAdsClient {
         let inner = self.0.lock();
+        let telemetry = inner
+            .telemetry
+            .clone()
+            .map(MozAdsTelemetryWrapper::new)
+            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -130,21 +135,12 @@ impl MozAdsClientBuilder {
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
             environment: inner.environment.unwrap_or_default().into(),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
         let inner = Arc::new(Mutex::new(client));
-        let (worker_dispatch, worker_thread) =
-            Option::unzip(worker::build_worker_thread(inner.clone()));
-        MozAdsClient {
-            inner,
-            _worker_thread: worker_thread,
-            worker_dispatch,
-        }
+        let worker = worker::AdsClientWorkerWrapper::new(inner.clone(), telemetry);
+        MozAdsClient { inner, worker }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {

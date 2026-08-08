@@ -9,7 +9,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use crate::client::error::RequestAdsError;
-use crate::client::ClientOperationEvent;
+use crate::client::{ClientOperationEvent, CommandDispatchedOperationEvent, WorkerMetaEvent};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
@@ -101,6 +101,27 @@ impl Telemetry for MozAdsTelemetryWrapper {
             });
             return;
         }
+
+        if let Some(client_op) = event.downcast_ref::<CommandDispatchedOperationEvent>() {
+            inner.record_client_operation_total(match client_op {
+                CommandDispatchedOperationEvent::RecordClick => "dispatch_record_click".to_string(),
+                CommandDispatchedOperationEvent::RecordImpression => {
+                    "dispatch_record_impression".to_string()
+                }
+                CommandDispatchedOperationEvent::ReportAd => "dispatch_report_ad".to_string(),
+                CommandDispatchedOperationEvent::RequestAds => "dispatch_report_ad".to_string(),
+            });
+            return;
+        }
+
+        if let Some(client_op) = event.downcast_ref::<WorkerMetaEvent>() {
+            inner.record_client_operation_total(match client_op {
+                WorkerMetaEvent::Start => "worker_started".to_string(),
+                WorkerMetaEvent::Stop => "worker_ended".to_string(),
+            });
+            return;
+        }
+
         if let Some(cache_builder_error) = event.downcast_ref::<HttpCacheBuilderError>() {
             inner.record_build_cache_error(
                 match cache_builder_error {
