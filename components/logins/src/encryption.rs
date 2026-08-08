@@ -48,6 +48,9 @@
 //  change at runtime and is already present when the LoginsStore is initialized. In this case, it
 //  makes sense to use the provided StaticKeyManager.
 
+// work around not yet having https://github.com/mozilla/uniffi-rs/pull/2963.
+#![allow(const_evaluatable_unchecked)]
+
 use crate::error::*;
 use std::sync::Arc;
 
