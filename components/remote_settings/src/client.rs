@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::config::BaseUrl;
-use crate::error::{debug, trace, Error, Result};
+use crate::error::{breadcrumb, debug, trace, Error, Result};
 use crate::jexl_filter::JexlFilter;
 #[cfg(feature = "signatures")]
 use crate::signatures;
@@ -647,7 +647,7 @@ impl ViaductApiClient {
     }
 
     fn make_request(&mut self, url: Url) -> Result<Response> {
-        trace!("make_request: {url}");
+        breadcrumb!("make_request: {url}");
         self.remote_state.ensure_no_backoff()?;
 
         let req = Request::get(url);
