@@ -38,6 +38,11 @@ lazy_static::lazy_static! {
     };
 }
 
+// Historical versions of the shared schema for migrations which apply it as
+// part of the migration operations.
+const CREATE_SHARED_SCHEMA_V20_SQL: &str =
+    include_str!("../../sql/legacy/create_shared_schema_v20.sql");
+
 // Keys in the moz_meta table.
 pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &str = "origin_frecency_count";
 pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &str = "origin_frecency_sum";
@@ -145,7 +150,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
 
     // Old-style migrations
 
-    migration(db, from, 2, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
+    migration(db, from, 2, &[CREATE_SHARED_SCHEMA_V20_SQL], || Ok(()))?;
     migration(
         db,
         from,
@@ -153,13 +158,13 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         &[
             // Previous versions had an incomplete version of moz_bookmarks.
             "DROP TABLE moz_bookmarks",
-            CREATE_SHARED_SCHEMA_SQL,
+            CREATE_SHARED_SCHEMA_V20_SQL,
         ],
         || create_bookmark_roots(db.conn()),
     )?;
-    migration(db, from, 4, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
-    migration(db, from, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
-    migration(db, from, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // bookmark syncing.
+    migration(db, from, 4, &[CREATE_SHARED_SCHEMA_V20_SQL], || Ok(()))?;
+    migration(db, from, 5, &[CREATE_SHARED_SCHEMA_V20_SQL], || Ok(()))?; // new tags tables.
+    migration(db, from, 6, &[CREATE_SHARED_SCHEMA_V20_SQL], || Ok(()))?; // bookmark syncing.
     migration(
         db,
         from,
@@ -170,7 +175,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             &format!("DELETE FROM moz_meta WHERE key = '{}'", LAST_SYNC_META_KEY),
             "DROP TABLE moz_bookmarks_synced",
             "DROP TABLE moz_bookmarks_synced_structure",
-            CREATE_SHARED_SCHEMA_SQL,
+            CREATE_SHARED_SCHEMA_V20_SQL,
         ],
         || Ok(()),
     )?;
@@ -252,7 +257,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         ],
         || Ok(()),
     )?;
-    migration(db, from, 13, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // moz_places_metadata.
+    migration(db, from, 13, &[CREATE_SHARED_SCHEMA_V20_SQL], || Ok(()))?; // moz_places_metadata.
     migration(
         db,
         from,
@@ -260,7 +265,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         &[
             // Changing `moz_places_metadata` structure, drop and recreate it.
             "DROP TABLE moz_places_metadata",
-            CREATE_SHARED_SCHEMA_SQL,
+            CREATE_SHARED_SCHEMA_V20_SQL,
         ],
         || Ok(()),
     )?;
@@ -329,14 +334,14 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
         18 => {
             // Create the new indexes by just calling the shared schema file
             // idx_places_outgoing_by_frecency
-            db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+            db.execute_batch(CREATE_SHARED_SCHEMA_V20_SQL)?;
             // Manually call analyze so the planner can start using the indexes immediately
             db.execute("ANALYZE moz_places", [])?;
         }
         19 => {
             // Create the new indexes by just calling the shared schema file
             // top_frecent_cover_idx, idx_visits_place_type
-            db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+            db.execute_batch(CREATE_SHARED_SCHEMA_V20_SQL)?;
             // Manually call analyze so the planner can start using the indexes immediately
             db.execute("ANALYZE moz_places", [])?;
             db.execute("ANALYZE moz_historyvisits", [])?;
