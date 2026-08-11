@@ -14,10 +14,13 @@ use url::Url as AdsClientUrl;
 use client::AdsClient;
 use error_support::error;
 use http_cache::CachePolicy;
+use impression_log::ImpressionCappingPolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 mod client;
+mod clock;
 mod ffi;
 pub mod http_cache;
+pub mod impression_log;
 mod mars;
 pub mod telemetry;
 
@@ -126,9 +129,16 @@ impl MozAdsClient {
         let options = options.unwrap_or_default();
         let flags = AdRequestFlags::from(&options);
         let ohttp = options.ohttp;
-        let cache_policy: CachePolicy = options.into();
+        let cache_policy = CachePolicy::from(&options);
+        let impression_capping_policy = ImpressionCappingPolicy::from(&options);
         let response = inner
-            .request_image_ads(requests, flags, Some(cache_policy), ohttp)
+            .request_image_ads(
+                requests,
+                flags,
+                Some(cache_policy),
+                Some(impression_capping_policy),
+                ohttp,
+            )
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -145,9 +155,16 @@ impl MozAdsClient {
         let options = options.unwrap_or_default();
         let flags = AdRequestFlags::from(&options);
         let ohttp = options.ohttp;
-        let cache_policy: CachePolicy = options.into();
+        let cache_policy = CachePolicy::from(&options);
+        let impression_capping_policy = ImpressionCappingPolicy::from(&options);
         let response = inner
-            .request_spoc_ads(requests, flags, Some(cache_policy), ohttp)
+            .request_spoc_ads(
+                requests,
+                flags,
+                Some(cache_policy),
+                Some(impression_capping_policy),
+                ohttp,
+            )
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -167,9 +184,16 @@ impl MozAdsClient {
         let options = options.unwrap_or_default();
         let flags = AdRequestFlags::from(&options);
         let ohttp = options.ohttp;
-        let cache_policy: CachePolicy = options.into();
+        let cache_policy = CachePolicy::from(&options);
+        let impression_capping_policy = ImpressionCappingPolicy::from(&options);
         let response = inner
-            .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
+            .request_tile_ads(
+                requests,
+                flags,
+                Some(cache_policy),
+                Some(impression_capping_policy),
+                ohttp,
+            )
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
