@@ -72,7 +72,7 @@ pub fn create_login_store_with_nss_keymanager(
     primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
 ) -> ApiResult<Arc<LoginStore>> {
     let encdec: ManagedEncryptorDecryptor = ManagedEncryptorDecryptor::new(Arc::new(
-        NSSKeyManager::new(KEY_NAME, primary_password_authenticator),
+        NSSKeyManager::new(KEY_NAME.to_string(), primary_password_authenticator),
     ));
     let store = LoginStore::new(path, Arc::new(encdec))?;
     Ok(Arc::new(store))

@@ -314,7 +314,7 @@ impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
 
 fn open_database(db_path: &str) -> Result<LoginStore> {
     let key_name: &str = "as-login-key";
-    let key_manager = NSSKeyManager::new(key_name, Arc::new(MyPrimaryPasswordAuthenticator {}));
+    let key_manager = NSSKeyManager::new(key_name.to_string(), Arc::new(MyPrimaryPasswordAuthenticator {}));
     let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(key_manager)));
     let store = LoginStore::new(db_path, encdec)?;
     Ok(store)

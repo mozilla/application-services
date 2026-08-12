@@ -254,10 +254,10 @@ impl NSSKeyManager {
     /// There must be a previous initializiation of NSS before initializing
     /// `NSSKeyManager`, otherwise this panics.
     #[uniffi::constructor()]
-    pub fn new(key_name: &str, primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
+    pub fn new(key_name: String, primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
         assert_nss_initialized();
         Self {
-            key_name: key_name.to_string(),
+            key_name: key_name,
             primary_password_authenticator,
             cached_key: RwLock::new(None),
         }
