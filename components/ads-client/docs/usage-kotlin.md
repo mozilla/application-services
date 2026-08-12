@@ -25,6 +25,7 @@ Use the `MozAdsClientBuilder` to configure and create the client. The builder pr
 val client = MozAdsClientBuilder()
     .environment(MozAdsEnvironment.PROD)
     .cacheConfig(cache)
+    .impressionLogConfig(impressionLogConfig)
     .telemetry(telemetry)
     .build()
 ```
@@ -37,9 +38,9 @@ val client = MozAdsClientBuilder()
 | `recordClick(clickUrl: String, options: MozAdsCallbackOptions?)`                                                                                         | `Unit`                                                 | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
 | `recordImpression(impressionUrl: String, options: MozAdsCallbackOptions?)`                                                                               | `Unit`                                                 | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
 | `reportAd(reportUrl: String, reason: MozAdsReportReason, options: MozAdsCallbackOptions?)`                                                                                           | `Unit`                                                 | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
-| `requestImageAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                          | `Map<String, MozAdsImage>`                             | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.                                              |
-| `requestSpocAds(mozAdRequests: List<MozAdsPlacementRequestWithCount>, options: MozAdsRequestOptions?)`                  | `Map<String, List<MozAdsSpoc>>`                        | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.  |
-| `requestTileAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                           | `Map<String, MozAdsTile>`                              | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placementId`.                                               |
+| `requestImageAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                          | `Map<String, MozAdsImage>`                             | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns a map keyed by `placementId`.                                              |
+| `requestSpocAds(mozAdRequests: List<MozAdsPlacementRequestWithCount>, options: MozAdsRequestOptions?)`                  | `Map<String, List<MozAdsSpoc>>`                        | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns a map keyed by `placementId`.  |
+| `requestTileAds(mozAdRequests: List<MozAdsPlacementRequest>, options: MozAdsRequestOptions?)`                           | `Map<String, MozAdsTile>`                              | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns a map keyed by `placementId`.                                               |
 
 > **Notes**
 >
@@ -47,6 +48,7 @@ val client = MozAdsClientBuilder()
 > - Responses omit placements with no fill. Empty placements do not appear in the returned maps.
 > - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientBuilder`. Per-request cache settings can be set with `MozAdsRequestOptions`.
 > - If `cacheConfig` is `null`, caching is disabled entirely.
+> - If `impressionLogConfig` is `null`, impression counting and capping is disabled entirely.
 
 ---
 
@@ -58,6 +60,7 @@ Builder for configuring and creating the ads client. Use the fluent builder patt
 class MozAdsClientBuilder {
     fun environment(environment: MozAdsEnvironment): MozAdsClientBuilder
     fun cacheConfig(cacheConfig: MozAdsCacheConfig): MozAdsClientBuilder
+    fun impressionLogConfig(impressionLogConfig: MozAdsImpressionLogConfig): MozAdsClientBuilder
     fun telemetry(telemetry: MozAdsTelemetry): MozAdsClientBuilder
     fun build(): MozAdsClient
 }
@@ -68,6 +71,7 @@ class MozAdsClientBuilder {
 - **`MozAdsClientBuilder()`** - Creates a new builder with default values
 - **`environment(environment: MozAdsEnvironment)`** - Sets the MARS environment (Prod, Staging, or Test)
 - **`cacheConfig(cacheConfig: MozAdsCacheConfig)`** - Sets the cache configuration
+- **`impressionLogConfig(impressionLogConfig: MozAdsImpressionLogConfig)`** - Sets the impression log configuration
 - **`telemetry(telemetry: MozAdsTelemetry)`** - Sets the telemetry implementation
 - **`build()`** - Builds and returns the configured client
 
@@ -75,6 +79,7 @@ class MozAdsClientBuilder {
 | -------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
 | `environment`  | `MozAdsEnvironment`   | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. Defaults to Prod. |
 | `cacheConfig`  | `MozAdsCacheConfig?`  | Optional configuration for the internal cache.                                                         |
+| `impressionLogConfig`  | `MozAdsImpressionLogConfig?`  | Optional configuration for the internal impression log.                                                         |
 | `telemetry`    | `MozAdsTelemetry?`    | Optional telemetry instance for recording metrics. If not provided, a no-op implementation is used.    |
 
 ---
@@ -90,6 +95,8 @@ interface MozAdsTelemetry {
     fun recordClientOperationTotal(label: String)
     fun recordDeserializationError(label: String, value: String)
     fun recordHttpCacheOutcome(label: String, value: String)
+    fun recordBuildImpressionLogError(label: String, value: String)
+    fun recordImpressionLogOutcome(label: String, value: String)
 }
 ```
 
@@ -117,6 +124,14 @@ class AdsClientTelemetry : MozAdsTelemetry {
     }
 
     override fun recordHttpCacheOutcome(label: String, value: String) {
+        AdsClient.httpCacheOutcome[label].set(value)
+    }
+
+    override fun recordBuildImpressionLogError(label: String, value: String) {
+        AdsClient.httpCacheOutcome[label].set(value)
+    }
+
+    override fun recordImpressionLogOutcome(label: String, value: String) {
         AdsClient.httpCacheOutcome[label].set(value)
     }
 }
@@ -161,6 +176,38 @@ val telemetry = AdsClientTelemetry()
 val client = MozAdsClientBuilder()
     .environment(MozAdsEnvironment.PROD)
     .cacheConfig(cache)
+    .telemetry(telemetry)
+    .build()
+```
+
+---
+
+## `MozAdsImpressionLogConfig`
+
+Describes the behavior and location of the on-disk impression log.
+
+```kotlin
+data class MozAdsImpressionLogConfig(
+    val dbPath: String,
+)
+```
+
+| Field                       | Type             | Description                                                                          |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `dbPath`                    | `String`         | Path to the SQLite database file used for log storage. Required to enable capping. |
+
+#### Configuration Example
+
+```kotlin
+val impressionLogConfig = MozAdsImpressionLogConfig(
+    dbPath = "/tmp/impression_log.sqlite"
+)
+
+val telemetry = AdsClientTelemetry()
+
+val client = MozAdsClientBuilder()
+    .environment(MozAdsEnvironment.PROD)
+    .impressionLogConfig(impressionLogConfig)
     .telemetry(telemetry)
     .build()
 ```
@@ -309,6 +356,24 @@ enum class MozAdsCacheMode {
 | --------------- | -------------------------------------------------------------------------------------------------- |
 | `CACHE_FIRST`   | Check cache first, return cached response if found, otherwise make a network request and store it. |
 | `NETWORK_FIRST` | Always fetch from network, then cache the result.                                                  |
+
+---
+
+## `MozAdsImpressionCappingPolicy`
+
+Determines how the impression log is used during a request.
+
+```kotlin
+enum class MozAdsCacheMode {
+    TELEMETRY_ONLY,
+    IMPRESSION_CAP_ENFORCED
+}
+```
+
+| Variant        | Behavior                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| `TELEMETRY_ONLY`          | Count the number impressions over the last day, but only emit a telemetry event if the limit is hit. |
+| `IMPRESSION_CAP_ENFORCED` | Count the number impressions over the last day and filter out any which have hit that limit. |
 
 ---
 
@@ -545,3 +610,25 @@ After storing a cacheable miss, the cache enforces `maxSizeMib` by deleting the 
 
 **Manual clearing (explicit):**
 The cache can be manually cleared by the client using the exposed `client.clearCache()` method. This clears _all_ objects in the cache.
+
+---
+
+## Impression Log Behavior
+
+### Impression Log Overview
+
+The internal impression log is a SQLite-backed list of timestamps per `capKey`.
+It reduces repetition of the same spocs by limiting the number of times any client will see them over a rolling 24 hour window.
+
+### Impression Log Lifecycle
+
+1. Spocs are requested for a first time
+2. Impression callback URLs are enriched with that as a query parameter
+3. A callback URL is passed to `recordImpression` (any number of times)
+4. The current epoch second is inserted into the impression log for the `capKey`, if present.
+5. The `capKey` is removed from the URL, the callback to MARS is made.
+6. Spocs are requested again
+7. Each spoc's `capKey` is looked up and counted for the last 24 hours from the impression log
+8. If the count is at or above the daily limit, the spoc is filtered from the respons
+9. A clean up of the impression log happens, removing each `capKey` that was not present in the MARS/cache respons of spocs.
+10. Return to step 2

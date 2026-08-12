@@ -16,6 +16,7 @@ Top-level client object for requesting ads and recording lifecycle events.
 const client = MozAdsClientBuilder()
     .environment(MozAdsEnvironment.Prod)
     .cacheConfig(cache)
+    .impressionLogConfig(impressionLogConfig)
     .telemetry(telemetry)
     .build();
 ```
@@ -28,6 +29,7 @@ Use the `MozAdsClientBuilder` to configure and create the client. The builder pr
 const client = MozAdsClientBuilder()
     .environment(MozAdsEnvironment.Prod)
     .cacheConfig(cache)
+    .impressionLogConfig(impressionLogConfig)
     .telemetry(telemetry)
     .build();
 ```
@@ -40,9 +42,9 @@ const client = MozAdsClientBuilder()
 | `recordClick(clickUrl, options?)`                                                   | `void`                                    | Records a click using the provided callback URL (typically from `ad.callbacks.click`). Optional `MozAdsCallbackOptions` can enable OHTTP.                                            |
 | `recordImpression(impressionUrl, options?)`                                         | `void`                                    | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`). Optional `MozAdsCallbackOptions` can enable OHTTP.                                 |
 | `reportAd(reportUrl, reason, options?)`                                             | `void`                                    | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`). Optional `MozAdsCallbackOptions` can enable OHTTP.                                             |
-| `requestImageAds(mozAdRequests, options?)`                                          | `Object.<string, MozAdsImage>`            | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns an object keyed by `placementId`.                                          |
-| `requestSpocAds(mozAdRequests, options?)`                                           | `Object.<string, Array.<MozAdsSpoc>>`     | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns an object keyed by `placementId`. |
-| `requestTileAds(mozAdRequests, options?)`                                           | `Object.<string, MozAdsTile>`             | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns an object keyed by `placementId`.                                           |
+| `requestImageAds(mozAdRequests, options?)`                                          | `Object.<string, MozAdsImage>`            | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns an object keyed by `placementId`.                                          |
+| `requestSpocAds(mozAdRequests, options?)`                                           | `Object.<string, Array.<MozAdsSpoc>>`     | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns an object keyed by `placementId`. |
+| `requestTileAds(mozAdRequests, options?)`                                           | `Object.<string, MozAdsTile>`             | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching and capping behavior. Returns an object keyed by `placementId`.                                           |
 
 > **Notes**
 >
@@ -50,6 +52,7 @@ const client = MozAdsClientBuilder()
 > - Responses omit placements with no fill. Empty placements do not appear in the returned objects.
 > - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientBuilder`. Per-request cache settings can be set with `MozAdsRequestOptions`.
 > - If `cacheConfig` is `null`, caching is disabled entirely.
+> - If `impressionLogConfig` is `null`, impression counting and capping is disabled entirely.
 
 ---
 
@@ -76,6 +79,12 @@ builder.environment(environment)
 builder.cacheConfig(cacheConfig)
 
 /**
+ * @param {MozAdsImpressionLogConfig} impressionLogConfig
+ * @returns {MozAdsClientBuilder}
+ */
+builder.impressionLogConfig(impressionLogConfig)
+
+/**
  * @param {MozAdsTelemetry} telemetry
  * @returns {MozAdsClientBuilder}
  */
@@ -92,6 +101,7 @@ builder.build()
 - **`MozAdsClientBuilder()`** - Creates a new builder with default values
 - **`environment(environment)`** - Sets the MARS environment (Prod, Staging, or Test)
 - **`cacheConfig(cacheConfig)`** - Sets the cache configuration
+- **`impressionLogConfig(impressionLogConfig)`** - Sets the impression log configuration
 - **`telemetry(telemetry)`** - Sets the telemetry implementation
 - **`build()`** - Builds and returns the configured client
 
@@ -115,6 +125,8 @@ Telemetry interface for recording ads client metrics. You must provide an implem
  * @property {function(string): void} recordClientOperationTotal
  * @property {function(string, string): void} recordDeserializationError
  * @property {function(string, string): void} recordHttpCacheOutcome
+ * @property {function(string, string): void} recordBuildImpressionLogError
+ * @property {function(string, string): void} recordImpressionLogOutcome
  */
 ```
 
@@ -139,6 +151,14 @@ class AdsClientTelemetry {
     }
 
     recordHttpCacheOutcome(label, value) {
+        // Bind to your telemetry system
+    }
+
+    recordBuildImpressionLogError(label, value) {
+        // Bind to your telemetry system
+    }
+
+    recordImpressionLogOutcome(label, value) {
         // Bind to your telemetry system
     }
 }
@@ -184,6 +204,39 @@ const telemetry = new AdsClientTelemetry();
 const client = MozAdsClientBuilder()
     .environment(MozAdsEnvironment.Prod)
     .cacheConfig(cache)
+    .telemetry(telemetry)
+    .build();
+```
+
+---
+
+## `MozAdsImpressionLogConfig`
+
+Describes the behavior and location of the on-disk impression log.
+
+```javascript
+/**
+ * @typedef {Object} MozAdsImpressionLogConfig
+ * @property {string} dbPath - Path to the SQLite database file.
+ */
+```
+
+| Field                       | Type             | Description                                                                          |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `dbPath`                    | `string`         | Path to the SQLite database file used for log storage. Required to enable capping. |
+
+#### Configuration Example
+
+```javascript
+const impressionLogConfig = MozAdsImpressionLogConfig({
+    dbPath: "/tmp/impression_log.sqlite",
+});
+
+const telemetry = new AdsClientTelemetry();
+
+const client = MozAdsClientBuilder()
+    .environment(MozAdsEnvironment.Prod)
+    .impressionLogConfig(impressionLogConfig)
     .telemetry(telemetry)
     .build();
 ```
@@ -342,6 +395,27 @@ const MozAdsCacheMode = {
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `CacheFirst`   | Check cache first, return cached response if found, otherwise make a network request and store it. |
 | `NetworkFirst` | Always fetch from network, then cache the result.                                                  |
+
+---
+
+## `MozAdsImpressionCappingPolicy`
+
+Determines how the impression log is used during a request.
+
+```javascript
+/**
+ * @enum {string}
+ */
+const MozAdsImpressionCappingPolicy = {
+    TelemetryOnly: "TelemetryOnly",
+    ImpressionCapEnforced: "ImpressionCapEnforced"
+};
+```
+
+| Variant        | Behavior                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| `TelemetryOnly`           | Count the number impressions over the last day, but only emit a telemetry event if the limit is hit. |
+| `ImpressionCapEnforced`   | Count the number impressions over the last day and filter out any which have hit that limit. |
 
 ---
 
@@ -588,3 +662,25 @@ After storing a cacheable miss, the cache enforces `maxSizeMib` by deleting the 
 
 **Manual clearing (explicit):**
 The cache can be manually cleared by the client using the exposed `client.clearCache()` method. This clears _all_ objects in the cache.
+
+---
+
+## Impression Log Behavior
+
+### Impression Log Overview
+
+The internal impression log is a SQLite-backed list of timestamps per `capKey`.
+It reduces repetition of the same spocs by limiting the number of times any client will see them over a rolling 24 hour window.
+
+### Impression Log Lifecycle
+
+1. Spocs are requested for a first time
+2. Impression callback URLs are enriched with that as a query parameter
+3. A callback URL is passed to `recordImpression` (any number of times)
+4. The current epoch second is inserted into the impression log for the `capKey`, if present.
+5. The `capKey` is removed from the URL, the callback to MARS is made.
+6. Spocs are requested again
+7. Each spoc's `capKey` is looked up and counted for the last 24 hours from the impression log
+8. If the count is at or above the daily limit, the spoc is filtered from the respons
+9. A clean up of the impression log happens, removing each `capKey` that was not present in the MARS/cache respons of spocs.
+10. Return to step 2
