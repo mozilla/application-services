@@ -7,7 +7,7 @@
 
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
-use encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
+use encryption::{EncryptionApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;
@@ -296,24 +296,25 @@ fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
 struct MyPrimaryPasswordAuthenticator {}
 #[async_trait]
 impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
-    async fn get_primary_password(&self) -> Result<String, LoginsApiError> {
+    async fn get_primary_password(&self) -> Result<String, EncryptionApiError> {
         let password = prompt_password("primary password").unwrap_or_default();
         Ok(password)
     }
 
-    async fn on_authentication_success(&self) -> Result<(), LoginsApiError> {
+    async fn on_authentication_success(&self) -> Result<(), EncryptionApiError> {
         println!("success");
         Ok(())
     }
 
-    async fn on_authentication_failure(&self) -> Result<(), LoginsApiError> {
+    async fn on_authentication_failure(&self) -> Result<(), EncryptionApiError> {
         println!("this did not work, please try again:");
         Ok(())
     }
 }
 
 fn open_database(db_path: &str) -> Result<LoginStore> {
-    let key_manager = NSSKeyManager::new(Arc::new(MyPrimaryPasswordAuthenticator {}));
+    let key_name: &str = "as-login-key";
+    let key_manager = NSSKeyManager::new(key_name, Arc::new(MyPrimaryPasswordAuthenticator {}));
     let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(key_manager)));
     let store = LoginStore::new(db_path, encdec)?;
     Ok(store)

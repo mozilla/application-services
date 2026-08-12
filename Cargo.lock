@@ -1311,6 +1311,7 @@ dependencies = [
  "chrono",
  "clap",
  "cli-support",
+ "encryption",
  "fxa-client",
  "init_rust_components",
  "log",
