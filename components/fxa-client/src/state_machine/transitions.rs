@@ -20,7 +20,7 @@ pub fn transition(
     use FxaEvent as E;
     use FxaState as S;
 
-    match (from, event) {
+    match (from.clone(), event) {
         // ── From Uninitialized ──────────────────────────────────────────
         (S::Uninitialized, E::Initialize { device_config }) => match account.get_auth_state() {
             FxaRustAuthState::Disconnected => Ok(S::Disconnected),
@@ -138,12 +138,13 @@ pub fn transition(
             account.disconnect();
             Ok(S::Disconnected)
         }
-        (S::Connected, E::CheckAuthorizationStatus) => {
-            let active = account
-                .check_authorization_status()
-                .to_state_machine_err(|| S::AuthIssues)?;
-            Ok(if active { S::Connected } else { S::AuthIssues })
-        }
+        (S::Connected, E::CheckAuthorizationStatus) => match account.check_authorization_status() {
+            Ok(active) => Ok(if active { S::Connected } else { S::AuthIssues }),
+            Err(e) => {
+                crate::warn!("Failed to check auth status: {e}");
+                Ok(from)
+            }
+        },
         (S::Connected, E::CallGetProfile) => {
             account
                 .get_profile()
