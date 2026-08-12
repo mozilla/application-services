@@ -72,6 +72,7 @@ use nss_as::pk11::sym_key::{
 /// Note that EncryptorDecryptor must not call any LoginStore methods. The login store can call out
 /// to the EncryptorDecryptor when it's internal mutex is held so calling back in to the LoginStore
 /// may deadlock.
+#[uniffi::trait_interface]
 pub trait EncryptorDecryptor: Send + Sync {
     fn encrypt(&self, cleartext: Vec<u8>) -> ApiResult<Vec<u8>>;
     fn decrypt(&self, ciphertext: Vec<u8>) -> ApiResult<Vec<u8>>;
@@ -94,6 +95,7 @@ pub struct ManagedEncryptorDecryptor {
 }
 
 impl ManagedEncryptorDecryptor {
+    #[uniffi::constructor()]
     pub fn new(key_manager: Arc<dyn KeyManager>) -> Self {
         Self { key_manager }
     }
@@ -151,6 +153,7 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
 
 /// Consumers can implement the KeyManager in combination with the ManagedEncryptorDecryptor to hand
 /// over the encryption key whenever encryption or decryption happens.
+#[uniffi::trait_interface]
 pub trait KeyManager: Send + Sync {
     fn get_key(&self) -> ApiResult<Vec<u8>>;
 }
@@ -177,6 +180,7 @@ impl KeyManager for StaticKeyManager {
 /// `PrimaryPasswordAuthenticator` is used in conjunction with `NSSKeyManager` to provide the
 /// primary password and the success or failure actions of the authentication process.
 #[cfg(feature = "keydb")]
+#[uniffi::export(with_foreign)]
 #[async_trait]
 pub trait PrimaryPasswordAuthenticator: Send + Sync {
     /// Get a primary password for authentication, otherwise return the
@@ -227,16 +231,19 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 /// assert_eq!(key_manager.get_key().unwrap().len(), 63);
 /// ```
 #[cfg(feature = "keydb")]
+#[derive(uniffi::Object)]
 pub struct NSSKeyManager {
     key_name: String,
     primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
 }
 
 #[cfg(feature = "keydb")]
+#[uniffi::export]
 impl NSSKeyManager {
     /// Initialize new `NSSKeyManager` with a given `PrimaryPasswordAuthenticator`.
     /// There must be a previous initializiation of NSS before initializing
     /// `NSSKeyManager`, otherwise this panics.
+    #[uniffi::constructor()]
     pub fn new(key_name: &str, primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
         assert_nss_initialized();
         Self {

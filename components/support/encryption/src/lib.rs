@@ -13,6 +13,7 @@ mod encryption;
 pub use crate::encryption::{
     EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager,
 };
+uniffi::include_scaffolding!("encryption");
 
 #[cfg(feature = "keydb")]
 pub use crate::encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
