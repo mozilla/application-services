@@ -85,7 +85,7 @@ impl LoginDb {
     #[cfg(test)]
     pub fn open_in_memory() -> Self {
         let encdec: Arc<dyn EncryptorDecryptor> =
-            crate::encryption::test_utils::TEST_ENCDEC.clone();
+            crate::test_utils::TEST_ENCDEC.clone();
         Self::with_connection(Connection::open_in_memory().unwrap(), encdec).unwrap()
     }
 

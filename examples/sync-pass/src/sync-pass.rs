@@ -7,7 +7,7 @@
 
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
-use logins::encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
+use encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;

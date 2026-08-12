@@ -916,7 +916,7 @@ impl ValidateAndFixup for LoginEntry {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use crate::encryption::test_utils::encrypt_struct;
+    use crate::test_utils::encrypt_struct;
 
     // Factory function to make a new login
     //
