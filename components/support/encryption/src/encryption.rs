@@ -236,7 +236,7 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 ///         Ok(())
 ///     }
 /// }
-/// let key_manager = NSSKeyManager::new("example", Arc::new(MyPrimaryPasswordAuthenticator {}));
+/// let key_manager = NSSKeyManager::new(String::from("example"), Arc::new(MyPrimaryPasswordAuthenticator {}));
 /// assert_eq!(key_manager.get_key().unwrap().len(), 63);
 /// ```
 #[cfg(feature = "keydb")]
