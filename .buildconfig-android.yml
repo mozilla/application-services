@@ -166,3 +166,10 @@ projects:
       type: aar
     description: Client for Firefox Relay.
 
+  encryption:
+    path: components/support/encryption/android
+    artifactId: encryption
+    publications:
+    - name: encryption
+      type: aar
+    description: Credential encryption support

@@ -40,6 +40,7 @@ mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], opt
 # NSS link chain. The megazord cdylib produces a self-contained Rust artifact
 # and needs static mozpkix + pure_virtual on top of the NSS dylibs.
 rc_crypto = { path = "../../components/support/rc_crypto" }
+encryption = { path = "../../components/support/encryption" }
 
 [features]
 mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]

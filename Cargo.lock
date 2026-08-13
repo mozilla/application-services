@@ -2626,6 +2626,7 @@ dependencies = [
  "ads-client",
  "autofill",
  "crashtest",
+ "encryption",
  "error-support",
  "fxa-client",
  "init_rust_components",
