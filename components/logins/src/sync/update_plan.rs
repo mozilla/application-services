@@ -325,7 +325,7 @@ mod tests {
         get_server_modified, insert_encrypted_login, insert_login,
     };
     use crate::db::LoginDb;
-    use crate::encryption::test_utils::TEST_ENCDEC;
+    use crate::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
 
     fn inc_login(id: &str, password: &str) -> crate::sync::IncomingLogin {

@@ -1181,7 +1181,7 @@ lazy_static! {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use crate::encryption::test_utils::decrypt_struct;
+    use crate::test_utils::decrypt_struct;
     use crate::login::test_utils::enc_login;
     use crate::SecureLoginFields;
     use sync15::ServerTimestamp;
@@ -1353,7 +1353,7 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::db::test_utils::{get_local_guids, get_mirror_guids};
-    use crate::encryption::test_utils::TEST_ENCDEC;
+    use crate::test_utils::TEST_ENCDEC;
     use crate::sync::merge::LocalLogin;
     use nss_as::ensure_initialized;
     use std::{thread, time};
