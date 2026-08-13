@@ -1,6 +1,6 @@
-# v155.0 (In progress)
+# v155.0 (_2026-08-13_)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v154.0...v155.0)
 
 ## ✨ What's Changed ✨
 
