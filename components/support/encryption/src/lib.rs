@@ -20,4 +20,3 @@ pub use crate::encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
 pub use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
-use std::sync::Arc;
