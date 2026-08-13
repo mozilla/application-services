@@ -540,8 +540,8 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
+    use crate::test_utils::TEST_ENCDEC;
     use crate::{LoginEntry, LoginFields, LoginMeta, SecureLoginFields};
     use nss_as::ensure_initialized;
     use std::collections::HashMap;

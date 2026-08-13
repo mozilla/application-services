@@ -239,8 +239,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{encrypt_struct, TEST_ENCDEC};
     use crate::sync::merge::SyncLoginData;
+    use crate::test_utils::{encrypt_struct, TEST_ENCDEC};
     use crate::{EncryptedLogin, LoginFields, LoginMeta, SecureLoginFields};
     use sync15::bso::IncomingBso;
 

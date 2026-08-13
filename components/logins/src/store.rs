@@ -629,7 +629,10 @@ mod tests_keydb {
         let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
-        let key_manager = NSSKeyManager::new(crate::KEY_NAME.to_string(), Arc::new(primary_password_authenticator));
+        let key_manager = NSSKeyManager::new(
+            crate::KEY_NAME.to_string(),
+            Arc::new(primary_password_authenticator),
+        );
         let encdec = ManagedEncryptorDecryptor::new(Arc::new(key_manager));
         let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
             .expect("store from fixtures");

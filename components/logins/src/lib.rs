@@ -16,9 +16,7 @@ mod store;
 mod sync;
 mod util;
 
-use encryption::{
-    EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager,
-};
+use encryption::{EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager};
 uniffi::include_scaffolding!("logins");
 
 #[cfg(feature = "keydb")]

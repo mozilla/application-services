@@ -10,9 +10,9 @@ pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
 pub use error_support::{breadcrumb, handle_error, report_error};
 pub use error_support::{debug, error, info, trace, warn};
 
+use encryption::EncryptionApiError;
 use error_support::{ErrorHandling, GetErrorHandling};
 use jwcrypto::JwCryptoError;
-use encryption::EncryptionApiError;
 
 // Errors we return via the public interface.
 #[derive(Debug, thiserror::Error)]
@@ -223,17 +223,25 @@ impl From<EncryptionApiError> for LoginsApiError {
     fn from(error: EncryptionApiError) -> Self {
         match error {
             EncryptionApiError::NSSUninitialized => Self::NSSUninitialized,
-            EncryptionApiError::NSSAuthenticationError{reason: x} => Self::NSSAuthenticationError {
-                reason: x
-            },
-            EncryptionApiError::AuthenticationError{reason: x} => Self::AuthenticationError { reason: x },
+            EncryptionApiError::NSSAuthenticationError { reason: x } => {
+                Self::NSSAuthenticationError { reason: x }
+            }
+            EncryptionApiError::AuthenticationError { reason: x } => {
+                Self::AuthenticationError { reason: x }
+            }
             EncryptionApiError::AuthenticationCanceled => Self::AuthenticationCanceled,
             EncryptionApiError::MissingKey => Self::MissingKey,
             EncryptionApiError::InvalidKey => Self::InvalidKey,
-            EncryptionApiError::EncryptionFailed{reason: x} => Self::EncryptionFailed { reason: x },
-            EncryptionApiError::DecryptionFailed{reason: x} => Self::DecryptionFailed { reason: x },
-            EncryptionApiError::Interrupted{reason: x} => Self::Interrupted { reason: x },
-            EncryptionApiError::UnexpectedEncryptionApiError{reason: x} => Self::UnexpectedLoginsApiError { reason: x },
+            EncryptionApiError::EncryptionFailed { reason: x } => {
+                Self::EncryptionFailed { reason: x }
+            }
+            EncryptionApiError::DecryptionFailed { reason: x } => {
+                Self::DecryptionFailed { reason: x }
+            }
+            EncryptionApiError::Interrupted { reason: x } => Self::Interrupted { reason: x },
+            EncryptionApiError::UnexpectedEncryptionApiError { reason: x } => {
+                Self::UnexpectedLoginsApiError { reason: x }
+            }
         }
     }
 }

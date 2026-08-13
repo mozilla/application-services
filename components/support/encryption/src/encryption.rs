@@ -142,10 +142,11 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
             .map_err(|_: jwcrypto::JwCryptoError| EncryptionApiError::InvalidKey)?;
 
-        let ciphertext =
-            std::str::from_utf8(&cipherbytes).map_err(|e| EncryptionApiError::DecryptionFailed {
+        let ciphertext = std::str::from_utf8(&cipherbytes).map_err(|e| {
+            EncryptionApiError::DecryptionFailed {
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
         encdec
             .decrypt(ciphertext)
             .map_err(
@@ -254,7 +255,10 @@ impl NSSKeyManager {
     /// There must be a previous initializiation of NSS before initializing
     /// `NSSKeyManager`, otherwise this panics.
     #[uniffi::constructor()]
-    pub fn new(key_name: String, primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
+    pub fn new(
+        key_name: String,
+        primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+    ) -> Self {
         assert_nss_initialized();
         Self {
             key_name: key_name,
@@ -327,7 +331,8 @@ impl KeyManager for NSSKeyManager {
             return Ok(bytes);
         }
 
-        let key = get_or_create_aes256_key(self.key_name.as_str()).map_err(|_| EncryptionApiError::MissingKey)?;
+        let key = get_or_create_aes256_key(self.key_name.as_str())
+            .map_err(|_| EncryptionApiError::MissingKey)?;
         let mut bytes: Vec<u8> = Vec::new();
         serde_json::to_writer(
             &mut bytes,
@@ -358,7 +363,7 @@ pub fn create_key() -> ApiResult<String> {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Serialize, de::DeserializeOwned};
 
     lazy_static::lazy_static! {
         pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();

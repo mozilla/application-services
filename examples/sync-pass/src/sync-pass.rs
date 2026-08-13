@@ -7,7 +7,9 @@
 
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
-use encryption::{EncryptionApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
+use encryption::{
+    EncryptionApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator,
+};
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;
@@ -314,7 +316,10 @@ impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
 
 fn open_database(db_path: &str) -> Result<LoginStore> {
     let key_name: &str = "as-login-key";
-    let key_manager = NSSKeyManager::new(key_name.to_string(), Arc::new(MyPrimaryPasswordAuthenticator {}));
+    let key_manager = NSSKeyManager::new(
+        key_name.to_string(),
+        Arc::new(MyPrimaryPasswordAuthenticator {}),
+    );
     let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(key_manager)));
     let store = LoginStore::new(db_path, encdec)?;
     Ok(store)
