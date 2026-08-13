@@ -5,6 +5,7 @@
 package mozilla.appservices.logins
 
 import androidx.test.core.app.ApplicationProvider
+import mozilla.appservices.encryption.KeyManager
 import mozilla.appservices.RustComponentsInitializer
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.telemetry.glean.testing.GleanTestRule
