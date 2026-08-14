@@ -46,18 +46,11 @@ pub enum EncryptionApiError {
     UnexpectedEncryptionApiError { reason: String },
 }
 
-/// Logins error type
+/// Encryption error type
 /// These are "internal" errors used by the implementation. This error type
 /// is never returned to the consumer.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Database is closed")]
-    DatabaseClosed,
-
-    // Fennec import only works on empty logins tables.
-    #[error("The logins tables are not empty")]
-    NonEmptyTable,
-
     #[error("encryption failed: {0:?}")]
     EncryptionFailed(String),
 
@@ -77,17 +70,15 @@ impl GetErrorHandling for Error {
     type ExternalError = EncryptionApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        match self {
-            // Unexpected errors that we report to Sentry.  We should watch the reports for these
-            // and do one or more of these things if we see them:
-            //   - Fix the underlying issue
-            //   - Add breadcrumbs or other context to help uncover the issue
-            //   - Decide that these are expected errors and move them to the above case
-            _ => ErrorHandling::convert(EncryptionApiError::UnexpectedEncryptionApiError {
-                reason: self.to_string(),
-            })
-            .report_error("logins-unexpected"),
-        }
+        // Unexpected errors that we report to Sentry.  We should watch the reports for these
+        // and do one or more of these things if we see them:
+        //   - Fix the underlying issue
+        //   - Add breadcrumbs or other context to help uncover the issue
+        //   - Decide that these are expected errors and move them to the above case
+        ErrorHandling::convert(EncryptionApiError::UnexpectedEncryptionApiError {
+            reason: self.to_string(),
+        })
+        .report_error("encryption-unexpected")
     }
 }
 

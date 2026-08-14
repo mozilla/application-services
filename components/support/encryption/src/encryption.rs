@@ -261,7 +261,7 @@ impl NSSKeyManager {
     ) -> Self {
         assert_nss_initialized();
         Self {
-            key_name: key_name,
+            key_name,
             primary_password_authenticator,
             cached_key: RwLock::new(None),
         }
@@ -358,27 +358,6 @@ pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
 #[handle_error(Error)]
 pub fn create_key() -> ApiResult<String> {
     Ok(jwcrypto::EncryptorDecryptor::create_key()?)
-}
-
-#[cfg(test)]
-pub mod test_utils {
-    use super::*;
-    use serde::{Serialize, de::DeserializeOwned};
-
-    lazy_static::lazy_static! {
-        pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
-        pub static ref TEST_ENCDEC: Arc<ManagedEncryptorDecryptor> = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager { key: TEST_ENCRYPTION_KEY.clone() })));
-    }
-
-    pub fn encrypt_struct<T: Serialize>(fields: &T) -> String {
-        let string = serde_json::to_string(fields).unwrap();
-        let cipherbytes = TEST_ENCDEC.encrypt(string.as_bytes().into()).unwrap();
-        std::str::from_utf8(&cipherbytes).unwrap().to_owned()
-    }
-    pub fn decrypt_struct<T: DeserializeOwned>(ciphertext: String) -> T {
-        let jsonbytes = TEST_ENCDEC.decrypt(ciphertext.as_bytes().into()).unwrap();
-        serde_json::from_str(std::str::from_utf8(&jsonbytes).unwrap()).unwrap()
-    }
 }
 
 #[cfg(not(feature = "keydb"))]
