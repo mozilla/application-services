@@ -913,6 +913,7 @@ impl ValidateAndFixup for LoginEntry {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
