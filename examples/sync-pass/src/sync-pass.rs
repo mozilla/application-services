@@ -10,7 +10,7 @@ use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_us
 use encryption::{
     EncryptionApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator,
 };
-use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
+use logins::{Login, LoginEntry, LoginStore, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;
 use std::sync::Arc;
