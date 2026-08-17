@@ -39,6 +39,12 @@ In the cases where the failed before, they're now no-ops.
 
 - `SyncManager::sync()` now fails immediately with a new `SyncManagerError::Busy` when a sync is already in progress, instead of blocking until it finishes.
 
+## 🔧 What's Fixed 🔧
+
+### Logins
+
+- Fixed a crash ("record's ID is invalid") when syncing a login whose guid is invalid for the sync server. Serializing such a record now returns an error instead of panicking, and the logins engine skips it so a single login can no longer block the whole sync. ([Bug 2056116](https://bugzilla.mozilla.org/show_bug.cgi?id=2056116))
+
 # v154.0 (_2026-07-20_)
 
 ## ✨ What's Changed ✨
