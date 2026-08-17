@@ -1,5 +1,11 @@
 # v156.0 (In progress)
 
+## ✨ What's Changed ✨
+
+### Nimbus
+
+- The `pref-key` annotation for FML feature variables has been removed. ([#TODO](TODO))
+
 [Full Changelog](In progress)
 
 # v155.0 (_2026-08-13_)
@@ -36,7 +42,7 @@ In the cases where the failed before, they're now no-ops.
 
 ### Remote Settings
 - Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
-- Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518)) 
+- Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518))
 - Do not quote `_since` values with the v2 API ([#7523](https://github.com/mozilla/application-services/pull/7523))
 
 ### Sync Manager
