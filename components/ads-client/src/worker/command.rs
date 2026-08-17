@@ -19,6 +19,10 @@ use crate::{
     AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
 
+// Command dispatch enum for passing different instructions to the background worker thread.
+// `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
+// `RecordClick`, `RecordImpression`, `ReportAd` are fire and forget mechanisms that do not load data.
+// `Ping` is a synchronous command for internal use that triggers its inner channel when command resolves (eg: when the queue is empty).
 pub enum DispatchCommand {
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
@@ -75,8 +79,6 @@ impl DispatchCommand {
                 ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-
-                // Image ads
                 if !image_ad_requests.is_empty() {
                     let image_ad_requests: Vec<AdPlacementRequest> =
                         image_ad_requests.iter().map(|r| r.into()).collect();
@@ -96,8 +98,6 @@ impl DispatchCommand {
                 ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-
-                // Spoc ads
                 if !spoc_ad_requests.is_empty() {
                     let spoc_ad_requests: Vec<AdPlacementRequest> =
                         spoc_ad_requests.iter().map(|r| r.into()).collect();
@@ -117,8 +117,6 @@ impl DispatchCommand {
                 ohttp,
             } => {
                 let mut inner = ads_client_inner.lock();
-
-                // Tile ads
                 if !tile_ad_requests.is_empty() {
                     let tile_ad_requests: Vec<AdPlacementRequest> =
                         tile_ad_requests.iter().map(|r| r.into()).collect();

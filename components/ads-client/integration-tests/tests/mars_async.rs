@@ -24,7 +24,7 @@ fn prod_client() -> ads_client::MozAdsClient {
         .build()
 }
 
-// Reusable helper to prefetches a tile ad, wait for completion, and query it.
+// Reusable test helper that prefetches a tile ad, waits for background process to complete, and queries it.
 // Should mimic the `test_contract_tile_prod_async` test.
 fn generate_tile_ad_async_helper(client: &MozAdsClient) -> MozAdsTile {
     // Prefetch
@@ -45,7 +45,7 @@ fn generate_tile_ad_async_helper(client: &MozAdsClient) -> MozAdsTile {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -58,7 +58,7 @@ fn generate_tile_ad_async_helper(client: &MozAdsClient) -> MozAdsTile {
     );
     result
         .unwrap()
-        .expect("`query_tile_ads` in `generate_tile_ad_sync` should return Some")
+        .expect("`query_tile_ads` in `generate_tile_ad_sync_helper` should return Some")
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn test_contract_image_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -131,7 +131,7 @@ fn test_contract_image_with_categories_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -175,7 +175,7 @@ fn test_contract_spoc_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -215,7 +215,7 @@ fn test_contract_tile_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -340,7 +340,7 @@ fn test_contract_tile_ohttp_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
@@ -392,7 +392,7 @@ fn test_contract_multi_ad_type_prod_async() {
         result.err()
     );
 
-    // Ping
+    // Ping (waits for queue to clear)
     let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 

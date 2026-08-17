@@ -52,7 +52,6 @@ pub enum BackgroundWorkerError {
 }
 
 impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
-    // TODO: For future vertical slice (for retries), we may want to keep the failed dispatch for retrying
     fn from(value: TrySendError<command::DispatchCommand>) -> Self {
         match value {
             TrySendError::Disconnected(_) => BackgroundWorkerError::WorkerClosed,
