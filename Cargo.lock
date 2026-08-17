@@ -874,12 +874,12 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.2.8"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edb49164822f3ee45b17acd4a208cfc1251410cf0cad9a833234c9890774dd9f"
+checksum = "914a755b7c2d4af2bdcff7ce1739e2db9a1b81a9b07123d8015786ae03c0980d"
 dependencies = [
- "quote",
- "syn 2.0.106",
+ "link-section",
+ "linktime-proc-macro",
 ]
 
 [[package]]
@@ -2458,10 +2458,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "link-section"
+version = "0.19.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39c29a617ce3df32c08497bdc1ab6e2376e0b17948ac166a2fbe5977c5954cd9"
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+
+[[package]]
+name = "linktime-proc-macro"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e57c38c1e860fd37c604281cdfb1dd2216977fd76a50f85ba2f388ef3219616"
 
 [[package]]
 name = "linux-raw-sys"
@@ -3090,7 +3102,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror 2.0.3",
- "toml 0.5.9",
+ "toml 0.9.6",
 ]
 
 [[package]]
