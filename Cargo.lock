@@ -2671,6 +2671,7 @@ dependencies = [
  "autofill",
  "context_id",
  "crashtest",
+ "encryption",
  "error-support",
  "fxa-client",
  "init_rust_components",

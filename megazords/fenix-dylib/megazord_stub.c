@@ -13,6 +13,7 @@
 extern int MOZ_EXPORT ffi_ads_client_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_autofill_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_crashtest_uniffi_contract_version();
+extern int MOZ_EXPORT ffi_encryption_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_fxa_client_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_init_rust_components_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_logins_uniffi_contract_version();
