@@ -20,6 +20,7 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
+use crate::nimbus::NimbusFlags;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -107,6 +108,7 @@ struct MozAdsClientBuilderInner {
     context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    nimbus_flags: Option<NimbusFlags>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -139,9 +141,9 @@ impl MozAdsClientBuilder {
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
         };
         let client = AdsClient::new(client_config);
-        MozAdsClient {
-            inner: Mutex::new(client),
-        }
+        let flags = Arc::new(inner.nimbus_flags.clone().unwrap_or_default());
+        let inner = Mutex::new(client);
+        MozAdsClient { inner, flags }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
@@ -164,6 +166,11 @@ impl MozAdsClientBuilder {
 
     pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
         self.0.lock().telemetry = Some(Arc::from(telemetry));
+        self
+    }
+
+    pub fn nimbus_flags(self: Arc<Self>, flags: HashMap<String, bool>) -> Arc<Self> {
+        self.0.lock().nimbus_flags = Some(NimbusFlags::new(flags));
         self
     }
 }
