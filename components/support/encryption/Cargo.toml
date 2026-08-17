@@ -1,8 +1,9 @@
 [package]
 name = "encryption"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["Naomi Kirby <nkirby@mozilla.com>"]
+license = "MPL-2.0"
 
 [features]
 default = []
@@ -19,10 +20,7 @@ async-trait = { version = "0.1", optional = true }
 error-support = { path = "../error" }
 futures = { version = "0.3", optional = true, features = ["executor"] }
 jwcrypto = { path = "../jwcrypto" }
-lazy_static = "1.4"
 nss-as = { path = "../rc_crypto/nss", default-features = false }
-serde = "1"
-serde_derive = "1"
 serde_json = "1"
 
 thiserror = "2"
