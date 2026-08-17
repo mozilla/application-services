@@ -4,7 +4,7 @@
 
 use error_support::{ErrorHandling, GetErrorHandling};
 // reexport logging helpers.
-pub use error_support::{debug, error, info, trace, warn};
+pub use error_support::{breadcrumb, debug, error, info, trace, warn};
 
 pub type ApiResult<T> = std::result::Result<T, RemoteSettingsError>;
 pub type Result<T> = std::result::Result<T, Error>;

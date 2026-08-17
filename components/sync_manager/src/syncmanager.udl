@@ -11,6 +11,7 @@ namespace syncmanager { };
 enum SyncManagerError {
     "UnknownEngine",
     "UnsupportedFeature",
+    "Busy",
     "Sync15Error",
     "UrlParseError",
     "InterruptedError",
