@@ -208,7 +208,6 @@ mod tests {
         let mut ads_store = AdsStore::new_with_ttl(Duration::from_mins(3));
 
         let demo_ads = test_utils::get_example_happy_spoc_response().data;
-        // TODO: Remove this bit.
         let demo_ads: HashMap<PlacementId, Vec<AdSpoc>> = demo_ads
             .clone()
             .into_iter()
@@ -245,7 +244,6 @@ mod tests {
         let mut ads_store = AdsStore::new_with_ttl(Duration::from_mins(3));
 
         let demo_ads = test_utils::get_example_happy_uatile_response().data;
-        // TODO: Remove this bit.
         let demo_ads: HashMap<PlacementId, AdTile> = demo_ads
             .clone()
             .into_iter()
