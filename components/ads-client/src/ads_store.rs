@@ -164,13 +164,13 @@ mod tests {
 
     #[test]
     fn test_store_image_ad() {
-        let five_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(5))
-            .expect("Could not create `Instant` for 5 minutes ago");
         let one_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(1))
+            .checked_sub(Duration::from_secs(60))
+            .expect("Could not create `Instant` for 5 minutes ago");
+        let five_sec_ago = Instant::now()
+            .checked_sub(Duration::from_secs(5))
             .expect("Could not create `Instant` for 1 minute ago");
-        let mut ads_store = AdsStore::new_with_ttl(Duration::from_mins(3));
+        let mut ads_store = AdsStore::new_with_ttl(Duration::from_secs(30));
 
         let demo_ads = test_utils::get_example_happy_image_response().data;
         let demo_ads: HashMap<PlacementId, AdImage> = demo_ads
@@ -184,13 +184,13 @@ mod tests {
             .expect("No test data in `get_example_happy_image_response`")
             .0;
 
-        ads_store.store_ads::<AdImage>(demo_ads.clone(), five_min_ago);
+        ads_store.store_ads::<AdImage>(demo_ads.clone(), one_min_ago);
         assert!(
             ads_store.get_stored_ads::<AdImage>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
-        ads_store.store_ads::<AdImage>(demo_ads.clone(), one_min_ago);
+        ads_store.store_ads::<AdImage>(demo_ads.clone(), five_sec_ago);
         assert!(
             ads_store.get_stored_ads::<AdImage>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
@@ -199,13 +199,13 @@ mod tests {
 
     #[test]
     fn test_store_spocs_ad() {
-        let five_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(5))
-            .expect("Could not create `Instant` for 5 minutes ago");
         let one_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(1))
+            .checked_sub(Duration::from_secs(60))
+            .expect("Could not create `Instant` for 5 minutes ago");
+        let five_sec_ago = Instant::now()
+            .checked_sub(Duration::from_secs(5))
             .expect("Could not create `Instant` for 1 minute ago");
-        let mut ads_store = AdsStore::new_with_ttl(Duration::from_mins(3));
+        let mut ads_store = AdsStore::new_with_ttl(Duration::from_secs(30));
 
         let demo_ads = test_utils::get_example_happy_spoc_response().data;
         let demo_ads: HashMap<PlacementId, Vec<AdSpoc>> = demo_ads
@@ -219,13 +219,13 @@ mod tests {
             .expect("No test data in `get_example_happy_spoc_response`")
             .0;
 
-        ads_store.store_ads::<AdSpoc>(demo_ads.clone(), five_min_ago);
+        ads_store.store_ads::<AdSpoc>(demo_ads.clone(), one_min_ago);
         assert!(
             ads_store.get_stored_ads::<AdSpoc>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
-        ads_store.store_ads::<AdSpoc>(demo_ads.clone(), one_min_ago);
+        ads_store.store_ads::<AdSpoc>(demo_ads.clone(), five_sec_ago);
         assert!(
             ads_store.get_stored_ads::<AdSpoc>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
@@ -235,13 +235,13 @@ mod tests {
     #[test]
 
     fn test_store_tiles_ad() {
-        let five_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(5))
-            .expect("Could not create `Instant` for 5 minutes ago");
         let one_min_ago = Instant::now()
-            .checked_sub(Duration::from_mins(1))
+            .checked_sub(Duration::from_secs(60))
+            .expect("Could not create `Instant` for 5 minutes ago");
+        let five_sec_ago = Instant::now()
+            .checked_sub(Duration::from_secs(5))
             .expect("Could not create `Instant` for 1 minute ago");
-        let mut ads_store = AdsStore::new_with_ttl(Duration::from_mins(3));
+        let mut ads_store = AdsStore::new_with_ttl(Duration::from_secs(30));
 
         let demo_ads = test_utils::get_example_happy_uatile_response().data;
         let demo_ads: HashMap<PlacementId, AdTile> = demo_ads
@@ -255,13 +255,13 @@ mod tests {
             .expect("No test data in `get_example_happy_uatile_response`")
             .0;
 
-        ads_store.store_ads::<AdTile>(demo_ads.clone(), five_min_ago);
+        ads_store.store_ads::<AdTile>(demo_ads.clone(), one_min_ago);
         assert!(
             ads_store.get_stored_ads::<AdTile>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
-        ads_store.store_ads::<AdTile>(demo_ads.clone(), one_min_ago);
+        ads_store.store_ads::<AdTile>(demo_ads.clone(), five_sec_ago);
         assert!(
             ads_store.get_stored_ads::<AdTile>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
