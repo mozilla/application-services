@@ -35,11 +35,11 @@ unzstd cctools.tar.zst
 tar -xf cctools.tar
 rm cctools.tar.zst
 curl -sfSL --retry 5 --retry-delay 10 \
-    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.clang-dist-toolchain.latest/artifacts/public%2Fbuild%2Fclang-dist-toolchain.tar.xz \
-    -o clang-dist-toolchain.tar.xz
-tar -xf clang-dist-toolchain.tar.xz
-mv builds/worker/toolchains/clang clang
-rm clang-dist-toolchain.tar.xz
+    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.linux64-clang-22.latest/artifacts/public%2Fbuild%2Fclang.tar.zst \
+    -o clang.tar.zst
+unzstd clang.tar.zst
+tar -xf clang.tar
+rm clang.tar.zst clang.tar
 
 popd
 
