@@ -186,13 +186,13 @@ mod tests {
 
         ads_store.store_ads::<AdImage>(demo_ads.clone(), five_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdImage>(&first_key).is_none(),
+            ads_store.get_stored_ads::<AdImage>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
         ads_store.store_ads::<AdImage>(demo_ads.clone(), one_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdImage>(&first_key).is_some(),
+            ads_store.get_stored_ads::<AdImage>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
         );
     }
@@ -212,7 +212,7 @@ mod tests {
         let demo_ads: HashMap<PlacementId, Vec<AdSpoc>> = demo_ads
             .clone()
             .into_iter()
-            .filter_map(|(k, v)| Some((PlacementId(k), v)))
+            .map(|(k, v)| (PlacementId(k), v))
             .collect();
         let first_key = demo_ads
             .iter()
@@ -222,13 +222,13 @@ mod tests {
 
         ads_store.store_ads::<AdSpoc>(demo_ads.clone(), five_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdSpoc>(&first_key).is_none(),
+            ads_store.get_stored_ads::<AdSpoc>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
         ads_store.store_ads::<AdSpoc>(demo_ads.clone(), one_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdSpoc>(&first_key).is_some(),
+            ads_store.get_stored_ads::<AdSpoc>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
         );
     }
@@ -259,13 +259,13 @@ mod tests {
 
         ads_store.store_ads::<AdTile>(demo_ads.clone(), five_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdTile>(&first_key).is_none(),
+            ads_store.get_stored_ads::<AdTile>(first_key).is_none(),
             "Old data past TTL date must not be returned."
         );
 
         ads_store.store_ads::<AdTile>(demo_ads.clone(), one_min_ago);
         assert!(
-            ads_store.get_stored_ads::<AdTile>(&first_key).is_some(),
+            ads_store.get_stored_ads::<AdTile>(first_key).is_some(),
             "Could not fetch fresh ad from ads store."
         );
     }
