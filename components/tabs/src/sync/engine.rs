@@ -212,7 +212,7 @@ impl SyncEngine for TabsEngine {
         };
         super::prepare_for_upload(&mut record);
 
-        trace!("outgoing {:?}", record);
+        trace!("outgoing {record}");
         let envelope = OutgoingEnvelope {
             id: local_id.as_str().into(),
             ttl: Some(TABS_CLIENT_TTL),

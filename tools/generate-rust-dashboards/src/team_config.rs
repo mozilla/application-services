@@ -43,7 +43,15 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         "key_regenerated_corrupt",
                         "key_regenerated_other",
                     ],
-                    applications: vec![Android],
+                    applications: vec![Android, Ios],
+                }
+                .into(),
+                EventsMetric {
+                    display_name: "Credit Card key regeneration",
+                    ping: "metrics",
+                    category: "credit_card_key_regeneration",
+                    metrics: vec!["keychain_data_lost", "lost", "corrupt", "other"],
+                    applications: vec![Ios],
                 }
                 .into(),
             ],
