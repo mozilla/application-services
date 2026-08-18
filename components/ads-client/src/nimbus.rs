@@ -47,3 +47,26 @@ impl NimbusFlag {
         }
     }
 }
+
+mod tests {
+    #[test]
+    fn nimbus_test_flag_active_on_test() {
+        let nimbus_flag_off = std::sync::Arc::new(crate::MozAdsClientBuilder::new())
+            .environment(crate::MozAdsEnvironment::Test)
+            .build();
+        assert!(
+            !nimbus_flag_off.nimbus_test_flag(),
+            "Nimbus `Test` flag should be disabled if no flags are passed"
+        );
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("test".to_string(), true);
+        let nimbus_flag_on = std::sync::Arc::new(crate::MozAdsClientBuilder::new())
+            .environment(crate::MozAdsEnvironment::Test)
+            .nimbus_flags(flags)
+            .build();
+        assert!(
+            nimbus_flag_on.nimbus_test_flag(),
+            "Nimbus `Test` flag should be enabled if no flag is passed"
+        );
+    }
+}
