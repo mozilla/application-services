@@ -26,6 +26,10 @@
 - The `CheckAuthorizationStatus` and `Disconnect` events are now valid from all states except `Uninitialized`.
 In the cases where the failed before, they're now no-ops.
 
+### Logins
+
+- `NSSKeyManager` now caches the encryption key instead of fetching it from NSS on every `encrypt()`/`decrypt()` call. Bulk operations such as `add_many_with_meta()` previously paid at least two NSS token round-trips per record while holding the store mutex, which could stall `shutdown()` past the async shutdown timeout. The cache is dropped whenever the token is found locked again, so primary password re-authentication is unaffected. ([Bug 2062062](https://bugzilla.mozilla.org/show_bug.cgi?id=2062062))
+
 ### Nimbus
 
 - `NimbusClient::get_available_firefox_labs()` now includes detailed debug level logging for each processed lab. ([#7482](https://github.com/mozilla/application-services/pull/7482))
