@@ -149,19 +149,10 @@ interface LoginsApiError {
 };
 
 [External = "encryption"]
-typedef interface EncryptionApiError;
+typedef trait_with_foreign EncryptorDecryptor;
 
 [External = "encryption"]
-typedef trait EncryptorDecryptor;
-
-[External = "encryption"]
-typedef trait KeyManager;
-
-[External = "encryption"]
-typedef interface StaticKeyManager;
-
-[External = "encryption"]
-typedef interface ManagedEncryptorDecryptor;
+typedef trait_with_foreign KeyManager;
 
 interface LoginStore {
     [Throws=LoginsApiError]
