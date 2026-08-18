@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::ads_store::{AdsStorable, AdsStore};
+use crate::ads_store::{AdsStorable, AdsStore, PlacementId};
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -114,13 +114,16 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn store_ads<A: AdsStorable>(&mut self, ads: HashMap<String, A::StorageType>) {
+    pub fn store_ads<A: AdsStorable>(&mut self, ads: HashMap<PlacementId, A::StorageType>) {
         let now = std::time::Instant::now();
         self.ads_store.store_ads::<A>(ads, now);
     }
 
     #[allow(dead_code)]
-    pub fn get_stored_ads<A: AdsStorable>(&self, placement_id: &str) -> Option<&A::StorageType> {
+    pub fn get_stored_ads<A: AdsStorable>(
+        &self,
+        placement_id: &PlacementId,
+    ) -> Option<&A::StorageType> {
         self.ads_store.get_stored_ads::<A>(placement_id)
     }
 
