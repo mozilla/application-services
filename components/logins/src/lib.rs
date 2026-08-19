@@ -58,7 +58,6 @@ pub fn create_login_store_with_static_key_manager(path: String, key: String) -> 
     Arc::new(store)
 }
 
-
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
     Ok(encryption::create_canary(text, key)?)

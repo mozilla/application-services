@@ -502,10 +502,10 @@ mod tests_keydb {
         let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
-        let nss_key_manager = NSSKeyManager {
-            key_name: String::from("as-logins-key"),
-            primary_password_authenticator: Arc::new(mock_primary_password_authenticator),
-        };
+        let nss_key_manager = NSSKeyManager::new(
+            String::from("as-logins-key"),
+            Arc::new(mock_primary_password_authenticator),
+        );
         // key from fixtures/profile/key4.db
         let expected = [
             123, 34, 107, 116, 121, 34, 58, 34, 111, 99, 116, 34, 44, 34, 107, 34, 58, 34, 66, 74,
@@ -521,9 +521,13 @@ mod tests_keydb {
     fn test_nss_key_manager_caching() {
         ensure_initialized_with_profile_dir(profile_path());
         // `password` is the primary password of the profile fixture
-        let nss_key_manager = NSSKeyManager::new(Arc::new(MockPrimaryPasswordAuthenticator {
+        let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
-        }));
+        };
+        let nss_key_manager = NSSKeyManager::new(
+            String::from("as-logins-key"),
+            Arc::new(mock_primary_password_authenticator),
+        );
 
         let key = nss_key_manager.get_key().unwrap();
         assert_eq!(*nss_key_manager.cached_key.read(), Some(key.clone()));
