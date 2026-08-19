@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["enroll_in_firefox_lab","get_enrollments","get_experiment_participation","get_rollout_participation","opt_in_with_branch","opt_out","reset_telemetry_identifiers","set_experiment_participation","set_rollout_participation","unenroll_for_pref","unenroll_from_all_firefox_labs","unenroll_from_firefox_lab"],"mod":["v3"]};

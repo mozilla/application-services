@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"fn":["open_database","open_database_with_flags","open_memory_database","open_memory_database_with_flags","read_only_flags","read_write_flags","unique_in_memory_db_path"],"mod":["test_utils"],"trait":["ConnectionInitializer"],"type":["Result"]};

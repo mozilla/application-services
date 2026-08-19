@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MergeResult"],"mod":["address","credit_card","engine"],"struct":["AddressesBridgedEngine","IncomingState"],"trait":["ProcessIncomingRecordImpl","ProcessOutgoingRecordImpl","SyncRecord"]};

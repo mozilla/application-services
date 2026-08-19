@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["in_shutdown","register_interrupt","shutdown"],"struct":["Interrupted","NeverInterrupts","ShutdownInterruptee","SqlInterruptHandle","SqlInterruptScope"],"trait":["Interruptee"]};

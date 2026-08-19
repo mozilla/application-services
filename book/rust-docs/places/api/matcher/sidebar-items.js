@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["accept_result","match_url","search_frecent","split_after_host_and_port","split_after_prefix"],"struct":["SearchParams","SearchResult"]};

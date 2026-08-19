@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AppCommand","LaunchableApp"],"fn":["get_commands_from_cli","main"],"mod":["cli","cmd","config","feature_utils","output","protocol","sources","updater","value_utils","version_utils"],"static":["USER_AGENT"],"struct":["AppOpenArgs","NimbusApp"]};

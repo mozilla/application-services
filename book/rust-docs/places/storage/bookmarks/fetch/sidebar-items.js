@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Item"],"fn":["fetch_bookmark","fetch_bookmarks_by_url","fetch_tree","fetch_tree_with_depth","recent_bookmarks","search_bookmarks"],"struct":["BookmarkData","Folder","RECENT_BOOKMARKS_QUERY","SEARCH_QUERY","Separator"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddressBulkResultEntry","AddressBulkTombstoneResultEntry"],"struct":["Address","AddressMeta","AddressTombstone","InternalAddress","UpdatableAddressFields","UpdatableAddressFieldsWithMeta"]};

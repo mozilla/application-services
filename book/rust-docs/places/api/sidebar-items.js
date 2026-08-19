@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply_observation"],"mod":["history","matcher","places_api"]};
