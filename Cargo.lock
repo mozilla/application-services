@@ -1115,6 +1115,7 @@ dependencies = [
  "futures",
  "jwcrypto",
  "nss-as",
+ "parking_lot",
  "serde_json",
  "thiserror 2.0.3",
  "uniffi",
