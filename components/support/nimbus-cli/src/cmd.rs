@@ -345,7 +345,7 @@ impl LaunchableApp {
         )?];
         prompt(
             &mut stdout,
-            &format!("# Enrolling in the '{0}' branch of '{1}'", branch, &slug),
+            &format!("# Enrolling in the '{0}' branch of '{1}'", branch, slug),
         )?;
 
         for r in rollouts {
@@ -359,7 +359,7 @@ impl LaunchableApp {
             )?);
             prompt(
                 &mut stdout,
-                &format!("# Enrolling into the '{0}' rollout", &slug),
+                &format!("# Enrolling into the '{0}' rollout", slug),
             )?;
         }
 
@@ -596,19 +596,46 @@ impl LaunchableApp {
             let (start_args, ending_args) = open.args();
             args.extend_from_slice(start_args);
 
-            if let Some(deeplink) = self.deeplink(open)? {
-                args.extend([
-                    "-a android.intent.action.VIEW".to_string(),
-                    "-c android.intent.category.DEFAULT".to_string(),
-                    "-c android.intent.category.BROWSABLE".to_string(),
-                    format!("-d {}", deeplink),
-                ]);
+            // If app_protocol is Default::default(), we are doing an open
+            // command and need to launch the browser with am start.
+            let legacy_open_mode = open.legacy_open_mode
+                || (!app_protocol.reset_db
+                    && app_protocol.experiments.is_none()
+                    && !app_protocol.log_state
+                    && app_protocol.jexl_expression.is_none());
+
+            let am_cmd = if legacy_open_mode {
+                "start"
             } else {
-                args.extend([
-                    format!("-n {}/{}", package_name, activity_name),
-                    "-a android.intent.action.MAIN".to_string(),
-                    "-c android.intent.category.LAUNCHER".to_string(),
-                ]);
+                "broadcast"
+            };
+
+            match (open.legacy_open_mode, self.deeplink(open)?) {
+                (true, Some(deeplink)) => {
+                    args.extend([
+                        "-a android.intent.action.VIEW".to_string(),
+                        "-c android.intent.category.DEFAULT".to_string(),
+                        "-c android.intent.category.BROWSABLE".to_string(),
+                        format!("-d {}", deeplink),
+                    ]);
+                }
+                (true, None) => {
+                    args.extend([
+                        format!("-n {}/{}", package_name, activity_name),
+                        "-a android.intent.action.MAIN".to_string(),
+                        "-c android.intent.category.LAUNCHER".to_string(),
+                    ]);
+                }
+                (false, Some(_)) => {
+                    bail!("--deeplink is unsupported without --legacy-open");
+                }
+                (false, None) => {
+                    args.extend([
+                        format!("-p {}", package_name),
+                        "-a org.mozilla.fenix.NIMBUS_TOOLING".to_string(),
+                        "-f 0x20".to_string(), // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
+                    ]);
+                }
             }
 
             let StartAppProtocol {
@@ -638,7 +665,7 @@ impl LaunchableApp {
             };
             args.extend_from_slice(ending_args);
 
-            let sh = format!(r#"am start {}"#, args.join(" \\\n        "),);
+            let sh = format!(r#"am {am_cmd} {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
             prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
             let mut cmd = self.exe()?;
@@ -654,6 +681,10 @@ impl LaunchableApp {
             app_id, device_id, ..
         } = self
         {
+            if open.legacy_open_mode {
+                bail!("--legacy-open unsupported for iOS");
+            }
+
             let mut args: Vec<String> = Vec::new();
 
             let (starting_args, ending_args) = open.args();

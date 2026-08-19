@@ -340,6 +340,12 @@ pub(crate) struct OpenArgs {
     #[arg(last = true, value_name = "PASSTHROUGH_ARGS")]
     pub(crate) passthrough: Vec<String>,
 
+    /// Attempt to trigger Firefox via the legacy codepath.
+    ///
+    /// This is required for some older Firefox versions.
+    #[arg(long = "legacy-open")]
+    pub(crate) legacy_open_mode: bool,
+
     /// An optional file to dump experiments into.
     ///
     /// If present, then the app is not launched, so this option does not work with
