@@ -23,7 +23,6 @@ uniffi::include_scaffolding!("logins");
 pub use encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
 pub use crate::db::{LoginDb, LoginsDeletionMetrics};
-use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
@@ -57,6 +56,21 @@ pub fn create_login_store_with_static_key_manager(path: String, key: String) -> 
         ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key)));
     let store = LoginStore::new(path, Arc::new(encdec)).expect("error setting up LoginStore");
     Arc::new(store)
+}
+
+
+#[handle_error(Error)]
+pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
+    Ok(encryption::create_canary(text, key)?)
+}
+
+pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
+    Ok(encryption::check_canary(canary, text, key)?)
+}
+
+#[handle_error(Error)]
+pub fn create_key() -> ApiResult<String> {
+    Ok(encryption::create_key()?)
 }
 
 // Create a LoginStore with NSSKeyManager by passing in a db path and a PrimaryPasswordAuthenticator.
