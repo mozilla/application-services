@@ -19,6 +19,8 @@
 //! * [`Login`] - A [`LoginEntry`] plus DB record information.  This includes the GUID and metadata
 //!   like time_last_used.
 //! * [`EncryptedLogin`] -- A Login above with the username/password data encrypted.
+//! * [`LoginCandidate`] -- A [`Login`] without the username/password, for callers who want to
+//!   filter on the cleartext fields before asking for the encryption key.
 //! * [`LoginFields`], [`SecureLoginFields`], [`LoginMeta`] -- These group the common fields in the
 //!   structs above.
 //!
@@ -715,6 +717,52 @@ impl EncryptedLogin {
         // and difficult - we now only do that on add/insert when we have the
         // encryption key.
         Ok(login)
+    }
+}
+
+/// A login stored in the database, minus the encrypted fields.
+///
+/// Getting one of these never needs the encryption key, so callers which only match on the
+/// cleartext fields (eg, `origin`) can do so without forcing the user to authenticate.  Once
+/// they know which logins they want, `LoginStore::get_many()` decrypts just those.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct LoginCandidate {
+    // meta fields
+    pub id: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+
+    // breach alerts
+    pub time_last_breach_alert_dismissed: Option<i64>,
+
+    // login fields
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_field: String,
+    pub password_field: String,
+}
+
+impl From<EncryptedLogin> for LoginCandidate {
+    fn from(login: EncryptedLogin) -> Self {
+        // Note the `sec_fields` are simply dropped - we never look at the key.
+        let EncryptedLogin { meta, fields, .. } = login;
+        Self {
+            id: meta.id,
+            time_created: meta.time_created,
+            time_password_changed: meta.time_password_changed,
+            time_last_used: meta.time_last_used,
+            times_used: meta.times_used,
+            time_last_breach_alert_dismissed: meta.time_last_breach_alert_dismissed,
+
+            origin: fields.origin,
+            form_action_origin: fields.form_action_origin,
+            http_realm: fields.http_realm,
+            username_field: fields.username_field,
+            password_field: fields.password_field,
+        }
     }
 }
 
