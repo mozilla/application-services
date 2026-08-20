@@ -175,9 +175,10 @@ pub struct SearchEngineUrls {
 #[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchEngineClassification {
-    General = 2,
     #[default]
     Unknown = 1,
+    General = 2,
+    Ai = 3,
 }
 
 impl SearchEngineClassification {
@@ -185,6 +186,7 @@ impl SearchEngineClassification {
         match self {
             SearchEngineClassification::Unknown => "unknown",
             SearchEngineClassification::General => "general",
+            SearchEngineClassification::Ai => "ai",
         }
     }
 }
