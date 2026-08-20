@@ -560,4 +560,30 @@ mod tests {
         client.shutdown_client().unwrap();
         assert_eq!(weak_reference.strong_count(), 0);
     }
+
+    #[test]
+    fn test_shutdown_is_idempotent() {
+        viaduct_dev::init_backend_dev();
+
+        let noop_telemetry = MozAdsTelemetryWrapper::noop();
+        let weak_reference = Arc::downgrade(
+            &noop_telemetry
+                .clone_inner_arc()
+                .expect("Inner telemetry should be Some before dropping"),
+        );
+        // A real cache so the second shutdown exercises the db close path.
+        let cache = HttpCache::builder("test_shutdown_is_idempotent")
+            .build()
+            .unwrap();
+        let mars_client = MARSClient::new(Environment::Test, Some(cache), noop_telemetry);
+        let mut client = new_with_mars_client(mars_client);
+
+        client.shutdown_client().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
+
+        // Repeated shutdowns must not error or re-close an already closed connection.
+        client.shutdown_client().unwrap();
+        client.shutdown_client().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
+    }
 }
