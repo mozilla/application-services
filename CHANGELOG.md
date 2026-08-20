@@ -22,7 +22,7 @@
 
 ### Suggest
 
-- `Suggestion.Amp` gained a new `suggestionId` field: a unique identifier for the sponsored suggestion assigned by the ingestion pipeline, deserialized from the `suggestion_id` field of the remote settings AMP data. Adding a field to the `Amp` variant is source-breaking for consumers that destructure it positionally (Firefox iOS); consumers that access fields by name (Firefox Android, Firefox Desktop) are unaffected. ([#7554](https://github.com/mozilla/application-services/pull/7554))
+- `Suggestion.Amp` gained a new `suggestionId` field: a unique identifier for the sponsored suggestion assigned by the ingestion pipeline, deserialized from the `suggestion_id` field of the remote settings AMP data. ([#7554](https://github.com/mozilla/application-services/pull/7554))
 
 # v155.0 (_2026-08-13_)
 
