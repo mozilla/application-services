@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- Add optional `nimbus_flags(...)` argument to ads-client builder, allowing passed nimbus flags to be read within the rust component itself.
+
 # v155.0 (_2026-08-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v154.0...v155.0)

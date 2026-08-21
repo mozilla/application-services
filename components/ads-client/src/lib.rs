@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -19,11 +19,15 @@ mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
+pub mod nimbus;
 pub mod telemetry;
 
 pub use ffi::*;
 
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+use crate::{
+    ffi::telemetry::MozAdsTelemetryWrapper,
+    nimbus::{NimbusFlag, NimbusFlags},
+};
 
 #[cfg(test)]
 mod test_utils;
@@ -39,6 +43,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    flags: Arc<NimbusFlags>,
 }
 
 #[uniffi::export]
@@ -172,5 +177,18 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, Some(cache_policy), ohttp)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+impl MozAdsClient {
+    pub fn check_nimbus_flag(&self, flag: &NimbusFlag) -> bool {
+        self.flags.check_flag(flag)
+    }
+}
+
+#[cfg(test)]
+impl MozAdsClient {
+    fn nimbus_test_flag(&self) -> bool {
+        self.flags.check_flag(&crate::nimbus::NimbusFlag::Test)
     }
 }
