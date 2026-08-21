@@ -14,6 +14,11 @@ dictionary CalculatedAttributes {
     string? region;
 };
 
+dictionary EnrollmentSlugs {
+    string slug;
+    string branch_slug;
+};
+
 namespace nimbus {
 
     /// A test utility used to validate event queries against the jexl evaluator.
@@ -25,6 +30,13 @@ namespace nimbus {
     ///
     [Throws=NimbusError]
     CalculatedAttributes get_calculated_attributes(i64? installation_date, string db_path, string locale);
+
+    /// Return the list of active experiments.
+    ///
+    /// Intended to be called in instances where a full Nimbus Client cannot be
+    /// instantiated (e.g., in crash reporting infrastructure).
+    [Throws=NimbusError]
+    sequence<EnrollmentSlugs> get_active_enrollments([ByRef] string db_path);
 };
 
 dictionary AppContext {
