@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Suggest
+
+- `Suggestion.Amp` gained a new `suggestionId` field: a unique identifier for the sponsored suggestion assigned by the ingestion pipeline, deserialized from the `suggestion_id` field of the remote settings AMP data. ([#7554](https://github.com/mozilla/application-services/pull/7554))
+
 # v155.0 (_2026-08-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v154.0...v155.0)

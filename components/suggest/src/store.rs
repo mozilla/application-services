@@ -808,10 +808,15 @@ where
             context.measure_download(|| self.settings_client.download_attachment(record))?;
         match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
             Ok(attachment) => ingestion_handler(dao, &record.id, attachment.suggestions()),
-            // If the attachment doesn't match our expected schema, just skip it.  It's possible
-            // that we're using an older version.  If so, we'll get the data when we re-ingest
-            // after updating the schema.
-            Err(_) => Ok(()),
+            Err(e) => {
+                error_support::report_error!(
+                    "suggest-attachment-deserialize",
+                    "Failed to deserialize attachment for record {}: {}",
+                    record.id,
+                    e
+                );
+                Ok(())
+            }
         }
     }
 
