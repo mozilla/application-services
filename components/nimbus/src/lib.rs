@@ -43,5 +43,53 @@ pub use evaluator::TargetingAttributes;
 
 pub(crate) const SLUG_REPLACEMENT_PATTERN: &str = "{experiment}";
 
+// Custom type definitions need to live in the root module while using UDL
+// https://github.com/mozilla/uniffi-rs/issues/2968
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+use json::JsonObject;
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+uniffi::custom_type!(JsonObject, String, {
+    remote,
+    try_lift: |val| {
+        let json: serde_json::Value = serde_json::from_str(&val)?;
+
+        match json.as_object() {
+            Some(obj) => Ok(obj.clone()),
+            _ => Err(uniffi::deps::anyhow::anyhow!(
+                "Unexpected JSON-non-object in the bagging area"
+            )),
+        }
+    },
+    lower: |obj| serde_json::Value::Object(obj).to_string(),
+});
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+use json::PrefValue;
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+uniffi::custom_type!(PrefValue, String, {
+    remote,
+    try_lift: |val| {
+        // Raw strings that are not valid JSON (e.g. pref values read directly from Gecko)
+        // should be treated as JSON string values.
+        let json: serde_json::Value = match serde_json::from_str(&val) {
+            Ok(json) => json,
+            Err(_) => serde_json::Value::String(val),
+        };
+        let is_valid_pref_type = json.is_string() || json.is_boolean()
+            || (json.is_number() && !json.is_f64()) || json.is_null();
+        if is_valid_pref_type {
+            Ok(json)
+        } else {
+            Err(anyhow::anyhow!(format!("Value {} is not a string, boolean, number, or null, or is a float", json)))
+        }
+    },
+    lower: |val| {
+        val.to_string()
+    }
+});
+
 #[cfg(test)]
 mod tests;
