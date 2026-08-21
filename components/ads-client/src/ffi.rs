@@ -6,8 +6,6 @@
 pub mod error;
 pub mod telemetry;
 
-use std::sync::Arc;
-
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
@@ -20,14 +18,14 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::AdsClientUrl;
 use crate::MozAdsClient;
+use crate::{worker, AdsClientUrl};
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
-
 // TODO: Temporary workaround for HNT requirements — do not use for new integrations.
 // Context ID management should remain internal to the ads client and this interface should be removed.
 #[uniffi::export(with_foreign)]
@@ -55,7 +53,7 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
     }
 }
 
-#[derive(Default, uniffi::Record)]
+#[derive(Default, uniffi::Record, Clone)]
 pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
@@ -124,6 +122,11 @@ impl MozAdsClientBuilder {
 
     pub fn build(&self) -> MozAdsClient {
         let inner = self.0.lock();
+        let telemetry = inner
+            .telemetry
+            .clone()
+            .map(MozAdsTelemetryWrapper::new)
+            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -132,16 +135,12 @@ impl MozAdsClientBuilder {
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
             environment: inner.environment.unwrap_or_default().into(),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
-        MozAdsClient {
-            inner: Mutex::new(client),
-        }
+        let inner = Arc::new(Mutex::new(client));
+        let worker = worker::AdsClientWorkerWrapper::new(inner.clone(), telemetry);
+        MozAdsClient { inner, worker }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
