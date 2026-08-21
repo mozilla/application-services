@@ -148,28 +148,11 @@ interface LoginsApiError {
     UnexpectedLoginsApiError(string reason);
 };
 
-[Trait, WithForeign]
-interface EncryptorDecryptor {
-    [Throws=LoginsApiError]
-    bytes encrypt(bytes cleartext);
+[External = "encryption"]
+typedef trait_with_foreign EncryptorDecryptor;
 
-    [Throws=LoginsApiError]
-    bytes decrypt(bytes ciphertext);
-};
-
-[Trait, WithForeign]
-interface KeyManager {
-    [Throws=LoginsApiError]
-    bytes get_key();
-};
-
-interface StaticKeyManager {
-    constructor(string key);
-};
-
-interface ManagedEncryptorDecryptor {
-    constructor(KeyManager key_manager);
-};
+[External = "encryption"]
+typedef trait_with_foreign KeyManager;
 
 interface LoginStore {
     [Throws=LoginsApiError]

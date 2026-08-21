@@ -605,13 +605,13 @@ mod tests_keydb {
 
     #[async_trait]
     impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
-        async fn get_primary_password(&self) -> ApiResult<String> {
+        async fn get_primary_password(&self) -> encryption::ApiResult<String> {
             Ok(self.password.clone())
         }
-        async fn on_authentication_success(&self) -> ApiResult<()> {
+        async fn on_authentication_success(&self) -> encryption::ApiResult<()> {
             Ok(())
         }
-        async fn on_authentication_failure(&self) -> ApiResult<()> {
+        async fn on_authentication_failure(&self) -> encryption::ApiResult<()> {
             Ok(())
         }
     }
@@ -629,7 +629,10 @@ mod tests_keydb {
         let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
-        let key_manager = NSSKeyManager::new(Arc::new(primary_password_authenticator));
+        let key_manager = NSSKeyManager::new(
+            crate::KEY_NAME.to_string(),
+            Arc::new(primary_password_authenticator),
+        );
         let encdec = ManagedEncryptorDecryptor::new(Arc::new(key_manager));
         let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
             .expect("store from fixtures");

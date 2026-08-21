@@ -1106,6 +1106,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "encryption"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "error-support",
+ "futures",
+ "jwcrypto",
+ "nss-as",
+ "parking_lot",
+ "serde_json",
+ "thiserror 2.0.3",
+ "uniffi",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1293,6 +1309,7 @@ dependencies = [
  "chrono",
  "clap",
  "cli-support",
+ "encryption",
  "fxa-client",
  "init_rust_components",
  "log",
@@ -2533,6 +2550,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "encryption",
  "error-support",
  "futures",
  "interrupt-support",
@@ -2606,6 +2624,7 @@ dependencies = [
  "ads-client",
  "autofill",
  "crashtest",
+ "encryption",
  "error-support",
  "fxa-client",
  "init_rust_components",
@@ -2650,6 +2669,7 @@ dependencies = [
  "autofill",
  "context_id",
  "crashtest",
+ "encryption",
  "error-support",
  "fxa-client",
  "init_rust_components",

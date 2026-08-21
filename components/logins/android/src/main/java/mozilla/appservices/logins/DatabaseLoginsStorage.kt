@@ -13,6 +13,7 @@ package mozilla.appservices.logins
  * on version updates.
  */
 
+import mozilla.appservices.encryption.KeyManager
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics

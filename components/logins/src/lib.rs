@@ -10,27 +10,28 @@ mod error;
 mod login;
 
 mod db;
-pub mod encryption;
+pub use encryption;
 mod schema;
 mod store;
 mod sync;
 mod util;
 
-use crate::encryption::{
-    EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager,
-};
+use encryption::{EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager};
 uniffi::include_scaffolding!("logins");
 
 #[cfg(feature = "keydb")]
-pub use crate::encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
+pub use encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
 pub use crate::db::{LoginDb, LoginsDeletionMetrics};
-use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
 pub use crate::sync::{LoginsBridgedEngine, LoginsSyncEngine};
 use std::sync::Arc;
+
+/// Identifier for the logins key, under which the key is stored in NSS.
+#[cfg(feature = "keydb")]
+static KEY_NAME: &str = "as-logins-key";
 
 // Utility function to create a StaticKeyManager to be used for the time being until support lands
 // for [trait implementation of an UniFFI
@@ -57,6 +58,20 @@ pub fn create_login_store_with_static_key_manager(path: String, key: String) -> 
     Arc::new(store)
 }
 
+#[handle_error(Error)]
+pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
+    Ok(encryption::create_canary(text, key)?)
+}
+
+pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
+    Ok(encryption::check_canary(canary, text, key)?)
+}
+
+#[handle_error(Error)]
+pub fn create_key() -> ApiResult<String> {
+    Ok(encryption::create_key()?)
+}
+
 // Create a LoginStore with NSSKeyManager by passing in a db path and a PrimaryPasswordAuthenticator.
 //
 // Note this is only temporarily needed until a bug with UniFFI and JavaScript is fixed, which
@@ -68,8 +83,29 @@ pub fn create_login_store_with_nss_keymanager(
     primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
 ) -> ApiResult<Arc<LoginStore>> {
     let encdec: ManagedEncryptorDecryptor = ManagedEncryptorDecryptor::new(Arc::new(
-        NSSKeyManager::new(primary_password_authenticator),
+        NSSKeyManager::new(KEY_NAME.to_string(), primary_password_authenticator),
     ));
     let store = LoginStore::new(path, Arc::new(encdec))?;
     Ok(Arc::new(store))
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
+    use serde::{de::DeserializeOwned, Serialize};
+
+    lazy_static::lazy_static! {
+        pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
+        pub static ref TEST_ENCDEC: Arc<ManagedEncryptorDecryptor> = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(TEST_ENCRYPTION_KEY.clone()))));
+    }
+
+    pub fn encrypt_struct<T: Serialize>(fields: &T) -> String {
+        let string = serde_json::to_string(fields).unwrap();
+        let cipherbytes = TEST_ENCDEC.encrypt(string.as_bytes().into()).unwrap();
+        std::str::from_utf8(&cipherbytes).unwrap().to_owned()
+    }
+    pub fn decrypt_struct<T: DeserializeOwned>(ciphertext: String) -> T {
+        let jsonbytes = TEST_ENCDEC.decrypt(ciphertext.as_bytes().into()).unwrap();
+        serde_json::from_str(std::str::from_utf8(&jsonbytes).unwrap()).unwrap()
+    }
 }

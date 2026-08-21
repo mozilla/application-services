@@ -10,6 +10,7 @@ pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
 pub use error_support::{breadcrumb, handle_error, report_error};
 pub use error_support::{debug, error, info, trace, warn};
 
+use encryption::EncryptionApiError;
 use error_support::{ErrorHandling, GetErrorHandling};
 use jwcrypto::JwCryptoError;
 
@@ -96,7 +97,10 @@ pub enum Error {
     InvalidPath(OsString),
 
     #[error("CryptoError({0})")]
-    CryptoError(#[from] JwCryptoError),
+    CryptoError(#[from] EncryptionApiError),
+
+    #[error("CryptoError({0})")]
+    JwCryptoError(#[from] JwCryptoError),
 
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
@@ -211,6 +215,33 @@ impl From<uniffi::UnexpectedUniFFICallbackError> for LoginsApiError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
         LoginsApiError::UnexpectedLoginsApiError {
             reason: error.to_string(),
+        }
+    }
+}
+
+impl From<EncryptionApiError> for LoginsApiError {
+    fn from(error: EncryptionApiError) -> Self {
+        match error {
+            EncryptionApiError::NSSUninitialized => Self::NSSUninitialized,
+            EncryptionApiError::NSSAuthenticationError { reason: x } => {
+                Self::NSSAuthenticationError { reason: x }
+            }
+            EncryptionApiError::AuthenticationError { reason: x } => {
+                Self::AuthenticationError { reason: x }
+            }
+            EncryptionApiError::AuthenticationCanceled => Self::AuthenticationCanceled,
+            EncryptionApiError::MissingKey => Self::MissingKey,
+            EncryptionApiError::InvalidKey => Self::InvalidKey,
+            EncryptionApiError::EncryptionFailed { reason: x } => {
+                Self::EncryptionFailed { reason: x }
+            }
+            EncryptionApiError::DecryptionFailed { reason: x } => {
+                Self::DecryptionFailed { reason: x }
+            }
+            EncryptionApiError::Interrupted { reason: x } => Self::Interrupted { reason: x },
+            EncryptionApiError::UnexpectedEncryptionApiError { reason: x } => {
+                Self::UnexpectedLoginsApiError { reason: x }
+            }
         }
     }
 }
