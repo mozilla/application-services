@@ -66,15 +66,6 @@ impl CodeType for BooleanCodeType {
             _ => unreachable!("Expecting a boolean"),
         }
     }
-
-    fn preference_getter(
-        &self,
-        _oracle: &dyn CodeOracle,
-        prefs: &dyn Display,
-        pref_key: &dyn Display,
-    ) -> Option<String> {
-        Some(format!("{prefs}.getBoolean({}, false)", quoted(pref_key)))
-    }
 }
 
 pub(crate) struct IntCodeType;
@@ -130,15 +121,6 @@ impl CodeType for IntCodeType {
             }
             _ => unreachable!("Expecting a number"),
         }
-    }
-
-    fn preference_getter(
-        &self,
-        _oracle: &dyn CodeOracle,
-        prefs: &dyn Display,
-        pref_key: &dyn Display,
-    ) -> Option<String> {
-        Some(format!("{prefs}.getInt({}, 0)", quoted(pref_key)))
     }
 }
 
@@ -198,15 +180,6 @@ impl CodeType for StringCodeType {
             }
             _ => unreachable!("Expecting a string"),
         }
-    }
-
-    fn preference_getter(
-        &self,
-        _oracle: &dyn CodeOracle,
-        prefs: &dyn Display,
-        pref_key: &dyn Display,
-    ) -> Option<String> {
-        Some(format!("{prefs}.getString({}, \"\")", quoted(pref_key)))
     }
 }
 

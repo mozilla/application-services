@@ -86,16 +86,6 @@ impl CodeType for TextCodeType {
         }
     }
 
-    fn preference_getter(
-        &self,
-        oracle: &dyn CodeOracle,
-        prefs: &dyn Display,
-        pref_key: &dyn Display,
-    ) -> Option<String> {
-        let ct = oracle.find(&TypeRef::String);
-        ct.preference_getter(oracle, prefs, pref_key)
-    }
-
     fn is_resource_id(&self, literal: &Literal) -> bool {
         match literal {
             serde_json::Value::String(v) => is_resource_id(v),
