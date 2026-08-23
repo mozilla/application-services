@@ -1442,6 +1442,7 @@ mod tests {
 
         let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V15_DB);
         db_file.run_all_upgrades();
+        db_file.assert_schema_matches_new_database();
         let upgraded_db = db_file.open();
 
         assert_eq!(
