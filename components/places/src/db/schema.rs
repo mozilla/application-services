@@ -351,53 +351,44 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             // higher cardinality column comes first and queries only filtering on
             // host, like the address bar ones, can use the index.
 
-            // Skip the rebuild if the constraint is already inverted.
-            let already_inverted = db.exists(
-                "SELECT 1 FROM sqlite_schema
-                 WHERE type = 'table' AND name = 'moz_origins'
-                   AND sql LIKE '%UNIQUE (host, prefix)%'",
-                [],
-            )?;
-            if !already_inverted {
-                // PRAGMA foreign_keys is a no-op inside the migration transaction,
-                // so dropping moz_origins to rebuild it would cascade to every
-                // page; we rewrite the stored schema in place instead.
-                // Must not change anything but the constraints; changing the column
-                // list will silently corrupt existing data.
-                const NEW_SQL: &str = "CREATE TABLE moz_origins ( \
-                    id INTEGER PRIMARY KEY, \
-                    prefix TEXT NOT NULL, \
-                    host TEXT NOT NULL, \
-                    rev_host TEXT NOT NULL, \
-                    frecency INTEGER NOT NULL, \
-                    UNIQUE (host, prefix))";
+            // PRAGMA foreign_keys is a no-op inside the migration transaction,
+            // so dropping moz_origins to rebuild it would cascade to every
+            // page; we rewrite the stored schema in place instead.
+            // Must not change anything but the constraints; changing the column
+            // list will silently corrupt existing data.
+            const NEW_SQL: &str = "CREATE TABLE moz_origins ( \
+                id INTEGER PRIMARY KEY, \
+                prefix TEXT NOT NULL, \
+                host TEXT NOT NULL, \
+                rev_host TEXT NOT NULL, \
+                frecency INTEGER NOT NULL, \
+                UNIQUE (host, prefix))";
 
-                let schema_version: i64 =
-                    db.query_row("PRAGMA schema_version", [], |row| row.get(0))?;
+            let schema_version: i64 =
+                db.query_row("PRAGMA schema_version", [], |row| row.get(0))?;
 
-                {
-                    let _w = PragmaGuard::new(db, Pragma::WritableSchema, true)?;
-                    db.execute(
-                        "UPDATE sqlite_schema SET
-                           sql = ?
-                         WHERE type = 'table' AND name = 'moz_origins'",
-                        // _Must_ be valid SQL; updating `sqlite_schema.sql` with
-                        // invalid SQL will corrupt the database.
-                        rusqlite::params![NEW_SQL],
-                    )?;
-                }
-
-                // Reload the schema and rebuild the index with the new column order
-                db.execute_one("PRAGMA writable_schema = RESET")?;
-                db.execute("REINDEX moz_origins", [])?;
-
-                // Increment the schema version like an ALTER TABLE would, so that
-                // other connections reload the schema
-                db.execute_one(&format!("PRAGMA schema_version = {}", schema_version + 1))?;
-
-                // Manually call analyze so the planner can start using the index immediately
-                db.execute("ANALYZE moz_origins", [])?;
+            {
+                let _w = PragmaGuard::new(db, Pragma::WritableSchema, true)?;
+                db.execute(
+                    "UPDATE sqlite_schema SET
+                       sql = ?
+                     WHERE type = 'table' AND name = 'moz_origins'",
+                    // _Must_ be valid SQL; updating `sqlite_schema.sql` with
+                    // invalid SQL will corrupt the database.
+                    rusqlite::params![NEW_SQL],
+                )?;
             }
+
+            // Reload the schema and rebuild the index with the new column order
+            db.execute_one("PRAGMA writable_schema = RESET")?;
+            db.execute("REINDEX moz_origins", [])?;
+
+            // Increment the schema version like an ALTER TABLE would, so that
+            // other connections reload the schema
+            db.execute_one(&format!("PRAGMA schema_version = {}", schema_version + 1))?;
+
+            // Manually call analyze so the planner can start using the index immediately
+            db.execute("ANALYZE moz_origins", [])?;
         }
         // Add more migrations here...
 
