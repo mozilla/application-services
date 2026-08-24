@@ -7,12 +7,16 @@ use std::path::Path;
 
 use rkv::StoreOptions;
 
+use crate::enrollment::{
+    DisqualifiedReason, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+};
 use crate::error::Result;
 use crate::evaluator::get_calculated_attributes;
 use crate::metrics::{DatabaseLoadExtraDef, DatabaseMigrationExtraDef};
 use crate::stateful::enrollment::{get_experiment_participation, get_rollout_participation};
 use crate::stateful::persistence::*;
 use crate::tests::helpers::TestMetrics;
+use crate::{EnrollmentSlugs, EnrollmentStatus, get_active_enrollments};
 
 #[test]
 fn test_db_upgrade_no_version() -> Result<()> {
@@ -697,6 +701,86 @@ fn test_migrate_db_idempotent() -> Result<()> {
     );
 
     assert_eq!(metrics.get_database_migration_events(), []);
+
+    Ok(())
+}
+
+#[test]
+fn test_get_active_enrollments() -> Result<()> {
+    error_support::init_for_tests();
+
+    let tmp_dir = tempfile::tempdir()?;
+
+    {
+        let db = Database::open_single(&tmp_dir, StoreId::Enrollments)?;
+        let mut writer = db.write()?;
+
+        db.store.put(
+            &mut writer,
+            "experiment-enrolled",
+            &ExperimentEnrollment {
+                slug: "experiment-enrolled".into(),
+                status: EnrollmentStatus::Enrolled {
+                    reason: EnrolledReason::Qualified,
+                    branch: "treatment-a".into(),
+                    prev_gecko_pref_states: None,
+                },
+            },
+        )?;
+        db.store.put(
+            &mut writer,
+            "experiment-wasenrolled",
+            &ExperimentEnrollment {
+                slug: "experiment-wasenrolled".into(),
+                status: EnrollmentStatus::WasEnrolled {
+                    branch: "control".into(),
+                    experiment_ended_at: 0,
+                },
+            },
+        )?;
+        db.store.put(
+            &mut writer,
+            "experiment-disqualified",
+            &ExperimentEnrollment {
+                slug: "experiment-disqualified".into(),
+                status: EnrollmentStatus::Disqualified {
+                    branch: "control".into(),
+                    reason: DisqualifiedReason::OptOut,
+                },
+            },
+        )?;
+        db.store.put(
+            &mut writer,
+            "experiment-notenrolled",
+            &ExperimentEnrollment {
+                slug: "experiment-notenrolled".into(),
+                status: EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::NotTargeted,
+                },
+            },
+        )?;
+        db.store.put(
+            &mut writer,
+            "experiment-error",
+            &ExperimentEnrollment {
+                slug: "experiment-error".into(),
+                status: EnrollmentStatus::Error {
+                    reason: "uh oh".into(),
+                },
+            },
+        )?;
+
+        writer.commit()?;
+    }
+
+    let active_enrollments = get_active_enrollments(&tmp_dir)?;
+    assert_eq!(
+        &active_enrollments,
+        &[EnrollmentSlugs {
+            slug: "experiment-enrolled".into(),
+            branch_slug: "treatment-a".into(),
+        }]
+    );
 
     Ok(())
 }

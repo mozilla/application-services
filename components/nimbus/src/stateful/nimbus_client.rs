@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -52,7 +52,8 @@ use crate::stateful::targeting::{RecordedContext, execute_event_queries, validat
 use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use crate::strings::fmt_with_map;
 use crate::{
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentSlugs,
+    EnrollmentStatus,
 };
 use crate::{Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result};
 
@@ -1054,6 +1055,30 @@ impl NimbusClient {
     pub fn get_experiment_enrollment(&self, slug: &str) -> Result<Option<ExperimentEnrollment>> {
         self.database_cache.get_experiment_enrollment(slug)
     }
+}
+
+pub fn get_active_enrollments<P: AsRef<Path>>(db_path: &P) -> Result<Vec<EnrollmentSlugs>> {
+    let db = Database::open_single(db_path.as_ref(), StoreId::Enrollments)?;
+    let reader = db.read()?;
+    let enrollments: Vec<ExperimentEnrollment> = db.store.collect_all(&reader)?;
+
+    Ok(enrollments
+        .into_iter()
+        .filter_map(|enrollment| {
+            if let EnrollmentStatus::Enrolled {
+                branch: branch_slug,
+                ..
+            } = enrollment.status
+            {
+                Some(EnrollmentSlugs {
+                    slug: enrollment.slug,
+                    branch_slug,
+                })
+            } else {
+                None
+            }
+        })
+        .collect())
 }
 
 pub struct NimbusStringHelper {
