@@ -23,14 +23,14 @@ pub enum FaultKind {
     Cleanup,
 }
 
-pub struct AdsStoreStore {
+pub struct AdsStoreHolder {
     conn: Mutex<Connection>,
     clock: Arc<dyn Clock>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }
 
-impl AdsStoreStore {
+impl AdsStoreHolder {
     pub fn new(conn: Connection) -> Self {
         Self {
             conn: Mutex::new(conn),
@@ -269,7 +269,7 @@ mod tests {
         RequestHash::new(&(req.method.as_str(), req.url.as_str()))
     }
 
-    fn fetch_timestamps(store: &AdsStoreStore, hash: &RequestHash) -> (i64, i64, i64) {
+    fn fetch_timestamps(store: &AdsStoreHolder, hash: &RequestHash) -> (i64, i64, i64) {
         let conn = store.conn.lock();
         conn.query_row(
             "SELECT
@@ -312,11 +312,11 @@ mod tests {
         }
     }
 
-    fn create_test_store() -> AdsStoreStore {
+    fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
-        AdsStoreStore::new_with_test_clock(conn)
+        AdsStoreHolder::new_with_test_clock(conn)
     }
 
     #[test]
@@ -544,7 +544,7 @@ mod tests {
         let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
-        let store = AdsStoreStore::new(conn);
+        let store = AdsStoreHolder::new(conn);
 
         for i in 0..5 {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");

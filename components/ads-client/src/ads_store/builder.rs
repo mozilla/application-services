@@ -6,7 +6,7 @@ use crate::ads_store::AdsStore;
 
 use super::bytesize::ByteSize;
 use super::connection_initializer::AdsStoreConnectionInitializer;
-use super::store::AdsStoreStore;
+use super::store::AdsStoreHolder;
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
@@ -110,7 +110,7 @@ impl AdsStoreBuilder {
 
         let conn = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = AdsStoreStore::new(conn);
+        let store = AdsStoreHolder::new(conn);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(AdsStore {
@@ -126,7 +126,7 @@ impl AdsStoreBuilder {
 
         let conn = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = AdsStoreStore::new_with_test_clock(conn);
+        let store = AdsStoreHolder::new_with_test_clock(conn);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(AdsStore {

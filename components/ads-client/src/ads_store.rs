@@ -15,7 +15,7 @@ mod ttl;
 
 use self::{
     builder::AdsStoreBuilder,
-    store::AdsStoreStore,
+    store::AdsStoreHolder,
     strategy::{CacheFirst, NetworkFirst},
 };
 
@@ -47,7 +47,7 @@ impl Default for CachePolicy {
 pub struct AdsStore {
     default_ttl: Duration,
     max_size: ByteSize,
-    store: AdsStoreStore,
+    store: AdsStoreHolder,
 }
 
 impl AdsStore {
