@@ -5,9 +5,9 @@
 
 use super::cache_control::CacheControl;
 use super::request_hash::RequestHash;
-use super::store::HttpCacheStore;
+use super::store::AdsStoreStore;
 use super::ttl::EffectiveTtl;
-use super::{CacheOutcome, HttpCacheSendResult};
+use super::{AdsStoreSendResult, CacheOutcome};
 use std::time::Duration;
 use viaduct::{Client, Request};
 
@@ -19,7 +19,7 @@ pub struct CacheFirst {
 }
 
 impl CacheFirst {
-    pub fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
+    pub fn apply(self, client: &Client, store: &AdsStoreStore) -> AdsStoreSendResult {
         let mut outcomes = vec![];
         match store.lookup(&self.hash) {
             Ok(Some(response)) => return Ok((response, vec![CacheOutcome::Hit])),
@@ -47,7 +47,7 @@ pub struct NetworkFirst {
 }
 
 impl NetworkFirst {
-    pub fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
+    pub fn apply(self, client: &Client, store: &AdsStoreStore) -> AdsStoreSendResult {
         let response = client.send_sync(self.request)?;
         let cache_control = CacheControl::from(&response);
         let outcome = if cache_control.should_cache() {

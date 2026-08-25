@@ -14,22 +14,22 @@ mod strategy;
 mod ttl;
 
 use self::{
-    builder::HttpCacheBuilder,
-    store::HttpCacheStore,
+    builder::AdsStoreBuilder,
+    store::AdsStoreStore,
     strategy::{CacheFirst, NetworkFirst},
 };
 
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
 
-pub use self::builder::HttpCacheBuilderError;
+pub use self::builder::AdsStoreBuilderError;
 pub use self::bytesize::ByteSize;
 pub use self::outcome::CacheOutcome;
 pub use self::request_hash::RequestHash;
 use std::path::Path;
 use std::time::Duration;
 
-pub type HttpCacheSendResult =
+pub type AdsStoreSendResult =
     std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
 #[derive(Clone, Copy, Debug)]
@@ -44,15 +44,15 @@ impl Default for CachePolicy {
     }
 }
 
-pub struct HttpCache {
+pub struct AdsStore {
     default_ttl: Duration,
     max_size: ByteSize,
-    store: HttpCacheStore,
+    store: AdsStoreStore,
 }
 
-impl HttpCache {
-    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(db_path.as_ref())
+impl AdsStore {
+    pub fn builder<P: AsRef<Path>>(db_path: P) -> AdsStoreBuilder {
+        AdsStoreBuilder::new(db_path.as_ref())
     }
 
     pub fn clear(&self) -> Result<(), rusqlite::Error> {
@@ -74,7 +74,7 @@ impl HttpCache {
         client: &Client,
         item: T,
         policy: &CachePolicy,
-    ) -> HttpCacheSendResult {
+    ) -> AdsStoreSendResult {
         let hash = RequestHash::new(&item);
         let request = item.into();
         let mut outcomes = vec![];
@@ -152,18 +152,18 @@ mod tests {
         TestRequest(Request::post(url).json(&serde_json::json!({"fake":"data"})))
     }
 
-    fn make_cache() -> HttpCache {
+    fn make_cache() -> AdsStore {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        AdsStore::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(60))
             .max_size(ByteSize::mib(1))
             .build()
             .expect("cache build should succeed")
     }
 
-    fn make_cache_with_ttl(secs: u64) -> HttpCache {
+    fn make_cache_with_ttl(secs: u64) -> AdsStore {
         // In tests our store uses an in-memory DB; filename is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        AdsStore::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
             .build_for_time_dependent_tests()
@@ -172,12 +172,12 @@ mod tests {
 
     #[test]
     fn test_http_cache_creation() {
-        // Test that HttpCache can be created successfully with test config
-        let cache: Result<HttpCache, _> = HttpCache::builder("test_cache.db").build();
+        // Test that AdsStore can be created successfully with test config
+        let cache: Result<AdsStore, _> = AdsStore::builder("test_cache.db").build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let cache_with_config: Result<HttpCache, _> = HttpCache::builder("custom_test.db")
+        let cache_with_config: Result<AdsStore, _> = AdsStore::builder("custom_test.db")
             .max_size(ByteSize::mib(1))
             .default_ttl(Duration::from_secs(60))
             .build();
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
@@ -490,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache = HttpCache::builder("test_invalidate.db").build().unwrap();
+        let cache: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));

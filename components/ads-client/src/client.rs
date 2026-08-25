@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
+use crate::ads_store::{AdsStore, ByteSize, CachePolicy};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
@@ -72,7 +72,7 @@ where
             let max_cache_size =
                 ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            match HttpCache::builder(cache_cfg.db_path)
+            match AdsStore::builder(cache_cfg.db_path)
                 .max_size(max_cache_size)
                 .default_ttl(default_cache_ttl)
                 .build()
@@ -461,7 +461,7 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_click_invalidates_cache")
+        let cache = AdsStore::builder("test_record_click_invalidates_cache")
             .build()
             .unwrap();
         let mars_client = MARSClient::new(
@@ -549,7 +549,7 @@ mod tests {
                 .clone_inner_arc()
                 .expect("Inner telemetry should be Some before dropping"),
         );
-        let cache = HttpCache::builder("test_shutdown_telemetry")
+        let cache = AdsStore::builder("test_shutdown_telemetry")
             .build()
             .unwrap();
         let mars_client = MARSClient::new(Environment::Test, Some(cache), noop_telemetry);
@@ -572,7 +572,7 @@ mod tests {
                 .expect("Inner telemetry should be Some before dropping"),
         );
         // A real cache so the second shutdown exercises the db close path.
-        let cache = HttpCache::builder("test_shutdown_is_idempotent")
+        let cache = AdsStore::builder("test_shutdown_is_idempotent")
             .build()
             .unwrap();
         let mars_client = MARSClient::new(Environment::Test, Some(cache), noop_telemetry);

@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::http_cache::RequestHash;
+use crate::ads_store::RequestHash;
 use crate::telemetry::Telemetry;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

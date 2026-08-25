@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_contextual_placement_flag_produces_different_hash() {
-        use crate::http_cache::RequestHash;
+        use crate::ads_store::RequestHash;
 
         let make_placements = || {
             vec![AdPlacementRequest {
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_context_id_ignored_in_hash() {
-        use crate::http_cache::RequestHash;
+        use crate::ads_store::RequestHash;
 
         let make_placements = || {
             vec![AdPlacementRequest {
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_different_placements_produce_different_hash() {
-        use crate::http_cache::RequestHash;
+        use crate::ads_store::RequestHash;
 
         let req1 = AdRequest::try_new(
             "same-id".to_string(),
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_ohttp_flag_produces_different_hash() {
-        use crate::http_cache::RequestHash;
+        use crate::ads_store::RequestHash;
 
         let make_placements = || {
             vec![AdPlacementRequest {

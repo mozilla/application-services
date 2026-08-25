@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::http_cache::HttpCache;
+use crate::ads_store::AdsStore;
 
 use super::bytesize::ByteSize;
-use super::connection_initializer::HttpCacheConnectionInitializer;
-use super::store::HttpCacheStore;
+use super::connection_initializer::AdsStoreConnectionInitializer;
+use super::store::AdsStoreStore;
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
@@ -21,7 +21,7 @@ const MIN_TTL: Duration = Duration::from_secs(1);
 const MAX_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
 #[derive(Debug, thiserror::Error)]
-pub enum HttpCacheBuilderError {
+pub enum AdsStoreBuilderError {
     #[error("Database path cannot be empty")]
     EmptyDbPath,
     #[error("Database error: {0}")]
@@ -42,13 +42,13 @@ pub enum HttpCacheBuilderError {
     },
 }
 
-pub struct HttpCacheBuilder {
+pub struct AdsStoreBuilder {
     db_path: PathBuf,
     max_size: Option<ByteSize>,
     default_ttl: Option<Duration>,
 }
 
-impl HttpCacheBuilder {
+impl AdsStoreBuilder {
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
@@ -67,14 +67,14 @@ impl HttpCacheBuilder {
         self
     }
 
-    fn validate(&self) -> Result<(), HttpCacheBuilderError> {
+    fn validate(&self) -> Result<(), AdsStoreBuilderError> {
         if self.db_path.to_string_lossy().trim().is_empty() {
-            return Err(HttpCacheBuilderError::EmptyDbPath);
+            return Err(AdsStoreBuilderError::EmptyDbPath);
         }
 
         if let Some(max_size) = self.max_size {
             if max_size < MIN_CACHE_SIZE || max_size > MAX_CACHE_SIZE {
-                return Err(HttpCacheBuilderError::InvalidMaxSize {
+                return Err(AdsStoreBuilderError::InvalidMaxSize {
                     size_bytes: max_size.as_u64(),
                     min_size: MIN_CACHE_SIZE.to_string(),
                     max_size: MAX_CACHE_SIZE.to_string(),
@@ -84,7 +84,7 @@ impl HttpCacheBuilder {
 
         if let Some(ttl) = self.default_ttl {
             if !(MIN_TTL..=MAX_TTL).contains(&ttl) {
-                return Err(HttpCacheBuilderError::InvalidTtl {
+                return Err(AdsStoreBuilderError::InvalidTtl {
                     ttl: ttl.as_secs(),
                     min_ttl: format!("{} seconds", MIN_TTL.as_secs()),
                     max_ttl: format!("{} seconds", MAX_TTL.as_secs()),
@@ -95,8 +95,8 @@ impl HttpCacheBuilder {
         Ok(())
     }
 
-    fn open_connection(&self) -> Result<Connection, HttpCacheBuilderError> {
-        let initializer = HttpCacheConnectionInitializer {};
+    fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = if cfg!(test) {
             open_database::open_memory_database(&initializer)?
         } else {
@@ -105,15 +105,15 @@ impl HttpCacheBuilder {
         Ok(conn)
     }
 
-    pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new(conn);
+        let store = AdsStoreStore::new(conn);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
-        Ok(HttpCache {
+        Ok(AdsStore {
             default_ttl,
             max_size,
             store,
@@ -121,15 +121,15 @@ impl HttpCacheBuilder {
     }
 
     #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    pub fn build_for_time_dependent_tests(&self) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new_with_test_clock(conn);
+        let store = AdsStoreStore::new_with_test_clock(conn);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
-        Ok(HttpCache {
+        Ok(AdsStore {
             default_ttl,
             max_size,
             store,
@@ -141,8 +141,8 @@ impl HttpCacheBuilder {
 mod tests {
     use super::*;
 
-    fn make_test_builder(path: &str) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(path)
+    fn make_test_builder(path: &str) -> AdsStoreBuilder {
+        AdsStoreBuilder::new(path)
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_validation_empty_db_path() {
         let result = make_test_builder("   ").build();
-        assert!(matches!(result, Err(HttpCacheBuilderError::EmptyDbPath)));
+        assert!(matches!(result, Err(AdsStoreBuilderError::EmptyDbPath)));
     }
 
     #[test]
@@ -179,7 +179,7 @@ mod tests {
             .build();
         assert!(matches!(
             result,
-            Err(HttpCacheBuilderError::InvalidMaxSize {
+            Err(AdsStoreBuilderError::InvalidMaxSize {
                 size_bytes: 512,
                 min_size: _,
                 max_size: _,
@@ -194,7 +194,7 @@ mod tests {
             .build();
         assert!(matches!(
             result,
-            Err(HttpCacheBuilderError::InvalidMaxSize {
+            Err(AdsStoreBuilderError::InvalidMaxSize {
                 size_bytes: 2147483648,
                 min_size: _,
                 max_size: _,
@@ -218,7 +218,7 @@ mod tests {
             .build();
         assert!(matches!(
             result,
-            Err(HttpCacheBuilderError::InvalidTtl {
+            Err(AdsStoreBuilderError::InvalidTtl {
                 ttl: 0,
                 min_ttl: _,
                 max_ttl: _,
@@ -233,7 +233,7 @@ mod tests {
             .build();
         assert!(matches!(
             result,
-            Err(HttpCacheBuilderError::InvalidTtl {
+            Err(AdsStoreBuilderError::InvalidTtl {
                 ttl: 691200,
                 min_ttl: _,
                 max_ttl: _,

@@ -6,7 +6,7 @@
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
-use ads_client::http_cache::{ByteSize, CacheOutcome, CachePolicy, HttpCache};
+use ads_client::ads_store::{ByteSize, CacheOutcome, CachePolicy, AdsStore};
 use mockito::mock;
 use viaduct::{Client, ClientSettings, Request};
 
@@ -32,7 +32,7 @@ impl From<TestRequest> for Request {
 fn test_cache_works_using_real_timeouts() {
     viaduct_dev::init_backend_dev();
 
-    let cache = HttpCache::builder("integration_tests.db")
+    let cache = AdsStore::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
         .build()

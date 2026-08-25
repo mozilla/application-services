@@ -9,7 +9,7 @@ use viaduct::{Client, ClientSettings, Request, Response};
 
 use super::error::{HTTPError, TransportError};
 use crate::{
-    http_cache::{HttpCache, RequestHash},
+    ads_store::{AdsStore, RequestHash},
     telemetry::Telemetry,
     CachePolicy,
 };
@@ -17,12 +17,12 @@ use crate::{
 const OHTTP_CHANNEL_ID: &str = "ads-client";
 
 pub struct MARSTransport<T: Telemetry> {
-    http_cache: Option<HttpCache>,
+    http_cache: Option<AdsStore>,
     telemetry: T,
 }
 
 impl<T: Telemetry> MARSTransport<T> {
-    pub fn new(http_cache: Option<HttpCache>, telemetry: T) -> Self {
+    pub fn new(http_cache: Option<AdsStore>, telemetry: T) -> Self {
         Self {
             http_cache,
             telemetry,

@@ -24,7 +24,7 @@ use self::{
     transport::MARSTransport,
 };
 use crate::{
-    http_cache::{HttpCache, RequestHash},
+    ads_store::{AdsStore, RequestHash},
     telemetry::Telemetry,
     CachePolicy,
 };
@@ -44,7 +44,7 @@ impl<T> MARSClient<T>
 where
     T: Clone + Telemetry,
 {
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>, telemetry: T) -> Self {
+    pub fn new(environment: Environment, http_cache: Option<AdsStore>, telemetry: T) -> Self {
         let transport = MARSTransport::new(http_cache, telemetry.clone());
         Self {
             environment,
@@ -160,7 +160,7 @@ mod tests {
     };
     use mockito::mock;
 
-    fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient<MozAdsTelemetryWrapper> {
+    fn make_test_client(http_cache: Option<AdsStore>) -> MARSClient<MozAdsTelemetryWrapper> {
         MARSClient::new(
             Environment::Test,
             http_cache,
@@ -257,9 +257,9 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let cache = HttpCache::builder("test_fetch_ads_cache_hit_skips_network.db")
+        let cache = AdsStore::builder("test_fetch_ads_cache_hit_skips_network.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::ads_store::ByteSize::mib(1))
             .build()
             .unwrap();
         let client = make_test_client(Some(cache));
@@ -293,9 +293,9 @@ mod tests {
     #[test]
     fn test_record_click_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_click.db")
+        let cache = AdsStore::builder("test_record_click.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::ads_store::ByteSize::mib(1))
             .build()
             .unwrap();
 
@@ -312,9 +312,9 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_impression.db")
+        let cache = AdsStore::builder("test_record_impression.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::ads_store::ByteSize::mib(1))
             .build()
             .unwrap();
 

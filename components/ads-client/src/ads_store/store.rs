@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use crate::http_cache::{
+use crate::ads_store::{
     clock::{CacheClock, Clock},
     request_hash::RequestHash,
     ByteSize,
@@ -23,14 +23,14 @@ pub enum FaultKind {
     Cleanup,
 }
 
-pub struct HttpCacheStore {
+pub struct AdsStoreStore {
     conn: Mutex<Connection>,
     clock: Arc<dyn Clock>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }
 
-impl HttpCacheStore {
+impl AdsStoreStore {
     pub fn new(conn: Connection) -> Self {
         Self {
             conn: Mutex::new(conn),
@@ -47,7 +47,7 @@ impl HttpCacheStore {
 
     #[cfg(test)]
     pub fn new_with_test_clock(conn: Connection) -> Self {
-        use crate::http_cache::clock::TestClock;
+        use crate::ads_store::clock::TestClock;
 
         Self {
             conn: Mutex::new(conn),
@@ -260,7 +260,7 @@ impl HttpCacheStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_cache::connection_initializer::HttpCacheConnectionInitializer;
+    use crate::ads_store::connection_initializer::AdsStoreConnectionInitializer;
     use sql_support::open_database;
     use std::time::Duration;
     use viaduct::{header_names, Headers, Method, Request, Response};
@@ -269,7 +269,7 @@ mod tests {
         RequestHash::new(&(req.method.as_str(), req.url.as_str()))
     }
 
-    fn fetch_timestamps(store: &HttpCacheStore, hash: &RequestHash) -> (i64, i64, i64) {
+    fn fetch_timestamps(store: &AdsStoreStore, hash: &RequestHash) -> (i64, i64, i64) {
         let conn = store.conn.lock();
         conn.query_row(
             "SELECT
@@ -312,11 +312,11 @@ mod tests {
         }
     }
 
-    fn create_test_store() -> HttpCacheStore {
-        let initializer = HttpCacheConnectionInitializer {};
+    fn create_test_store() -> AdsStoreStore {
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
-        HttpCacheStore::new_with_test_clock(conn)
+        AdsStoreStore::new_with_test_clock(conn)
     }
 
     #[test]
@@ -541,10 +541,10 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction() {
-        let initializer = HttpCacheConnectionInitializer {};
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
-        let store = HttpCacheStore::new(conn);
+        let store = AdsStoreStore::new(conn);
 
         for i in 0..5 {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");

@@ -8,9 +8,9 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+use crate::ads_store::{AdsStoreBuilderError, CacheOutcome};
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
-use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::telemetry::Telemetry;
 
@@ -101,13 +101,13 @@ impl Telemetry for MozAdsTelemetryWrapper {
             });
             return;
         }
-        if let Some(cache_builder_error) = event.downcast_ref::<HttpCacheBuilderError>() {
+        if let Some(cache_builder_error) = event.downcast_ref::<AdsStoreBuilderError>() {
             inner.record_build_cache_error(
                 match cache_builder_error {
-                    HttpCacheBuilderError::EmptyDbPath => "empty_db_path".to_string(),
-                    HttpCacheBuilderError::Database(_) => "database_error".to_string(),
-                    HttpCacheBuilderError::InvalidMaxSize { .. } => "invalid_max_size".to_string(),
-                    HttpCacheBuilderError::InvalidTtl { .. } => "invalid_ttl".to_string(),
+                    AdsStoreBuilderError::EmptyDbPath => "empty_db_path".to_string(),
+                    AdsStoreBuilderError::Database(_) => "database_error".to_string(),
+                    AdsStoreBuilderError::InvalidMaxSize { .. } => "invalid_max_size".to_string(),
+                    AdsStoreBuilderError::InvalidTtl { .. } => "invalid_ttl".to_string(),
                 },
                 format!("{}", cache_builder_error),
             );
