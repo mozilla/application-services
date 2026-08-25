@@ -194,6 +194,27 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
+    /// Like `get_all()`, but only the logins with the given guids.  Guids we don't have a login
+    /// for are simply absent from the result, so this can return fewer rows than it was given
+    /// ids.  As with `get_all()` the order of the rows is whatever the query gives us - in
+    /// particular it is not the order of `ids`.
+    pub fn get_many(&self, ids: &[String]) -> Result<Vec<EncryptedLogin>> {
+        let mut logins = Vec::with_capacity(ids.len());
+        sql_support::each_chunk(ids, |chunk, _| -> Result<()> {
+            logins.extend(self.db.query_rows_and_then(
+                &format!(
+                    "SELECT * FROM ({}) WHERE guid IN ({})",
+                    &*GET_ALL_SQL,
+                    sql_support::repeat_sql_values(chunk.len())
+                ),
+                rusqlite::params_from_iter(chunk),
+                EncryptedLogin::from_row,
+            )?);
+            Ok(())
+        })?;
+        Ok(logins)
+    }
+
     pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         // We first parse the input string as a host so it is normalized.
         let base_host = match Host::parse(base_domain) {
@@ -1385,6 +1406,51 @@ mod tests {
 
         // one with a username, 1 without.
         assert_eq!(db.get_all().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_get_many() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let mut added = Vec::new();
+        for origin in ["https://a.example.com", "https://b.example.com"] {
+            added.push(
+                db.add(LoginEntry {
+                    origin: origin.into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test".into(),
+                    password: "sekret".into(),
+                    ..LoginEntry::default()
+                })
+                .expect("should be able to add login"),
+            );
+        }
+        let ids = added.iter().map(|l| l.meta.id.clone()).collect::<Vec<_>>();
+
+        // Neither `get_many()` nor `get_all()` promises an order, so compare them sorted.
+        let by_origin = |logins: Vec<EncryptedLogin>| {
+            let mut logins = logins;
+            logins.sort_by(|l, r| l.fields.origin.cmp(&r.fields.origin));
+            logins
+        };
+
+        // Asking for every id gives us exactly what `get_all()` does.
+        assert_eq!(
+            by_origin(db.get_many(&ids).unwrap()),
+            by_origin(db.get_all().unwrap())
+        );
+
+        // A subset gives us just that subset...
+        assert_eq!(db.get_many(&ids[1..]).unwrap(), added[1..]);
+
+        // ...and ids we don't have a login for are absent rather than an error.
+        assert_eq!(
+            db.get_many(&[ids[0].clone(), "no-such-guid".to_string()])
+                .unwrap(),
+            added[..1]
+        );
+        assert_eq!(db.get_many(&[]).unwrap(), Vec::new());
     }
 
     #[test]

@@ -8,6 +8,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Logins
+
+- Add `LoginStore::list_candidates()` and `LoginStore::get_many()`, a pair of read APIs for consumers which filter logins on their unencrypted fields. `list_candidates()` returns a `LoginCandidate` per stored login - everything `Login` has except the secure fields (`username`/`password`), so searching by `origin`, `httpRealm` or `formActionOrigin` no longer forces a primary password prompt. `get_many()` then decrypts just the logins which matched. `list()` is unchanged, for callers who really do want every login in cleartext.
+
 # v155.0 (_2026-08-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v154.0...v155.0)
