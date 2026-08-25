@@ -128,11 +128,11 @@ public final class AdsClientTelemetry: MozAdsTelemetry {
     }
 
     public func recordBuildImpressionLogError(label: String, value: String) {
-        AdsClientMetrics.deserializationError[label].set(value)
+        AdsClientMetrics.buildImpressionLogError[label].set(value)
     }
 
     public func recordImpressionLogOutcome(label: String, value: String) {
-        AdsClientMetrics.httpCacheOutcome[label].set(value)
+        AdsClientMetrics.impressionLogOutcome[label].set(value)
     }
 }
 ```

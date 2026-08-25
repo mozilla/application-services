@@ -125,3 +125,47 @@ ads_client:
       - llisi@mozilla.com
       - toast@mozilla.com
     expires: never
+
+  build_impression_log_error:
+    type: labeled_string
+    description: >
+      Errors encountered when building the impression log, labeled by error type.
+      The string value contains the error message or error type.
+    labels:
+      - database_error
+      - empty_db_path
+    bugs:
+      - https://github.com/mozilla/application-services/pull/7111
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/7111
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - ahanot@mozilla.com
+      - llisi@mozilla.com
+      - toast@mozilla.com
+    expires: never
+
+  impression_log_outcome:
+    type: labeled_string
+    description: >
+      The total number of outcomes encountered during operations on the impression log,
+      labeled by type. The string value contains the error message or error type.
+    labels:
+      - retain_impressions_failed
+      - record_impression_failed
+      - count_impressions_failed
+      - impression_cap_hit
+      - impression_cap_enforced
+      - impression_cap_not_enforced
+    bugs:
+      - https://github.com/mozilla/application-services/pull/7111
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/7111
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - ahanot@mozilla.com
+      - llisi@mozilla.com
+      - toast@mozilla.com
+    expires: never

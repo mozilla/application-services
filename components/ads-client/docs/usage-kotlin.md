@@ -128,11 +128,11 @@ class AdsClientTelemetry : MozAdsTelemetry {
     }
 
     override fun recordBuildImpressionLogError(label: String, value: String) {
-        AdsClient.httpCacheOutcome[label].set(value)
+        AdsClient.buildImpressionLogError[label].set(value)
     }
 
     override fun recordImpressionLogOutcome(label: String, value: String) {
-        AdsClient.httpCacheOutcome[label].set(value)
+        AdsClient.impressionLogOutcome[label].set(value)
     }
 }
 ```
