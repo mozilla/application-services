@@ -110,6 +110,7 @@ pub(crate) struct StateV2 {
     pub(crate) server_local_device_info: Option<LocalDevice>,
     #[serde(default)]
     pub(crate) logged_out_from_auth_issues: bool,
+    pub(crate) last_auth_recheck_time: Option<u64>,
 }
 
 #[cfg(test)]
