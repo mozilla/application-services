@@ -12,7 +12,7 @@ use rusqlite::{Connection, Result};
 pub fn run_maintenance(conn: &Connection) -> Result<()> {
     vacuum(conn)?;
     conn.execute_one("PRAGMA optimize")?;
-    conn.execute_one("PRAGMA wal_checkpoint(TRUNCATE)")?;
+    conn.execute_one("PRAGMA wal_checkpoint(PASSIVE)")?;
     Ok(())
 }
 
