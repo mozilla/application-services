@@ -113,11 +113,10 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
 
+        // Set up default SQLite pragmas to truncate the -wal file.
+        sql_support::setup_sqlite_defaults(conn)?;
+
         let initial_pragmas = "
-            -- use in-memory storage
-            PRAGMA temp_store = 2;
-            -- use write-ahead logging
-            PRAGMA journal_mode = WAL;
             -- autofill does not use foreign keys at present but this is probably a good pragma to set
             PRAGMA foreign_keys = ON;
         ";
@@ -292,6 +291,7 @@ mod tests {
     use crate::db::addresses::get_address;
     use crate::db::credit_cards::get_credit_card;
     use crate::db::test::new_mem_db;
+    use crate::db::AutofillDb;
     use sql_support::open_database::test_utils::MigratedDatabaseFile;
     use sync_guid::Guid;
     use types::Timestamp;
@@ -301,6 +301,31 @@ mod tests {
     const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
     const CREATE_V3_DB: &str = include_str!("../../sql/tests/create_v3_db.sql");
     const CREATE_V4_DB: &str = include_str!("../../sql/tests/create_v4_db.sql");
+
+    #[test]
+    fn test_wal_size_is_bounded() {
+        // A memory database has no -wal file, so open a real one.
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, "");
+        let db = AutofillDb::new(&db_file.path).expect("should open the database");
+
+        let journal_mode: String = db
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(journal_mode, "wal");
+
+        let autocheckpoint: i64 = db
+            .query_row("PRAGMA wal_autocheckpoint", [], |row| row.get(0))
+            .unwrap();
+        assert!(autocheckpoint > 0, "auto-checkpointing is disabled");
+
+        let journal_size_limit: i64 = db
+            .query_row("PRAGMA journal_size_limit", [], |row| row.get(0))
+            .unwrap();
+        assert!(
+            journal_size_limit > 0,
+            "journal_size_limit is {journal_size_limit}, so the -wal file is never truncated"
+        );
+    }
 
     #[test]
     fn test_create_schema_twice() {
