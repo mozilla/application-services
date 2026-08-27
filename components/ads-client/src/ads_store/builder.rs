@@ -10,7 +10,6 @@ use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
 
-// TODO: Do we want to make this customizable?
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
@@ -77,7 +76,6 @@ impl AdsStoreBuilder {
         Ok(())
     }
 
-    // TODO: Currently, we do not allow modifying the fields, but we anticipate needing to do so in the future, so we keep this pattern.
     pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 

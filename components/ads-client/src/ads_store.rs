@@ -58,7 +58,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::mars::ad_response::{AdCallbacks, AdImage, RawAdType};
+    use crate::mars::ad_response::{AdCallbacks, AdImage, StorableAdType};
     use url::Url;
 
     #[test]
@@ -95,7 +95,7 @@ mod tests {
             .holder
             .store_with_ttl(
                 &placement_id,
-                RawAdType::Image,
+                StorableAdType::Image,
                 body,
                 &Duration::from_secs(300),
             )
@@ -141,7 +141,7 @@ mod tests {
             .holder
             .store_with_ttl(
                 &placement_id_1,
-                RawAdType::Image,
+                StorableAdType::Image,
                 body.clone(),
                 &Duration::from_secs(300),
             )
@@ -151,7 +151,7 @@ mod tests {
             .holder
             .store_with_ttl(
                 &placement_id_2,
-                RawAdType::Image,
+                StorableAdType::Image,
                 body.clone(),
                 &Duration::from_secs(300),
             )

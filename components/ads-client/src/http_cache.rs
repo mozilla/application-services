@@ -25,7 +25,6 @@ use viaduct::{Client, Request, Response};
 
 pub use self::builder::HttpCacheBuilderError;
 pub use self::bytesize::ByteSize;
-
 pub use self::outcome::CacheOutcome;
 pub use self::request_hash::RequestHash;
 use std::path::Path;

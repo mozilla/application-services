@@ -24,8 +24,8 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
                 cached_at INTEGER NOT NULL,
                 expires_at INTEGER NOT NULL,
                 placement_id TEXT NOT NULL,
-                placement_type SMALLINT NOT NULL,
-                placement_body BLOB NOT NULL,
+                ad_type SMALLINT NOT NULL,
+                ad_body BLOB NOT NULL,
                 size_bytes INTEGER NOT NULL,
                 ttl_seconds INTEGER NOT NULL,
                 PRIMARY KEY (placement_id)

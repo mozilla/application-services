@@ -10,7 +10,7 @@ use crate::{
         clock::{CacheClock, Clock},
         ByteSize,
     },
-    mars::ad_response::{RawAd, RawAdType},
+    mars::ad_response::{StorableAd, StorableAdType},
 };
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
@@ -99,7 +99,7 @@ impl AdsStoreHolder {
         Ok(total)
     }
     /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
-    pub fn lookup(&self, placement_id: &PlacementId) -> SqliteResult<Option<RawAd>> {
+    pub fn lookup(&self, placement_id: &PlacementId) -> SqliteResult<Option<StorableAd>> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
             return Err(Self::forced_fault_error("forced lookup failure"));
@@ -107,16 +107,16 @@ impl AdsStoreHolder {
         let conn = self.conn.lock();
         // TODO: Should we use body or explicit fields?
         conn.query_row(
-            "SELECT placement_id, placement_type, placement_body
+            "SELECT placement_id, ad_type, ad_body
              FROM ads WHERE placement_id = ?1",
             params![placement_id.as_ref()],
             |row| {
                 let placement_id: String = row.get(0)?;
-                let placement_type: u8 = row.get(1)?;
-                let placement_body: Vec<u8> = row.get(2)?;
+                let ad_type: u8 = row.get(1)?;
+                let ad_body: Vec<u8> = row.get(2)?;
 
                 let placement_id = PlacementId::new(&placement_id);
-                let placement_type = RawAdType::try_from(placement_type).map_err(|e| {
+                let ad_type = StorableAdType::try_from(ad_type).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
                         1,
                         rusqlite::types::Type::Integer,
@@ -124,10 +124,10 @@ impl AdsStoreHolder {
                     )
                 })?;
 
-                Ok(RawAd {
+                Ok(StorableAd {
                     placement_id,
-                    placement_type,
-                    placement_body,
+                    ad_type,
+                    ad_body,
                 })
             },
         )
@@ -141,8 +141,8 @@ impl AdsStoreHolder {
     pub fn store_with_ttl(
         &self,
         placement_id: &PlacementId,
-        placement_type: RawAdType,
-        placement_body: Vec<u8>,
+        ad_type: StorableAdType,
+        ad_body: Vec<u8>,
         ttl: &Duration,
     ) -> SqliteResult<()> {
         #[cfg(test)]
@@ -150,9 +150,9 @@ impl AdsStoreHolder {
             return Err(Self::forced_fault_error("forced store failure"));
         }
         let placement_id_str : &str = placement_id.as_ref();
-        // placement_id char count + u8 (placement_type) + body length
+        // placement_id char count + u8 (ad_type) + body length
         // TODO: is it actually 8 bytes? https://stackoverflow.com/questions/2761563/what-is-the-difference-between-related-sqlite-data-types-like-int-integer-smal
-        let size_bytes = (placement_id_str.chars().count() + 8 + placement_body.len()) as i64;
+        let size_bytes = (placement_id_str.chars().count() + 8 + ad_body.len()) as i64;
         let now = self.clock.now_epoch_seconds();
         let ttl_seconds = ttl.as_secs();
         let expires_at = now + ttl_seconds as i64;
@@ -163,8 +163,8 @@ impl AdsStoreHolder {
                 cached_at,
                 expires_at,
                 placement_id,
-                placement_type,
-                placement_body,
+                ad_type,
+                ad_body,
                 size_bytes,
                 ttl_seconds
             )
@@ -172,16 +172,16 @@ impl AdsStoreHolder {
             ON CONFLICT(placement_id) DO UPDATE SET
                 cached_at=excluded.cached_at,
                 expires_at=excluded.expires_at,
-                placement_type=excluded.placement_type,
-                placement_body=excluded.placement_body,
+                ad_type=excluded.ad_type,
+                ad_body=excluded.ad_body,
                 size_bytes=excluded.size_bytes,
                 ttl_seconds=excluded.ttl_seconds",
             params![
                 now,
                 expires_at,
                 placement_id_str,
-                placement_type.to_u8(),
-                placement_body,
+                ad_type.to_u8(),
+                ad_body,
                 size_bytes,
                 ttl_seconds as i64,
             ],
@@ -266,7 +266,7 @@ mod tests {
     }
 
     // Create a sample ad for tests. The body defaults to an example serialized AdImage (if body is None).
-    fn create_test_raw_ad(placement_id: &str, body: Option<Vec<u8>>) -> RawAd {
+    fn create_test_raw_ad(placement_id: &str, body: Option<Vec<u8>>) -> StorableAd {
         let base_url = mockito::server_url();
         let ad = AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),
@@ -280,10 +280,10 @@ mod tests {
                 report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
             },
         };
-        RawAd {
+        StorableAd {
             placement_id: PlacementId::new(placement_id),
-            placement_type: RawAdType::Image,
-            placement_body: body.unwrap_or(serde_json::to_vec(&ad).unwrap()),
+            ad_type: StorableAdType::Image,
+            ad_body: body.unwrap_or(serde_json::to_vec(&ad).unwrap()),
         }
     }
 
@@ -320,8 +320,8 @@ mod tests {
         let err = store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap_err();
@@ -342,8 +342,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();
@@ -378,7 +378,7 @@ mod tests {
 
         let ttl = Duration::from_secs(5);
         store
-            .store_with_ttl(&ad.placement_id, ad.placement_type, ad.placement_body, &ttl)
+            .store_with_ttl(&ad.placement_id, ad.ad_type, ad.ad_body, &ttl)
             .unwrap();
 
         let (cached_at, expires_at, ttl_seconds) = fetch_timestamps(&store, &ad.placement_id);
@@ -401,8 +401,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body.clone(),
+                ad.ad_type,
+                ad.ad_body.clone(),
                 &Duration::from_secs(300),
             )
             .unwrap();
@@ -414,8 +414,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(1),
             )
             .unwrap();
@@ -435,16 +435,16 @@ mod tests {
         store
             .store_with_ttl(
                 &ad_exp.placement_id,
-                ad_exp.placement_type,
-                ad_exp.placement_body,
+                ad_exp.ad_type,
+                ad_exp.ad_body,
                 &Duration::from_secs(1),
             )
             .unwrap();
         store
             .store_with_ttl(
                 &ad_fresh.placement_id,
-                ad_fresh.placement_type,
-                ad_fresh.placement_body,
+                ad_fresh.ad_type,
+                ad_fresh.ad_body,
                 &Duration::from_secs(10),
             )
             .unwrap();
@@ -471,8 +471,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(1),
             )
             .unwrap();
@@ -491,8 +491,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(0),
             )
             .unwrap();
@@ -512,14 +512,14 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body.clone(),
+                ad.ad_type,
+                ad.ad_body.clone(),
                 &Duration::from_secs(300),
             )
             .unwrap();
 
         let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
-        assert_eq!(retrieved.placement_body, ad.placement_body);
+        assert_eq!(retrieved.ad_body, ad.ad_body);
     }
 
     #[test]
@@ -530,14 +530,14 @@ mod tests {
         store
             .store_with_ttl(
                 &ad.placement_id,
-                ad.placement_type,
-                ad.placement_body,
+                ad.ad_type,
+                ad.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();
 
         let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
-        assert_eq!(retrieved.placement_body, b"test response");
+        assert_eq!(retrieved.ad_body, b"test response");
 
         store.clock.advance(2);
 
@@ -558,8 +558,8 @@ mod tests {
             store
                 .store_with_ttl(
                     &ad.placement_id,
-                    ad.placement_type,
-                    ad.placement_body,
+                    ad.ad_type,
+                    ad.ad_body,
                     &Duration::from_secs(300),
                 )
                 .unwrap();
@@ -583,8 +583,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad_1.placement_id,
-                ad_1.placement_type,
-                ad_1.placement_body,
+                ad_1.ad_type,
+                ad_1.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();
@@ -593,8 +593,8 @@ mod tests {
         store
             .store_with_ttl(
                 &ad_2.placement_id,
-                ad_2.placement_type,
-                ad_2.placement_body,
+                ad_2.ad_type,
+                ad_2.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();
@@ -619,16 +619,16 @@ mod tests {
         store
             .store_with_ttl(
                 &ad_1.placement_id,
-                ad_1.placement_type,
-                ad_1.placement_body,
+                ad_1.ad_type,
+                ad_1.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();
         store
             .store_with_ttl(
                 &ad_2.placement_id,
-                ad_2.placement_type,
-                ad_2.placement_body,
+                ad_2.ad_type,
+                ad_2.ad_body,
                 &Duration::from_secs(300),
             )
             .unwrap();

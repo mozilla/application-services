@@ -142,39 +142,38 @@ pub struct AdTile {
     pub url: String,
 }
 
-// TODO: Still needed?
 #[derive(Debug)]
-pub struct RawAd {
+pub struct StorableAd {
     pub placement_id: PlacementId,
-    pub placement_type: RawAdType,
-    pub placement_body: Vec<u8>,
+    pub ad_type: StorableAdType,
+    pub ad_body: Vec<u8>,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum RawAdType {
+pub enum StorableAdType {
     Image,
     Spoc,
     Tile,
 }
 
-impl RawAdType {
+impl StorableAdType {
     pub fn to_u8(self) -> u8 {
         match self {
-            RawAdType::Image => 0,
-            RawAdType::Spoc => 1,
-            RawAdType::Tile => 2,
+            StorableAdType::Image => 0,
+            StorableAdType::Spoc => 1,
+            StorableAdType::Tile => 2,
         }
     }
 }
 
-impl TryFrom<u8> for RawAdType {
+impl TryFrom<u8> for StorableAdType {
     type Error = String;
     fn try_from(value: u8) -> Result<Self, String> {
         Ok(match value {
-            0 => RawAdType::Image,
-            1 => RawAdType::Spoc,
-            2 => RawAdType::Tile,
-            x => return Err(format!("Invalid variant for RawAdType: {x}")),
+            0 => StorableAdType::Image,
+            1 => StorableAdType::Spoc,
+            2 => StorableAdType::Tile,
+            x => return Err(format!("Invalid variant for StorableAdType: {x}")),
         })
     }
 }
