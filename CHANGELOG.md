@@ -1,4 +1,4 @@
-# v156.0 (In progress)
+# v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
 
@@ -6,7 +6,7 @@
 
 - A new API has been added to get the list of enrolled experiments and rollouts without instantiating a NimbusClient: `get_active_enrollments()`. ([#7560](https://github.com/mozilla/application-services/pull/7560))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v155.0...v156.0)
 
 ## ✨ What's Changed ✨
 
