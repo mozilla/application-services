@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use crate::ads_store::AdsStore;
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -42,6 +43,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
+    ads_store: Option<AdsStore>,
 }
 
 impl<T> AdsClient<T>
@@ -85,12 +87,24 @@ where
             }
         });
 
+        let ads_store = client_config.store_config.and_then(|x| {
+            match AdsStore::builder(x.db_path).build() {
+                Ok(store) => Some(store),
+                Err(e) => {
+                    // TODO: Telemetry needs to work
+                    telemetry.record(&e);
+                    None
+                }
+            }
+        });
+
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
         Self {
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
+            ads_store,
         }
     }
 
@@ -105,8 +119,13 @@ where
         self.telemetry.shutdown();
 
         // Shutdown DB
-        self.client.shutdown_db()?;
+        let r = self.client.shutdown_db();
 
+        if let Some(ads_store) = self.ads_store.take() {
+            ads_store.shutdown_db()?;
+        }
+
+        r?;
         Ok(())
     }
 
@@ -278,6 +297,7 @@ mod tests {
     use std::{assert_eq, assert_ne, sync::Arc};
 
     use crate::{
+        ads_store::builder::AdsStoreBuilder,
         ffi::telemetry::MozAdsTelemetryWrapper,
         mars::Environment,
         test_utils::{
@@ -301,6 +321,11 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry,
+            ads_store: Some(
+                AdsStoreBuilder::new("test_store.db")
+                    .build()
+                    .expect("Simplest AdsStoreBuilder should be constructable"),
+            ),
         }
     }
 
@@ -311,6 +336,7 @@ mod tests {
             context_id_provider: None,
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            store_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -415,6 +441,7 @@ mod tests {
             context_id_provider: Some(Box::new(FixedContextId)),
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            store_config: None,
         };
         let client = AdsClient::new(config);
 
@@ -534,6 +561,7 @@ mod tests {
             context_id_provider: None,
             environment: Environment::Test,
             telemetry: noop_telemetry,
+            store_config: None,
         };
         let mut client = AdsClient::new(config);
 

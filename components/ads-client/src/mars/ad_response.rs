@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::ads_store::PlacementId;
 use crate::http_cache::RequestHash;
 use crate::telemetry::Telemetry;
 use serde::de::DeserializeOwned;
@@ -139,6 +140,43 @@ pub struct AdTile {
     pub image_url: String,
     pub name: String,
     pub url: String,
+}
+
+// TODO: Still needed?
+#[derive(Debug)]
+pub struct RawAd {
+    pub placement_id: PlacementId,
+    pub placement_type: RawAdType,
+    pub placement_body: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum RawAdType {
+    Image,
+    Spoc,
+    Tile,
+}
+
+impl RawAdType {
+    pub fn to_u8(self) -> u8 {
+        match self {
+            RawAdType::Image => 0,
+            RawAdType::Spoc => 1,
+            RawAdType::Tile => 2,
+        }
+    }
+}
+
+impl TryFrom<u8> for RawAdType {
+    type Error = String;
+    fn try_from(value: u8) -> Result<Self, String> {
+        Ok(match value {
+            0 => RawAdType::Image,
+            1 => RawAdType::Spoc,
+            2 => RawAdType::Tile,
+            x => return Err(format!("Invalid variant for RawAdType: {x}")),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

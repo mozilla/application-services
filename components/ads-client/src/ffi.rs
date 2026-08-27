@@ -8,7 +8,7 @@ pub mod telemetry;
 
 use std::sync::Arc;
 
-use crate::client::config::{AdsCacheConfig, AdsClientConfig};
+use crate::client::config::{AdsCacheConfig, AdsClientConfig, AdsStoreConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
@@ -107,6 +107,7 @@ struct MozAdsClientBuilderInner {
     context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    store_config: Option<MozAdsStoreConfig>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -137,6 +138,7 @@ impl MozAdsClientBuilder {
                 .clone()
                 .map(MozAdsTelemetryWrapper::new)
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            store_config: inner.store_config.clone().map(Into::into),
         };
         let client = AdsClient::new(client_config);
         MozAdsClient {
@@ -146,6 +148,11 @@ impl MozAdsClientBuilder {
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
         self.0.lock().cache_config = Some(cache_config);
+        self
+    }
+
+    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
+        self.0.lock().store_config = Some(store_config);
         self
     }
 
@@ -184,6 +191,11 @@ pub struct MozAdsCacheConfig {
     pub default_cache_ttl_seconds: Option<u64>,
     #[uniffi(default = None)]
     pub max_size_mib: Option<u64>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct MozAdsStoreConfig {
+    pub db_path: String,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -448,6 +460,14 @@ impl From<MozAdsCacheConfig> for AdsCacheConfig {
             db_path: config.db_path,
             default_cache_ttl_seconds: config.default_cache_ttl_seconds,
             max_size_mib: config.max_size_mib,
+        }
+    }
+}
+
+impl From<MozAdsStoreConfig> for AdsStoreConfig {
+    fn from(config: MozAdsStoreConfig) -> Self {
+        Self {
+            db_path: config.db_path,
         }
     }
 }

@@ -20,6 +20,7 @@ pub trait MozAdsTelemetry: Send + Sync {
     fn record_client_error(&self, label: String, value: String);
     fn record_client_operation_total(&self, label: String);
     fn record_deserialization_error(&self, label: String, value: String);
+    // TODO: rename these
     fn record_http_cache_outcome(&self, label: String, value: String);
 }
 
