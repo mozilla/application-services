@@ -11,12 +11,12 @@ mod store;
 mod strategy;
 mod ttl;
 
-use crate::database::bytesize::ByteSize;
 use self::{
     builder::HttpCacheBuilder,
     store::HttpCacheStore,
     strategy::{CacheFirst, NetworkFirst},
 };
+use crate::database::bytesize::ByteSize;
 
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
