@@ -122,9 +122,7 @@ impl AdsStoreHolder {
             return Err(Self::forced_fault_error("forced store failure"));
         }
         let placement_id_str: &str = ad.placement_id.as_ref();
-        // placement_id char count + u8 (ad_type) + body length
-        // TODO: is it actually 8 bytes? https://stackoverflow.com/questions/2761563/what-is-the-difference-between-related-sqlite-data-types-like-int-integer-smal
-        let size_bytes = (placement_id_str.chars().count() + 8 + ad.ad_body.len()) as i64;
+        let size_bytes = ad.ad_body.len() as i64;
         let now = self.clock.now_epoch_seconds();
 
         let conn = self.conn.lock();
