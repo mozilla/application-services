@@ -22,7 +22,6 @@ pub enum FaultKind {
     Lookup,
     Store,
     Trim,
-    Cleanup,
 }
 
 pub struct AdsStoreHolder {
@@ -82,23 +81,6 @@ impl AdsStoreHolder {
         Ok(ByteSize::b(size_bytes_ads))
     }
 
-    /// Removes all entries from the store whose expires_at is at or before the current time.
-    pub fn delete_expired_entries(&self) -> SqliteResult<usize> {
-        #[cfg(test)]
-        if *self.fault.lock() == FaultKind::Cleanup {
-            return Err(Self::forced_fault_error("forced cleanup failure"));
-        }
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let mut total = 0;
-        total += tx.execute(
-            "DELETE FROM ads WHERE expires_at <= ?1",
-            params![self.clock.now_epoch_seconds()],
-        )?;
-        tx.commit()?;
-        Ok(total)
-    }
-    /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
     pub fn lookup(&self, placement_id: &PlacementId) -> SqliteResult<Option<StorableAd>> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
@@ -133,10 +115,7 @@ impl AdsStoreHolder {
         .optional()
     }
 
-    /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
-    /// Calling this method will always store an object regardless of headers or policy.
-    /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
-    /// TODO: maybe this should take a raw ad? maybe no need for raw ad at all?
+    /// Upsert an object into the store.
     pub fn store_ad(&self, ad: StorableAd) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
@@ -303,20 +282,6 @@ mod tests {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced trim failure"));
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn test_cleanup_fault_injection() {
-        let store = create_test_store();
-        store.set_fault(FaultKind::Cleanup);
-
-        let err = store.delete_expired_entries().unwrap_err();
-        match err {
-            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
-                assert!(msg.contains("forced cleanup failure"));
             }
             other => panic!("unexpected error: {other:?}"),
         }
