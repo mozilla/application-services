@@ -93,10 +93,7 @@ mod tests {
             ad_body: serde_json::to_vec(&ad).unwrap(),
         };
 
-        store
-            .holder
-            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.holder.store_ad(ad.clone()).unwrap();
 
         // Verify it's cached
         let retrieved = store.holder.lookup(&ad.placement_id).unwrap();
@@ -140,15 +137,9 @@ mod tests {
             ad_body: serde_json::to_vec(&ad).unwrap(),
         };
 
-        store
-            .holder
-            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.holder.store_ad(ad_1.clone()).unwrap();
 
-        store
-            .holder
-            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.holder.store_ad(ad_2.clone()).unwrap();
 
         assert!(store.holder.lookup(&ad_1.placement_id).unwrap().is_some());
         assert!(store.holder.lookup(&ad_2.placement_id).unwrap().is_some());

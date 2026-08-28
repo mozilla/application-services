@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use crate::{
     ads_store::PlacementId,
@@ -105,7 +105,6 @@ impl AdsStoreHolder {
             return Err(Self::forced_fault_error("forced lookup failure"));
         }
         let conn = self.conn.lock();
-        // TODO: Should we use body or explicit fields?
         conn.query_row(
             "SELECT placement_id, ad_type, ad_body
              FROM ads WHERE placement_id = ?1",
@@ -138,7 +137,7 @@ impl AdsStoreHolder {
     /// Calling this method will always store an object regardless of headers or policy.
     /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
     /// TODO: maybe this should take a raw ad? maybe no need for raw ad at all?
-    pub fn store_with_ttl(&self, ad: StorableAd, ttl: &Duration) -> SqliteResult<()> {
+    pub fn store_ad(&self, ad: StorableAd) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(Self::forced_fault_error("forced store failure"));
@@ -148,36 +147,28 @@ impl AdsStoreHolder {
         // TODO: is it actually 8 bytes? https://stackoverflow.com/questions/2761563/what-is-the-difference-between-related-sqlite-data-types-like-int-integer-smal
         let size_bytes = (placement_id_str.chars().count() + 8 + ad.ad_body.len()) as i64;
         let now = self.clock.now_epoch_seconds();
-        let ttl_seconds = ttl.as_secs();
-        let expires_at = now + ttl_seconds as i64;
 
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO ads (
-                cached_at,
-                expires_at,
+                stored_at,
                 placement_id,
                 ad_type,
                 ad_body,
-                size_bytes,
-                ttl_seconds
+                size_bytes
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             ON CONFLICT(placement_id) DO UPDATE SET
-                cached_at=excluded.cached_at,
-                expires_at=excluded.expires_at,
+                stored_at=excluded.stored_at,
                 ad_type=excluded.ad_type,
                 ad_body=excluded.ad_body,
-                size_bytes=excluded.size_bytes,
-                ttl_seconds=excluded.ttl_seconds",
+                size_bytes=excluded.size_bytes",
             params![
                 now,
-                expires_at,
                 placement_id_str,
                 ad.ad_type.to_u8(),
                 ad.ad_body,
                 size_bytes,
-                ttl_seconds as i64,
             ],
         )?;
         Ok(())
@@ -204,7 +195,7 @@ impl AdsStoreHolder {
             let conn = self.conn.lock();
             conn.execute(
                 "DELETE FROM ads WHERE rowid IN (
-                    SELECT rowid FROM ads ORDER BY cached_at ASC LIMIT 1
+                    SELECT rowid FROM ads ORDER BY stored_at ASC LIMIT 1
                 )",
                 [],
             )?;
@@ -237,27 +228,7 @@ mod tests {
         mars::ad_response::{AdCallbacks, AdImage},
     };
     use sql_support::open_database;
-    use std::time::Duration;
     use url::Url;
-
-    fn fetch_timestamps(store: &AdsStoreHolder, placement_id: &PlacementId) -> (i64, i64, i64) {
-        let conn = store.conn.lock();
-        conn.query_row(
-            "SELECT
-                    cached_at,
-                    expires_at,
-                    COALESCE(ttl_seconds, -1)
-            FROM ads WHERE placement_id = ?1",
-            rusqlite::params![&placement_id.as_ref()],
-            |row| {
-                let cached_at: i64 = row.get(0)?;
-                let expires_at: i64 = row.get(1)?;
-                let ttl: i64 = row.get(2)?;
-                Ok((cached_at, expires_at, ttl))
-            },
-        )
-        .expect("row should exist")
-    }
 
     // Create a sample ad for tests. The body defaults to an example serialized AdImage (if body is None).
     fn create_test_raw_ad(placement_id: &str, body: Option<Vec<u8>>) -> StorableAd {
@@ -311,9 +282,7 @@ mod tests {
 
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
-        let err = store
-            .store_with_ttl(ad, &Duration::from_secs(300))
-            .unwrap_err();
+        let err = store.store_ad(ad).unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced store failure"));
@@ -328,7 +297,7 @@ mod tests {
         store.set_fault(FaultKind::Trim);
 
         let ad = create_test_raw_ad("mock_billboard_1", None);
-        store.store_with_ttl(ad, &Duration::from_secs(300)).unwrap();
+        store.store_ad(ad).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
@@ -354,134 +323,14 @@ mod tests {
     }
 
     #[test]
-    fn test_store_ads_with_ttl_sets_fields_consistently() {
-        let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-        let placement_id = ad.placement_id.clone();
-        let ttl = Duration::from_secs(5);
-        store.store_with_ttl(ad, &ttl).unwrap();
-
-        let (cached_at, expires_at, ttl_seconds) = fetch_timestamps(&store, &placement_id);
-        assert_eq!(ttl_seconds, ttl.as_secs() as i64);
-        let diff = expires_at - cached_at;
-        let ttl_seconds = ttl.as_secs();
-        assert!(
-            (diff == ttl_seconds as i64)
-                || (diff == ttl_seconds as i64 - 1)
-                || (diff == ttl_seconds as i64 + 1),
-            "unexpected expires_at diff: got {diff}, want ~{ttl_seconds}"
-        );
-    }
-
-    #[test]
-    fn test_upsert_ads_refreshes_ttl_and_expiry() {
-        let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
-            .unwrap();
-        let (c1, e1, t1) = fetch_timestamps(&store, &ad.placement_id);
-        assert_eq!(t1, 300);
-
-        store.get_clock().advance(3);
-
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(1))
-            .unwrap();
-        let (c2, e2, t2) = fetch_timestamps(&store, &ad.placement_id);
-        assert_eq!(t2, 1);
-        assert!(c2 > c1);
-        assert!(e2 < e1, "expires_at should move earlier when TTL shrinks");
-    }
-
-    #[test]
-    fn test_delete_expired_removes_only_expired_ads() {
-        let store = create_test_store();
-
-        let ad_exp = create_test_raw_ad("mock_billboard_1", None);
-        let ad_fresh = create_test_raw_ad("mock_billboard_2", None);
-
-        store
-            .store_with_ttl(ad_exp.clone(), &Duration::from_secs(1))
-            .unwrap();
-        store
-            .store_with_ttl(ad_fresh.clone(), &Duration::from_secs(10))
-            .unwrap();
-
-        assert!(store.lookup(&ad_exp.placement_id).unwrap().is_some());
-        assert!(store.lookup(&ad_fresh.placement_id).unwrap().is_some());
-
-        store.clock.advance(2);
-        let removed = store.delete_expired_entries().unwrap();
-        assert!(
-            removed >= 1,
-            "expected at least one expired row to be deleted"
-        );
-
-        assert!(store.lookup(&ad_exp.placement_id).unwrap().is_none());
-        assert!(store.lookup(&ad_fresh.placement_id).unwrap().is_some());
-    }
-
-    #[test]
-    fn test_lookups_is_expired_agnostic() {
-        let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(1))
-            .unwrap();
-        store.clock.advance(2);
-        assert!(store.lookup(&ad.placement_id).unwrap().is_some());
-
-        store.delete_expired_entries().unwrap();
-        assert!(store.lookup(&ad.placement_id).unwrap().is_none());
-    }
-
-    #[test]
-    fn test_zero_ttl_expires_ads_immediately_after_tick() {
-        let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(0))
-            .unwrap();
-        assert!(store.lookup(&ad.placement_id).unwrap().is_some());
-
-        store.clock.advance(2);
-        let removed = store.delete_expired_entries().unwrap();
-        assert!(removed >= 1);
-        assert!(store.lookup(&ad.placement_id).unwrap().is_none());
-    }
-
-    #[test]
     fn test_store_and_retrieve_ads() {
         let store = create_test_store();
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.store_ad(ad.clone()).unwrap();
 
         let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
         assert_eq!(retrieved.ad_body, ad.ad_body);
-    }
-
-    #[test]
-    fn test_ttl_expiration_ads() {
-        let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", Some(b"test response".to_vec()));
-
-        store
-            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
-            .unwrap();
-
-        let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
-        assert_eq!(retrieved.ad_body, b"test response");
-
-        store.clock.advance(2);
-
-        let retrieved_after_expiry = store.lookup(&ad.placement_id).unwrap();
-        assert!(retrieved_after_expiry.is_some());
     }
 
     #[test]
@@ -494,9 +343,7 @@ mod tests {
         for i in 0..5 {
             let large_body = vec![0u8; 300];
             let ad = create_test_raw_ad(&format!("mock_billboard_{i}"), Some(large_body));
-            store
-                .store_with_ttl(ad.clone(), &Duration::from_secs(300))
-                .unwrap();
+            store.store_ad(ad.clone()).unwrap();
         }
 
         store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
@@ -514,14 +361,10 @@ mod tests {
         let store = create_test_store();
         let ad_1 = create_test_raw_ad("mock_billboard_1", None);
 
-        store
-            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.store_ad(ad_1.clone()).unwrap();
 
         let ad_2 = create_test_raw_ad("mock_billboard_2", None);
-        store
-            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.store_ad(ad_2.clone()).unwrap();
 
         assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
         assert!(store.lookup(&ad_2.placement_id).unwrap().is_some());
@@ -540,12 +383,8 @@ mod tests {
         let ad_1 = create_test_raw_ad("mock_billboard_1", None);
         let ad_2 = create_test_raw_ad("mock_billboard_2", None);
 
-        store
-            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
-            .unwrap();
-        store
-            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
-            .unwrap();
+        store.store_ad(ad_1.clone()).unwrap();
+        store.store_ad(ad_2.clone()).unwrap();
 
         assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
         assert!(store.lookup(&ad_2.placement_id).unwrap().is_some());

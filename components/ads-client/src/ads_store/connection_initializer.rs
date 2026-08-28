@@ -21,17 +21,14 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
     fn init(&self, tx: &rusqlite::Transaction<'_>) -> open_database::Result<()> {
         const SCHEMA: &str = "
             CREATE TABLE IF NOT EXISTS ads (
-                cached_at INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL,
+                stored_at INTEGER NOT NULL,
                 placement_id TEXT NOT NULL,
                 ad_type SMALLINT NOT NULL,
                 ad_body BLOB NOT NULL,
                 size_bytes INTEGER NOT NULL,
-                ttl_seconds INTEGER NOT NULL,
                 PRIMARY KEY (placement_id)
             );
-            CREATE INDEX IF NOT EXISTS idx_ads_cached_at ON ads(cached_at);
-            CREATE INDEX IF NOT EXISTS idx_ads_expires_at ON ads(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_ads_stored_at ON ads(stored_at);
             CREATE INDEX IF NOT EXISTS idx_ads_placement_id ON ads(placement_id);
             ";
         // If the schema fails to initialize, it might be corrupted or outdated so we drop the table and try again

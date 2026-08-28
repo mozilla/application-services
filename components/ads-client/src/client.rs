@@ -87,15 +87,16 @@ where
             }
         });
 
-        let ads_store = client_config.store_config.and_then(|x| {
-            match AdsStore::builder(x.db_path).build() {
-                Ok(store) => Some(store),
-                Err(e) => {
-                    telemetry.record(&e);
-                    None
-                }
-            }
-        });
+        let ads_store =
+            client_config
+                .store_config
+                .and_then(|x| match AdsStore::builder(x.db_path).build() {
+                    Ok(store) => Some(store),
+                    Err(e) => {
+                        telemetry.record(&e);
+                        None
+                    }
+                });
 
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
