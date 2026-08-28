@@ -2,18 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::sync::Arc;
-
+use crate::database::bytesize::ByteSize;
+use crate::database::clock::Clock;
 use crate::{
     ads_store::PlacementId,
-    http_cache::{
-        clock::{CacheClock, Clock},
-        ByteSize,
-    },
+    database::clock::CacheClock,
     mars::ad_response::{StorableAd, StorableAdType},
 };
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
+use std::sync::Arc;
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -48,7 +46,7 @@ impl AdsStoreHolder {
 
     #[cfg(test)]
     pub fn new_with_test_clock(conn: Connection) -> Self {
-        use crate::http_cache::clock::TestClock;
+        use crate::database::clock::TestClock;
 
         Self {
             conn: Mutex::new(conn),

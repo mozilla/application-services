@@ -4,7 +4,7 @@ pub mod store;
 
 use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
-    http_cache::ByteSize,
+    database::bytesize::ByteSize,
 };
 use std::path::Path;
 

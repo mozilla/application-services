@@ -3,10 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod builder;
-mod bytesize;
 mod cache_control;
-// TODO: Remove this
-pub mod clock;
 mod connection_initializer;
 mod outcome;
 mod request_hash;
@@ -14,6 +11,7 @@ mod store;
 mod strategy;
 mod ttl;
 
+use crate::database::bytesize::ByteSize;
 use self::{
     builder::HttpCacheBuilder,
     store::HttpCacheStore,
@@ -24,7 +22,6 @@ use std::hash::Hash;
 use viaduct::{Client, Request, Response};
 
 pub use self::builder::HttpCacheBuilderError;
-pub use self::bytesize::ByteSize;
 pub use self::outcome::CacheOutcome;
 pub use self::request_hash::RequestHash;
 use std::path::Path;

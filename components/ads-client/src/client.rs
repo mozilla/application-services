@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::ads_store::AdsStore;
-use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
+use crate::database::bytesize::ByteSize;
+use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};

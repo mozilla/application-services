@@ -259,7 +259,7 @@ mod tests {
 
         let cache = HttpCache::builder("test_fetch_ads_cache_hit_skips_network.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::database::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
         let client = make_test_client(Some(cache));
@@ -295,7 +295,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder("test_record_click.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::database::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
 
@@ -314,7 +314,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder("test_record_impression.db")
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::http_cache::ByteSize::mib(1))
+            .max_size(crate::database::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
 

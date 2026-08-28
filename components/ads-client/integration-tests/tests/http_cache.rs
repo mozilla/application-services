@@ -6,7 +6,8 @@
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
-use ads_client::http_cache::{ByteSize, CacheOutcome, CachePolicy, HttpCache};
+use ads_client::database::bytesize::ByteSize;
+use ads_client::http_cache::{CacheOutcome, CachePolicy, HttpCache};
 use mockito::mock;
 use viaduct::{Client, ClientSettings, Request};
 

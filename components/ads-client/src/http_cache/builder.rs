@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::bytesize::ByteSize;
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
+use crate::database::bytesize::ByteSize;
 use crate::http_cache::HttpCache;
 use rusqlite::Connection;
 use sql_support::open_database;

@@ -5,7 +5,7 @@
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
-use crate::http_cache::ByteSize;
+use crate::database::bytesize::ByteSize;
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;

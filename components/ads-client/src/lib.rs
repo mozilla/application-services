@@ -17,6 +17,7 @@ use http_cache::CachePolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 pub mod ads_store;
 mod client;
+pub mod database;
 mod ffi;
 pub mod http_cache;
 mod mars;
