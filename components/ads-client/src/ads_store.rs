@@ -55,8 +55,6 @@ impl AdsStore {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
     use crate::mars::ad_response::{AdCallbacks, AdImage, StorableAd, StorableAdType};
     use url::Url;
