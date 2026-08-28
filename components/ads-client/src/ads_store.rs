@@ -58,7 +58,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::mars::ad_response::{AdCallbacks, AdImage, StorableAdType};
+    use crate::mars::ad_response::{AdCallbacks, AdImage, StorableAd, StorableAdType};
     use url::Url;
 
     #[test]
@@ -87,29 +87,26 @@ mod tests {
             },
         };
 
-        // TODO: Conversion to raw ad, or remove raw ad.
-        let placement_id = PlacementId::new("mock_billboard_1");
-        let body = serde_json::to_vec(&ad).unwrap();
+        let ad = StorableAd {
+            placement_id: PlacementId::new("mock_billboard_1"),
+            ad_type: StorableAdType::Image,
+            ad_body: serde_json::to_vec(&ad).unwrap(),
+        };
 
         store
             .holder
-            .store_with_ttl(
-                &placement_id,
-                StorableAdType::Image,
-                body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
             .unwrap();
 
         // Verify it's cached
-        let retrieved = store.holder.lookup(&placement_id).unwrap();
+        let retrieved = store.holder.lookup(&ad.placement_id).unwrap();
         assert!(retrieved.is_some());
 
         // Clear the cache
         store.clear().unwrap();
 
         // Verify it's cleared
-        let retrieved_after_clear = store.holder.lookup(&placement_id).unwrap();
+        let retrieved_after_clear = store.holder.lookup(&ad.placement_id).unwrap();
         assert!(retrieved_after_clear.is_none());
     }
 
@@ -132,37 +129,33 @@ mod tests {
             },
         };
 
-        // TODO: Conversion to raw ad, or remove raw ad.
-        let placement_id_1 = PlacementId::new("mock_billboard_1");
-        let placement_id_2 = PlacementId::new("mock_billboard_2");
-        let body = serde_json::to_vec(&ad).unwrap();
+        let ad_1 = StorableAd {
+            placement_id: PlacementId::new("mock_billboard_1"),
+            ad_type: StorableAdType::Image,
+            ad_body: serde_json::to_vec(&ad).unwrap(),
+        };
+        let ad_2 = StorableAd {
+            placement_id: PlacementId::new("mock_billboard_2"),
+            ad_type: StorableAdType::Image,
+            ad_body: serde_json::to_vec(&ad).unwrap(),
+        };
 
         store
             .holder
-            .store_with_ttl(
-                &placement_id_1,
-                StorableAdType::Image,
-                body.clone(),
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
             .unwrap();
 
         store
             .holder
-            .store_with_ttl(
-                &placement_id_2,
-                StorableAdType::Image,
-                body.clone(),
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
             .unwrap();
 
-        assert!(store.holder.lookup(&placement_id_1).unwrap().is_some());
-        assert!(store.holder.lookup(&placement_id_2).unwrap().is_some());
+        assert!(store.holder.lookup(&ad_1.placement_id).unwrap().is_some());
+        assert!(store.holder.lookup(&ad_2.placement_id).unwrap().is_some());
 
-        store.invalidate_by_id(&placement_id_1).unwrap();
+        store.invalidate_by_id(&ad_1.placement_id).unwrap();
 
-        assert!(store.holder.lookup(&placement_id_1).unwrap().is_none());
-        assert!(store.holder.lookup(&placement_id_2).unwrap().is_some());
+        assert!(store.holder.lookup(&ad_1.placement_id).unwrap().is_none());
+        assert!(store.holder.lookup(&ad_2.placement_id).unwrap().is_some());
     }
 }

@@ -142,7 +142,7 @@ pub struct AdTile {
     pub url: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StorableAd {
     pub placement_id: PlacementId,
     pub ad_type: StorableAdType,

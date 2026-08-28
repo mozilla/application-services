@@ -138,21 +138,15 @@ impl AdsStoreHolder {
     /// Calling this method will always store an object regardless of headers or policy.
     /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
     /// TODO: maybe this should take a raw ad? maybe no need for raw ad at all?
-    pub fn store_with_ttl(
-        &self,
-        placement_id: &PlacementId,
-        ad_type: StorableAdType,
-        ad_body: Vec<u8>,
-        ttl: &Duration,
-    ) -> SqliteResult<()> {
+    pub fn store_with_ttl(&self, ad: StorableAd, ttl: &Duration) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(Self::forced_fault_error("forced store failure"));
         }
-        let placement_id_str : &str = placement_id.as_ref();
+        let placement_id_str: &str = ad.placement_id.as_ref();
         // placement_id char count + u8 (ad_type) + body length
         // TODO: is it actually 8 bytes? https://stackoverflow.com/questions/2761563/what-is-the-difference-between-related-sqlite-data-types-like-int-integer-smal
-        let size_bytes = (placement_id_str.chars().count() + 8 + ad_body.len()) as i64;
+        let size_bytes = (placement_id_str.chars().count() + 8 + ad.ad_body.len()) as i64;
         let now = self.clock.now_epoch_seconds();
         let ttl_seconds = ttl.as_secs();
         let expires_at = now + ttl_seconds as i64;
@@ -180,8 +174,8 @@ impl AdsStoreHolder {
                 now,
                 expires_at,
                 placement_id_str,
-                ad_type.to_u8(),
-                ad_body,
+                ad.ad_type.to_u8(),
+                ad.ad_body,
                 size_bytes,
                 ttl_seconds as i64,
             ],
@@ -318,12 +312,7 @@ mod tests {
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
         let err = store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad, &Duration::from_secs(300))
             .unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
@@ -339,14 +328,7 @@ mod tests {
         store.set_fault(FaultKind::Trim);
 
         let ad = create_test_raw_ad("mock_billboard_1", None);
-        store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(300),
-            )
-            .unwrap();
+        store.store_with_ttl(ad, &Duration::from_secs(300)).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
@@ -375,13 +357,11 @@ mod tests {
     fn test_store_ads_with_ttl_sets_fields_consistently() {
         let store = create_test_store();
         let ad = create_test_raw_ad("mock_billboard_1", None);
-
+        let placement_id = ad.placement_id.clone();
         let ttl = Duration::from_secs(5);
-        store
-            .store_with_ttl(&ad.placement_id, ad.ad_type, ad.ad_body, &ttl)
-            .unwrap();
+        store.store_with_ttl(ad, &ttl).unwrap();
 
-        let (cached_at, expires_at, ttl_seconds) = fetch_timestamps(&store, &ad.placement_id);
+        let (cached_at, expires_at, ttl_seconds) = fetch_timestamps(&store, &placement_id);
         assert_eq!(ttl_seconds, ttl.as_secs() as i64);
         let diff = expires_at - cached_at;
         let ttl_seconds = ttl.as_secs();
@@ -397,14 +377,8 @@ mod tests {
     fn test_upsert_ads_refreshes_ttl_and_expiry() {
         let store = create_test_store();
         let ad = create_test_raw_ad("mock_billboard_1", None);
-
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body.clone(),
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
             .unwrap();
         let (c1, e1, t1) = fetch_timestamps(&store, &ad.placement_id);
         assert_eq!(t1, 300);
@@ -412,12 +386,7 @@ mod tests {
         store.get_clock().advance(3);
 
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(1),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(1))
             .unwrap();
         let (c2, e2, t2) = fetch_timestamps(&store, &ad.placement_id);
         assert_eq!(t2, 1);
@@ -433,20 +402,10 @@ mod tests {
         let ad_fresh = create_test_raw_ad("mock_billboard_2", None);
 
         store
-            .store_with_ttl(
-                &ad_exp.placement_id,
-                ad_exp.ad_type,
-                ad_exp.ad_body,
-                &Duration::from_secs(1),
-            )
+            .store_with_ttl(ad_exp.clone(), &Duration::from_secs(1))
             .unwrap();
         store
-            .store_with_ttl(
-                &ad_fresh.placement_id,
-                ad_fresh.ad_type,
-                ad_fresh.ad_body,
-                &Duration::from_secs(10),
-            )
+            .store_with_ttl(ad_fresh.clone(), &Duration::from_secs(10))
             .unwrap();
 
         assert!(store.lookup(&ad_exp.placement_id).unwrap().is_some());
@@ -469,12 +428,7 @@ mod tests {
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(1),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(1))
             .unwrap();
         store.clock.advance(2);
         assert!(store.lookup(&ad.placement_id).unwrap().is_some());
@@ -489,12 +443,7 @@ mod tests {
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(0),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(0))
             .unwrap();
         assert!(store.lookup(&ad.placement_id).unwrap().is_some());
 
@@ -510,12 +459,7 @@ mod tests {
         let ad = create_test_raw_ad("mock_billboard_1", None);
 
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body.clone(),
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
             .unwrap();
 
         let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
@@ -528,12 +472,7 @@ mod tests {
         let ad = create_test_raw_ad("mock_billboard_1", Some(b"test response".to_vec()));
 
         store
-            .store_with_ttl(
-                &ad.placement_id,
-                ad.ad_type,
-                ad.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad.clone(), &Duration::from_secs(300))
             .unwrap();
 
         let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
@@ -556,12 +495,7 @@ mod tests {
             let large_body = vec![0u8; 300];
             let ad = create_test_raw_ad(&format!("mock_billboard_{i}"), Some(large_body));
             store
-                .store_with_ttl(
-                    &ad.placement_id,
-                    ad.ad_type,
-                    ad.ad_body,
-                    &Duration::from_secs(300),
-                )
+                .store_with_ttl(ad.clone(), &Duration::from_secs(300))
                 .unwrap();
         }
 
@@ -581,22 +515,12 @@ mod tests {
         let ad_1 = create_test_raw_ad("mock_billboard_1", None);
 
         store
-            .store_with_ttl(
-                &ad_1.placement_id,
-                ad_1.ad_type,
-                ad_1.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
             .unwrap();
 
         let ad_2 = create_test_raw_ad("mock_billboard_2", None);
         store
-            .store_with_ttl(
-                &ad_2.placement_id,
-                ad_2.ad_type,
-                ad_2.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
             .unwrap();
 
         assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
@@ -617,20 +541,10 @@ mod tests {
         let ad_2 = create_test_raw_ad("mock_billboard_2", None);
 
         store
-            .store_with_ttl(
-                &ad_1.placement_id,
-                ad_1.ad_type,
-                ad_1.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_1.clone(), &Duration::from_secs(300))
             .unwrap();
         store
-            .store_with_ttl(
-                &ad_2.placement_id,
-                ad_2.ad_type,
-                ad_2.ad_body,
-                &Duration::from_secs(300),
-            )
+            .store_with_ttl(ad_2.clone(), &Duration::from_secs(300))
             .unwrap();
 
         assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
