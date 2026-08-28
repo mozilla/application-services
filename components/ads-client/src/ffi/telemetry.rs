@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+use crate::ads_store::builder::AdsStoreBuilderError;
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
@@ -100,6 +101,17 @@ impl Telemetry for MozAdsTelemetryWrapper {
                 ClientOperationEvent::ReportAd => "report_ad".to_string(),
                 ClientOperationEvent::RequestAds => "request_ads".to_string(),
             });
+            return;
+        }
+        if let Some(cache_builder_error) = event.downcast_ref::<AdsStoreBuilderError>() {
+            inner.record_build_cache_error(
+                match cache_builder_error {
+                    AdsStoreBuilderError::EmptyDbPath => "store_empty_db_path".to_string(),
+                    AdsStoreBuilderError::Database(_) => "store_database_error".to_string(),
+                    AdsStoreBuilderError::InvalidMaxSize { .. } => "store_invalid_max_size".to_string(),
+                },
+                format!("{}", cache_builder_error),
+            );
             return;
         }
         if let Some(cache_builder_error) = event.downcast_ref::<HttpCacheBuilderError>() {

@@ -91,7 +91,6 @@ where
             match AdsStore::builder(x.db_path).build() {
                 Ok(store) => Some(store),
                 Err(e) => {
-                    // TODO: Telemetry needs to work
                     telemetry.record(&e);
                     None
                 }
