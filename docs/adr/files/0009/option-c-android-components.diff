@@ -1,0 +1,246 @@
+diff --git a/mobile/android/android-components/components/feature/fxsuggest/build.gradle b/mobile/android/android-components/components/feature/fxsuggest/build.gradle
+index d5b717c0ef..28d9c82eb2 100644
+--- a/mobile/android/android-components/components/feature/fxsuggest/build.gradle
++++ b/mobile/android/android-components/components/feature/fxsuggest/build.gradle
+@@ -42,6 +42,7 @@
+ }
+ 
+ dependencies {
++    api ComponentsDependencies.mozilla_appservices_suggest
+     api ComponentsDependencies.mozilla_remote_settings
+ 
+     implementation project(':browser-state')
+@@ -54,7 +55,6 @@
+ 
+     implementation ComponentsDependencies.androidx_work_runtime
+     implementation ComponentsDependencies.kotlin_coroutines
+-    implementation ComponentsDependencies.mozilla_appservices_suggest
+ 
+     testImplementation project(':support-test')
+ 
+diff --git a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestStorage.kt b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestStorage.kt
+index f4af344906..a1eb5eee69 100644
+--- a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestStorage.kt
++++ b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestStorage.kt
+@@ -6,120 +6,36 @@
+ 
+ import android.content.Context
+ import androidx.annotation.VisibleForTesting
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.CoroutineDispatcher
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.cancelChildren
+-import kotlinx.coroutines.withContext
+ import mozilla.appservices.remotesettings.RemoteSettingsServer
+ import mozilla.appservices.suggest.SuggestApiException
+ import mozilla.appservices.suggest.SuggestIngestionConstraints
+ import mozilla.appservices.suggest.SuggestStore
++import mozilla.appservices.suggest.SuggestStoreAsync
+ import mozilla.appservices.suggest.SuggestStoreBuilder
+ import mozilla.appservices.suggest.Suggestion
+ import mozilla.appservices.suggest.SuggestionQuery
+ import mozilla.components.support.base.log.logger.Logger
+ 
++const val DATABASE_NAME = "suggest_data.sqlite"
++
+ /**
+- * A coroutine-aware wrapper around the synchronous [SuggestStore] interface.
+- *
++ * Construct a new store
+  * @param context The Android application context.
+  * @param remoteSettingsServer The [RemoteSettingsServer] from which to ingest
+  * suggestions.
+  */
+-class FxSuggestStorage(context: Context, remoteSettingsServer: RemoteSettingsServer = RemoteSettingsServer.Prod) {
+-    // Lazily initializes the store on first use. `cacheDir` and using the `File` constructor
+-    // does I/O, so `store.value` should only be accessed from the read or write scope.
+-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+-    internal val store: Lazy<SuggestStore> = lazy {
+-        SuggestStoreBuilder()
+-            .dataPath(context.getDatabasePath(DATABASE_NAME).absolutePath)
+-            .remoteSettingsServer(remoteSettingsServer)
+-            .build()
+-    }
+-
+-    // We expect almost all Suggest storage operations to be reads, with infrequent writes. The
+-    // I/O dispatcher supports both workloads, and using separate scopes lets us cancel reads
+-    // without affecting writes.
+-    private val readScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+-    private val writeScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+-
+-    private val logger = Logger("FxSuggestStorage")
+-
+-    /**
+-     * Queries the store for suggestions.
+-     *
+-     * @param query The input and suggestion types to match.
+-     * @return A list of matching suggestions.
+-     */
+-    suspend fun query(query: SuggestionQuery): List<Suggestion> =
+-        withContext(readScope.coroutineContext) {
+-            handleSuggestExceptions("query", emptyList()) {
+-                store.value.query(query)
+-            }
+-        }
+-
+-    /**
+-     * Downloads and persists new Firefox Suggest search suggestions.
+-     *
+-     * @param constraints Optional limits on suggestions to ingest.
+-     * @return `true` if ingestion succeeded; `false` if ingestion failed and should be retried.
+-     */
+-    suspend fun ingest(constraints: SuggestIngestionConstraints = SuggestIngestionConstraints()): Boolean =
+-        withContext(writeScope.coroutineContext) {
+-            handleSuggestExceptions("ingest", false) {
+-                store.value.ingest(constraints)
+-                true
+-            }
+-        }
+-
+-    /**
+-     * Run startup ingestion
+-     *
+-     * This will run ingestion, only if there are currently no suggestions in the database.  This is
+-     * used to initialize the database on first startup and also after Firefox updates that change
+-     * the schema (which often cause the suggestions table to be cleared).
+-     */
+-    suspend fun runStartupIngestion() {
+-        logger.info("runStartupIngestion")
+-        ingest(SuggestIngestionConstraints(emptyOnly = true))
+-    }
+-
+-    /**
+-     * Interrupts any ongoing queries for suggestions.
+-     */
+-    fun cancelReads() {
+-        if (store.isInitialized()) {
+-            store.value.interrupt()
+-            readScope.coroutineContext.cancelChildren()
+-        }
+-    }
+-
+-    /**
+-     * Runs an [operation] with the given [name], ignoring and logging any non-fatal exceptions.
+-     * Returns either the result of the [operation], or the provided [default] value if the
+-     * [operation] throws an exception.
+-     *
+-     * @param name The name of the operation to run.
+-     * @param default The default value to return if the operation fails.
+-     * @param operation The operation to run.
+-     */
+-    private inline fun <T> handleSuggestExceptions(
+-        name: String,
+-        default: T,
+-        operation: () -> T,
+-    ): T {
+-        return try {
+-            operation()
+-        } catch (e: SuggestApiException) {
+-            logger.warn("Ignoring exception from `$name`", e)
+-            default
+-        }
+-    }
+-
+-    internal companion object {
+-        /**
+-         * The database file name for permanent data.
+-         */
+-        const val DATABASE_NAME = "suggest_data.sqlite"
+-    }
++public fun createSuggestStore(
++    context: Context,
++    remoteSettingsServer: RemoteSettingsServer = RemoteSettingsServer.Prod,
++    scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
++): SuggestStoreAsync {
++    return SuggestStoreBuilder()
++        .dataPath(context.getDatabasePath(DATABASE_NAME).absolutePath)
++        .remoteSettingsServer(remoteSettingsServer)
++        .buildAsync(scope)
+ }
+diff --git a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestSuggestionProvider.kt b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestSuggestionProvider.kt
+index eebe52baeb..92248d6583 100644
+--- a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestSuggestionProvider.kt
++++ b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/FxSuggestSuggestionProvider.kt
+@@ -5,6 +5,7 @@
+ package mozilla.components.feature.fxsuggest
+ 
+ import android.content.res.Resources
++import mozilla.appservices.suggest.InterruptKind
+ import mozilla.appservices.suggest.Suggestion
+ import mozilla.appservices.suggest.SuggestionProvider
+ import mozilla.appservices.suggest.SuggestionQuery
+@@ -76,7 +77,7 @@
+         }
+ 
+     override fun onInputCancelled() {
+-        GlobalFxSuggestDependencyProvider.requireStorage().cancelReads()
++        GlobalFxSuggestDependencyProvider.requireStorage().interrupt(InterruptKind.READ)
+     }
+ 
+     private suspend fun List<Suggestion>.into(): List<AwesomeBar.Suggestion> =
+diff --git a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/GlobalFxSuggestDependencyProvider.kt b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/GlobalFxSuggestDependencyProvider.kt
+index faddb798f8..15f4277ac4 100644
+--- a/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/GlobalFxSuggestDependencyProvider.kt
++++ b/mobile/android/android-components/components/feature/fxsuggest/src/main/java/mozilla/components/feature/fxsuggest/GlobalFxSuggestDependencyProvider.kt
+@@ -4,11 +4,13 @@
+ 
+ package mozilla.components.feature.fxsuggest
+ 
++import mozilla.appservices.suggest.SuggestStoreAsync
++
+ /**
+  * Provides global access to the dependencies needed to access Firefox Suggest search suggestions.
+  */
+ object GlobalFxSuggestDependencyProvider {
+-    internal var storage: FxSuggestStorage? = null
++    internal var storage: SuggestStoreAsync? = null
+ 
+     /**
+      * Initializes this provider with a wrapped Suggest store.
+@@ -18,11 +20,11 @@
+      *
+      * @param storage The wrapped Suggest store.
+      */
+-    fun initialize(storage: FxSuggestStorage) {
++    fun initialize(storage: SuggestStoreAsync) {
+         this.storage = storage
+     }
+ 
+-    internal fun requireStorage(): FxSuggestStorage {
++    internal fun requireStorage(): SuggestStoreAsync {
+         return requireNotNull(storage) {
+             "`GlobalFxSuggestDependencyProvider.initialize` must be called before accessing `storage`"
+         }
+diff --git a/mobile/android/android-components/samples/compose-browser/src/main/java/org/mozilla/samples/compose/browser/Components.kt b/mobile/android/android-components/samples/compose-browser/src/main/java/org/mozilla/samples/compose/browser/Components.kt
+index 874b4081de..5802784cf3 100644
+--- a/mobile/android/android-components/samples/compose-browser/src/main/java/org/mozilla/samples/compose/browser/Components.kt
++++ b/mobile/android/android-components/samples/compose-browser/src/main/java/org/mozilla/samples/compose/browser/Components.kt
+@@ -7,14 +7,15 @@
+ import android.content.Context
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.platform.LocalContext
++import mozilla.appservices.suggest.SuggestStoreAsync
+ import mozilla.components.browser.engine.gecko.GeckoEngine
+ import mozilla.components.browser.engine.gecko.fetch.GeckoViewFetchClient
+ import mozilla.components.browser.state.engine.EngineMiddleware
+ import mozilla.components.browser.state.store.BrowserStore
+ import mozilla.components.concept.engine.Engine
+ import mozilla.components.concept.fetch.Client
++import mozilla.components.feature.fxsuggest.createSuggestStore
+ import mozilla.components.feature.fxsuggest.FxSuggestIngestionScheduler
+-import mozilla.components.feature.fxsuggest.FxSuggestStorage
+ import mozilla.components.feature.search.SearchUseCases
+ import mozilla.components.feature.search.middleware.SearchMiddleware
+ import mozilla.components.feature.search.region.RegionMiddleware
+@@ -52,8 +53,8 @@
+ 
+     val locationService by lazy { LocationService.default() }
+ 
+-    val fxSuggestStorage: FxSuggestStorage by lazy {
+-        FxSuggestStorage(context)
++    val fxSuggestStorage: SuggestStoreAsync by lazy {
++        createSuggestStore(context)
+     }
+ 
+     val fxSuggestIngestionScheduler: FxSuggestIngestionScheduler by lazy {
