@@ -108,7 +108,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 5;
+    const END_VERSION: u32 = 6;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -139,6 +139,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             2 => upgrade_from_v2(db),
             3 => upgrade_from_v3(db),
             4 => upgrade_from_v4(db),
+            5 => upgrade_from_v5(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -276,6 +277,14 @@ fn upgrade_from_v4(db: &Connection) -> Result<()> {
     // is the approach used by most other components and avoids duplicating the
     // table definitions in a separate migration file.
     db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+    Ok(())
+}
+
+fn upgrade_from_v5(_db: &Connection) -> Result<()> {
+    // v5 -> v6 changes no tables. The bump exists so that a downgrade to a
+    // build without the versioned secure-fields blob fails in `open_database`
+    // with `IncompatibleVersion`, instead of reading a blob as a card number
+    // and uploading it to the server.
     Ok(())
 }
 

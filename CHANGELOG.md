@@ -13,6 +13,7 @@
 ### Autofill
 
 - `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
+- Credit-card numbers are now stored as a versioned JSON blob rather than the bare number, so a second encrypted field can be added later without rewriting every row again. `run_maintenance()` rewrites existing rows once, in place, without touching sync metadata. The schema version is bumped to 6, so opening the database with an older build now fails rather than reading a blob as a card number.
 
 ### Ads-Client
 

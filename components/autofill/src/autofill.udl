@@ -264,6 +264,9 @@ interface Store {
 
     /// Run maintenance on the DB
     ///
+    /// Also completes the one-off rewrite of credit-card rows that predate the
+    /// versioned secure-fields encoding. Cheap once that has finished.
+    ///
     /// This is intended to be run during idle time and will take steps / to clean up / shrink the
     /// database.
     [Throws=AutofillApiError]

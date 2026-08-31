@@ -5,18 +5,17 @@
 
 //! Credit-card models and the cleartext fields that are stored encrypted.
 //!
-//! Only the number is encrypted today, and the encrypted value is that number
-//! verbatim - nothing about the stored format changes here.
+//! Only the number is encrypted today, but the encrypted value is a versioned
+//! JSON blob rather than the bare number, so a CVV can be added later.
 //!
-//! `SecureCreditCardFields` is a struct because a CVV is expected as a second
-//! encrypted field. Two values need a structured encoding, and existing rows
-//! then have to be rewritten: they decrypt to a bare number, where the new code
-//! would expect a structure. That migration is a separate ticket.
+//! Rows written before that change still decrypt to a bare number. `decrypt`
+//! accepts both, and `db::migrate_cc_secure_fields` rewrites the old ones.
 
 use super::Metadata;
 use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
 use crate::error::Error;
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 use sync_guid::Guid;
 
 #[derive(Debug, Clone, Default)]
@@ -117,6 +116,18 @@ impl InternalCreditCard {
     }
 }
 
+/// The version written today. A reader that meets a higher version fails rather
+/// than guessing, so a future format cannot be misread as this one.
+const SECURE_FIELDS_VERSION: u8 = 1;
+
+/// `db::migrate_cc_secure_fields` keeps its own frozen copy of the v1 shape, so
+/// changing this struct does not change what it already wrote.
+#[derive(Serialize, Deserialize)]
+struct StoredSecureFields {
+    v: u8,
+    n: String,
+}
+
 /// Cleartext credit-card fields that are encrypted for local storage.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct SecureCreditCardFields {
@@ -130,7 +141,13 @@ impl SecureCreditCardFields {
         encdec: &dyn EncryptorDecryptor,
         guid: &str,
     ) -> crate::error::Result<String> {
-        encrypt_str(encdec, &self.cc_number)
+        let stored = StoredSecureFields {
+            v: SECURE_FIELDS_VERSION,
+            n: self.cc_number.clone(),
+        };
+        let cleartext = serde_json::to_string(&stored)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))?;
+        encrypt_str(encdec, &cleartext)
             .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))
     }
 
@@ -139,13 +156,27 @@ impl SecureCreditCardFields {
         encdec: &dyn EncryptorDecryptor,
         guid: &str,
     ) -> crate::error::Result<Self> {
-        let cc_number = decrypt_str(encdec, ciphertext).map_err(|e| {
+        let cleartext = decrypt_str(encdec, ciphertext).map_err(|e| {
             Error::DecryptionFailed(format!(
                 "{e} (decrypting {guid}, ciphertext length: {})",
                 ciphertext.len()
             ))
         })?;
-        Ok(Self { cc_number })
+
+        match serde_json::from_str::<StoredSecureFields>(&cleartext) {
+            Ok(stored) if stored.v == SECURE_FIELDS_VERSION => Ok(Self {
+                cc_number: stored.n,
+            }),
+            Ok(stored) => Err(Error::DecryptionFailed(format!(
+                "unsupported secure-fields version {} (decrypting {guid})",
+                stored.v
+            ))),
+            // A bare number is not valid JSON for the blob, so a parse failure
+            // is how a row written before the migration identifies itself.
+            Err(_) => Ok(Self {
+                cc_number: cleartext,
+            }),
+        }
     }
 }
 
@@ -196,6 +227,40 @@ mod tests {
     fn test_scrubbed_is_the_default() {
         // Empty ciphertext marks data to be replaced from Sync.
         assert!(InternalCreditCard::default().has_scrubbed_data());
+    }
+
+    #[test]
+    fn test_decrypt_accepts_a_pre_migration_row() {
+        let encdec = encdec();
+        let legacy = crate::encryption::encrypt_str(&encdec, "4111111111117629").unwrap();
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&legacy, &encdec, "test-guid")
+                .unwrap()
+                .cc_number,
+            "4111111111117629"
+        );
+    }
+
+    #[test]
+    fn test_encrypt_writes_a_versioned_blob() {
+        let encdec = encdec();
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec, "test-guid")
+        .unwrap();
+        assert_eq!(
+            crate::encryption::decrypt_str(&encdec, &stored).unwrap(),
+            r#"{"v":1,"n":"4111111111117629"}"#
+        );
+    }
+
+    #[test]
+    fn test_decrypt_refuses_an_unknown_version() {
+        let encdec = encdec();
+        let future =
+            crate::encryption::encrypt_str(&encdec, r#"{"v":2,"n":"4111111111117629"}"#).unwrap();
+        assert!(SecureCreditCardFields::decrypt(&future, &encdec, "test-guid").is_err());
     }
 
     #[test]

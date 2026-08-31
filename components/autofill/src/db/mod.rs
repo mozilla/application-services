@@ -4,6 +4,7 @@
 
 pub mod addresses;
 pub mod credit_cards;
+pub(crate) mod migrate_cc_secure_fields;
 pub mod models;
 pub mod passports;
 pub mod schema;

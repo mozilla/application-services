@@ -9,7 +9,8 @@ use crate::db::models::address::{
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
 use crate::db::models::passport::{Passport, UpdatablePassportFields};
 use crate::db::{
-    addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics, passports, AutofillDb,
+    addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics,
+    migrate_cc_secure_fields::migrate_cc_secure_fields_if_needed, passports, AutofillDb,
 };
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
@@ -333,6 +334,9 @@ impl Store {
     #[handle_error(Error)]
     pub fn run_maintenance(&self) -> ApiResult<()> {
         let conn = self.lock_db()?;
+        // Before the vacuum below, so the old ciphertext does not stay behind
+        // in freed pages.
+        migrate_cc_secure_fields_if_needed(&conn)?;
         run_maintenance(&conn)?;
         Ok(())
     }

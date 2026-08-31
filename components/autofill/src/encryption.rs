@@ -26,6 +26,7 @@
 //
 // The sync code takes the encryptor from the store it already holds.
 
+use crate::db::models::credit_card::SecureCreditCardFields;
 use crate::error::*;
 use error_support::handle_error;
 use std::sync::Arc;
@@ -64,14 +65,20 @@ pub(crate) fn decrypt_str(encdec: &dyn EncryptorDecryptor, ciphertext: &str) -> 
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    encrypt_str(&static_key_encryptor(&key)?, &cleartext)
+    SecureCreditCardFields {
+        cc_number: cleartext,
+    }
+    .encrypt(&static_key_encryptor(&key)?, "<no guid>")
 }
 
 #[handle_error(Error)]
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    decrypt_str(&static_key_encryptor(&key)?, &ciphertext)
+    Ok(
+        SecureCreditCardFields::decrypt(&ciphertext, &static_key_encryptor(&key)?, "<no guid>")?
+            .cc_number,
+    )
 }
 
 #[handle_error(Error)]
