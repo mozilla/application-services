@@ -199,7 +199,7 @@ impl AdsStoreHolder {
 mod tests {
     use super::*;
     use crate::{
-        ads_store::connection_initializer::HttpCacheConnectionInitializer,
+        ads_store::connection_initializer::AdsStoreConnectionInitializer,
         mars::ad_response::{AdCallbacks, AdImage},
     };
     use sql_support::open_database;
@@ -228,7 +228,7 @@ mod tests {
     }
 
     fn create_test_store() -> AdsStoreHolder {
-        let initializer = HttpCacheConnectionInitializer {};
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
         AdsStoreHolder::new_with_test_clock(conn)
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction_ads() {
-        let initializer = HttpCacheConnectionInitializer {};
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
         let store = AdsStoreHolder::new(conn);
