@@ -6,6 +6,10 @@
 
 ## ✨ What's Changed ✨
 
+### Ads-Client
+
+- Adds `AdsStore`, a durable sqlite structure for storing ads, which will allow for a stateful refactor of the ads-client.
+
 ### Nimbus
 
 - A new API has been added to get the list of enrolled experiments and rollouts without instantiating a NimbusClient: `get_active_enrollments()`. ([#7560](https://github.com/mozilla/application-services/pull/7560))
