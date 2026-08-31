@@ -648,6 +648,9 @@ impl LoginDb {
             // Keep `meta.id` in sync with the (possibly regenerated) guid; it is used
             // as the stored/envelope id and when encrypting `sec_fields` below.
             entry_with_meta.meta.id = guid.to_string();
+            // Timestamps come from the application here, so they are as
+            // untrusted as the rest of the entry.
+            entry_with_meta.meta = entry_with_meta.meta.sanitize_timestamps();
             match self.fixup_and_check_for_dupes(&guid, entry_with_meta.entry) {
                 Ok(new_entry) => {
                     let sec_fields = SecureLoginFields {
@@ -1676,6 +1679,84 @@ mod tests {
             .expect("should get a record");
 
         assert_eq!(fetched.meta, meta);
+    }
+
+    /// A record with absurd `timeCreated` used to make every subsequent read of
+    /// the whole store fail, which emptied about:logins and broke sync on every
+    /// device the record reached. Reading must heal it instead. Bug 2066257.
+    #[test]
+    fn test_get_heals_corrupt_timestamp_already_in_db() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(LoginEntry {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "user".into(),
+                password: "password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        // Corrupt the row behind the store's back, the way a version without this fix - or a
+        // sync peer talking to one - would have left it.
+        const CORRUPT: i64 = 18446744071857664;
+        db.execute(
+            "UPDATE loginsL
+             SET timeCreated = :corrupt,
+                 timePasswordChanged = :corrupt,
+                 timeLastUsed = :corrupt,
+                 timeLastBreachAlertDismissed = :corrupt,
+                 local_modified = -1
+             WHERE guid = :guid",
+            named_params! { ":corrupt": CORRUPT, ":guid": &login.meta.id },
+        )
+        .unwrap();
+
+        let fetched = [
+            db.get_by_id(&login.meta.id).unwrap().unwrap(),
+            db.get_all().unwrap().pop().unwrap(),
+        ];
+        for fetched in fetched {
+            assert_eq!(fetched.meta.time_created, 0);
+            assert_eq!(fetched.meta.time_password_changed, 0);
+            assert_eq!(fetched.meta.time_last_used, 0);
+            assert_eq!(fetched.meta.time_last_breach_alert_dismissed, Some(0));
+        }
+    }
+
+    /// The store must not accept a timestamp it cannot hand back out again.
+    #[test]
+    fn test_add_with_meta_repairs_absurd_timestamps() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let guid = Guid::random();
+        let added = db
+            .add_with_meta(LoginEntryWithMeta {
+                entry: LoginEntry {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user".into(),
+                    password: "password".into(),
+                    ..Default::default()
+                },
+                meta: LoginMeta {
+                    id: guid.to_string(),
+                    time_created: 18446744071857664,
+                    time_password_changed: i64::MAX,
+                    time_last_used: -1,
+                    times_used: 1,
+                    time_last_breach_alert_dismissed: Some(i64::MAX),
+                },
+            })
+            .unwrap();
+
+        assert_eq!(added.meta.time_created, 0);
+        assert_eq!(added.meta.time_password_changed, 0);
+        assert_eq!(added.meta.time_last_used, 0);
+        assert_eq!(added.meta.time_last_breach_alert_dismissed, Some(0));
     }
 
     #[test]
