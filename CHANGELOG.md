@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Autofill
+
+- `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
