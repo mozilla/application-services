@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::connection_initializer::HttpCacheConnectionInitializer;
+use super::connection_initializer::AdsStoreConnectionInitializer;
 use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
 use crate::database::bytesize::ByteSize;
@@ -49,7 +49,7 @@ impl AdsStoreBuilder {
     }
 
     fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
-        let initializer = HttpCacheConnectionInitializer {};
+        let initializer = AdsStoreConnectionInitializer {};
         let conn = if cfg!(test) {
             open_database::open_memory_database(&initializer)?
         } else {
@@ -82,17 +82,6 @@ impl AdsStoreBuilder {
         let conn = self.open_connection()?;
         let holder = AdsStoreHolder::new(conn);
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore { max_size, holder })
-    }
-
-    #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&self) -> Result<AdsStore, AdsStoreBuilderError> {
-        self.validate()?;
-
-        let conn = self.open_connection()?;
-        let max_size = DEFAULT_MAX_SIZE;
-        let holder = AdsStoreHolder::new_with_test_clock(conn);
-
         Ok(AdsStore { max_size, holder })
     }
 }

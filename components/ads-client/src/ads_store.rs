@@ -70,7 +70,6 @@ mod tests {
     fn test_clear_store() {
         let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
 
-        // Create a test request and response
         let base_url = mockito::server_url();
         let ad = AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),
@@ -106,10 +105,9 @@ mod tests {
     }
 
     #[test]
-    fn test_invalidate_by_hash() {
+    fn test_invalidate_by_id() {
         let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
 
-        // Create a test request and response
         let base_url = mockito::server_url();
         let ad = AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),

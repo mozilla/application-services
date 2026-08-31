@@ -6,9 +6,9 @@ use rusqlite::Connection;
 use sql_support::open_database;
 use std::time::Duration;
 
-pub struct HttpCacheConnectionInitializer {}
+pub struct AdsStoreConnectionInitializer {}
 
-impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
+impl open_database::ConnectionInitializer for AdsStoreConnectionInitializer {
     const NAME: &'static str = "ads_cache";
     const END_VERSION: u32 = 1;
 
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_corrupted_schema_is_recreated() {
         let mut conn = Connection::open_in_memory().unwrap();
-        let initializer = HttpCacheConnectionInitializer {};
+        let initializer = AdsStoreConnectionInitializer {};
 
         // Create a corrupted table with only one column
         conn.execute_batch("CREATE TABLE ads (placement_id TEXT);")
