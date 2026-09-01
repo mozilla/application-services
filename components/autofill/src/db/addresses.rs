@@ -322,6 +322,7 @@ pub(crate) fn update_address(
             country             = :country,
             tel                 = :tel,
             email               = :email,
+            time_last_modified  = :time_last_modified,
             sync_change_counter = sync_change_counter + 1
         WHERE guid              = :guid",
         rusqlite::named_params! {
@@ -335,6 +336,7 @@ pub(crate) fn update_address(
             ":country": address.country,
             ":tel": address.tel,
             ":email": address.email,
+            ":time_last_modified": Timestamp::now(),
             ":guid": guid,
         },
     )?;
@@ -674,6 +676,36 @@ mod tests {
 
         //check that the sync_change_counter was incremented
         assert_eq!(1, updated_address.metadata.sync_change_counter);
+    }
+
+    #[test]
+    fn test_address_update_refreshes_time_last_modified() -> Result<()> {
+        let db = new_mem_db();
+
+        // Backdated, so the update has something to move it away from: two
+        // calls in the same millisecond would tell us nothing.
+        add_address_with_meta(&db, test_fields("123 Main Street"), test_meta("abc", 0))?;
+        assert_eq!(
+            get_address(&db, &Guid::new("abc"))?
+                .metadata
+                .time_last_modified
+                .as_millis(),
+            3000
+        );
+
+        update_address(&db, &Guid::new("abc"), &test_fields("456 Second Avenue"))?;
+
+        // Consumers reconcile on this field -- latest wins -- so an update that
+        // leaves it alone makes the record look older than it is.
+        assert!(
+            get_address(&db, &Guid::new("abc"))?
+                .metadata
+                .time_last_modified
+                .as_millis()
+                > 3000
+        );
+
+        Ok(())
     }
 
     #[test]
