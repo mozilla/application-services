@@ -63,7 +63,11 @@ jobs:
             #                       version of `yaml-rust`, which will be released in `v3` and additionally,
             #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
             #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
-            cargo audit --ignore RUSTSEC-2018-0006
+            #  * RUSTSEC-2026-0258: The h2 crate, used internally by hyper, had a flaw that would accept and queue empty DATA frames without limit.
+            #                       We're stuck with it for the moment until we upgrade hyper (bug 2067851).
+            #                       viaduct-hyper is only used for connecting to remote-settings, a server unser Mozilla's control
+            #                       and thus not running into the issue.
+            cargo audit --ignore RUSTSEC-2018-0006 --ignore RUSTSEC-2026-0258
       - name: Check for any unrecorded changes in our dependency trees
         run: |
             cargo metadata --locked > /dev/null
