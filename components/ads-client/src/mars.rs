@@ -68,12 +68,19 @@ where
         placements: Vec<AdPlacementRequest>,
         cache_policy: CachePolicy,
         ohttp: bool,
+        blocks: Vec<String>,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
     {
-        let mut ad_request =
-            AdRequest::try_new(context_id, self.environment, flags, ohttp, placements)?;
+        let mut ad_request = AdRequest::try_new(
+            blocks,
+            context_id,
+            self.environment,
+            flags,
+            ohttp,
+            placements,
+        )?;
         let request_hash = RequestHash::new(&ad_request);
 
         if ohttp {
@@ -239,6 +246,7 @@ mod tests {
             make_happy_placement_requests(),
             CachePolicy::default(),
             false,
+            Default::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -272,6 +280,7 @@ mod tests {
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
+                Default::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -284,6 +293,7 @@ mod tests {
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
+                Default::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);

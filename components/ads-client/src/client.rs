@@ -198,9 +198,10 @@ where
         flags: AdRequestFlags,
         options: Option<CachePolicy>,
         ohttp: bool,
+        blocks: Vec<String>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(ad_placement_requests, flags, options, ohttp)
+            .request_ads::<AdImage>(ad_placement_requests, flags, options, ohttp, blocks)
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })?;
@@ -214,8 +215,10 @@ where
         flags: AdRequestFlags,
         options: Option<CachePolicy>,
         ohttp: bool,
+        blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdSpoc>(ad_placement_requests, flags, options, ohttp);
+        let result =
+            self.request_ads::<AdSpoc>(ad_placement_requests, flags, options, ohttp, blocks);
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -232,8 +235,10 @@ where
         flags: AdRequestFlags,
         options: Option<CachePolicy>,
         ohttp: bool,
+        blocks: Vec<String>,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads::<AdTile>(ad_placement_requests, flags, options, ohttp);
+        let result =
+            self.request_ads::<AdTile>(ad_placement_requests, flags, options, ohttp, blocks);
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -250,15 +255,21 @@ where
         flags: AdRequestFlags,
         options: Option<CachePolicy>,
         ohttp: bool,
+        blocks: Vec<String>,
     ) -> Result<AdResponse<A>, RequestAdsError>
     where
         A: AdResponseValue,
     {
         let context_id = self.get_context_id()?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) =
-            self.client
-                .fetch_ads::<A>(context_id, flags, placements, cache_policy, ohttp)?;
+        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+            context_id,
+            flags,
+            placements,
+            cache_policy,
+            ohttp,
+            blocks,
+        )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -336,6 +347,7 @@ mod tests {
             AdRequestFlags::default(),
             None,
             false,
+            Default::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -360,6 +372,7 @@ mod tests {
             AdRequestFlags::default(),
             None,
             false,
+            Default::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -384,6 +397,7 @@ mod tests {
             AdRequestFlags::default(),
             None,
             false,
+            Default::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -425,6 +439,7 @@ mod tests {
             AdRequestFlags::default(),
             None,
             false,
+            Default::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -486,6 +501,7 @@ mod tests {
                 AdRequestFlags::default(),
                 None,
                 false,
+                Default::default(),
             )
             .unwrap();
         let callback_url = response.values().next().unwrap().callbacks.click.clone();
@@ -500,6 +516,7 @@ mod tests {
                 AdRequestFlags::default(),
                 None,
                 false,
+                Default::default(),
             )
             .unwrap();
 
@@ -511,6 +528,7 @@ mod tests {
                 AdRequestFlags::default(),
                 Some(CachePolicy::default()),
                 false,
+                Default::default(),
             )
             .unwrap();
 

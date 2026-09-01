@@ -8,6 +8,10 @@
 
 - `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
 
+### Ads-Client
+
+- Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
