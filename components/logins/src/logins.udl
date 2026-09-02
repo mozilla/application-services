@@ -5,20 +5,6 @@
 namespace logins {
     /// We expose the crypto primitives on the namespace
 
-    /// Create a new, random, encryption key.
-    [Throws=LoginsApiError]
-    string create_key();
-
-    /// Create a "canary" string, which can be used to test if the encryption
-    //key is still valid for the logins data
-    [Throws=LoginsApiError]
-    string create_canary([ByRef]string text, [ByRef]string encryption_key);
-
-    /// Check that key is still valid using the output of `create_canary`.
-    //`text` much match the text you initially passed to `create_canary()`
-    [Throws=LoginsApiError]
-    boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
-
     /// Utility function to create a StaticKeyManager to be used for the time
     /// being until support lands for [trait implementation of an UniFFI
     /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)

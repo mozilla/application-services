@@ -57,20 +57,6 @@ pub fn create_login_store_with_static_key_manager(path: String, key: String) -> 
     Arc::new(store)
 }
 
-#[handle_error(Error)]
-pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
-    Ok(db_crypto::create_canary(text, key)?)
-}
-
-pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
-    Ok(db_crypto::check_canary(canary, text, key)?)
-}
-
-#[handle_error(Error)]
-pub fn create_key() -> ApiResult<String> {
-    Ok(db_crypto::create_key()?)
-}
-
 // Create a LoginStore with NSSKeyManager by passing in a db path and a PrimaryPasswordAuthenticator.
 //
 // Note this is only temporarily needed until a bug with UniFFI and JavaScript is fixed, which
