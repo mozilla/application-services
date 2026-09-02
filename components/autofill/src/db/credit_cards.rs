@@ -6,7 +6,7 @@
 use crate::db::{
     models::{
         credit_card::{
-            CreditCardMeta, InternalCreditCard, UpdatableCreditCardFields,
+            CreditCardMeta, InternalCreditCard, SecureCreditCardFields, UpdatableCreditCardFields,
             UpdatableCreditCardFieldsWithMeta,
         },
         Metadata,
@@ -381,9 +381,12 @@ pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
     let undecryptable_record_ids = get_all_credit_cards(conn)?
         .into_iter()
         .filter(|credit_card| {
-            db.encdec
-                .decrypt(credit_card.cc_number_enc.as_bytes().to_vec())
-                .is_err()
+            SecureCreditCardFields::decrypt(
+                &credit_card.cc_number_enc,
+                db.encdec.as_ref(),
+                credit_card.guid.as_str(),
+            )
+            .is_err()
         })
         .map(|credit_card| credit_card.guid)
         .collect::<Vec<_>>();

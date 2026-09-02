@@ -93,16 +93,21 @@ pub(crate) fn static_key_encryptor(key: &str) -> Result<ManagedEncryptorDecrypto
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    let ciphertext = static_key_encryptor(&key)?.encrypt(cleartext.into_bytes())?;
-    String::from_utf8(ciphertext).map_err(|e| Error::CryptoNotUtf8(format!("encrypting: {e}")))
+    SecureCreditCardFields {
+        cc_number: cleartext,
+        ..Default::default()
+    }
+    .encrypt(&static_key_encryptor(&key)?, "<no guid>")
 }
 
 #[handle_error(Error)]
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    let cleartext = static_key_encryptor(&key)?.decrypt(ciphertext.into_bytes())?;
-    String::from_utf8(cleartext).map_err(|e| Error::CryptoNotUtf8(format!("decrypting: {e}")))
+    Ok(
+        SecureCreditCardFields::decrypt(&ciphertext, &static_key_encryptor(&key)?, "<no guid>")?
+            .cc_number,
+    )
 }
 
 #[handle_error(Error)]

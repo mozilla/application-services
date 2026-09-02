@@ -11,7 +11,7 @@ use super::{
     MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
     UnknownFields,
 };
-use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::models::credit_card::{InternalCreditCard, SecureCreditCardFields};
 use crate::error::*;
 #[cfg(test)]
 use crate::static_key_encryptor;
@@ -129,8 +129,12 @@ impl InternalCreditCard {
             )));
         }
         // need to encrypt the cleartext in the sync record.
-        let cc_number_enc = encrypt_str(encdec, &p.entry.cc_number)?;
         let cc_number_last_4 = get_last_4(&p.entry.cc_number);
+        let cc_number_enc = SecureCreditCardFields {
+            cc_number: p.entry.cc_number,
+            ..Default::default()
+        }
+        .encrypt(encdec, p.id.as_str())?;
 
         Ok(InternalCreditCard {
             guid: p.id,
@@ -151,7 +155,9 @@ impl InternalCreditCard {
     }
 
     pub(crate) fn into_payload(self, encdec: &dyn EncryptorDecryptor) -> Result<CreditCardPayload> {
-        let cc_number = decrypt_str(encdec, &self.cc_number_enc)?;
+        let cc_number =
+            SecureCreditCardFields::decrypt(&self.cc_number_enc, encdec, self.guid.as_str())?
+                .cc_number;
         Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
