@@ -9,8 +9,10 @@ use autofill::db::{
     models::{address, credit_card},
     store::Store,
 };
-use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
-use autofill::error::Error;
+use autofill::{
+    create_autofill_key, create_managed_encdec, create_static_key_manager, decrypt_string,
+    encrypt_string,
+};
 use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_string, prompt_usize};
@@ -234,9 +236,8 @@ fn run_delete_address(store: &Store, guid: String) -> Result<()> {
 }
 
 fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
-    let encdec = EncryptorDecryptor::new(key)?;
     let cc_number = prompt_string("cc_number").unwrap_or_default();
-    let cc_number_enc = encdec.encrypt(&cc_number)?;
+    let cc_number_enc = encrypt_string(key.to_string(), cc_number)?;
     let cc_number_last_4 = cc_number_enc.chars().rev().take(4).collect();
     let cc_fields = credit_card::UpdatableCreditCardFields {
         cc_name: prompt_string("cc_name").unwrap_or_default(),
@@ -270,8 +271,7 @@ fn run_get_credit_card(store: &Store, guid: String, key: &str) -> Result<()> {
     let credit_card = Store::get_credit_card(store, guid)?;
 
     println!("Retrieved credit card: {:#?}", credit_card);
-    let encdec = EncryptorDecryptor::new(key)?;
-    let card_number = encdec.decrypt(&credit_card.cc_number_enc)?;
+    let card_number = decrypt_string(key.to_string(), credit_card.cc_number_enc.clone())?;
     println!("credit-card number decrypts as: {}", card_number);
     if get_last_4(&card_number) != credit_card.cc_number_last_4 {
         println!("***** - last 4 digits are wrong!!!");
@@ -281,14 +281,13 @@ fn run_get_credit_card(store: &Store, guid: String, key: &str) -> Result<()> {
 
 fn run_get_all_credit_cards(store: &Store, key: &str) -> Result<()> {
     println!("Getting all credit cards");
-    let encdec = EncryptorDecryptor::new(key)?;
 
     let credit_cards = Store::get_all_credit_cards(store)?;
 
     println!("Retrieved credit cards:");
     for card in credit_cards {
         println!("{:#?}", card);
-        let card_number = encdec.decrypt(&card.cc_number_enc)?;
+        let card_number = decrypt_string(key.to_string(), card.cc_number_enc.clone())?;
         println!("credit-card number decrypts as: {}", card_number);
         if get_last_4(&card_number) != card.cc_number_last_4 {
             println!("***** - last 4 digits are wrong!!!");
@@ -332,7 +331,6 @@ fn run_delete_credit_card(store: &Store, guid: String) -> Result<()> {
 #[allow(clippy::too_many_arguments)]
 fn run_sync(
     store: &Arc<Store>,
-    key: &str,
     cred_file: String,
     wipe_all: bool,
     wipe: bool,
@@ -350,11 +348,10 @@ fn run_sync(
     }
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
-    let mut engines: Vec<Box<dyn SyncEngine>> = vec![
+    let engines: Vec<Box<dyn SyncEngine>> = vec![
         Arc::clone(store).create_addresses_sync_engine(),
         Arc::clone(store).create_credit_cards_sync_engine(),
     ];
-    engines[1].set_local_encryption_key(key)?;
     for engine in &engines {
         if wipe {
             engine.wipe()?;
@@ -421,7 +418,7 @@ fn run_sync(
     }
 }
 
-fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<String> {
+fn get_encryption_key(db_path: &str, opts: &Opts) -> Result<String> {
     // See the docstring for --key above for more context.
     // if key was specified we use ut.
     if let Some(key) = &opts.key {
@@ -454,7 +451,12 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
         Ok(res)
     }
 
-    let db = AutofillDb::new(db_path)?;
+    // The store needs an encryptor before it can open, but the example key
+    // lives in the database's meta table - so peek with a throwaway one.
+    let db = AutofillDb::new(
+        db_path,
+        create_managed_encdec(create_static_key_manager(create_autofill_key()?)),
+    )?;
 
     let key: Option<String> = get_meta(&db, "example-encryption-key")?;
     if let Some(key) = key {
@@ -462,11 +464,12 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
     }
     // So we need to generate it - but refuse to do so if it already has
     // cards.
-    if !Store::get_all_credit_cards(store)?.is_empty() {
+    let cards: i64 = db.query_row("SELECT COUNT(*) FROM credit_cards_data", [], |r| r.get(0))?;
+    if cards != 0 {
         println!("***** We don't have a key but do have credit-cards.");
         println!("***** I'm not going to generate an example one, so");
         println!("***** you should probably delete the database (or all cards) and start again");
-        return Err(Error::MissingEncryptionKey.into());
+        anyhow::bail!("no encryption key, but the database has credit cards");
     }
     // ok, generate it.
     println!("***** Generating and storing example key");
@@ -488,10 +491,12 @@ fn main() -> Result<()> {
         .database_path
         .clone()
         .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
-    let store = Store::new(&db_path)?;
-
-    let key = get_encryption_key(&store, &db_path, &opts)?;
+    let key = get_encryption_key(&db_path, &opts)?;
     log::trace!("Using encryption key {}", key);
+    let store = Store::new(
+        &db_path,
+        create_managed_encdec(create_static_key_manager(key.clone())),
+    )?;
 
     match opts.cmd {
         Command::AddAddress {} => run_add_address(&store),
@@ -514,7 +519,6 @@ fn main() -> Result<()> {
             wait,
         } => run_sync(
             &Arc::new(store),
-            &key,
             credential_file,
             wipe_all,
             wipe,
