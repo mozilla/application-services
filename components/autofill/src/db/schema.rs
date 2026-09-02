@@ -306,7 +306,8 @@ mod tests {
     fn test_wal_size_is_bounded() {
         // A memory database has no -wal file, so open a real one.
         let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, "");
-        let db = AutofillDb::new(&db_file.path).expect("should open the database");
+        let db = AutofillDb::new(&db_file.path, crate::db::test::test_encdec())
+            .expect("should open the database");
 
         let journal_mode: String = db
             .query_row("PRAGMA journal_mode", [], |row| row.get(0))

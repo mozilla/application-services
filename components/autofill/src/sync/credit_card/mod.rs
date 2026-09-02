@@ -12,7 +12,9 @@ use super::{
     UnknownFields,
 };
 use crate::db::models::credit_card::InternalCreditCard;
-use crate::encryption::EncryptorDecryptor;
+#[cfg(test)]
+use crate::encryption::static_key_encryptor;
+use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
 use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::IncomingCreditCardsImpl;
@@ -40,14 +42,11 @@ pub(super) struct CreditCardsEngineStorageImpl {}
 impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl {
     fn get_incoming_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalCreditCard>>> {
-        let enc_key = match enc_key {
-            None => return Err(Error::MissingEncryptionKey),
-            Some(enc_key) => enc_key,
-        };
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(Box::new(IncomingCreditCardsImpl { encdec }))
+        Ok(Box::new(IncomingCreditCardsImpl {
+            encdec: Arc::clone(encdec),
+        }))
     }
 
     fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
@@ -60,14 +59,11 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
 
     fn get_outgoing_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalCreditCard>>> {
-        let enc_key = match enc_key {
-            None => return Err(Error::MissingEncryptionKey),
-            Some(enc_key) => enc_key,
-        };
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(Box::new(OutgoingCreditCardsImpl { encdec }))
+        Ok(Box::new(OutgoingCreditCardsImpl {
+            encdec: Arc::clone(encdec),
+        }))
     }
 }
 
@@ -113,7 +109,7 @@ pub(super) struct PayloadEntry {
 }
 
 impl InternalCreditCard {
-    fn from_payload(p: CreditCardPayload, encdec: &EncryptorDecryptor) -> Result<Self> {
+    fn from_payload(p: CreditCardPayload, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
         if p.entry.version != 3 {
             // when new versions are introduced we will start accepting and
             // converting old ones - but 3 is the lowest we support.
@@ -123,7 +119,7 @@ impl InternalCreditCard {
             )));
         }
         // need to encrypt the cleartext in the sync record.
-        let cc_number_enc = encdec.encrypt(&p.entry.cc_number)?;
+        let cc_number_enc = encrypt_str(encdec, &p.entry.cc_number)?;
         let cc_number_last_4 = get_last_4(&p.entry.cc_number);
 
         Ok(InternalCreditCard {
@@ -144,8 +140,8 @@ impl InternalCreditCard {
         })
     }
 
-    pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<CreditCardPayload> {
-        let cc_number = encdec.decrypt(&self.cc_number_enc)?;
+    pub(crate) fn into_payload(self, encdec: &dyn EncryptorDecryptor) -> Result<CreditCardPayload> {
+        let cc_number = decrypt_str(encdec, &self.cc_number_enc)?;
         Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
@@ -269,7 +265,7 @@ fn test_to_from_payload() {
         cc_type: "foo".to_string(),
         ..Default::default()
     };
-    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let encdec = static_key_encryptor(&key).unwrap();
     let payload: CreditCardPayload = cc.clone().into_payload(&encdec).unwrap();
 
     assert_eq!(payload.id, cc.guid);
