@@ -10,6 +10,7 @@
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
+use crate::util::sanitize_timestamp;
 use crate::SecureLoginFields;
 use crate::{EncryptedLogin, LoginEntry, LoginFields, LoginMeta};
 use serde_derive::*;
@@ -216,11 +217,16 @@ where
     D: serde::de::Deserializer<'de>,
 {
     use serde::de::Deserialize;
-    // Invalid and negative timestamps are all replaced with 0. Eventually we
-    // should investigate replacing values that are unreasonable but still fit
-    // in an i64 (a date 1000 years in the future, for example), but
-    // appropriately handling that is complex.
-    Ok(i64::deserialize(deserializer).unwrap_or_default().max(0))
+    // Invalid and negative timestamps are replaced with 0.
+    //
+    // See bug 2066257: the JS sync engine declines to set a timestamp that `new
+    // Date()` cannot represent, but the bridged engine hands the payload
+    // straight to us, and the only check here used to be `.max(0)` - so an
+    // absurd positive value went into the database unexamined and then throws
+    // on the way back to JS.
+    Ok(sanitize_timestamp(
+        i64::deserialize(deserializer).unwrap_or_default(),
+    ))
 }
 
 // Quiet clippy, since this function is passed to deserialiaze_with...
@@ -232,7 +238,7 @@ where
     D: serde::de::Deserializer<'de>,
 {
     use serde::de::Deserialize;
-    Ok(i64::deserialize(deserializer).ok())
+    Ok(i64::deserialize(deserializer).ok().map(sanitize_timestamp))
 }
 
 #[cfg(not(feature = "keydb"))]
@@ -266,6 +272,35 @@ mod tests {
         let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
+    }
+
+    /// A peer running a version without the clamp - or one with a badly broken clock - must
+    /// not be able to push a timestamp that consumers cannot represent. Bug 2066257.
+    #[test]
+    fn test_payload_repairs_absurd_timestamps() {
+        let bso = IncomingBso::from_test_content(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "user",
+            "password": "password",
+            // Values observed in telemetry
+            "timeCreated": 18446744071857664i64,
+            "timePasswordChanged": 18446744073217880i64,
+            "timeLastUsed": -1,
+            "timeLastBreachAlertDismissed": i64::MAX,
+        }));
+        let login = IncomingLogin::from_incoming_payload(
+            bso.into_content::<LoginPayload>().content().unwrap(),
+            &*TEST_ENCDEC,
+        )
+        .unwrap()
+        .login;
+
+        assert_eq!(login.meta.time_created, 0);
+        assert_eq!(login.meta.time_password_changed, 0);
+        assert_eq!(login.meta.time_last_used, 0);
+        assert_eq!(login.meta.time_last_breach_alert_dismissed, Some(0));
     }
 
     // formSubmitURL (now formActionOrigin) being an empty string is a valid
