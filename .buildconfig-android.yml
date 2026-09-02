@@ -14,6 +14,13 @@ projects:
     - name: autofill
       type: aar
     description: Addresses and Credit Cards autofill.
+  containers:
+    path: components/containers/android
+    artifactId: containers
+    publications:
+    - name: containers
+      type: aar
+    description: Storage for Firefox containers.
   crashtest:
     path: components/crashtest/android
     artifactId: crashtest

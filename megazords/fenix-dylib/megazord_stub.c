@@ -12,6 +12,7 @@
 // This is an arbitrary choice - any symbol will do, but we chose these because every uniffi crate has it.
 extern int MOZ_EXPORT ffi_ads_client_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_autofill_uniffi_contract_version();
+extern int MOZ_EXPORT ffi_containers_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_crashtest_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_fxa_client_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_init_rust_components_uniffi_contract_version();
@@ -76,6 +77,7 @@ extern int MOZ_EXPORT UNIFFI_META_SYNC15_ENUM_DEVICETYPE();
 void _local_megazord_dummy_symbol() {
     ffi_ads_client_uniffi_contract_version();
     ffi_autofill_uniffi_contract_version();
+    ffi_containers_uniffi_contract_version();
     ffi_crashtest_uniffi_contract_version();
     ffi_fxa_client_uniffi_contract_version();
     ffi_init_rust_components_uniffi_contract_version();
