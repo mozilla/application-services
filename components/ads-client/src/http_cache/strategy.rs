@@ -52,9 +52,9 @@ impl NetworkFirst {
         let cache_control = CacheControl::from(&response);
         let outcome = if cache_control.should_cache() {
             let ttl = EffectiveTtl {
+                default: self.default_ttl,
                 explicit: self.explicit_ttl,
                 server_max_age: cache_control.max_age_duration(),
-                default: self.default_ttl,
             }
             .resolve();
             if ttl.is_zero() {

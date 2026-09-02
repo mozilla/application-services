@@ -145,11 +145,11 @@ mod tests {
 
     fn mock_response(status: u16, body: &str) -> Response {
         Response {
-            request_method: viaduct::Method::Get,
-            url: Url::parse("https://example.com").unwrap(),
-            status,
-            headers: viaduct::Headers::new(),
             body: body.as_bytes().to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Get,
+            status,
+            url: Url::parse("https://example.com").unwrap(),
         }
     }
 

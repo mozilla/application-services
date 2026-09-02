@@ -192,11 +192,11 @@ mod tests {
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Get,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Get,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache
@@ -496,11 +496,11 @@ mod tests {
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Post,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Post,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache

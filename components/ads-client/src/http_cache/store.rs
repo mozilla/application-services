@@ -33,8 +33,8 @@ pub struct HttpCacheStore {
 impl HttpCacheStore {
     pub fn new(conn: Connection) -> Self {
         Self {
-            conn: Mutex::new(conn),
             clock: Arc::new(CacheClock),
+            conn: Mutex::new(conn),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
@@ -45,8 +45,8 @@ impl HttpCacheStore {
         use crate::http_cache::clock::TestClock;
 
         Self {
-            conn: Mutex::new(conn),
             clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
+            conn: Mutex::new(conn),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
@@ -290,10 +290,10 @@ mod tests {
 
     fn create_test_request(url: &str, body: &[u8]) -> Request {
         Request {
+            body: Some(body.to_vec()),
+            headers: Headers::new(),
             method: Method::Get,
             url: url.parse().unwrap(),
-            headers: Headers::new(),
-            body: Some(body.to_vec()),
         }
     }
 
@@ -304,11 +304,11 @@ mod tests {
             .unwrap();
 
         Response {
-            request_method: Method::Get,
-            url: "https://example.com/test".parse().unwrap(),
-            status,
-            headers,
             body: body.to_vec(),
+            headers,
+            request_method: Method::Get,
+            status,
+            url: "https://example.com/test".parse().unwrap(),
         }
     }
 

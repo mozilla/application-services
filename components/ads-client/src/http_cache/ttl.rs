@@ -47,9 +47,9 @@ mod tests {
     #[test]
     fn explicit_overrides_server_max_age_and_default() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: Some(Duration::from_secs(60)),
             server_max_age: Some(Duration::from_secs(3600)),
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(60));
@@ -58,9 +58,9 @@ mod tests {
     #[test]
     fn falls_back_to_server_max_age_when_no_explicit() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::from_secs(3600)),
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(3600));
@@ -69,9 +69,9 @@ mod tests {
     #[test]
     fn falls_back_to_default_when_no_explicit_and_no_server_max_age() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: None,
             server_max_age: None,
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(300));
@@ -81,9 +81,9 @@ mod tests {
     fn zero_server_max_age_yields_zero() {
         // Lets the strategy emit NoCache without a network round-trip.
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::ZERO),
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, Duration::ZERO);
@@ -92,9 +92,9 @@ mod tests {
     #[test]
     fn server_max_age_is_capped_at_max_ttl() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::from_secs(365 * 24 * 60 * 60)),
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);
@@ -103,9 +103,9 @@ mod tests {
     #[test]
     fn explicit_ttl_is_capped_at_max_ttl() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
             explicit: Some(Duration::from_secs(30 * 24 * 60 * 60)),
             server_max_age: None,
-            default: Duration::from_secs(300),
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);
@@ -114,9 +114,9 @@ mod tests {
     #[test]
     fn default_ttl_is_capped_at_max_ttl() {
         let ttl = EffectiveTtl {
+            default: Duration::from_secs(30 * 24 * 60 * 60),
             explicit: None,
             server_max_age: None,
-            default: Duration::from_secs(30 * 24 * 60 * 60),
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);

@@ -116,9 +116,9 @@ impl HttpCacheBuilder {
         if let Some(max_size) = self.max_size {
             if max_size < MIN_CACHE_SIZE || max_size > MAX_CACHE_SIZE {
                 return Err(HttpCacheBuilderError::InvalidMaxSize {
-                    size_bytes: max_size.as_u64(),
-                    min_size: MIN_CACHE_SIZE.to_string(),
                     max_size: MAX_CACHE_SIZE.to_string(),
+                    min_size: MIN_CACHE_SIZE.to_string(),
+                    size_bytes: max_size.as_u64(),
                 });
             }
         }
@@ -126,9 +126,9 @@ impl HttpCacheBuilder {
         if let Some(ttl) = self.default_ttl {
             if !(MIN_TTL..=MAX_TTL).contains(&ttl) {
                 return Err(HttpCacheBuilderError::InvalidTtl {
-                    ttl: ttl.as_secs(),
-                    min_ttl: format!("{} seconds", MIN_TTL.as_secs()),
                     max_ttl: format!("{} seconds", MAX_TTL.as_secs()),
+                    min_ttl: format!("{} seconds", MIN_TTL.as_secs()),
+                    ttl: ttl.as_secs(),
                 });
             }
         }
