@@ -11,6 +11,7 @@
 ### Ads-Client
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
+- Fixed a panic on the OHTTP request path. The `X-Geo-Location` and `X-User-Agent` headers are built from the MARS `/v1/ads-preflight` response body, and header values must be printable ASCII, so a preflight response carrying a non-ASCII geo location (or CRLF) panicked rather than failing the request. The conversion is now fallible and surfaces as a request error. This affects OHTTP ad requests and OHTTP click/impression/report callbacks; there is no binding API change.
 
 # v156.0 (_2026-08-27_)
 
