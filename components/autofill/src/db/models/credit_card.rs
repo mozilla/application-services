@@ -3,8 +3,17 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+//! Credit-card models and the cleartext fields that are stored encrypted.
+//!
+//! Only the number is encrypted today. The encrypted value is a JSON blob so a
+//! CVV can be added without changing the stored format. Rows written before the
+//! blob encoding decrypt to a bare number; `decrypt` reads both.
+
 use super::Metadata;
+use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
+use crate::error::Error;
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 use sync_guid::Guid;
 
 #[derive(Debug, Clone, Default)]
@@ -102,5 +111,138 @@ impl InternalCreditCard {
 
     pub fn has_scrubbed_data(&self) -> bool {
         self.cc_number_enc.is_empty()
+    }
+}
+
+/// Cleartext credit-card fields that are encrypted for local storage.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SecureCreditCardFields {
+    pub cc_number: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cc_cvv: Option<String>,
+}
+
+impl SecureCreditCardFields {
+    /// `guid` only identifies the record in error messages.
+    pub fn encrypt(
+        &self,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<String> {
+        let cleartext = serde_json::to_string(self)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))?;
+        encrypt_str(encdec, &cleartext)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))
+    }
+
+    pub fn decrypt(
+        ciphertext: &str,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<Self> {
+        let cleartext = decrypt_str(encdec, ciphertext).map_err(|e| {
+            Error::DecryptionFailed(format!(
+                "{e} (decrypting {guid}, ciphertext length: {})",
+                ciphertext.len()
+            ))
+        })?;
+        // A bare number predates the blob encoding and is not valid JSON for
+        // the struct.
+        Ok(serde_json::from_str(&cleartext).unwrap_or(Self {
+            cc_number: cleartext,
+            cc_cvv: None,
+        }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encryption::{random_key_encryptor, ManagedEncryptorDecryptor};
+    use nss_as::ensure_initialized;
+
+    fn encdec() -> ManagedEncryptorDecryptor {
+        ensure_initialized();
+        random_key_encryptor().unwrap()
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let encdec = encdec();
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+            ..Default::default()
+        }
+        .encrypt(&encdec, "test-guid")
+        .unwrap();
+
+        assert!(!stored.is_empty());
+        assert_ne!(
+            stored, "4111111111117629",
+            "the stored value must not be the cleartext"
+        );
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&stored, &encdec, "test-guid")
+                .unwrap()
+                .cc_number,
+            "4111111111117629"
+        );
+    }
+
+    #[test]
+    fn test_cvv_roundtrips() {
+        let encdec = encdec();
+        let fields = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+            cc_cvv: Some("123".to_string()),
+        };
+        let stored = fields.encrypt(&encdec, "test-guid").unwrap();
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&stored, &encdec, "test-guid").unwrap(),
+            fields
+        );
+    }
+
+    #[test]
+    fn test_a_bare_number_decrypts_as_the_number() {
+        let encdec = encdec();
+        let stored = crate::encryption::encrypt_str(&encdec, "4111111111117629").unwrap();
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&stored, &encdec, "test-guid").unwrap(),
+            SecureCreditCardFields {
+                cc_number: "4111111111117629".to_string(),
+                cc_cvv: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_decrypt_with_the_wrong_key_fails() {
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+            ..Default::default()
+        }
+        .encrypt(&encdec(), "test-guid")
+        .unwrap();
+        assert!(SecureCreditCardFields::decrypt(&stored, &encdec(), "test-guid").is_err());
+    }
+
+    #[test]
+    fn test_scrubbed_is_the_default() {
+        // Empty ciphertext marks data to be replaced from Sync.
+        assert!(InternalCreditCard::default().has_scrubbed_data());
+    }
+
+    #[test]
+    fn test_encrypting_twice_gives_different_ciphertext() {
+        let encdec = encdec();
+        let fields = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+            ..Default::default()
+        };
+        assert_ne!(
+            fields.encrypt(&encdec, "test-guid").unwrap(),
+            fields.encrypt(&encdec, "test-guid").unwrap()
+        );
     }
 }

@@ -5,7 +5,7 @@
 
 use super::CreditCardPayload;
 use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
-use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::models::credit_card::{InternalCreditCard, SecureCreditCardFields};
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
 use crate::error::*;
@@ -210,9 +210,21 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
             Ok(Self::Record::from_row(row)?)
         })?;
 
-        let incoming_cc_number = decrypt_str(self.encdec.as_ref(), &incoming.cc_number_enc)?;
+        let incoming_cc_number = SecureCreditCardFields::decrypt(
+            &incoming.cc_number_enc,
+            self.encdec.as_ref(),
+            incoming.guid.as_str(),
+        )?
+        .cc_number;
         for record in records {
-            if decrypt_str(self.encdec.as_ref(), &record.cc_number_enc)? == incoming_cc_number {
+            if SecureCreditCardFields::decrypt(
+                &record.cc_number_enc,
+                self.encdec.as_ref(),
+                record.guid.as_str(),
+            )?
+            .cc_number
+                == incoming_cc_number
+            {
                 return Ok(Some(record));
             }
         }

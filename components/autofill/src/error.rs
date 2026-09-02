@@ -77,6 +77,12 @@ pub enum Error {
     #[error("Crypto data is not valid UTF-8: {0}")]
     CryptoNotUtf8(String),
 
+    #[error("Encryption failed: {0}")]
+    EncryptionFailed(String),
+
+    #[error("Decryption failed: {0}")]
+    DecryptionFailed(String),
+
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
 
@@ -143,6 +149,20 @@ impl GetErrorHandling for Error {
                 reason: reason.clone(),
             })
             .report_error("autofill-crypto-not-utf8"),
+
+            Self::EncryptionFailed(reason) => {
+                ErrorHandling::convert(AutofillApiError::CryptoError {
+                    reason: reason.clone(),
+                })
+                .report_error("autofill-encryption-failed")
+            }
+
+            Self::DecryptionFailed(reason) => {
+                ErrorHandling::convert(AutofillApiError::CryptoError {
+                    reason: reason.clone(),
+                })
+                .report_error("autofill-decryption-failed")
+            }
 
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })
