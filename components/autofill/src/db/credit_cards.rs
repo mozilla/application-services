@@ -5,13 +5,12 @@
 
 use crate::db::{
     models::{
-        credit_card::{InternalCreditCard, UpdatableCreditCardFields},
+        credit_card::{InternalCreditCard, SecureCreditCardFields, UpdatableCreditCardFields},
         Metadata,
     },
     schema::{CREDIT_CARD_COMMON_COLS, CREDIT_CARD_COMMON_VALS},
     AutofillDb,
 };
-use crate::encryption::decrypt_str;
 use crate::error::*;
 
 use rusqlite::{Connection, Transaction};
@@ -235,7 +234,14 @@ pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
 
     let undecryptable_record_ids = get_all_credit_cards(conn)?
         .into_iter()
-        .filter(|credit_card| decrypt_str(db.encdec.as_ref(), &credit_card.cc_number_enc).is_err())
+        .filter(|credit_card| {
+            SecureCreditCardFields::decrypt(
+                &credit_card.cc_number_enc,
+                db.encdec.as_ref(),
+                credit_card.guid.as_str(),
+            )
+            .is_err()
+        })
         .map(|credit_card| credit_card.guid)
         .collect::<Vec<_>>();
 

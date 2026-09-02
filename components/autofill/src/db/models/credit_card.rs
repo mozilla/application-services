@@ -3,7 +3,19 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+//! Credit-card models and the cleartext fields that are stored encrypted.
+//!
+//! Only the number is encrypted today, and the encrypted value is that number
+//! verbatim - nothing about the stored format changes here.
+//!
+//! `SecureCreditCardFields` is a struct because a CVV is expected as a second
+//! encrypted field. Two values need a structured encoding, and existing rows
+//! then have to be rewritten: they decrypt to a bare number, where the new code
+//! would expect a structure. That migration is a separate ticket.
+
 use super::Metadata;
+use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
+use crate::error::Error;
 use rusqlite::Row;
 use sync_guid::Guid;
 
@@ -102,5 +114,99 @@ impl InternalCreditCard {
 
     pub fn has_scrubbed_data(&self) -> bool {
         self.cc_number_enc.is_empty()
+    }
+}
+
+/// Cleartext credit-card fields that are encrypted for local storage.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct SecureCreditCardFields {
+    pub cc_number: String,
+}
+
+impl SecureCreditCardFields {
+    /// `guid` only identifies the record in error messages.
+    pub fn encrypt(
+        &self,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<String> {
+        encrypt_str(encdec, &self.cc_number)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))
+    }
+
+    pub fn decrypt(
+        ciphertext: &str,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<Self> {
+        let cc_number = decrypt_str(encdec, ciphertext).map_err(|e| {
+            Error::DecryptionFailed(format!(
+                "{e} (decrypting {guid}, ciphertext length: {})",
+                ciphertext.len()
+            ))
+        })?;
+        Ok(Self { cc_number })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encryption::{random_key_encryptor, ManagedEncryptorDecryptor};
+    use nss_as::ensure_initialized;
+
+    fn encdec() -> ManagedEncryptorDecryptor {
+        ensure_initialized();
+        random_key_encryptor().unwrap()
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let encdec = encdec();
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec, "test-guid")
+        .unwrap();
+
+        assert!(!stored.is_empty());
+        assert_ne!(
+            stored, "4111111111117629",
+            "the stored value must not be the cleartext"
+        );
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&stored, &encdec, "test-guid")
+                .unwrap()
+                .cc_number,
+            "4111111111117629"
+        );
+    }
+
+    #[test]
+    fn test_decrypt_with_the_wrong_key_fails() {
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec(), "test-guid")
+        .unwrap();
+        assert!(SecureCreditCardFields::decrypt(&stored, &encdec(), "test-guid").is_err());
+    }
+
+    #[test]
+    fn test_scrubbed_is_the_default() {
+        // Empty ciphertext marks data to be replaced from Sync.
+        assert!(InternalCreditCard::default().has_scrubbed_data());
+    }
+
+    #[test]
+    fn test_encrypting_twice_gives_different_ciphertext() {
+        let encdec = encdec();
+        let fields = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        };
+        assert_ne!(
+            fields.encrypt(&encdec, "test-guid").unwrap(),
+            fields.encrypt(&encdec, "test-guid").unwrap()
+        );
     }
 }
