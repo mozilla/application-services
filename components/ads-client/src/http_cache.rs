@@ -60,10 +60,6 @@ impl HttpCache {
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.store.close()
-    }
-
     pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
         self.store.invalidate_by_hash(request_hash)?;
         Ok(())
@@ -87,17 +83,17 @@ impl HttpCache {
         // Apply the cache policy and collect outcomes
         let (response, mut strategy_outcomes) = match policy {
             CachePolicy::CacheFirst { ttl } => CacheFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
             CachePolicy::NetworkFirst { ttl } => NetworkFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
         }?;
@@ -114,6 +110,10 @@ impl HttpCache {
         }
 
         Ok((response, outcomes))
+    }
+
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
+        self.store.close()
     }
 }
 

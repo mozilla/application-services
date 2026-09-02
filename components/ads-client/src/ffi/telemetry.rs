@@ -58,12 +58,6 @@ impl MozAdsTelemetryWrapper {
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {
-    // MozAdsTelemetry has hanging uniffi callbacks which need to be explicitly dropped before closing.
-    // This replaces it with a `None` internally, meaning future calls will be noops.
-    fn shutdown(&self) {
-        let _dropped = self.inner.write().take();
-    }
-
     fn record(&self, event: &dyn Any) {
         let Some(inner) = self.inner.read().clone() else {
             return;
@@ -145,6 +139,12 @@ impl Telemetry for MozAdsTelemetryWrapper {
         eprintln!("Unsupported telemetry event type: {:?}", event.type_id());
         #[cfg(test)]
         panic!("Unsupported telemetry event type: {:?}", event.type_id());
+    }
+
+    // MozAdsTelemetry has hanging uniffi callbacks which need to be explicitly dropped before closing.
+    // This replaces it with a `None` internally, meaning future calls will be noops.
+    fn shutdown(&self) {
+        let _dropped = self.inner.write().take();
     }
 }
 

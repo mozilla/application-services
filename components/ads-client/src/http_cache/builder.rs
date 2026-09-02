@@ -22,10 +22,10 @@ const MAX_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
 #[derive(Debug, thiserror::Error)]
 pub enum HttpCacheBuilderError {
-    #[error("Database path cannot be empty")]
-    EmptyDbPath,
     #[error("Database error: {0}")]
     Database(#[from] open_database::Error),
+    #[error("Database path cannot be empty")]
+    EmptyDbPath,
     #[error(
         "Maximum cache size must be between {min_size} and {max_size}, got {size_bytes} bytes"
     )]
@@ -44,65 +44,17 @@ pub enum HttpCacheBuilderError {
 
 pub struct HttpCacheBuilder {
     db_path: PathBuf,
-    max_size: Option<ByteSize>,
     default_ttl: Option<Duration>,
+    max_size: Option<ByteSize>,
 }
 
 impl HttpCacheBuilder {
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
-            max_size: None,
             default_ttl: None,
+            max_size: None,
         }
-    }
-
-    pub fn max_size(mut self, max_size: ByteSize) -> Self {
-        self.max_size = Some(max_size);
-        self
-    }
-
-    pub fn default_ttl(mut self, ttl: Duration) -> Self {
-        self.default_ttl = Some(ttl);
-        self
-    }
-
-    fn validate(&self) -> Result<(), HttpCacheBuilderError> {
-        if self.db_path.to_string_lossy().trim().is_empty() {
-            return Err(HttpCacheBuilderError::EmptyDbPath);
-        }
-
-        if let Some(max_size) = self.max_size {
-            if max_size < MIN_CACHE_SIZE || max_size > MAX_CACHE_SIZE {
-                return Err(HttpCacheBuilderError::InvalidMaxSize {
-                    size_bytes: max_size.as_u64(),
-                    min_size: MIN_CACHE_SIZE.to_string(),
-                    max_size: MAX_CACHE_SIZE.to_string(),
-                });
-            }
-        }
-
-        if let Some(ttl) = self.default_ttl {
-            if !(MIN_TTL..=MAX_TTL).contains(&ttl) {
-                return Err(HttpCacheBuilderError::InvalidTtl {
-                    ttl: ttl.as_secs(),
-                    min_ttl: format!("{} seconds", MIN_TTL.as_secs()),
-                    max_ttl: format!("{} seconds", MAX_TTL.as_secs()),
-                });
-            }
-        }
-
-        Ok(())
-    }
-
-    fn open_connection(&self) -> Result<Connection, HttpCacheBuilderError> {
-        let initializer = HttpCacheConnectionInitializer {};
-        let conn = if cfg!(test) {
-            open_database::open_memory_database(&initializer)?
-        } else {
-            open_database::open_database(&self.db_path, &initializer)?
-        };
-        Ok(conn)
     }
 
     pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
@@ -134,6 +86,54 @@ impl HttpCacheBuilder {
             max_size,
             store,
         })
+    }
+
+    pub fn default_ttl(mut self, ttl: Duration) -> Self {
+        self.default_ttl = Some(ttl);
+        self
+    }
+
+    pub fn max_size(mut self, max_size: ByteSize) -> Self {
+        self.max_size = Some(max_size);
+        self
+    }
+
+    fn open_connection(&self) -> Result<Connection, HttpCacheBuilderError> {
+        let initializer = HttpCacheConnectionInitializer {};
+        let conn = if cfg!(test) {
+            open_database::open_memory_database(&initializer)?
+        } else {
+            open_database::open_database(&self.db_path, &initializer)?
+        };
+        Ok(conn)
+    }
+
+    fn validate(&self) -> Result<(), HttpCacheBuilderError> {
+        if self.db_path.to_string_lossy().trim().is_empty() {
+            return Err(HttpCacheBuilderError::EmptyDbPath);
+        }
+
+        if let Some(max_size) = self.max_size {
+            if max_size < MIN_CACHE_SIZE || max_size > MAX_CACHE_SIZE {
+                return Err(HttpCacheBuilderError::InvalidMaxSize {
+                    size_bytes: max_size.as_u64(),
+                    min_size: MIN_CACHE_SIZE.to_string(),
+                    max_size: MAX_CACHE_SIZE.to_string(),
+                });
+            }
+        }
+
+        if let Some(ttl) = self.default_ttl {
+            if !(MIN_TTL..=MAX_TTL).contains(&ttl) {
+                return Err(HttpCacheBuilderError::InvalidTtl {
+                    ttl: ttl.as_secs(),
+                    min_ttl: format!("{} seconds", MIN_TTL.as_secs()),
+                    max_ttl: format!("{} seconds", MAX_TTL.as_secs()),
+                });
+            }
+        }
+
+        Ok(())
     }
 }
 

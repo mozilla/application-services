@@ -170,7 +170,7 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, uniffi::Enum, PartialEq, Eq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,

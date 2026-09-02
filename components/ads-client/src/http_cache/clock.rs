@@ -3,17 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub trait Clock: Send + Sync + 'static {
-    fn now_epoch_seconds(&self) -> i64;
     #[cfg(test)]
     fn advance(&self, secs: i64);
+    fn now_epoch_seconds(&self) -> i64;
 }
 
 pub struct CacheClock;
 
 impl Clock for CacheClock {
-    fn now_epoch_seconds(&self) -> i64 {
-        chrono::Utc::now().timestamp()
-    }
     #[cfg(test)]
     fn advance(&self, _secs: i64) {
         panic!(
@@ -22,6 +19,9 @@ impl Clock for CacheClock {
         Be sure to build the cache or store with the test clock for time-dependent tests.
     "
         )
+    }
+    fn now_epoch_seconds(&self) -> i64 {
+        chrono::Utc::now().timestamp()
     }
 }
 
@@ -41,11 +41,11 @@ impl TestClock {
 
 #[cfg(test)]
 impl Clock for TestClock {
-    fn now_epoch_seconds(&self) -> i64 {
-        self.now.load(std::sync::atomic::Ordering::Relaxed)
-    }
     fn advance(&self, secs: i64) {
         self.now
             .fetch_add(secs, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn now_epoch_seconds(&self) -> i64 {
+        self.now.load(std::sync::atomic::Ordering::Relaxed)
     }
 }

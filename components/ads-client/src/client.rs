@@ -98,18 +98,6 @@ where
         self.client.clear_cache()
     }
 
-    // Shutdown the db connection and drop references to telemetry callbacks.
-    // Should be used only when dropping the ads client, this may be extended to drop more things.
-    pub fn shutdown_client(&mut self) -> Result<(), rusqlite::Error> {
-        // Drop telemetry (within the telemetry wrapper)
-        self.telemetry.shutdown();
-
-        // Shutdown DB
-        self.client.shutdown_db()?;
-
-        Ok(())
-    }
-
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
         self.context_id_provider.context_id()
     }
@@ -247,6 +235,18 @@ where
                 self.telemetry.record(&ClientOperationEvent::RequestAds);
                 response.take_first()
             })
+    }
+
+    // Shutdown the db connection and drop references to telemetry callbacks.
+    // Should be used only when dropping the ads client, this may be extended to drop more things.
+    pub fn shutdown_client(&mut self) -> Result<(), rusqlite::Error> {
+        // Drop telemetry (within the telemetry wrapper)
+        self.telemetry.shutdown();
+
+        // Shutdown DB
+        self.client.shutdown_db()?;
+
+        Ok(())
     }
 
     fn request_ads<A>(
