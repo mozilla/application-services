@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::Store;
 use error_support::warn;
@@ -33,12 +34,12 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "sync_id";
 pub trait SyncEngineStorageImpl<T>: Send + Sync {
     fn get_incoming_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = T>>>;
     fn reset_storage(&self, conn: &Transaction<'_>) -> Result<()>;
     fn get_outgoing_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = T>>>;
 }
 
@@ -47,7 +48,6 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) config: EngineConfig,
     pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
-    local_enc_key: Option<String>,
 }
 
 impl<T> ConfigSyncEngine<T> {
@@ -60,7 +60,6 @@ impl<T> ConfigSyncEngine<T> {
             config,
             store,
             storage_impl,
-            local_enc_key: None,
         }
     }
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
@@ -102,11 +101,6 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         self.config.collection.clone()
     }
 
-    fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
-        self.local_enc_key = Some(key.to_string());
-        Ok(())
-    }
-
     fn sync_started(&self) -> anyhow::Result<()> {
         let db = self.store.lock_db()?;
         let signal = db.begin_interrupt_scope()?;
@@ -128,7 +122,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         incoming_telemetry.applied(inbound.len() as u32);
         telem.incoming(incoming_telemetry);
         let tx = db.writer.unchecked_transaction()?;
-        let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
+        let incoming_impl = self.storage_impl.get_incoming_impl(&db.encdec)?;
 
         incoming_impl.stage_incoming(&tx, inbound, &signal)?;
         tx.commit()?;
@@ -143,8 +137,8 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let db = self.store.lock_db()?;
         let signal = db.begin_interrupt_scope()?;
         let tx = db.writer.unchecked_transaction()?;
-        let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
-        let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
+        let incoming_impl = self.storage_impl.get_incoming_impl(&db.encdec)?;
+        let outgoing_impl = self.storage_impl.get_outgoing_impl(&db.encdec)?;
 
         // Get "states" for each record...
         for state in incoming_impl.fetch_incoming_states(&tx)? {
@@ -178,7 +172,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let db = self.store.lock_db()?;
         self.put_meta(&db.writer, LAST_SYNC_META_KEY, &new_timestamp.as_millis())?;
         let tx = db.writer.unchecked_transaction()?;
-        let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
+        let outgoing_impl = self.storage_impl.get_outgoing_impl(&db.encdec)?;
         outgoing_impl.finish_synced_items(&tx, ids)?;
         tx.commit()?;
         Ok(())
@@ -268,7 +262,7 @@ mod tests {
     };
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::schema::create_empty_sync_temp_tables;
-    use crate::encryption::EncryptorDecryptor;
+    use crate::encryption::{encrypt_str, random_key_encryptor, EncryptorDecryptor};
     use crate::sync::{IncomingBso, UnknownFields};
     use nss_as::ensure_initialized;
     use sql_support::ConnExt;
@@ -276,7 +270,7 @@ mod tests {
     impl InternalCreditCard {
         pub fn into_test_incoming_bso(
             self,
-            encdec: &EncryptorDecryptor,
+            encdec: &dyn EncryptorDecryptor,
             unknown_fields: UnknownFields,
         ) -> IncomingBso {
             let mut payload = self.into_payload(encdec).expect("is json");
@@ -303,11 +297,7 @@ mod tests {
     #[test]
     fn test_credit_card_engine_apply_timestamp() -> Result<()> {
         ensure_initialized();
-        let mut credit_card_engine = create_engine();
-        let test_key = crate::encryption::create_autofill_key().unwrap();
-        credit_card_engine
-            .set_local_encryption_key(&test_key)
-            .unwrap();
+        let credit_card_engine = create_engine();
         {
             let db = credit_card_engine.store.lock_db()?;
             create_empty_sync_temp_tables(&db.writer)?;
@@ -367,12 +357,12 @@ mod tests {
     fn test_engine_sync_reset() -> Result<()> {
         ensure_initialized();
         let engine = create_engine();
-        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
+        let encdec = random_key_encryptor().unwrap();
 
         let cc = InternalCreditCard {
             guid: Guid::random(),
             cc_name: "Ms Jane Doe".to_string(),
-            cc_number_enc: encdec.encrypt("12341232412341234")?,
+            cc_number_enc: encrypt_str(&encdec, "12341232412341234")?,
             cc_number_last_4: "1234".to_string(),
             cc_exp_month: 12,
             cc_exp_year: 2021,
