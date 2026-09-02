@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import mozilla.appservices.autofill.Store
+import mozilla.appservices.autofill.createAutofillStoreWithStaticKeyManager
 import mozilla.appservices.syncmanager.SyncManager
 import org.junit.Assert
 import org.junit.Rule
@@ -21,7 +22,11 @@ class AutofillTest {
 
     fun createTestStore(): Store {
         val dbPath = dbFolder.newFile()
-        return Store(dbpath = dbPath.absolutePath)
+        // This test never touches an encrypted column, so the key is not used.
+        return createAutofillStoreWithStaticKeyManager(
+            path = dbPath.absolutePath,
+            key = "unused-placeholder-key",
+        )
     }
 
     @Test
