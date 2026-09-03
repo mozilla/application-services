@@ -4,9 +4,10 @@
 */
 
 use super::AddressPayload;
-use crate::db::addresses::{add_internal_address, update_internal_address, CounterUpdate};
+use crate::db::addresses::{add_internal_address, update_internal_address};
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
+use crate::db::CounterUpdate;
 use crate::error::*;
 use crate::sync::address::name_utils::{join_name_parts, split_name, NameParts};
 use crate::sync::common::*;

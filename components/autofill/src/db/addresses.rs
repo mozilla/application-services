@@ -12,6 +12,7 @@ use crate::db::{
     },
     schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS},
 };
+use crate::db::{timestamp_from_millis, with_savepoint, CounterUpdate};
 use crate::error::*;
 
 use rusqlite::{Connection, Transaction};
@@ -86,33 +87,6 @@ pub(crate) fn add_many_addresses_with_meta(
     Ok(results)
 }
 
-/// Runs `op` in a savepoint, rolling back to it if `op` fails, so that a record
-/// reported as an error by the bulk functions leaves nothing behind. The shared
-/// triggers reject a guid that exists in the counterpart table with
-/// `RAISE(FAIL)`, which aborts the statement but keeps the row it already
-/// inserted - so without this the offending row would be committed along with
-/// the rest of the batch, putting the guid in both `addresses_data` and
-/// `addresses_tombstones`.
-///
-/// The outer `Result` is a savepoint failure and aborts the batch; the inner one
-/// is the record's own failure.
-fn with_savepoint<T>(
-    tx: &Transaction<'_>,
-    op: impl FnOnce() -> Result<T>,
-) -> Result<std::result::Result<T, Error>> {
-    tx.execute_batch("SAVEPOINT bulk_record")?;
-    match op() {
-        Ok(value) => {
-            tx.execute_batch("RELEASE bulk_record")?;
-            Ok(Ok(value))
-        }
-        Err(e) => {
-            tx.execute_batch("ROLLBACK TO bulk_record; RELEASE bulk_record")?;
-            Ok(Err(e))
-        }
-    }
-}
-
 /// Removes every address and every address tombstone, in one transaction.
 ///
 /// Deleting the rows alone is not enough. A delete leaves a tombstone behind for
@@ -158,14 +132,6 @@ pub(crate) fn add_many_address_tombstones(
     }
     tx.commit()?;
     Ok(results)
-}
-
-/// `Timestamp` is a `u64`, so a negative millisecond value would wrap to a huge
-/// one and then win every "latest wins" comparison in `Metadata::merge`. Clamp to
-/// 0, which already means "unset" for these fields. The tuple constructor is used
-/// rather than `Timestamp::from`, which asserts non-zero.
-fn timestamp_from_millis(millis: i64) -> Timestamp {
-    Timestamp(millis.max(0) as u64)
 }
 
 fn internal_address_from_meta(
@@ -343,31 +309,6 @@ pub(crate) fn update_address(
 
     tx.commit()?;
     Ok(())
-}
-
-/// How `update_internal_address` should treat the change counter.
-pub(crate) enum CounterUpdate {
-    /// Record a local change awaiting upload.
-    Increment,
-    /// Leave the counter alone, for a change that must not be uploaded - eg one
-    /// applied by Sync, which is already what the server has.
-    Leave,
-    /// Replace the counter, for a record whose counter is owned by the caller.
-    Set(i64),
-}
-
-impl CounterUpdate {
-    /// The SQL assigned to `sync_change_counter`, and the value bound to
-    /// `:counter` within it. `Leave` adds 0 rather than dropping `:counter` from
-    /// the SQL, because rusqlite rejects a named parameter the statement doesn't
-    /// use.
-    fn as_sql(&self) -> (&'static str, i64) {
-        match self {
-            Self::Increment => ("sync_change_counter + :counter", 1),
-            Self::Leave => ("sync_change_counter + :counter", 0),
-            Self::Set(counter) => (":counter", *counter),
-        }
-    }
 }
 
 /// Updates all fields including metadata - although the change counter gets
