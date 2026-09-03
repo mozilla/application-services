@@ -235,15 +235,17 @@ fn output_finding(stream: &mut impl WriteColor, finding: &Finding) -> Result<()>
 /// followed by the guidance for each lint that fired. The guidance is per lint, not
 /// per finding: eighty features missing a `meta-bug` need telling how once.
 fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
-    let mut subject: Option<(&Option<String>, &String)> = None;
+    // The findings arrive sorted by module and subject, so a change of either starts
+    // the next group.
+    let mut group: Option<(&Option<String>, &String)> = None;
 
     for finding in &report.findings {
         let this = (&finding.module, &finding.subject);
-        if subject != Some(this) {
-            if subject.is_some() {
+        if group != Some(this) {
+            if group.is_some() {
                 writeln!(stream)?;
             }
-            subject = Some(this);
+            group = Some(this);
 
             stream.set_color(ColorSpec::new().set_bold(true))?;
             write!(stream, "{}", finding.subject)?;
@@ -405,7 +407,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
         })
         .map_err(|e| {
             CliError(format!(
-                "{e}\nA manifest has to be valid before it can be linted; run `nimbus-fml validate` for the details"
+                "{e}\nA manifest has to be valid before it can be linted; run `nimbus-fml validate` for details"
             ))
         })?;
 

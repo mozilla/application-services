@@ -18,7 +18,7 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 
-### Nimbus FML
+### Nimbus
 
 - Add `nimbus-fml lint`, which checks a manifest against feature design lints covering metadata, descriptions, naming, and feature shape. Findings are warnings and don't affect code generation; `--error-on-warning` fails the run, for CI. A `no-lint` list on a feature or at the top of a manifest excuses it from the lints it names, so older versions of `nimbus-fml` will reject a manifest that uses one. `nimbus-fml validate` no longer reports feature metadata warnings; run `nimbus-fml lint` for those. ([Bug 2053531](https://bugzilla.mozilla.org/show_bug.cgi?id=2053531))
 
