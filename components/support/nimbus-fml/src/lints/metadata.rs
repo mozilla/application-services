@@ -79,8 +79,7 @@ fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-/// Attempts to filter team names and handles, it doesn't actually validate
-/// addresses.
+/// Filters out team names and handles; it doesn't validate addresses.
 fn is_email_address(contact: &str) -> bool {
     if contact.trim() != contact || contact.chars().any(char::is_whitespace) {
         return false;

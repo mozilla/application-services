@@ -174,7 +174,6 @@ fn placeholder_in(description: &str) -> Option<&'static str> {
         .copied()
 }
 
-/// Is the description the name with the punctuation, and maybe an article, removed?
 fn restates_name(name: &str, description: &str) -> bool {
     normalize(name) == normalize(description)
 }
@@ -197,7 +196,8 @@ fn normalize(value: &str) -> String {
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use crate::intermediate_representation::FeatureDef;
+    use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
+    use serde_json::json;
 
     fn test_location() -> Location {
         feature_path(&FeatureDef::new("a-feature", "", Default::default(), false))
@@ -244,6 +244,40 @@ mod unit_tests {
             vec!["TERSE_DESCRIPTION"]
         );
         assert!(lints("max-visible-rows", "How many rows are visible at once.").is_empty());
+    }
+
+    #[test]
+    fn test_objects_and_enums_and_their_members() {
+        let mut object = ObjectDef::new(
+            "Section",
+            &[PropDef::with_doc(
+                "title",
+                "",
+                &TypeRef::String,
+                &json!(null),
+            )],
+        );
+        object.doc = String::new();
+
+        let mut enum_def = EnumDef::new("Style", &["outline"]);
+        enum_def.doc = String::new();
+        enum_def.variants[0].doc = String::new();
+
+        let mut out = Vec::new();
+        check_object(&object, &mut out);
+        check_enum(&enum_def, &mut out);
+
+        // Members name themselves; the object or enum they're under doesn't have to.
+        let messages: Vec<_> = out.iter().map(|f| f.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec![
+                "this object has no description",
+                "`title` has no description",
+                "this enum has no description",
+                "`outline` has no description",
+            ]
+        );
     }
 
     #[test]
