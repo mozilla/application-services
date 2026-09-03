@@ -8,4 +8,5 @@ if jazzy --clean; then
     echo "Documentation generated successfully and cleaned up previous output."
 else
     echo "Failed to generate documentation."
+    exit 1
 fi
