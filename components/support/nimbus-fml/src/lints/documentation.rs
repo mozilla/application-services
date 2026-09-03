@@ -7,9 +7,9 @@
 
 use super::{
     enum_path, enum_variant_path, feature_path, object_field_path, object_path, variable_path,
-    Location, RawFinding,
+    LintInfo, Linter, Location, RawFinding,
 };
-use crate::intermediate_representation::{EnumDef, FeatureDef, ObjectDef};
+use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef};
 
 define_lints! {
     MISSING_DESCRIPTION: Documentation, Warning =
@@ -28,7 +28,32 @@ const MINIMUM_WORDS: usize = 3;
 
 const PLACEHOLDERS: &[&str] = &["todo", "fixme", "tbd", "xxx", "wip"];
 
-pub(crate) fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
+pub(crate) struct Documentation;
+
+impl Linter for Documentation {
+    fn lints(&self) -> &'static [&'static LintInfo] {
+        LINTS
+    }
+
+    fn check_feature(
+        &self,
+        feature: &FeatureDef,
+        _manifest: &FeatureManifest,
+        out: &mut Vec<RawFinding>,
+    ) {
+        check_feature(feature, out);
+    }
+
+    fn check_object(&self, object: &ObjectDef, out: &mut Vec<RawFinding>) {
+        check_object(object, out);
+    }
+
+    fn check_enum(&self, enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+        check_enum(enum_def, out);
+    }
+}
+
+fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     check_description(
         "feature",
         &feature.name,
@@ -47,7 +72,7 @@ pub(crate) fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-pub(crate) fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
+fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
     check_description(
         "object",
         &object.name,
@@ -66,7 +91,7 @@ pub(crate) fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-pub(crate) fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
     check_description(
         "enum",
         &enum_def.name,

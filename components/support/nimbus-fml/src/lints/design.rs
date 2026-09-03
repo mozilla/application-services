@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use super::{enum_path, feature_path, object_path, variable_path, RawFinding};
+use super::{enum_path, feature_path, object_path, variable_path, LintInfo, Linter, RawFinding};
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
@@ -62,11 +62,32 @@ const ENUMERABLE_SUFFIXES: &[&str] = &[
     "variant",
 ];
 
-pub(crate) fn check_feature(
-    feature: &FeatureDef,
-    manifest: &FeatureManifest,
-    out: &mut Vec<RawFinding>,
-) {
+pub(crate) struct Design;
+
+impl Linter for Design {
+    fn lints(&self) -> &'static [&'static LintInfo] {
+        LINTS
+    }
+
+    fn check_feature(
+        &self,
+        feature: &FeatureDef,
+        manifest: &FeatureManifest,
+        out: &mut Vec<RawFinding>,
+    ) {
+        check_feature(feature, manifest, out);
+    }
+
+    fn check_enum(&self, enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+        check_enum(enum_def, out);
+    }
+
+    fn check_manifest(&self, manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
+        check_manifest(manifest, out);
+    }
+}
+
+fn check_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
     if feature.props.is_empty() {
         out.push(RawFinding::new(
             &NO_VARIABLES,
@@ -102,7 +123,7 @@ pub(crate) fn check_feature(
     }
 }
 
-pub(crate) fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
     if enum_def.variants.len() < 2 {
         out.push(RawFinding::new(
             &TRIVIAL_ENUM,
@@ -120,7 +141,7 @@ pub(crate) fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-pub(crate) fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
+fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
     // A manifest with no features is a library of types to include elsewhere.
     if manifest.feature_defs.is_empty() {
         return;

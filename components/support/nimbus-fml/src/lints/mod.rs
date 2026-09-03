@@ -11,8 +11,9 @@
 //! A lint can be silenced by a `no-lint` list on a feature, a top level `no-lint`
 //! list, or `--allow`/`--deny`.
 
-/// Declares a [`LintInfo`] static per lint plus a `LINTS` slice of them, which is
-/// what [`ALL_LINTS`] is assembled from, so declaring a lint registers it.
+/// Declares a [`LintInfo`] static per lint plus a `LINTS` slice of them, which the
+/// module's [`Linter`] returns from [`Linter::lints`], so declaring a lint registers
+/// it.
 ///
 /// ```ignore
 /// define_lints! {
@@ -41,6 +42,35 @@ macro_rules! define_lints {
     };
 }
 
+/// Declares [`LintCategory`] together with the [`Linter`] owning each category, so a
+/// module of lints can't be declared without being registered: [`define_lints!`]
+/// can't name a category that doesn't exist, and a category can't exist here without
+/// a linter to run.
+macro_rules! define_categories {
+    ($($(#[$doc:meta])* $variant:ident = $name:literal => $linter:expr;)*) => {
+        /// What a lint is about, as reported by `nimbus-fml lint --list`.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+        pub enum LintCategory {
+            $(
+                $(#[$doc])*
+                #[serde(rename = $name)]
+                $variant,
+            )*
+        }
+
+        impl LintCategory {
+            pub fn as_str(&self) -> &'static str {
+                match self {
+                    $(Self::$variant => $name,)*
+                }
+            }
+        }
+
+        /// Every module of lints, in `--list` order.
+        static LINTERS: &[&dyn Linter] = &[$(&$linter),*];
+    };
+}
+
 mod design;
 mod documentation;
 mod metadata;
@@ -64,27 +94,57 @@ define_lints! {
         "Run `nimbus-fml lint --list` to see the available lints.";
 }
 
-/// What a lint is about, as reported by `nimbus-fml lint --list`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum LintCategory {
-    Metadata,
-    Documentation,
-    Naming,
-    Design,
-    /// Lints about the lints themselves.
-    Lints,
+/// The lints of one [`LintCategory`]. Every check has a do-nothing default, so an
+/// implementation writes only the ones its lints have something to say about.
+pub(crate) trait Linter: Sync {
+    /// The `LINTS` slice [`define_lints!`] generated for the module.
+    fn lints(&self) -> &'static [&'static LintInfo];
+
+    fn check_feature(
+        &self,
+        _feature: &FeatureDef,
+        _manifest: &FeatureManifest,
+        _out: &mut Vec<RawFinding>,
+    ) {
+    }
+
+    fn check_object(&self, _object: &ObjectDef, _out: &mut Vec<RawFinding>) {}
+
+    fn check_enum(&self, _enum_def: &EnumDef, _out: &mut Vec<RawFinding>) {}
+
+    /// Run once per manifest, for lints which need to see every feature at once.
+    fn check_manifest(&self, _manifest: &FeatureManifest, _out: &mut Vec<RawFinding>) {}
 }
 
-impl LintCategory {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Metadata => "metadata",
-            Self::Documentation => "documentation",
-            Self::Naming => "naming",
-            Self::Design => "design",
-            Self::Lints => "lints",
-        }
+define_categories! {
+    Metadata = "metadata" => metadata::Metadata;
+    Documentation = "documentation" => documentation::Documentation;
+    Naming = "naming" => naming::Naming;
+    Design = "design" => design::Design;
+    /// Lints about the lints themselves.
+    Lints = "lints" => Lints;
+}
+
+/// The file level `no-lint` list is checked by [`lint_manifest`] instead, since it
+/// belongs to no feature.
+struct Lints;
+
+impl Linter for Lints {
+    fn lints(&self) -> &'static [&'static LintInfo] {
+        LINTS
+    }
+
+    fn check_feature(
+        &self,
+        feature: &FeatureDef,
+        _manifest: &FeatureManifest,
+        out: &mut Vec<RawFinding>,
+    ) {
+        check_no_lint_names(
+            feature.metadata.no_lint.iter().map(String::as_str),
+            feature_path(feature),
+            out,
+        );
     }
 }
 
@@ -121,12 +181,9 @@ pub struct LintInfo {
 
 lazy_static::lazy_static! {
     /// Every lint, in `--list` order.
-    pub static ref ALL_LINTS: Vec<&'static LintInfo> = metadata::LINTS
+    pub static ref ALL_LINTS: Vec<&'static LintInfo> = LINTERS
         .iter()
-        .chain(documentation::LINTS)
-        .chain(naming::LINTS)
-        .chain(design::LINTS)
-        .chain(LINTS)
+        .flat_map(|linter| linter.lints())
         .copied()
         .collect();
 }
@@ -238,7 +295,7 @@ impl RawFinding {
 pub struct Finding {
     pub lint: &'static str,
     pub level: LintLevel,
-    /// Set when the finding came from an imported manifest.
+    /// Set if the finding came from an imported manifest.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
     /// e.g. ``feature `homescreen` ``.
@@ -339,15 +396,9 @@ fn lint_module(
 ) {
     for feature in fm.iter_feature_defs() {
         let mut raw = Vec::new();
-        metadata::check_feature(feature, &mut raw);
-        documentation::check_feature(feature, &mut raw);
-        naming::check_feature(feature, &mut raw);
-        design::check_feature(feature, fm, &mut raw);
-        check_no_lint_names(
-            feature.metadata.no_lint.iter().map(String::as_str),
-            feature_path(feature),
-            &mut raw,
-        );
+        for linter in LINTERS {
+            linter.check_feature(feature, fm, &mut raw);
+        }
 
         let suppressions: HashSet<&str> = feature
             .metadata
@@ -362,21 +413,24 @@ fn lint_module(
 
     for object in fm.iter_object_defs() {
         let mut raw = Vec::new();
-        documentation::check_object(object, &mut raw);
-        naming::check_object(object, &mut raw);
+        for linter in LINTERS {
+            linter.check_object(object, &mut raw);
+        }
         collect(raw, config, &no_suppressions, &module, out);
     }
 
     for enum_def in fm.iter_enum_defs() {
         let mut raw = Vec::new();
-        documentation::check_enum(enum_def, &mut raw);
-        naming::check_enum(enum_def, &mut raw);
-        design::check_enum(enum_def, &mut raw);
+        for linter in LINTERS {
+            linter.check_enum(enum_def, &mut raw);
+        }
         collect(raw, config, &no_suppressions, &module, out);
     }
 
     let mut raw = Vec::new();
-    design::check_manifest(fm, &mut raw);
+    for linter in LINTERS {
+        linter.check_manifest(fm, &mut raw);
+    }
     collect(raw, config, &no_suppressions, &module, out);
 }
 
@@ -495,6 +549,32 @@ mod unit_tests {
                 lint.description.ends_with('.'),
                 "{}'s description should be a sentence",
                 lint.name
+            );
+        }
+    }
+
+    /// `define_categories!` makes owning a category the only way to be run, so what
+    /// is left to check is that no two modules share one.
+    #[test]
+    fn test_each_linter_owns_one_category() {
+        let mut owned = HashSet::new();
+
+        for linter in LINTERS {
+            let declared = linter.lints();
+            assert!(!declared.is_empty(), "a linter declares no lints");
+
+            let categories: HashSet<_> = declared.iter().map(|l| l.category).collect();
+            assert_eq!(
+                categories.len(),
+                1,
+                "{:?} spans more than one category",
+                declared.iter().map(|l| l.name).collect::<Vec<_>>()
+            );
+
+            assert!(
+                owned.insert(declared[0].category),
+                "two linters declare {} lints; one of them is never run",
+                declared[0].category.as_str()
             );
         }
     }

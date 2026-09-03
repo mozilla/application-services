@@ -5,8 +5,8 @@
 //! Lints about a feature's metadata: who owns it, where it's documented, and where
 //! to file bugs against it.
 
-use super::{feature_path, RawFinding};
-use crate::intermediate_representation::FeatureDef;
+use super::{feature_path, LintInfo, Linter, RawFinding};
+use crate::intermediate_representation::{FeatureDef, FeatureManifest};
 
 define_lints! {
     MISSING_META_BUG: Metadata, Warning =
@@ -23,7 +23,24 @@ define_lints! {
         "Contacts are used to route QA questions, so they need to be addresses that can be written to.";
 }
 
-pub(crate) fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
+pub(crate) struct Metadata;
+
+impl Linter for Metadata {
+    fn lints(&self) -> &'static [&'static LintInfo] {
+        LINTS
+    }
+
+    fn check_feature(
+        &self,
+        feature: &FeatureDef,
+        _manifest: &FeatureManifest,
+        out: &mut Vec<RawFinding>,
+    ) {
+        check_feature(feature, out);
+    }
+}
+
+fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     let metadata = &feature.metadata;
     let path = feature_path(feature);
 
