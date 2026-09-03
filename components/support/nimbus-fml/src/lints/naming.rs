@@ -9,8 +9,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::{
-    enum_path, enum_variant_path, feature_path, object_field_path, object_path, variable_path,
-    LintInfo, Linter, Location, RawFinding,
+    enum_path, enum_variant_path, feature_path, is_boolean, object_field_path, object_path,
+    variable_path, LintInfo, Linter, Location, RawFinding,
 };
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
@@ -45,8 +45,8 @@ lazy_static! {
     static ref UPPER_CAMEL_CASE: Regex = Regex::new(r"^[A-Z][A-Za-z0-9]*$").unwrap();
 }
 
-/// Words that read as a predicate rather than a namespace, so sharing one across a
-/// feature's variables is a convention, not something to group into an object.
+/// Words that read as a predicate rather than a namespace, so sharing one is a
+/// convention rather than a prefix to strip.
 const PREDICATE_WORDS: &[&str] = &["allow", "can", "has", "is", "should", "show", "use"];
 
 /// Words that make `false` mean the thing happens.
@@ -169,7 +169,7 @@ fn check_type_in_name(prop: &PropDef, path: Location, out: &mut Vec<RawFinding>)
     };
     let last = last.to_ascii_lowercase();
 
-    // As far as the name goes, `Option<Boolean>` is still a boolean.
+    // `Option<Boolean>` is still a boolean, as far as the name goes.
     let typ = match &prop.typ {
         TypeRef::Option(inner) => inner.as_ref(),
         typ => typ,
@@ -274,16 +274,7 @@ fn shared_prefix(props: &[PropDef]) -> Option<String> {
         .then_some(first)
 }
 
-fn is_boolean(typ: &TypeRef) -> bool {
-    match typ {
-        TypeRef::Boolean => true,
-        TypeRef::Option(inner) => is_boolean(inner),
-        _ => false,
-    }
-}
-
-/// The kebab-case of `name`, unless that is what `name` already is. Names the regex
-/// rejects but `heck` can't improve, like `9lives`, have nothing to suggest.
+/// Empty when `heck` can't improve on `name`, as for `9lives`.
 fn rename_to(name: &str) -> String {
     use heck::ToKebabCase;
     let kebab = name.to_kebab_case();
@@ -361,6 +352,27 @@ mod unit_tests {
         check_enum(&EnumDef::new("MyEnum", &["notKebab"]), &mut out);
         let names: Vec<_> = out.iter().map(|f| f.lint.name).collect();
         assert_eq!(names, vec!["ENUM_VARIANT_CASING"]);
+    }
+
+    #[test]
+    fn test_object_fields_are_checked_like_variables() {
+        let mut out = Vec::new();
+        check_object(
+            &ObjectDef::new(
+                "Section",
+                &[
+                    prop("sectionTitle", &TypeRef::String),
+                    prop("hide-header", &TypeRef::Boolean),
+                    prop("row-count-int", &TypeRef::Int),
+                ],
+            ),
+            &mut out,
+        );
+
+        assert_eq!(
+            out.iter().map(|f| f.lint.name).collect::<Vec<_>>(),
+            vec!["VARIABLE_NAME_CASING", "NEGATED_BOOLEAN", "TYPE_IN_NAME"]
+        );
     }
 
     #[test]
@@ -458,21 +470,17 @@ mod unit_tests {
 
     #[test]
     fn test_shared_prefix_that_isnt_the_feature_name() {
-        let feature = feature(
+        let shared = feature(
             "homescreen",
             vec![
                 prop("section-order", &TypeRef::String),
                 prop("section-titles", &TypeRef::String),
             ],
         );
-        assert!(lints(&feature).contains(&"COMMON_PREFIX"));
+        assert!(lints(&shared).contains(&"COMMON_PREFIX"));
 
         // One variable isn't a pattern.
-        let feature = feature_with_one("section-order");
-        assert!(!lints(&feature).contains(&"COMMON_PREFIX"));
-    }
-
-    fn feature_with_one(name: &str) -> FeatureDef {
-        feature("homescreen", vec![prop(name, &TypeRef::String)])
+        let alone = feature("homescreen", vec![prop("section-order", &TypeRef::String)]);
+        assert!(!lints(&alone).contains(&"COMMON_PREFIX"));
     }
 }

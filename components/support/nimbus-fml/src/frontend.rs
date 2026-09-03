@@ -298,7 +298,7 @@ pub struct ManifestFrontEnd {
 
     /// Lints everything in this file is excused from, by name.
     #[serde(default)]
-    #[serde(rename = "no-lint", alias = "no_lint")]
+    #[serde(rename = "no-lint")]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) no_lint: Vec<String>,
 

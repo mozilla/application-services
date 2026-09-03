@@ -11,17 +11,8 @@
 //! A lint can be silenced by a `no-lint` list on a feature, a top level `no-lint`
 //! list, or `--allow`/`--deny`.
 
-/// Declares a [`LintInfo`] static per lint plus a `LINTS` slice of them, which the
-/// module's [`Linter`] returns from [`Linter::lints`], so declaring a lint registers
-/// it.
-///
-/// ```ignore
-/// define_lints! {
-///     MISSING_META_BUG: Metadata, Warning =
-///         "Features should say where to file bugs.",
-///         "Add a `meta-bug` URL.";
-/// }
-/// ```
+/// Declares a [`LintInfo`] static per lint, plus the `LINTS` slice the module's
+/// [`Linter`] returns, so declaring a lint registers it.
 ///
 /// Must stay above the `mod` declarations below, which is what puts it in scope for
 /// them.
@@ -85,7 +76,9 @@ use serde::Serialize;
 
 use crate::{
     error::{FMLError, Result},
-    intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef},
+    intermediate_representation::{
+        EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+    },
 };
 
 define_lints! {
@@ -309,8 +302,8 @@ pub struct Finding {
 #[derive(Debug, Clone, Default)]
 pub struct LintReport {
     pub findings: Vec<Finding>,
-    /// How many findings a `no-lint` block silenced that would otherwise have been
-    /// reported, so that a manifest can't opt out of everything and look clean.
+    /// How many findings `no-lint` silenced, so that a manifest can't opt out of
+    /// everything and look clean.
     pub suppressed: usize,
 }
 
@@ -356,8 +349,7 @@ impl LintReport {
 pub fn lint_manifest(fm: &FeatureManifest, config: &LintConfig) -> LintReport {
     let mut report = LintReport::default();
 
-    // The top level `no-lint` list belongs to the file rather than to any one
-    // feature, so it is checked once instead of per module.
+    // The top level `no-lint` list belongs to the file, not to any one feature.
     let mut raw = Vec::new();
     check_no_lint_names(
         config.file_suppressions.iter().map(String::as_str),
@@ -449,8 +441,8 @@ fn collect(
             continue;
         }
 
-        // Counted so the summary can report it, but only once the lint is known to
-        // be one that would otherwise have been shown.
+        // Counted, but only now that the lint is known to be one which would have
+        // been shown.
         if suppressions.contains(name) || config.file_suppressions.contains(name) {
             out.suppressed += 1;
             continue;
@@ -480,6 +472,15 @@ fn check_no_lint_names<'a>(
                 format!("`no-lint` names `{name}`, which isn't a lint"),
             ));
         }
+    }
+}
+
+/// `Option<Boolean>`, as gecko-pref backed variables use, is still a boolean.
+pub(crate) fn is_boolean(typ: &TypeRef) -> bool {
+    match typ {
+        TypeRef::Boolean => true,
+        TypeRef::Option(inner) => is_boolean(inner),
+        _ => false,
     }
 }
 
@@ -550,6 +551,18 @@ mod unit_tests {
                 "{}'s description should be a sentence",
                 lint.name
             );
+            assert!(
+                lint.help.ends_with('.'),
+                "{}'s help should be a sentence",
+                lint.name
+            );
+            // A lint that defaults to `Allow` would never be seen.
+            assert_ne!(
+                lint.default_level,
+                LintLevel::Allow,
+                "{} defaults to being switched off",
+                lint.name
+            );
         }
     }
 
@@ -586,13 +599,7 @@ mod unit_tests {
 
     #[test]
     fn test_every_lint_is_registered() {
-        for lint in [
-            &metadata::MISSING_META_BUG,
-            &documentation::MISSING_DESCRIPTION,
-            &naming::FEATURE_NAME_CASING,
-            &design::UNUSED_TYPE,
-            &UNKNOWN_LINT,
-        ] {
+        for lint in ALL_LINTS.iter() {
             assert_eq!(find_lint(lint.name).map(|l| l.name), Some(lint.name));
         }
     }

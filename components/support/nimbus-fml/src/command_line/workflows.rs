@@ -517,21 +517,22 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
 }
 
 pub(crate) fn list_lints() -> Result<()> {
-    const NAME_WIDTH: usize = 26;
+    output_lint_list(&mut stdout_stream())
+}
+
+fn output_lint_list(stream: &mut impl WriteColor) -> Result<()> {
     const CATEGORY_WIDTH: usize = 15;
     const LEVEL_WIDTH: usize = 10;
 
-    let mut stdout = stdout_stream();
-
     writeln!(
-        stdout,
-        "{:<NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}DESCRIPTION",
+        stream,
+        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}DESCRIPTION",
         "LINT", "CATEGORY", "DEFAULT"
     )?;
     for lint in lints::ALL_LINTS.iter() {
         writeln!(
-            stdout,
-            "{:<NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}{}",
+            stream,
+            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}{}",
             lint.name,
             lint.category.as_str(),
             lint.default_level.as_str(),
@@ -980,15 +981,13 @@ mod test {
             .iter()
             .any(|f| f.lint == "TRIVIAL_ENUM"));
 
-        // Warnings on their own are not a failure...
+        // Warnings on their own don't fail the run.
         let mut cmd = lint_cmd(path);
         lint(&cmd)?;
 
-        // ... but they are when they're denied.
         cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
         assert!(lint(&cmd).is_err());
 
-        // ... or when the run says so.
         let mut cmd = lint_cmd(path);
         cmd.error_on_warning = true;
         assert!(lint(&cmd).is_err());
@@ -1069,6 +1068,24 @@ mod test {
     }
 
     #[test]
+    fn test_summary_counts_what_was_found() -> Result<()> {
+        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let report = lint_report(&cmd)?;
+
+        let expected = format!(
+            "Found 1 error and {} warnings in 3 places.",
+            report.warning_count()
+        );
+        assert!(rendered(&report)?.contains(&expected), "{expected}");
+
+        let clean = lint_report(&lint_cmd("fixtures/fe/lints/well-formed.fml.yaml"))?;
+        assert!(rendered(&clean)?.contains("No lint findings"));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_lint_command_counts_suppressed_findings() -> Result<()> {
         // The fixture silences one lint for the file and one for its feature.
         let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
@@ -1120,6 +1137,71 @@ mod test {
         assert!(report.findings.iter().any(|f| f.module.is_some()));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_lint_list_names_every_lint() -> Result<()> {
+        let mut buffer = termcolor::Buffer::no_color();
+        output_lint_list(&mut buffer)?;
+        let output = String::from_utf8(buffer.into_inner()).expect("output is UTF-8");
+
+        // A header, then one row per lint and nothing else.
+        assert_eq!(output.lines().count(), lints::ALL_LINTS.len() + 1);
+
+        for lint in lints::ALL_LINTS.iter() {
+            let row = output
+                .lines()
+                .find(|l| l.starts_with(lint.name))
+                .unwrap_or_else(|| panic!("{} should be listed:\n{output}", lint.name));
+            assert!(row.contains(lint.category.as_str()), "{row}");
+            assert!(row.contains(lint.default_level.as_str()), "{row}");
+            assert!(row.contains(lint.description), "{row}");
+        }
+
+        Ok(())
+    }
+
+    /// A lint no fixture trips is either raising nothing at all, or is only ever
+    /// tested through the module that declares it.
+    #[test]
+    fn test_every_lint_is_tripped_by_a_fixture() -> Result<()> {
+        let mut fired: HashSet<&str> = HashSet::new();
+
+        for entry in std::fs::read_dir(join(pkg_dir(), "fixtures/fe/lints"))? {
+            let name = entry?.file_name().to_string_lossy().to_string();
+            // `invalid.fml.yaml` is there to be rejected before any lint runs.
+            if !name.ends_with(MATCHING_FML_EXTENSION) || name == "invalid.fml.yaml" {
+                continue;
+            }
+
+            let mut cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
+            cmd.include_imports = true;
+            fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
+        }
+
+        let missing: Vec<_> = lints::ALL_LINTS
+            .iter()
+            .map(|l| l.name)
+            .filter(|name| !fired.contains(name))
+            .collect();
+        assert_eq!(
+            missing,
+            Vec::<&str>::new(),
+            "no fixture in fixtures/fe/lints trips these"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_needs_a_valid_manifest() {
+        let cmd = lint_cmd("fixtures/fe/lints/invalid.fml.yaml");
+
+        let error = lint(&cmd).expect_err("An invalid manifest should be an error");
+        assert!(
+            error.to_string().contains("run `nimbus-fml validate`"),
+            "{error}"
+        );
     }
 
     #[test]

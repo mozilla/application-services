@@ -8,7 +8,9 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use super::{enum_path, feature_path, object_path, variable_path, LintInfo, Linter, RawFinding};
+use super::{
+    enum_path, feature_path, is_boolean, object_path, variable_path, LintInfo, Linter, RawFinding,
+};
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
@@ -203,14 +205,6 @@ fn mark_used(typ: &TypeRef, objects: &BTreeMap<String, ObjectDef>, used: &mut Ha
 
 fn is_enabled_variable(prop: &PropDef) -> bool {
     is_boolean(&prop.typ) && (prop.name == "enabled" || prop.name.ends_with("-enabled"))
-}
-
-fn is_boolean(typ: &TypeRef) -> bool {
-    match typ {
-        TypeRef::Boolean => true,
-        TypeRef::Option(inner) => is_boolean(inner),
-        _ => false,
-    }
 }
 
 fn check_stringly_typed(feature: &FeatureDef, prop: &PropDef, out: &mut Vec<RawFinding>) {
