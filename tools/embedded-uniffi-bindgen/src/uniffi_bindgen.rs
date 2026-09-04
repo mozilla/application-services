@@ -195,11 +195,12 @@ pub fn run_main() -> anyhow::Result<()> {
         Commands::Pipeline(args) => {
             let mut paths = uniffi_bindgen::BindgenPaths::default();
             paths.add_layer(crate::config_supplier::NoCargoConfigSupplier);
+            let config = uniffi_bindgen::GlobalConfig::default();
 
             let initial_root = if args.library_mode {
-                initial::Root::from_library(paths, &args.source, args.crate_name)?
+                initial::Root::from_library(&paths, &config, &args.source, args.crate_name)?
             } else {
-                initial::Root::from_udl(paths, &args.source, args.crate_name)?
+                initial::Root::from_udl(&paths, &config, &args.source, args.crate_name)?
             };
 
             let opts = PrintOptions {

@@ -54,39 +54,6 @@ pub type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
 pub type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
 pub use crate::storage::bookmarks::fetch::BookmarkData;
 
-uniffi::custom_type!(Url, String, {
-    remote,
-    try_lift: |val| {
-        match Url::parse(val.as_str()) {
-            Ok(url) => Ok(url),
-            Err(e) => Err(PlacesApiError::UrlParseFailed {
-                reason: e.to_string(),
-            }
-            .into()),
-        }
-    },
-    lower: |obj| obj.into(),
-});
-
-uniffi::custom_type!(PlacesTimestamp, i64, {
-    remote,
-    try_lift: |val| Ok(PlacesTimestamp(val as u64)),
-    lower: |obj| obj.as_millis() as i64,
-});
-
-uniffi::custom_type!(VisitTransitionSet, i32, {
-    try_lift: |val| {
-        Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
-    },
-    lower: |obj| VisitTransitionSet::into_u16(obj) as i32,
-});
-
-uniffi::custom_type!(Guid, String, {
-    remote,
-    try_lift: |val| Ok(Guid::new(val.as_str())),
-    lower: |obj| obj.into(),
-});
-
 // Check for multiple write connections open at the same time
 //
 // One potential cause of #5040 is that Fenix is somehow opening multiiple write connections to

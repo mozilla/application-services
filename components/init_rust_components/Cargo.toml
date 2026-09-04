@@ -12,6 +12,6 @@ keydb = ["nss-as/keydb"]
 ohttp = ["dep:viaduct", "viaduct/ohttp"]
 
 [dependencies]
-uniffi = { version = "0.31" }
+uniffi = { version = "0.32" }
 nss-as = { path = "../support/rc_crypto/nss" }
 viaduct = { path = "../viaduct", optional = true }

@@ -8,53 +8,75 @@ use std::fmt::{self, Display};
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::{Literal, PrefBranch};
 
-pub fn type_label(
-    type_: impl Borrow<TypeIdentifier>,
-    _: &dyn askama::Values,
-) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn type_label<T>(type_: T, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    T: Borrow<TypeIdentifier>,
+{
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).type_label(&oracle))
 }
 
-pub fn defaults_type_label(
-    type_: impl Borrow<TypeIdentifier>,
-    _: &dyn askama::Values,
-) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn defaults_type_label<T>(type_: T, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    T: Borrow<TypeIdentifier>,
+{
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).defaults_type(&oracle))
 }
 
-pub fn literal(
-    type_: impl Borrow<TypeIdentifier>,
+#[askama::filter_fn]
+pub fn literal<T, R, L, C>(
+    type_: T,
     _: &dyn askama::Values,
-    renderer: impl LiteralRenderer,
-    literal: impl Borrow<Literal>,
-    ctx: impl Display,
-) -> Result<String, askama::Error> {
+    renderer: R,
+    literal: L,
+    ctx: C,
+) -> Result<String, askama::Error>
+where
+    T: Borrow<TypeIdentifier>,
+    R: LiteralRenderer,
+    L: Borrow<Literal>,
+    C: Display,
+{
     let oracle = ConcreteCodeOracle;
     Ok(oracle
         .find(type_.borrow())
         .literal(&oracle, &ctx, &renderer, literal.borrow()))
 }
 
-pub fn property(
-    type_: impl Borrow<TypeIdentifier>,
+#[askama::filter_fn]
+pub fn property<T, P, V, D>(
+    type_: T,
     _: &dyn askama::Values,
-    prop: impl fmt::Display,
-    vars: impl fmt::Display,
-    default: impl fmt::Display,
-) -> Result<String, askama::Error> {
+    prop: P,
+    vars: V,
+    default: D,
+) -> Result<String, askama::Error>
+where
+    T: Borrow<TypeIdentifier>,
+    P: Display,
+    V: Display,
+    D: Display,
+{
     let oracle = &ConcreteCodeOracle;
     let ct = oracle.find(type_.borrow());
     Ok(ct.property_getter(oracle, &vars, &prop, &default))
 }
 
-pub fn preference_getter(
-    type_: impl Borrow<TypeIdentifier>,
+#[askama::filter_fn]
+pub fn preference_getter<T, P, K>(
+    type_: T,
     _: &dyn askama::Values,
-    prefs: impl fmt::Display,
-    pref_key: impl fmt::Display,
-) -> Result<String, askama::Error> {
+    prefs: P,
+    pref_key: K,
+) -> Result<String, askama::Error>
+where
+    T: Borrow<TypeIdentifier>,
+    P: fmt::Display,
+    K: fmt::Display,
+{
     let oracle = &ConcreteCodeOracle;
     let ct = oracle.find(type_.borrow());
     if let Some(getter) = ct.preference_getter(oracle, &prefs, &pref_key) {
@@ -64,39 +86,49 @@ pub fn preference_getter(
     }
 }
 
-pub fn to_json(
-    prop: impl fmt::Display,
-    _: &dyn askama::Values,
-    type_: impl Borrow<TypeIdentifier>,
-) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn to_json<P, T>(prop: P, _: &dyn askama::Values, type_: T) -> Result<String, askama::Error>
+where
+    P: fmt::Display,
+    T: Borrow<TypeIdentifier>,
+{
     let oracle = &ConcreteCodeOracle;
     let ct = oracle.find(type_.borrow());
     Ok(ct.as_json(oracle, &prop))
 }
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
-pub fn class_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn class_name<N>(nm: N, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    N: fmt::Display,
+{
     Ok(common::class_name(&nm))
 }
 
 /// Get the idiomatic Kotlin rendering of a variable name.
-pub fn var_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn var_name<N>(nm: N, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    N: fmt::Display,
+{
     Ok(common::var_name(&nm))
 }
 
 /// Get the idiomatic Kotlin rendering of an individual enum variant.
-pub fn enum_variant_name(
-    nm: impl fmt::Display,
-    _: &dyn askama::Values,
-) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn enum_variant_name<F>(nm: F, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    F: fmt::Display,
+{
     Ok(common::enum_variant_name(&nm))
 }
 
-pub fn comment(
-    txt: impl fmt::Display,
-    _: &dyn askama::Values,
-    spaces: &str,
-) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn comment<T>(txt: T, _: &dyn askama::Values, spaces: &str) -> Result<String, askama::Error>
+where
+    T: fmt::Display,
+{
     use textwrap::{fill, Options};
 
     let indent_start = "/** ".to_string();
@@ -116,10 +148,15 @@ pub fn comment(
     ))
 }
 
-pub fn quoted(txt: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
+#[askama::filter_fn]
+pub fn quoted<T>(txt: T, _: &dyn askama::Values) -> Result<String, askama::Error>
+where
+    T: fmt::Display,
+{
     Ok(common::quoted(&txt))
 }
 
+#[askama::filter_fn]
 pub fn pref_branch_string(
     pref_branch: PrefBranch,
     _: &dyn askama::Values,

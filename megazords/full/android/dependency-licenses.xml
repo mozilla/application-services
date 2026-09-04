@@ -93,6 +93,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: askama_macros</name>
+    <url>https://github.com/askama-rs/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: askama_parser</name>
     <url>https://github.com/askama-rs/askama/blob/main/LICENSE-APACHE</url>
   </license>

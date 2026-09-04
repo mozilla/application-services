@@ -33,3 +33,4 @@ merino = { path = "../../components/merino" }
 context_id = { path = "../../components/context_id" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
+glean-sym = { version = "70", features = ["active"] }
