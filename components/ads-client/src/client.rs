@@ -537,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn test_shutdown_telemetry() {
+    fn test_shutdown_telemetry_basic() {
         viaduct_dev::init_backend_dev();
 
         // test with client created from config

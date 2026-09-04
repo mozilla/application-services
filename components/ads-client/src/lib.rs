@@ -12,7 +12,6 @@ use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
 use client::AdsClient;
-use error_support::error;
 use http_cache::CachePolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 mod client;
@@ -23,7 +22,7 @@ pub mod telemetry;
 
 pub use ffi::*;
 
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+use crate::{ffi::telemetry::MozAdsTelemetryWrapper, telemetry::Telemetry};
 
 #[cfg(test)]
 mod test_utils;
@@ -39,6 +38,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    shutdown_references: ShutdownReferences,
 }
 
 #[uniffi::export]
@@ -54,13 +54,10 @@ impl MozAdsClient {
 
     // Allows the ads-client to unload some references and prepare for a safe shutdown.
     // Other methods should not be called after this one.
+    // Currently it is not possible to return an error, but it may yet be possible to do so, so we keep the Result.
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
-        let mut inner = self.inner.lock();
-        if let Err(err) = inner.shutdown_client() {
-            // Log the error, but continue with shutdown.
-            error!("Failed to shutdown the ads client: {:?}", err);
-        }
+        self.shutdown_references.shutdown();
         Ok(())
     }
 
@@ -175,5 +172,51 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+pub struct ShutdownReferences {
+    telemetry: MozAdsTelemetryWrapper,
+}
+
+impl ShutdownReferences {
+    fn shutdown(&self) {
+        self.telemetry.shutdown();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::MozAdsClientBuilder;
+    use std::{sync::mpsc, thread, time::Duration};
+
+    fn test_timeout<F>(timeout: Duration, func: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (tx, rx) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            func();
+            tx.send(())
+                .expect("Internal test error: Could not send completion signal");
+        });
+
+        match rx.recv_timeout(timeout) {
+            Ok(_) => handle.join().unwrap(),
+            Err(_) => panic!("Test exceeded timeout duration"),
+        }
+    }
+    #[test]
+    fn shutdown_does_not_require_ads_client_lock() {
+        test_timeout(Duration::from_secs(5), || {
+            let builder = MozAdsClientBuilder::new().build();
+            let lock = builder.inner.lock();
+
+            // Holding a inner lock, we try to run shutdown.
+            builder.shutdown().unwrap();
+
+            // We explicitly drop the lock at the end.
+            drop(lock);
+        });
     }
 }
