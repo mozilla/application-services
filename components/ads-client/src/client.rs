@@ -4,6 +4,7 @@
 */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::ads_store::AdsStore;
@@ -13,10 +14,12 @@ use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
+use crate::shutdown::{AdsStoreShutdown, ShutdownReferences};
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
+use parking_lot::Mutex;
 use url::Url;
 use uuid::Uuid;
 
@@ -44,7 +47,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
-    ads_store: Option<AdsStore>,
+    ads_store: Arc<Mutex<Option<AdsStore>>>,
 }
 
 impl<T> AdsClient<T>
@@ -105,7 +108,7 @@ where
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
-            ads_store,
+            ads_store: Arc::new(Mutex::new(ads_store)),
         }
     }
 
@@ -276,6 +279,13 @@ where
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
+
+    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
+        ShutdownReferences::new(
+            self.telemetry.clone(),
+            AdsStoreShutdown::new(self.ads_store.clone()),
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -316,11 +326,11 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry,
-            ads_store: Some(
+            ads_store: Arc::new(Mutex::new(Some(
                 AdsStoreBuilder::new("test_store.db")
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
-            ),
+            ))),
         }
     }
 

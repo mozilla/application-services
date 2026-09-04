@@ -23,7 +23,7 @@ use crate::mars::ad_response::{
 use crate::mars::Environment;
 use crate::mars::ReportReason;
 use crate::MozAdsClient;
-use crate::{AdsClientUrl, ShutdownReferences};
+use crate::AdsClientUrl;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -146,9 +146,10 @@ impl MozAdsClientBuilder {
             store_config: inner.store_config.clone().map(Into::into),
         };
         let client = AdsClient::new(client_config);
+        let shutdown_references = client.shutdown_references();
         MozAdsClient {
             inner: Mutex::new(client),
-            shutdown_references: ShutdownReferences::new(telemetry),
+            shutdown_references,
         }
     }
 
