@@ -11,6 +11,7 @@ use std::os::raw::c_char;
 // NOTE if you add or remove crates below here, please make a corresponding change in ../fenix-dylib/megazord_stub.c
 pub use ads_client;
 pub use autofill;
+pub use containers;
 pub use crashtest;
 pub use error_support;
 pub use fxa_client;
