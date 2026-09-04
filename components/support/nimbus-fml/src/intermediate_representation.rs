@@ -117,18 +117,6 @@ impl Display for TypeRef {
 }
 
 impl TypeRef {
-    pub(crate) fn supports_prefs(&self) -> bool {
-        match self {
-            Self::Boolean | Self::String | Self::Int | Self::StringAlias(_) | Self::BundleText => {
-                true
-            }
-            // There may be a chance that we can get Self::Option to work, but not at this time.
-            // This may be done by adding a branch to this match and adding a `preference_getter` to
-            // the `OptionalCodeType`.
-            _ => false,
-        }
-    }
-
     pub(crate) fn supports_gecko_prefs(&self, lax_pref_validation: bool) -> bool {
         match self {
             Self::Option(boxed) => matches!(**boxed, Self::Boolean | Self::Int | Self::String),
@@ -589,10 +577,6 @@ impl FeatureDef {
         Value::Object(props)
     }
 
-    pub fn has_prefs(&self) -> bool {
-        self.props.iter().any(|p| p.has_prefs())
-    }
-
     pub fn has_gecko_prefs(&self) -> bool {
         self.props.iter().any(|p| p.has_gecko_prefs())
     }
@@ -761,9 +745,6 @@ pub struct PropDef {
     pub(crate) default: Literal,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) pref_key: Option<String>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) gecko_pref: Option<GeckoPrefDef>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -783,14 +764,8 @@ impl PropDef {
     pub fn default(&self) -> Literal {
         self.default.clone()
     }
-    pub fn has_prefs(&self) -> bool {
-        self.pref_key.is_some() && self.typ.supports_prefs()
-    }
     pub fn has_gecko_prefs(&self) -> bool {
         self.gecko_pref.is_some() && self.typ.supports_gecko_prefs(false)
-    }
-    pub fn pref_key(&self) -> Option<String> {
-        self.pref_key.clone()
     }
     pub fn gecko_pref(&self) -> Option<GeckoPrefDef> {
         self.gecko_pref.clone()
