@@ -6,6 +6,10 @@
 
 - Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter or leave the store: on the metadata an application supplies to `add_with_meta()`, on every read out of the local database, and on incoming sync payloads, similar to what Desktop does. ([bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257))
 
+### Remote Settings
+
+- Keep synchronization locked until collection signature verification finishes.
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨

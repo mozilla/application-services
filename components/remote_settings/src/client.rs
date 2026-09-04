@@ -360,8 +360,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     /// 1. Fetches the last modified timestamp of the collection from local storage.
     /// 2. Fetches the changeset from the remote server based on the last modified timestamp.
     /// 3. Inserts the fetched changeset into local storage.
-    fn perform_sync_operation(&self) -> Result<()> {
-        let mut inner = self.lock_inner()?;
+    fn perform_sync_operation(&self, inner: &mut RemoteSettingsClientInner<C>) -> Result<()> {
         let collection_url = inner.api_client.collection_url();
         let timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let changeset = inner.api_client.fetch_changeset(timestamp)?;
@@ -379,23 +378,29 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     pub fn sync(&self) -> Result<()> {
+        // Keep the client locked until the fetched collection has either been verified or reset.
+        // Otherwise, another thread can observe records after they are inserted but before their
+        // content signature is checked.
+        let mut inner = self.lock_inner()?;
         // First attempt
-        self.perform_sync_operation()?;
+        self.perform_sync_operation(&mut inner)?;
         // Verify that inserted data has valid signature
-        if self.verify_signature().is_err() {
+        if self.verify_signature(&mut inner).is_err() {
             debug!(
                 "{0}: signature verification failed. Reset and retry.",
                 self.collection_name
             );
             // Retry with packaged dataset as base
-            self.reset_storage()?;
-            self.perform_sync_operation()?;
+            self.reset_storage_inner(&mut inner)?;
+            self.perform_sync_operation(&mut inner)?;
             // Verify signature again
-            self.verify_signature().inspect_err(|_| {
+            let verification_result = self.verify_signature(&mut inner);
+            if verification_result.is_err() {
                 // And reset with packaged data if it fails again.
-                self.reset_storage()
+                self.reset_storage_inner(&mut inner)
                     .expect("Failed to reset storage after verification failure");
-            })?;
+            }
+            verification_result?;
         }
         trace!("{0}: sync done.", self.collection_name);
         Ok(())
@@ -407,8 +412,12 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     pub fn reset_storage(&self) -> Result<()> {
-        trace!("{0}: reset local storage.", self.collection_name);
         let mut inner = self.lock_inner()?;
+        self.reset_storage_inner(&mut inner)
+    }
+
+    fn reset_storage_inner(&self, inner: &mut RemoteSettingsClientInner<C>) -> Result<()> {
+        trace!("{0}: reset local storage.", self.collection_name);
         let collection_url = inner.api_client.collection_url();
         // Clear existing storage
         inner.storage.empty()?;
@@ -432,14 +441,13 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     #[cfg(not(feature = "signatures"))]
-    fn verify_signature(&self) -> Result<()> {
+    fn verify_signature(&self, _inner: &mut RemoteSettingsClientInner<C>) -> Result<()> {
         debug!("{0}: signature verification skipped.", self.collection_name);
         Ok(())
     }
 
     #[cfg(feature = "signatures")]
-    fn verify_signature(&self) -> Result<()> {
-        let mut inner = self.lock_inner()?;
+    fn verify_signature(&self, inner: &mut RemoteSettingsClientInner<C>) -> Result<()> {
         let collection_url = inner.api_client.collection_url();
         let timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let records = inner.storage.get_records(&collection_url)?;
@@ -1245,6 +1253,9 @@ mod jexl_tests {
 #[cfg(test)]
 mod test_signatures {
     use core::assert_eq;
+    use std::sync::{mpsc, Arc};
+    use std::thread;
+    use std::time::Duration;
 
     use crate::RemoteSettingsContext;
 
@@ -1702,6 +1713,104 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
         // The signature is only valid for an empty list of records.
         assert_eq!(rs_client.get_records(true)?, Some(vec![]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_records_are_not_visible_until_sync_finishes() -> Result<()> {
+        ensure_initialized();
+
+        let attachment = b"test attachment".to_vec();
+        let attachment_location = "test/attachment.bin";
+        let record = RemoteSettingsRecord {
+            id: "test-record".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(Attachment {
+                filename: "attachment.bin".into(),
+                mimetype: "application/octet-stream".into(),
+                location: attachment_location.into(),
+                hash: format!("{:x}", Sha256::digest(&attachment)),
+                size: attachment.len() as u64,
+            }),
+            fields: serde_json::json!({
+                "name": "test-record",
+                "version": "1.0"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        };
+        let changeset = ChangesetResponse {
+            changes: vec![record],
+            timestamp: 100,
+            metadata: CollectionMetadata {
+                bucket: "main".into(),
+                signatures: vec![],
+            },
+        };
+
+        let (fetch_entered_tx, fetch_entered_rx) = mpsc::channel();
+        let (release_fetch_tx, release_fetch_rx) = mpsc::channel();
+        let mut first_fetch = true;
+        let mut api_client = MockApiClient::new();
+        api_client
+            .expect_collection_url()
+            .returning(|| "http://server/test-collection".into());
+        api_client.expect_is_prod_server().returning(|| Ok(false));
+        let expected_attachment = attachment.clone();
+        api_client
+            .expect_fetch_attachment()
+            .with(mockall::predicate::eq(attachment_location))
+            .returning(move |_| Ok(expected_attachment.clone()));
+        api_client
+            .expect_fetch_changeset()
+            .times(2)
+            .returning(move |_| {
+                if first_fetch {
+                    first_fetch = false;
+                    fetch_entered_tx.send(()).unwrap();
+                    release_fetch_rx.recv().unwrap();
+                }
+                Ok(changeset.clone())
+            });
+
+        let client = Arc::new(RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            Storage::new(":memory:".into()),
+            JexlFilter::new(None),
+            api_client,
+        ));
+
+        let sync_client = Arc::clone(&client);
+        let sync_thread = thread::spawn(move || sync_client.sync());
+        fetch_entered_rx.recv().unwrap();
+
+        let (reader_started_tx, reader_started_rx) = mpsc::channel();
+        let reader_client = Arc::clone(&client);
+        let reader_thread = thread::spawn(move || {
+            reader_started_tx.send(()).unwrap();
+            let records = reader_client.get_records(false)?;
+            records
+                .and_then(|records| records.into_iter().next())
+                .map(|record| reader_client.get_attachment(&record))
+                .transpose()
+        });
+        reader_started_rx.recv().unwrap();
+
+        // Keep the sync lock held long enough for the waiting reader to queue.  parking_lot
+        // hands a contended mutex to a waiter after a long critical section.
+        thread::sleep(Duration::from_millis(25));
+        release_fetch_tx.send(()).unwrap();
+
+        let result = reader_thread.join().unwrap()?;
+        assert_ne!(
+            result,
+            Some(attachment),
+            "records should not be visible until synchronization succeeds"
+        );
+        assert!(sync_thread.join().unwrap().is_err());
 
         Ok(())
     }
