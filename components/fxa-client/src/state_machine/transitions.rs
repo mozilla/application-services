@@ -24,11 +24,28 @@ pub fn transition(
         // ── From Uninitialized ──────────────────────────────────────────
         (S::Uninitialized, E::Initialize { device_config }) => match account.get_auth_state() {
             FxaRustAuthState::Disconnected => Ok(S::Disconnected),
-            FxaRustAuthState::AuthIssues => Ok(S::AuthIssues),
+            FxaRustAuthState::AuthIssues => {
+                // This probably indicates that the user is not authorized but there are various
+                // corner cases where we might have gotten something wrong. For example, a bug in an
+                // older browser version that we've since fixed or an FxA server bug.
+                // Because of this, we will recheck the authorization status from time to time.
+                if account.should_recheck_auth() {
+                    account.reset_auth_recheck_timer();
+                    match account.check_authorization_status() {
+                        Ok(true) => Ok(S::Connected),
+                        _ => Ok(S::AuthIssues),
+                    }
+                } else {
+                    Ok(S::AuthIssues)
+                }
+            }
             FxaRustAuthState::Connected => {
                 match account.finish_initialize(&device_config.capabilities) {
                     Ok(()) => Ok(S::Connected),
-                    Err(cause) => Err(StateMachineErr::new(cause, S::AuthIssues)),
+                    Err(cause) => {
+                        account.reset_auth_recheck_timer();
+                        Err(StateMachineErr::new(cause, S::AuthIssues))
+                    }
                 }
             }
         },
@@ -143,12 +160,18 @@ pub fn transition(
             let active = account
                 .check_authorization_status()
                 .to_state_machine_err(|| S::Connected)?;
-            Ok(if active { S::Connected } else { S::AuthIssues })
+            if active {
+                Ok(S::Connected)
+            } else {
+                account.reset_auth_recheck_timer();
+                Ok(S::AuthIssues)
+            }
         }
         (S::Connected, E::CallGetProfile) => {
-            account
-                .get_profile()
-                .to_state_machine_err(|| S::AuthIssues)?;
+            account.get_profile().to_state_machine_err(|| {
+                account.reset_auth_recheck_timer();
+                S::AuthIssues
+            })?;
             Ok(S::Connected)
         }
         (
@@ -176,7 +199,10 @@ pub fn transition(
             // the device record (push subscription, commands, etc) against the new token.
             account
                 .handle_web_channel_password_change(&json_payload)
-                .to_state_machine_err(|| S::AuthIssues)?;
+                .to_state_machine_err(|| {
+                    account.reset_auth_recheck_timer();
+                    S::AuthIssues
+                })?;
             Ok(S::Connected)
         }
 
@@ -192,7 +218,10 @@ pub fn transition(
             let scope_refs: Vec<&str> = scopes.iter().map(String::as_str).collect();
             let oauth_url = account
                 .begin_oauth_flow(&service, &scope_refs, &entrypoint)
-                .to_state_machine_err(|| S::AuthIssues)?;
+                .to_state_machine_err(|| {
+                    account.reset_auth_recheck_timer();
+                    S::AuthIssues
+                })?;
             Ok(S::Authenticating {
                 oauth_url,
                 initial_state: FxaRustAuthState::AuthIssues,
@@ -207,14 +236,22 @@ pub fn transition(
             // session token recovers us; device re-registration will be handled inside the inner call.
             account
                 .handle_web_channel_password_change(&json_payload)
-                .to_state_machine_err(|| S::AuthIssues)?;
+                .to_state_machine_err(|| {
+                    account.reset_auth_recheck_timer();
+                    S::AuthIssues
+                })?;
             Ok(S::Connected)
         }
         (S::AuthIssues, E::CheckAuthorizationStatus) => {
             let active = account
                 .check_authorization_status()
                 .to_state_machine_err(|| S::AuthIssues)?;
-            Ok(if active { S::Connected } else { S::AuthIssues })
+            if active {
+                Ok(S::Connected)
+            } else {
+                account.reset_auth_recheck_timer();
+                Ok(S::AuthIssues)
+            }
         }
 
         // ── Other transitions  ─────────────────────────────────

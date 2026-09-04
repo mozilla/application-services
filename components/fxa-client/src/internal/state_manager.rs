@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::{HashMap, HashSet};
+use std::time::SystemTime;
 
 use crate::{
     internal::{
@@ -72,6 +73,31 @@ impl StateManager {
     /// Update the last known LocalDevice info when getting one back from the server
     pub fn update_server_local_device_info(&mut self, local_device: LocalDevice) {
         self.persisted_state.server_local_device_info = Some(local_device)
+    }
+
+    /// Checks if enough time has passed since the last auth attempt that we should try checking the
+    /// auth again.
+    pub fn should_recheck_auth(&self) -> bool {
+        let last_auth_time: u64 = self.persisted_state.last_auth_recheck_time.unwrap_or(0);
+        // Authentication interval is one week
+        let next_auth_time = last_auth_time + (7 * 24 * 60 * 60);
+        // This should only return an error if `now()` is before the epoch. This is an unexpected
+        // case and we will just return `false` if this happens (presumably resulting in a recheck
+        // not being made).
+        if let Ok(now) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+            let now: u64 = now.as_secs();
+            if next_auth_time <= now {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn reset_auth_recheck_timer(&mut self) {
+        // Attempt to reset the timer that indicates how long until we recheck the auth issues
+        if let Ok(now) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+            self.persisted_state.last_auth_recheck_time = Some(now.as_secs());
+        }
     }
 
     /// Clear out the last known LocalDevice info. This means that the next call to
@@ -209,6 +235,7 @@ impl StateManager {
         self.persisted_state.session_token = None;
         self.persisted_state.logged_out_from_auth_issues = false;
         self.persisted_state.last_seen_profile = None;
+        self.persisted_state.last_auth_recheck_time = None;
         self.flow_store.clear();
     }
 
@@ -220,9 +247,10 @@ impl StateManager {
     ///
     ///   * `current_device_id`
     ///   * `device_capabilities`
+    ///   * `last_auth_recheck_time`
     ///   * `last_handled_command`
+    ///   * `refresh_token`
     pub fn on_auth_issues(&mut self) {
-        self.persisted_state.refresh_token = None;
         self.persisted_state.scoped_keys = HashMap::new();
         self.persisted_state.commands_data = HashMap::new();
         self.persisted_state.access_token_cache = HashMap::new();
@@ -233,10 +261,10 @@ impl StateManager {
     }
 
     pub fn get_auth_state(&self) -> FxaRustAuthState {
-        if self.persisted_state.refresh_token.is_some() {
-            FxaRustAuthState::Connected
-        } else if self.persisted_state.logged_out_from_auth_issues {
+        if self.persisted_state.logged_out_from_auth_issues {
             FxaRustAuthState::AuthIssues
+        } else if self.persisted_state.refresh_token.is_some() {
+            FxaRustAuthState::Connected
         } else {
             FxaRustAuthState::Disconnected
         }

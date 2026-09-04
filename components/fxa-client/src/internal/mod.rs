@@ -92,6 +92,7 @@ impl FirefoxAccount {
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
             logged_out_from_auth_issues: false,
+            last_auth_recheck_time: None,
         })
     }
 
@@ -271,6 +272,19 @@ impl FirefoxAccount {
 
     pub fn simulate_permanent_auth_token_issue(&mut self) {
         self.state.simulate_permanent_auth_token_issue()
+    }
+
+    /// Checks if enough time has passed since the last auth attempt that we should try checking the
+    /// auth again.
+    pub fn should_recheck_auth(&self) -> bool {
+        self.state.should_recheck_auth()
+    }
+
+    /// Set the last time we re-checked our authentication after a failure to the current time.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    pub fn reset_auth_recheck_timer(&mut self) {
+        self.state.reset_auth_recheck_timer();
     }
 }
 
