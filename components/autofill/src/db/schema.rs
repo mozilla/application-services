@@ -108,7 +108,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 5;
+    const END_VERSION: u32 = 6;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -139,6 +139,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             2 => upgrade_from_v2(db),
             3 => upgrade_from_v3(db),
             4 => upgrade_from_v4(db),
+            5 => upgrade_from_v5(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -279,6 +280,14 @@ fn upgrade_from_v4(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn upgrade_from_v5(_db: &Connection) -> Result<()> {
+    // v5 -> v6 changes no tables. The bump exists so that a downgrade to a
+    // build without the versioned secure-fields blob fails in `open_database`
+    // with `IncompatibleVersion`, instead of reading a blob as a card number
+    // and uploading it to the server.
+    Ok(())
+}
+
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -306,7 +315,8 @@ mod tests {
     fn test_wal_size_is_bounded() {
         // A memory database has no -wal file, so open a real one.
         let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, "");
-        let db = AutofillDb::new(&db_file.path).expect("should open the database");
+        let db = AutofillDb::new(&db_file.path, crate::db::test::test_encdec())
+            .expect("should open the database");
 
         let journal_mode: String = db
             .query_row("PRAGMA journal_mode", [], |row| row.get(0))

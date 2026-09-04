@@ -3,8 +3,19 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+//! Credit-card models and the cleartext fields that are stored encrypted.
+//!
+//! Only the number is encrypted today, but the encrypted value is a versioned
+//! JSON blob rather than the bare number, so a CVV can be added later.
+//!
+//! Rows written before that change still decrypt to a bare number. `decrypt`
+//! accepts both, and `db::migrate_cc_secure_fields` rewrites the old ones.
+
 use super::Metadata;
+use crate::encryption::{decrypt_str, encrypt_str, EncryptorDecryptor};
+use crate::error::Error;
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 use sync_guid::Guid;
 
 #[derive(Debug, Clone, Default)]
@@ -102,5 +113,165 @@ impl InternalCreditCard {
 
     pub fn has_scrubbed_data(&self) -> bool {
         self.cc_number_enc.is_empty()
+    }
+}
+
+/// The version written today. A reader that meets a higher version fails rather
+/// than guessing, so a future format cannot be misread as this one.
+const SECURE_FIELDS_VERSION: u8 = 1;
+
+/// `db::migrate_cc_secure_fields` keeps its own frozen copy of the v1 shape, so
+/// changing this struct does not change what it already wrote.
+#[derive(Serialize, Deserialize)]
+struct StoredSecureFields {
+    v: u8,
+    n: String,
+}
+
+/// Cleartext credit-card fields that are encrypted for local storage.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct SecureCreditCardFields {
+    pub cc_number: String,
+}
+
+impl SecureCreditCardFields {
+    /// `guid` only identifies the record in error messages.
+    pub fn encrypt(
+        &self,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<String> {
+        let stored = StoredSecureFields {
+            v: SECURE_FIELDS_VERSION,
+            n: self.cc_number.clone(),
+        };
+        let cleartext = serde_json::to_string(&stored)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))?;
+        encrypt_str(encdec, &cleartext)
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting {guid})")))
+    }
+
+    pub fn decrypt(
+        ciphertext: &str,
+        encdec: &dyn EncryptorDecryptor,
+        guid: &str,
+    ) -> crate::error::Result<Self> {
+        let cleartext = decrypt_str(encdec, ciphertext).map_err(|e| {
+            Error::DecryptionFailed(format!(
+                "{e} (decrypting {guid}, ciphertext length: {})",
+                ciphertext.len()
+            ))
+        })?;
+
+        match serde_json::from_str::<StoredSecureFields>(&cleartext) {
+            Ok(stored) if stored.v == SECURE_FIELDS_VERSION => Ok(Self {
+                cc_number: stored.n,
+            }),
+            Ok(stored) => Err(Error::DecryptionFailed(format!(
+                "unsupported secure-fields version {} (decrypting {guid})",
+                stored.v
+            ))),
+            // A bare number is not valid JSON for the blob, so a parse failure
+            // is how a row written before the migration identifies itself.
+            Err(_) => Ok(Self {
+                cc_number: cleartext,
+            }),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encryption::{random_key_encryptor, ManagedEncryptorDecryptor};
+    use nss_as::ensure_initialized;
+
+    fn encdec() -> ManagedEncryptorDecryptor {
+        ensure_initialized();
+        random_key_encryptor().unwrap()
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let encdec = encdec();
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec, "test-guid")
+        .unwrap();
+
+        assert!(!stored.is_empty());
+        assert_ne!(
+            stored, "4111111111117629",
+            "the stored value must not be the cleartext"
+        );
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&stored, &encdec, "test-guid")
+                .unwrap()
+                .cc_number,
+            "4111111111117629"
+        );
+    }
+
+    #[test]
+    fn test_decrypt_with_the_wrong_key_fails() {
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec(), "test-guid")
+        .unwrap();
+        assert!(SecureCreditCardFields::decrypt(&stored, &encdec(), "test-guid").is_err());
+    }
+
+    #[test]
+    fn test_scrubbed_is_the_default() {
+        // Empty ciphertext marks data to be replaced from Sync.
+        assert!(InternalCreditCard::default().has_scrubbed_data());
+    }
+
+    #[test]
+    fn test_decrypt_accepts_a_pre_migration_row() {
+        let encdec = encdec();
+        let legacy = crate::encryption::encrypt_str(&encdec, "4111111111117629").unwrap();
+        assert_eq!(
+            SecureCreditCardFields::decrypt(&legacy, &encdec, "test-guid")
+                .unwrap()
+                .cc_number,
+            "4111111111117629"
+        );
+    }
+
+    #[test]
+    fn test_encrypt_writes_a_versioned_blob() {
+        let encdec = encdec();
+        let stored = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        }
+        .encrypt(&encdec, "test-guid")
+        .unwrap();
+        assert_eq!(
+            crate::encryption::decrypt_str(&encdec, &stored).unwrap(),
+            r#"{"v":1,"n":"4111111111117629"}"#
+        );
+    }
+
+    #[test]
+    fn test_decrypt_refuses_an_unknown_version() {
+        let encdec = encdec();
+        let future =
+            crate::encryption::encrypt_str(&encdec, r#"{"v":2,"n":"4111111111117629"}"#).unwrap();
+        assert!(SecureCreditCardFields::decrypt(&future, &encdec, "test-guid").is_err());
+    }
+
+    #[test]
+    fn test_encrypting_twice_gives_different_ciphertext() {
+        let encdec = encdec();
+        let fields = SecureCreditCardFields {
+            cc_number: "4111111111117629".to_string(),
+        };
+        assert_ne!(
+            fields.encrypt(&encdec, "test-guid").unwrap(),
+            fields.encrypt(&encdec, "test-guid").unwrap()
+        );
     }
 }

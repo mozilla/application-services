@@ -164,9 +164,12 @@ interface AutofillApiError {
     UnexpectedAutofillApiError(string reason);
 };
 
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
+
 interface Store {
     [Throws=AutofillApiError]
-    constructor(string dbpath);
+    constructor(string dbpath, EncryptorDecryptor encdec);
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
@@ -257,9 +260,12 @@ interface Store {
     /// NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
     /// outside of this use case.
     [Throws=AutofillApiError, Self=ByArc]
-    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement(string local_encryption_key);
+    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement();
 
     /// Run maintenance on the DB
+    ///
+    /// Also completes the one-off rewrite of credit-card rows that predate the
+    /// versioned secure-fields encoding. Cheap once that has finished.
     ///
     /// This is intended to be run during idle time and will take steps / to clean up / shrink the
     /// database.

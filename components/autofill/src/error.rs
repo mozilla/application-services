@@ -71,8 +71,21 @@ pub enum Error {
     #[error("Crypto Error: {0}")]
     CryptoError(#[from] jwcrypto::JwCryptoError),
 
-    #[error("Missing local encryption key")]
-    MissingEncryptionKey,
+    #[error("Encryption Error: {0}")]
+    EncryptionError(#[from] db_crypto::DbCryptoApiError),
+
+    #[error("Crypto data is not valid UTF-8: {0}")]
+    CryptoNotUtf8(String),
+
+    // Encrypting or decrypting a record's secure fields failed. The string
+    // carries the underlying error plus the record guid, never the data itself
+    // - see the PII warning below. Mirrors logins, which reports the login id
+    // the same way (components/logins/src/error.rs:81).
+    #[error("Encryption failed: {0}")]
+    EncryptionFailed(String),
+
+    #[error("Decryption failed: {0}")]
+    DecryptionFailed(String),
 
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
@@ -131,10 +144,36 @@ impl GetErrorHandling for Error {
             })
             .report_error("autofill-crypto-error"),
 
-            Self::MissingEncryptionKey => ErrorHandling::convert(AutofillApiError::CryptoError {
-                reason: "Missing encryption key".to_string(),
+            Self::EncryptionError(e) => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: e.to_string(),
             })
-            .report_error("autofill-missing-encryption-key"),
+            .report_error("autofill-encryption-error"),
+
+            Self::CryptoNotUtf8(reason) => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: reason.clone(),
+            })
+            .report_error("autofill-crypto-not-utf8"),
+
+            // Logged locally, deliberately NOT reported: the message carries the
+            // record guid so an operator can tell which record failed, and a
+            // guid is stable and also exists on the sync server, so shipping it
+            // off-device would make a report linkable to one user's record.
+            // This matches how autofill already treats `NoSuchRecord`. logins
+            // does report the equivalent, via its catch-all arm - we are being
+            // stricter on purpose, because these are card numbers.
+            Self::EncryptionFailed(reason) => {
+                ErrorHandling::convert(AutofillApiError::CryptoError {
+                    reason: reason.clone(),
+                })
+                .log_warning()
+            }
+
+            Self::DecryptionFailed(reason) => {
+                ErrorHandling::convert(AutofillApiError::CryptoError {
+                    reason: reason.clone(),
+                })
+                .log_warning()
+            }
 
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })
