@@ -18,6 +18,12 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 
+### sql_support
+
+- All databases are initialized with `PRAGMA auto_vacuum=incremental`.
+  This avoids having to do a full vacuum on the first `sql_support::run_maintenance` call.
+  (https://bugzilla.mozilla.org/show_bug.cgi?id=2064759)
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
