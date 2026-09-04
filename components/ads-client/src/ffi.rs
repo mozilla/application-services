@@ -146,7 +146,7 @@ impl MozAdsClientBuilder {
         let client = AdsClient::new(client_config);
         MozAdsClient {
             inner: Mutex::new(client),
-            shutdown_references: ShutdownReferences { telemetry },
+            shutdown_references: ShutdownReferences::new(telemetry),
         }
     }
 

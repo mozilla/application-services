@@ -57,6 +57,7 @@ where
         self.transport.clear_cache()
     }
 
+    #[allow(dead_code)]
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         self.transport.shutdown_db()
     }

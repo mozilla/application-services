@@ -18,11 +18,12 @@ mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
+pub mod shutdown;
 pub mod telemetry;
 
 pub use ffi::*;
 
-use crate::{ffi::telemetry::MozAdsTelemetryWrapper, telemetry::Telemetry};
+use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
 mod test_utils;
@@ -172,51 +173,5 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
-    }
-}
-
-pub struct ShutdownReferences {
-    telemetry: MozAdsTelemetryWrapper,
-}
-
-impl ShutdownReferences {
-    fn shutdown(&self) {
-        self.telemetry.shutdown();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::MozAdsClientBuilder;
-    use std::{sync::mpsc, thread, time::Duration};
-
-    fn test_timeout<F>(timeout: Duration, func: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        let (tx, rx) = mpsc::channel();
-        let handle = thread::spawn(move || {
-            func();
-            tx.send(())
-                .expect("Internal test error: Could not send completion signal");
-        });
-
-        match rx.recv_timeout(timeout) {
-            Ok(_) => handle.join().unwrap(),
-            Err(_) => panic!("Test exceeded timeout duration"),
-        }
-    }
-    #[test]
-    fn shutdown_does_not_require_ads_client_lock() {
-        test_timeout(Duration::from_secs(5), || {
-            let builder = MozAdsClientBuilder::new().build();
-            let lock = builder.inner.lock();
-
-            // Holding a inner lock, we try to run shutdown.
-            builder.shutdown().unwrap();
-
-            // We explicitly drop the lock at the end.
-            drop(lock);
-        });
     }
 }
