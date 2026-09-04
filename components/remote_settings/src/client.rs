@@ -1187,6 +1187,74 @@ mod jexl_tests {
         );
     }
 
+    #[test]
+    fn test_jexl_filter_by_distribution() {
+        let mut api_client = MockApiClient::new();
+        let records = vec![RemoteSettingsRecord {
+            id: "record-0001".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: None,
+            fields: serde_json::json!({
+                "filter_expression": "env.distribution == \"firefox-001\""
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        }];
+        let changeset = ChangesetResponse {
+            changes: records.clone(),
+            timestamp: 42,
+            metadata: CollectionMetadata::default(),
+        };
+        api_client.expect_collection_url().returning(|| {
+            "http://rs.example.com/v2/buckets/main/collections/test-collection".into()
+        });
+        api_client.expect_fetch_changeset().returning({
+            let changeset = changeset.clone();
+            move |timestamp| {
+                assert_eq!(timestamp, None);
+                Ok(changeset.clone())
+            }
+        });
+        api_client.expect_is_prod_server().returning(|| Ok(false));
+
+        let context = RemoteSettingsContext {
+            distribution: Some("firefox-001".to_string()),
+            ..Default::default()
+        };
+
+        let mut storage = Storage::new(":memory:".into());
+        let _ = storage.insert_collection_content(
+            "http://rs.example.com/v2/buckets/main/collections/test-collection",
+            &records,
+            42,
+            CollectionMetadata::default(),
+        );
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(Some(context)),
+            api_client,
+        );
+
+        assert_eq!(
+            rs_client.get_records(false).expect("Error getting records"),
+            Some(records)
+        );
+
+        rs_client.inner.lock().jexl_filter = JexlFilter::new(Some(RemoteSettingsContext {
+            distribution: Some("default".to_string()),
+            ..Default::default()
+        }));
+
+        assert_eq!(
+            rs_client.get_records(false).expect("Error getting records"),
+            Some(vec![])
+        );
+    }
+
     // Test that we can't hit the deadlock described in
     // https://bugzilla.mozilla.org/show_bug.cgi?id=2012955
     #[test]

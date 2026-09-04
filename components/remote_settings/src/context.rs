@@ -45,6 +45,8 @@ pub struct RemoteSettingsContext {
     ///     for example `Region` on Desktop and `RegionMiddleware` on Android.
     #[uniffi(default = None)]
     pub country: Option<String>,
+    #[uniffi(default = None)]
+    pub distribution: Option<String>,
     /// Extra attributes to add to the env for JEXL filtering.
     ///
     /// Use this for prototyping / testing new features.  In the long-term, new fields should be
@@ -94,6 +96,9 @@ impl RemoteSettingsContext {
         if let Some(country) = self.country {
             v.insert("country".to_string(), country.into());
         }
+        if let Some(distribution) = self.distribution {
+            v.insert("distribution".to_string(), distribution.into());
+        }
         if let Some(custom) = self.custom_targetting_attributes {
             v.extend(custom.into_iter().map(|(k, v)| (k, v.into())));
         }
@@ -120,6 +125,7 @@ mod test {
             locale: Some("en-US".into()),
             form_factor: Some("tablet".into()),
             country: Some("US".into()),
+            distribution: Some("firefox-001".into()),
             custom_targetting_attributes: Some(HashMap::from([("extra".into(), "test".into())])),
         };
         assert_eq!(
@@ -141,6 +147,7 @@ mod test {
                 // into official fields that both the Gecko and Rust client support.
                 "formFactor": "tablet",
                 "country": "US",
+                "distribution": "firefox-001",
                 "extra": "test",
             })
         );

@@ -18,6 +18,10 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 
+### Remote Settings
+
+- Added an optional `distribution` field to `RemoteSettingsContext`, exposed as `env.distribution` in JEXL `filter_expression`s so records can be targeted at specific distributions (e.g. partner repacks). ([Bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
