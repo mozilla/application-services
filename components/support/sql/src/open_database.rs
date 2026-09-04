@@ -30,7 +30,6 @@
 ///  See the autofill DB code for an example.
 ///
 use std::{
-    borrow::Cow,
     path::Path,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -484,7 +483,9 @@ pub mod test_utils {
 
     fn get_sql(conn: &Connection, type_: &str) -> HashMap<String, Option<String>> {
         conn.query_rows_and_then(
-            "SELECT name, sql FROM sqlite_master WHERE type=?",
+            // Ignore stat tables, which only get created if an ANALYZE ran
+            "SELECT name, sql FROM sqlite_master
+             WHERE type = ? AND name NOT LIKE 'sqlite_stat%'",
             (type_,),
             |row| -> rusqlite::Result<(String, Option<String>)> { Ok((row.get(0)?, row.get(1)?)) },
         )
@@ -518,22 +519,73 @@ pub mod test_utils {
         }
     }
 
-    /// Normalize SQL code by changing all whitespace to a single space.
+    /// Normalize SQL code by dropping comments and removing all whitespace which isn't
+    /// syntactically meaningful.
     fn normalize(sql: &str) -> String {
-        sql.split('\'')
-            .enumerate()
-            .map(|(i, part)| {
-                // Only normalize the even parts.  Odd parts are either inside a string literal.
-                // Note: SQLite uses a double quote (`''`) as the escape, which works with this
-                // system.  We'll just end up normalizing the empty string, which doesn't hurt
-                // anything.
-                if (i % 2) == 0 {
-                    Cow::Owned(part.split_whitespace().collect::<Vec<_>>().join(" "))
-                } else {
-                    Cow::Borrowed(part)
+        const PUNCTUATION: [char; 3] = ['(', ')', ','];
+        let mut normalized = String::with_capacity(sql.len());
+        let mut chars = sql.chars().peekable();
+        let mut in_string = false;
+        let mut pending_space = false;
+
+        while let Some(c) = chars.next() {
+            if in_string {
+                // SQLite uses a double quote (`''`) as the escape, which doesn't need
+                // special handling here.  We'll end up toggling in_string off and on
+                // again, but still output the same characters.
+                in_string = c != '\'';
+            } else if c == '-' && chars.peek() == Some(&'-') {
+                while chars.next_if(|&c| c != '\n').is_some() {}
+                continue;
+            } else if c.is_whitespace() {
+                pending_space = true;
+                continue;
+            } else {
+                // Only output a pending space if it's syntactically meaningful
+                if pending_space
+                    && !normalized.is_empty()
+                    && !PUNCTUATION.contains(&c)
+                    && !normalized.ends_with(PUNCTUATION)
+                {
+                    normalized.push(' ');
                 }
-            })
-            .collect()
+                pending_space = false;
+                in_string = c == '\'';
+            }
+            normalized.push(c);
+        }
+        normalized
+    }
+
+    #[cfg(test)]
+    mod normalize_test {
+        use super::normalize;
+
+        #[test]
+        fn test_whitespace() {
+            assert_eq!(normalize("  select\n\tone   two  "), "select one two");
+        }
+
+        #[test]
+        fn test_comments() {
+            assert_eq!(normalize("one -- it's a note\ntwo"), "one two");
+            assert_eq!(normalize("one -- trailing note"), "one");
+        }
+
+        #[test]
+        fn test_punctuation() {
+            assert_eq!(
+                normalize("t ( one INTEGER , two TEXT )"),
+                "t(one INTEGER,two TEXT)"
+            );
+        }
+
+        #[test]
+        fn test_string_literals() {
+            assert_eq!(normalize("one  'it''s'  two"), "one 'it''s' two");
+            assert_eq!(normalize("one 'has -- dashes'"), "one 'has -- dashes'");
+            assert_eq!(normalize("one 'a' 'b'"), "one 'a' 'b'");
+        }
     }
 }
 
