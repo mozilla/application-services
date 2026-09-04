@@ -214,10 +214,10 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - replacing missing or negative values with the current time
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
-//!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
 //! - `time_last_used`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
@@ -237,10 +237,10 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - removing negative values
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
-//!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
 //! - `time_password_changed`: A lower bound on the time that the `password` field was last changed, in integer
@@ -262,6 +262,7 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - removing negative values
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
@@ -280,7 +281,7 @@
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!   fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
-use crate::{encryption::EncryptorDecryptor, error::*};
+use crate::{encryption::EncryptorDecryptor, error::*, util::sanitize_timestamp};
 use rusqlite::Row;
 use serde_derive::*;
 use sync_guid::Guid;
@@ -358,6 +359,23 @@ pub struct LoginMeta {
     pub time_last_used: i64,
     pub times_used: i64,
     pub time_last_breach_alert_dismissed: Option<i64>,
+}
+
+impl LoginMeta {
+    /// Clamp every timestamp into `[0, now]`.
+    ///
+    /// This runs on both read and write - so that a corrupt timestamp does not break.
+    pub(crate) fn sanitize_timestamps(self) -> Self {
+        Self {
+            time_created: sanitize_timestamp(self.time_created),
+            time_password_changed: sanitize_timestamp(self.time_password_changed),
+            time_last_used: sanitize_timestamp(self.time_last_used),
+            time_last_breach_alert_dismissed: self
+                .time_last_breach_alert_dismissed
+                .map(sanitize_timestamp),
+            ..self
+        }
+    }
 }
 
 /// A login together with meta fields, handed over to the store API; ie a login persisted
@@ -716,7 +734,14 @@ impl EncryptedLogin {
         // XXX - we used to perform a fixup here, but that seems heavy-handed
         // and difficult - we now only do that on add/insert when we have the
         // encryption key.
-        Ok(login)
+        //
+        // Timestamps are the exception: they need no key, and a corrupt one read back out of
+        // the database breaks consumers hard enough to be worth fixing on every read (bug
+        // 2066257).
+        Ok(EncryptedLogin {
+            meta: login.meta.sanitize_timestamps(),
+            ..login
+        })
     }
 }
 

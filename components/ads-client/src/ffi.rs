@@ -7,6 +7,8 @@ pub mod error;
 pub mod telemetry;
 
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Weak;
 
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, AdsStoreConfig};
 use crate::client::{AdsClient, ContextIdProvider};
@@ -20,8 +22,8 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::AdsClientUrl;
 use crate::MozAdsClient;
+use crate::{AdsClientUrl, ShutdownReferences};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -57,6 +59,8 @@ impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
 
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
+    #[uniffi(default)]
+    pub blocks: Vec<String>,
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
     pub flags: HashMap<String, bool>,
@@ -124,7 +128,12 @@ impl MozAdsClientBuilder {
     }
 
     pub fn build(&self) -> MozAdsClient {
-        let inner = self.0.lock();
+        let mut inner = self.0.lock();
+        let telemetry = inner
+            .telemetry
+            .take()
+            .map(MozAdsTelemetryWrapper::new)
+            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -133,16 +142,13 @@ impl MozAdsClientBuilder {
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
             environment: inner.environment.unwrap_or_default().into(),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            telemetry: telemetry.clone(),
             store_config: inner.store_config.clone().map(Into::into),
         };
         let client = AdsClient::new(client_config);
         MozAdsClient {
             inner: Mutex::new(client),
+            shutdown_references: ShutdownReferences::new(telemetry),
         }
     }
 
@@ -172,6 +178,13 @@ impl MozAdsClientBuilder {
     pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
         self.0.lock().telemetry = Some(Arc::from(telemetry));
         self
+    }
+}
+
+impl MozAdsClientBuilder {
+    #[cfg(test)]
+    pub fn fetch_telemetry(&self) -> Option<Weak<dyn MozAdsTelemetry>> {
+        self.0.lock().telemetry.as_ref().map(Arc::downgrade)
     }
 }
 
@@ -489,5 +502,36 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
             count: request.count,
             placement: request.placement_id.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsClientBuilder};
+    use std::sync::Arc;
+
+    #[test]
+    fn test_telemetry_not_held_by_builder() {
+        // Related to Bug 2064543
+        // The builder can hold a reference to the passed telemetry, meaning that if the builder still exists, `shutdown` doesn't drop all references.
+
+        // Make a builder and pass in telemetry.
+        let builder = Arc::new(MozAdsClientBuilder::new());
+        assert!(builder.fetch_telemetry().is_none());
+        let builder = MozAdsClientBuilder::telemetry(builder, Box::new(NoopMozAdsTelemetry));
+        let weak_telemetry = builder
+            .fetch_telemetry()
+            .expect("Telemetry should be set in builder after being passed");
+        assert_eq!(weak_telemetry.strong_count(), 1);
+
+        // Building the MozAdsClient should pass the telemetry, not clone it.
+        let built_client = builder.build();
+        assert_eq!(weak_telemetry.strong_count(), 1);
+
+        // Shutting down, even though the builder still exists, should successfully shutdown all telemetry references.
+        built_client.shutdown().unwrap();
+        assert_eq!(weak_telemetry.strong_count(), 0);
+        builder.build();
+        assert_eq!(weak_telemetry.strong_count(), 0);
     }
 }

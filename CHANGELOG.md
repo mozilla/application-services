@@ -1,6 +1,23 @@
 # v157.0 (In progress)
 
+## ✨ What's Changed ✨
+
+### Logins
+
+- Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter or leave the store: on the metadata an application supplies to `add_with_meta()`, on every read out of the local database, and on incoming sync payloads, similar to what Desktop does. ([bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257))
+
 [Full Changelog](In progress)
+
+## ✨ What's Changed ✨
+
+### Autofill
+
+- `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
+
+### Ads-Client
+
+- Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
+- `shutdown` no longer requires a full `AdsClient` lock (at the cost of no longer shutting down the sqlite db), and telemetry is no longer cloned in the `MozAdsClientBuilder` functions.
 
 # v156.0 (_2026-08-27_)
 
@@ -21,6 +38,12 @@
 ### Logins
 
 - Add `LoginStore::list_candidates()` and `LoginStore::get_many()`, a pair of read APIs for consumers which filter logins on their unencrypted fields. `list_candidates()` returns a `LoginCandidate` per stored login - everything `Login` has except the secure fields (`username`/`password`), so searching by `origin`, `httpRealm` or `formActionOrigin` no longer forces a primary password prompt. `get_many()` then decrypts just the logins which matched. `list()` is unchanged, for callers who really do want every login in cleartext.
+
+## ⚠️ Breaking Changes ⚠️
+
+### Suggest
+
+- `Suggestion.Amp` gained a new `suggestionId` field: a unique identifier for the sponsored suggestion assigned by the ingestion pipeline, deserialized from the `suggestion_id` field of the remote settings AMP data. ([#7554](https://github.com/mozilla/application-services/pull/7554))
 
 # v155.0 (_2026-08-13_)
 

@@ -364,6 +364,7 @@ pub(crate) struct DownloadedAmpSuggestion {
     pub impression_url: String,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    pub suggestion_id: String,
 }
 
 /// A Wikipedia suggestion to ingest from a Wikipedia attachment.

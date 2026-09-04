@@ -17,6 +17,8 @@ const ENDPOINT: &str = "/ads";
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct AdRequest {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<String>,
     pub context_id: String,
     /// Skipped to exclude from the request body
     #[serde(skip)]
@@ -64,6 +66,7 @@ impl From<AdRequest> for Request {
 
 impl AdRequest {
     pub fn try_new(
+        blocks: Vec<String>,
         context_id: String,
         environment: Environment,
         flags: AdRequestFlags,
@@ -75,6 +78,7 @@ impl AdRequest {
         };
 
         let mut request = AdRequest {
+            blocks,
             context_id,
             environment,
             flags,
@@ -199,6 +203,7 @@ mod tests {
     #[test]
     fn test_build_ad_request_happy() {
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             HashMap::from([("contextual_placement".to_string(), true)]),
@@ -225,6 +230,7 @@ mod tests {
         .unwrap();
 
         let expected_request = AdRequest {
+            blocks: Default::default(),
             context_id: TEST_CONTEXT_ID.to_string(),
             environment: Environment::Test,
             flags: HashMap::from([("contextual_placement".to_string(), true)]),
@@ -256,6 +262,7 @@ mod tests {
     #[test]
     fn test_ad_request_omits_flags_when_none_are_set() {
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -280,6 +287,7 @@ mod tests {
     #[test]
     fn test_ad_request_serializes_explicit_false_flag() {
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             HashMap::from([("contextual_placement".to_string(), false)]),
@@ -301,8 +309,59 @@ mod tests {
     }
 
     #[test]
+    fn test_ad_request_omits_blocks_when_none() {
+        let request = AdRequest::try_new(
+            Default::default(),
+            TEST_CONTEXT_ID.to_string(),
+            Environment::Test,
+            AdRequestFlags::default(),
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "example_placement".to_string(),
+            }],
+        )
+        .unwrap();
+
+        assert!(request.flags.is_empty());
+
+        let serialized = to_value(&request).unwrap();
+        assert!(
+            serialized.get("blocks").is_none(),
+            "blocks object must be omitted from the wire when no blocks are set, got: {serialized}"
+        );
+    }
+
+    #[test]
+    fn test_ad_request_includes_blocks_when_present() {
+        let request = AdRequest::try_new(
+            vec!["test".to_string()],
+            TEST_CONTEXT_ID.to_string(),
+            Environment::Test,
+            AdRequestFlags::default(),
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "example_placement".to_string(),
+            }],
+        )
+        .unwrap();
+
+        assert!(request.flags.is_empty());
+
+        let serialized = to_value(&request).unwrap();
+        assert!(
+            serialized.get("blocks").is_some(),
+            "blocks object must be included from the wire when blocks are set, got: {serialized}"
+        );
+    }
+
+    #[test]
     fn test_ad_request_serializes_with_contextual_placement_flag_and_mixed_content() {
         let request = AdRequest::try_new(
+            Default::default(),
             "context-123".to_string(),
             Environment::Test,
             HashMap::from([("contextual_placement".to_string(), true)]),
@@ -359,6 +418,7 @@ mod tests {
         };
 
         let req_off = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -367,6 +427,7 @@ mod tests {
         )
         .unwrap();
         let req_on = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             HashMap::from([("contextual_placement".to_string(), true)]),
@@ -381,6 +442,7 @@ mod tests {
     #[test]
     fn test_build_ad_request_fails_on_duplicate_placement_id() {
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -410,6 +472,7 @@ mod tests {
     #[test]
     fn test_build_ad_request_fails_on_empty_request() {
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -435,6 +498,7 @@ mod tests {
         let context_id_b = "dddd-eeee-ffff".to_string();
 
         let req1 = AdRequest::try_new(
+            Default::default(),
             context_id_a,
             Environment::Test,
             AdRequestFlags::default(),
@@ -443,6 +507,7 @@ mod tests {
         )
         .unwrap();
         let req2 = AdRequest::try_new(
+            Default::default(),
             context_id_b,
             Environment::Test,
             AdRequestFlags::default(),
@@ -459,6 +524,7 @@ mod tests {
         use crate::http_cache::RequestHash;
 
         let req1 = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -472,6 +538,7 @@ mod tests {
         .unwrap();
 
         let req2 = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -500,6 +567,7 @@ mod tests {
         };
 
         let req_direct = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -508,6 +576,7 @@ mod tests {
         )
         .unwrap();
         let req_ohttp = AdRequest::try_new(
+            Default::default(),
             "same-id".to_string(),
             Environment::Test,
             AdRequestFlags::default(),
@@ -524,6 +593,7 @@ mod tests {
         use std::collections::hash_map::DefaultHasher;
 
         let request = AdRequest::try_new(
+            Default::default(),
             TEST_CONTEXT_ID.to_string(),
             Environment::Test,
             AdRequestFlags::default(),
