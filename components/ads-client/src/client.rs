@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use crate::ads_store::{AdsStorable, AdsStore, PlacementId};
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -42,6 +43,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
+    ads_store: AdsStore,
 }
 
 impl<T> AdsClient<T>
@@ -91,6 +93,7 @@ where
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
+            ads_store: AdsStore::new(),
         }
     }
 
@@ -108,6 +111,20 @@ where
         self.client.shutdown_db()?;
 
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn store_ads<A: AdsStorable>(&mut self, ads: HashMap<PlacementId, A::StorageType>) {
+        let now = std::time::Instant::now();
+        self.ads_store.store_ads::<A>(ads, now);
+    }
+
+    #[allow(dead_code)]
+    pub fn get_stored_ads<A: AdsStorable>(
+        &self,
+        placement_id: &PlacementId,
+    ) -> Option<&A::StorageType> {
+        self.ads_store.get_stored_ads::<A>(placement_id)
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -312,6 +329,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry,
+            ads_store: AdsStore::new(),
         }
     }
 
