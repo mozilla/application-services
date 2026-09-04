@@ -44,10 +44,10 @@ pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
+    ads_store: Arc<Mutex<Option<AdsStore>>>,
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
 }
 
 impl<T> AdsClient<T>

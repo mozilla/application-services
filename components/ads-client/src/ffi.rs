@@ -22,8 +22,8 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::MozAdsClient;
 use crate::AdsClientUrl;
+use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -110,8 +110,8 @@ struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
     context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
-    telemetry: Option<Arc<dyn MozAdsTelemetry>>,
     store_config: Option<MozAdsStoreConfig>,
+    telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
 impl Default for MozAdsClientBuilder {

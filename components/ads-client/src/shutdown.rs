@@ -5,15 +5,15 @@ use parking_lot::Mutex;
 use crate::{ads_store::AdsStore, telemetry::Telemetry};
 
 pub struct ShutdownReferences<T: Telemetry> {
-    telemetry: T,
     ads_cache_shutdown: AdsStoreShutdown,
+    telemetry: T,
 }
 
 impl<T: Telemetry> ShutdownReferences<T> {
     pub fn new(telemetry: T, ads_cache_shutdown: AdsStoreShutdown) -> ShutdownReferences<T> {
         ShutdownReferences {
-            telemetry,
             ads_cache_shutdown,
+            telemetry,
         }
     }
 

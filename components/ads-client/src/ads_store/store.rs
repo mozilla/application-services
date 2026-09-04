@@ -16,15 +16,15 @@ use std::sync::Arc;
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FaultKind {
-    None,
     Lookup,
+    None,
     Store,
     Trim,
 }
 
 pub struct AdsStoreHolder {
-    conn: Mutex<Connection>,
     clock: Arc<dyn Clock>,
+    conn: Mutex<Connection>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }

@@ -144,9 +144,9 @@ pub struct AdTile {
 
 #[derive(Debug, Clone)]
 pub struct StorableAd {
-    pub placement_id: PlacementId,
-    pub ad_type: StorableAdType,
     pub ad_body: Vec<u8>,
+    pub ad_type: StorableAdType,
+    pub placement_id: PlacementId,
 }
 
 #[derive(Clone, Copy, Debug)]

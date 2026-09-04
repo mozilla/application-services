@@ -16,10 +16,10 @@ const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
 
 #[derive(Debug, thiserror::Error)]
 pub enum AdsStoreBuilderError {
-    #[error("Database path cannot be empty")]
-    EmptyDbPath,
     #[error("Database error: {0}")]
     Database(#[from] open_database::Error),
+    #[error("Database path cannot be empty")]
+    EmptyDbPath,
     #[error(
         "Maximum store size must be between {min_size} and {max_size}, got {size_bytes} bytes"
     )]

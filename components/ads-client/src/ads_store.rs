@@ -28,9 +28,9 @@ impl AsRef<str> for PlacementId {
 }
 
 pub struct AdsStore {
+    holder: AdsStoreHolder,
     #[allow(dead_code)]
     max_size: ByteSize,
-    holder: AdsStoreHolder,
 }
 
 impl AdsStore {

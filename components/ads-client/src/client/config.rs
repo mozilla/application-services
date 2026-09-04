@@ -11,9 +11,9 @@ where
     T: Telemetry,
 {
     pub cache_config: Option<AdsCacheConfig>,
-    pub store_config: Option<AdsStoreConfig>,
     pub context_id_provider: Option<Box<dyn super::ContextIdProvider>>,
     pub environment: Environment,
+    pub store_config: Option<AdsStoreConfig>,
     pub telemetry: T,
 }
 

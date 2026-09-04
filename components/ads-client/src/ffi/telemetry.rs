@@ -51,11 +51,6 @@ impl MozAdsTelemetryWrapper {
             inner: Arc::new(RwLock::new(Some(Arc::new(NoopMozAdsTelemetry)))),
         }
     }
-
-    #[cfg(test)]
-    pub fn clone_inner_arc(&self) -> Option<Arc<dyn MozAdsTelemetry>> {
-        self.inner.read().clone()
-    }
 }
 
 impl Telemetry for MozAdsTelemetryWrapper {
