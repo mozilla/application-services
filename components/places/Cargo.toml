@@ -7,9 +7,9 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]
-default = ["glean-sym"]
-# Enable metric recording through glean-sym (Android only)
-glean-sym = ["dep:glean-sym"]
+# Use Firefox-on-Glean to publish metrics (Desktop)
+# Note: if set, we will not use `glean-sym`
+glean-fog = ["dep:glean"]
 
 [dependencies]
 sync15 = { path = "../sync15" }
@@ -34,10 +34,8 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 thiserror = "2"
 anyhow = "1.0"
 uniffi = { version = "0.31" }
-
-# glean-sym is only used on Android and iOS.
-[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
-glean-sym = { git = "https://github.com/mozilla/glean", tag = "v68.0.0", optional = true }
+glean = { version = "70", optional = true }
+glean-sym = "70"
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
@@ -46,4 +44,4 @@ sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 uniffi = { version = "0.31", features=["build"]}
-glean-build = { git = "https://github.com/mozilla/glean", tag = "v68.0.0" }
+glean-build = { git = "https://github.com/mozilla/glean", tag = "v70.0.0" }

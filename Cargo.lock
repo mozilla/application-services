@@ -32,8 +32,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sql-support",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "url-macro",
  "uuid",
@@ -75,10 +75,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "android-tzdata"
-version = "0.1.1"
+name = "android_log-sys"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e999941b234f3131b00bc13c22d06e8c5ff726d1b6318ac7eb276997bbb4fef0"
+checksum = "85965b6739a430150bdd138e2374a98af0c3ee0d030b3bb7fc3bddff58d0102e"
+
+[[package]]
+name = "android_logger"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037f3e1da32ddba7770530e69258b742c15ad67bdf90e5f6b35f4b6db9a60eb7"
+dependencies = [
+ "android_log-sys",
+ "env_logger",
+ "log",
+ "once_cell",
+]
 
 [[package]]
 name = "android_system_properties"
@@ -130,8 +142,8 @@ dependencies = [
  "ohttp",
  "parking_lot",
  "rusqlite",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -140,7 +152,20 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f75363874b771be265f4ffe307ca705ef6f3baa19011c149da8674a87f1b75c4"
 dependencies = [
- "askama_derive",
+ "askama_derive 0.14.0",
+ "itoa",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "askama"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1bf825125edd887a019d0a3a837dcc5499a68b0d034cc3eb594070c3e18addc"
+dependencies = [
+ "askama_macros",
  "itoa",
  "percent-encoding",
  "serde",
@@ -153,7 +178,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "129397200fe83088e8a68407a8e2b1f826cf0086b21ccdb866a722c8bcd3a94f"
 dependencies = [
- "askama_parser",
+ "askama_parser 0.14.0",
  "basic-toml",
  "memchr",
  "proc-macro2",
@@ -162,6 +187,33 @@ dependencies = [
  "serde",
  "serde_derive",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "askama_derive"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c7065972a130eafa84215f21352ae15b4a7393da48c1f5e103904490736738"
+dependencies = [
+ "askama_parser 0.16.0",
+ "basic-toml",
+ "glob",
+ "memchr",
+ "proc-macro2",
+ "quote",
+ "rustc-hash",
+ "serde",
+ "serde_derive",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "askama_macros"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e23b1d2c4bd39a41971f6124cef4cc6fd0540913ecb90919b69ab3bbe44ae1a"
+dependencies = [
+ "askama_derive 0.16.0",
 ]
 
 [[package]]
@@ -174,6 +226,19 @@ dependencies = [
  "serde",
  "serde_derive",
  "winnow 0.7.12",
+]
+
+[[package]]
+name = "askama_parser"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7db09fde9143e7ac4513358fb32ee32847125b63b18ea715afd487956da715da"
+dependencies = [
+ "rustc-hash",
+ "serde",
+ "serde_derive",
+ "unicode-ident",
+ "winnow 1.0.4",
 ]
 
 [[package]]
@@ -222,9 +287,9 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "types",
- "uniffi",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -325,7 +390,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d305a54bcb99974213b4c78a486c34091e83c5d6d6572f7f4331c904ea9d127"
 dependencies = [
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -395,8 +460,8 @@ dependencies = [
  "rusqlite",
  "sql-support",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -439,11 +504,11 @@ dependencies = [
 
 [[package]]
 name = "camino"
-version = "1.0.9"
+version = "1.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "869119e97797867fd90f5e22af7d0bd274bd4635ebb9eb68c04f3f513ae6c412"
+checksum = "bb1307f12aa967b5a58416e87b3653360e0fd614a016b6e970db08fecbb1b80d"
 dependencies = [
- "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -469,13 +534,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-platform"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd0061da739915fae12ea00e16397555ed4371a6bb285431aab930f61b0aa4ba"
+dependencies = [
+ "serde",
+ "serde_core",
+]
+
+[[package]]
 name = "cargo_metadata"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "982a0cf6a99c350d7246035613882e376d58cebe571785abc5da4f648d53ac0a"
 dependencies = [
  "camino",
- "cargo-platform",
+ "cargo-platform 0.1.2",
  "semver",
  "serde",
  "serde_json",
@@ -489,11 +564,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd5eb614ed4c27c5d706420e4320fbe3216ab31fa1c33cd8246ac36dae4479ba"
 dependencies = [
  "camino",
- "cargo-platform",
+ "cargo-platform 0.1.2",
  "semver",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef987d17b0a113becdd19d3d0022d04d7ef41f9efe4f3fb63ac44ba61df3ade9"
+dependencies = [
+ "camino",
+ "cargo-platform 0.3.3",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -531,11 +620,10 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.40"
+version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
- "android-tzdata",
  "iana-time-zone",
  "js-sys",
  "num-traits",
@@ -704,8 +792,8 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "uuid",
  "viaduct",
@@ -765,8 +853,8 @@ name = "crashtest"
 version = "0.1.0"
 dependencies = [
  "log",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -924,6 +1012,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "dashmap"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
 ]
 
 [[package]]
@@ -1095,8 +1193,8 @@ dependencies = [
  "mozilla-central-workspace-hack",
  "serde",
  "toml 0.5.9",
- "uniffi_bindgen",
- "uniffi_pipeline",
+ "uniffi_bindgen 0.31.0",
+ "uniffi_pipeline 0.31.0",
 ]
 
 [[package]]
@@ -1167,7 +1265,7 @@ dependencies = [
  "log",
  "parking_lot",
  "tracing-support",
- "uniffi",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -1184,7 +1282,7 @@ name = "error-support-tests"
 version = "0.1.0"
 dependencies = [
  "error-support",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "trybuild",
 ]
 
@@ -1221,8 +1319,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sql-support",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -1416,7 +1514,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "url",
  "viaduct",
  "viaduct-hyper",
@@ -1513,8 +1611,8 @@ dependencies = [
  "error-support",
  "md-5",
  "regex",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -1537,7 +1635,7 @@ name = "firefox-versioning"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1597,6 +1695,15 @@ name = "fs-err"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5bd79fa345a495d3ae89fb7165fec01c0e72f41821d642dda363a1e97975652e"
+
+[[package]]
+name = "fs-err"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b91aa448ca50d7e79433bdf3ee8d99215430d2ec02ade5aefab2a073a1822e8a"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "futures"
@@ -1710,8 +1817,8 @@ dependencies = [
  "serde_json",
  "sync-guid",
  "sync15",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
  "viaduct-dev",
@@ -1780,29 +1887,73 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
+name = "glean"
+version = "70.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f549f249ef23f8ff7c32474eb52d83f38724bd8d53cb6f705a384daa5971401"
+dependencies = [
+ "crossbeam-channel",
+ "glean-core",
+ "inherent",
+ "log",
+ "once_cell",
+ "whatsys",
+ "wr_malloc_size_of",
+]
+
+[[package]]
 name = "glean-build"
-version = "20.0.0"
-source = "git+https://github.com/mozilla/glean?tag=v68.0.0#3b00f26c4814a47044c6736563ee7589dfa3b399"
+version = "20.1.0"
+source = "git+https://github.com/mozilla/glean?branch=main#4f042b2da6b8f20990e85f1cd41a9e7cef572dbd"
 dependencies = [
  "xshell-venv",
 ]
 
 [[package]]
+name = "glean-core"
+version = "70.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4268c25e83ff4d4497818a78aff3e7e547fc574922b6b6a25cba3fb0619109e"
+dependencies = [
+ "android_logger",
+ "bincode",
+ "chrono",
+ "crossbeam-channel",
+ "flate2",
+ "log",
+ "malloc_size_of_derive",
+ "mozbuild",
+ "once_cell",
+ "oslog",
+ "rkv",
+ "rmp-serde",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "uniffi 0.32.0",
+ "uuid",
+ "wr_malloc_size_of",
+ "zeitstempel",
+]
+
+[[package]]
 name = "glean-sym"
-version = "0.1.0"
-source = "git+https://github.com/mozilla/glean?tag=v68.0.0#3b00f26c4814a47044c6736563ee7589dfa3b399"
+version = "70.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70cc5427a3840e10244e1af55ffe90b11258c99ae0371d64986855bd64ffae98"
 dependencies = [
  "libloading",
  "once_cell",
  "serde",
- "uniffi",
+ "uniffi 0.32.0",
 ]
 
 [[package]]
 name = "glob"
-version = "0.3.1"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "goblin"
@@ -2244,11 +2395,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "inherent"
+version = "1.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c727f80bfa4a6c6e2508d2f05b6f4bfce242030bd88ed15ae5331c5b5d30fba7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
  "nss-as",
- "uniffi",
+ "uniffi 0.31.0",
  "viaduct",
 ]
 
@@ -2277,7 +2439,7 @@ dependencies = [
  "lazy_static",
  "parking_lot",
  "rusqlite",
- "uniffi",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -2380,7 +2542,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2548,8 +2710,8 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -2584,6 +2746,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "malloc_size_of_derive"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f44db74bde26fdf427af23f1d146c211aed857c59e3be750cf2617f6b0b05c94"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.106",
+ "synstructure",
+]
+
+[[package]]
 name = "matchit"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2608,6 +2781,7 @@ dependencies = [
  "crashtest",
  "error-support",
  "fxa-client",
+ "glean-sym",
  "init_rust_components",
  "lazy_static",
  "logins",
@@ -2652,6 +2826,7 @@ dependencies = [
  "crashtest",
  "error-support",
  "fxa-client",
+ "glean-sym",
  "init_rust_components",
  "logins",
  "merino",
@@ -2702,8 +2877,8 @@ dependencies = [
  "error-support",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -2886,7 +3061,7 @@ dependencies = [
  "serde_yaml 0.9.21",
  "tempfile",
  "termcolor",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "tokio",
  "tower",
  "tower-http",
@@ -2911,7 +3086,7 @@ name = "nimbus-fml"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "askama",
+ "askama 0.14.0",
  "cfg-if",
  "clap",
  "glob",
@@ -2928,8 +3103,8 @@ dependencies = [
  "tempfile",
  "termcolor",
  "textwrap",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -2957,8 +3132,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "uuid",
 ]
@@ -2995,7 +3170,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_derive",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3101,7 +3276,7 @@ dependencies = [
  "mozbuild",
  "serde",
  "serde_derive",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "toml 0.9.6",
 ]
 
@@ -3193,6 +3368,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "oslog"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8343ce955f18e7e68c0207dd0ea776ec453035685395ababd2ea651c569728b3"
+dependencies = [
+ "cc",
+ "dashmap",
+ "log",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3214,6 +3400,12 @@ dependencies = [
  "smallvec",
  "windows-sys 0.36.1",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "payload-support"
@@ -3286,6 +3478,7 @@ dependencies = [
  "bitflags 1.3.2",
  "dogear",
  "error-support",
+ "glean",
  "glean-build",
  "glean-sym",
  "icu_casemap",
@@ -3303,9 +3496,9 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "types",
- "uniffi",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -3462,9 +3655,9 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempfile",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "types",
- "uniffi",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
  "viaduct-dev",
@@ -3566,7 +3759,7 @@ dependencies = [
  "hawk",
  "hex",
  "nss-as",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3653,8 +3846,8 @@ dependencies = [
  "remote_settings",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
  "viaduct-dev",
@@ -3678,8 +3871,8 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "sql-support",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -3706,8 +3899,8 @@ dependencies = [
  "sha2",
  "sql-support",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
  "viaduct-dev",
@@ -3719,7 +3912,7 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "url",
  "viaduct",
 ]
@@ -3736,12 +3929,35 @@ dependencies = [
  "id-arena",
  "lazy_static",
  "log",
+ "malloc_size_of_derive",
  "ordered-float",
  "serde",
  "serde_derive",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "url",
  "uuid",
+ "wr_malloc_size_of",
+]
+
+[[package]]
+name = "rmp"
+version = "0.8.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "228ed7c16fa39782c3b3468e974aec2795e9089153cd08ee2e9aefb3613334c4"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72f81bee8c8ef9b577d1681a70ebbc962c232461e397b22c208c43c04b67a155"
+dependencies = [
+ "rmp",
+ "serde",
 ]
 
 [[package]]
@@ -3767,7 +3983,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-support",
- "uniffi",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -3891,8 +4107,8 @@ dependencies = [
  "remote_settings",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "viaduct-dev",
 ]
 
@@ -3921,11 +4137,12 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.12"
+version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2333e6df6d6598f2b1974829f853c2b4c5f4a6e503c10af918081aa6f8564e1"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 dependencies = [
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -4160,7 +4377,7 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "text-table",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -4174,7 +4391,7 @@ name = "start-bindings"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "askama",
+ "askama 0.14.0",
  "camino",
  "cargo_metadata 0.15.2",
  "clap",
@@ -4225,8 +4442,8 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -4264,6 +4481,17 @@ name = "syn"
 version = "2.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ede7c438028d4436d71104916910f5bb611972c5cfd7f89b8300a8186e6fada6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
+name = "syn"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53e9bae58849f64dfa4f5d5ae372c8341f7305f82a3868709269343628b659a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4329,8 +4557,8 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "sync-guid",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -4353,8 +4581,8 @@ dependencies = [
  "sql-support",
  "sync15",
  "tabs",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -4392,9 +4620,9 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "types",
- "uniffi",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -4465,11 +4693,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.3"
+version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
 dependencies = [
- "thiserror-impl 2.0.3",
+ "thiserror-impl 2.0.20",
 ]
 
 [[package]]
@@ -4485,13 +4713,13 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.3"
+version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.106",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -4780,7 +5008,7 @@ dependencies = [
  "serde_json",
  "tracing",
  "tracing-subscriber",
- "uniffi",
+ "uniffi 0.31.0",
 ]
 
 [[package]]
@@ -4863,11 +5091,26 @@ dependencies = [
  "camino",
  "cargo_metadata 0.19.2",
  "clap",
- "uniffi_bindgen",
- "uniffi_build",
- "uniffi_core",
- "uniffi_macros",
- "uniffi_pipeline",
+ "uniffi_bindgen 0.31.0",
+ "uniffi_build 0.31.0",
+ "uniffi_core 0.31.0",
+ "uniffi_macros 0.31.0",
+ "uniffi_pipeline 0.31.0",
+]
+
+[[package]]
+name = "uniffi"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a782a48d72cfd7a2d65cfc7c691dbf5375c43104b3c195f7eccc716dcc3540c8"
+dependencies = [
+ "anyhow",
+ "cargo_metadata 0.23.1",
+ "uniffi_bindgen 0.32.0",
+ "uniffi_build 0.32.0",
+ "uniffi_core 0.32.0",
+ "uniffi_macros 0.32.0",
+ "uniffi_pipeline 0.32.0",
 ]
 
 [[package]]
@@ -4878,8 +5121,8 @@ dependencies = [
  "camino",
  "cargo_metadata 0.19.2",
  "clap",
- "uniffi",
- "uniffi_bindgen",
+ "uniffi 0.31.0",
+ "uniffi_bindgen 0.31.0",
 ]
 
 [[package]]
@@ -4888,10 +5131,10 @@ version = "0.31.0"
 source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605cc3c784cc38214113450#59b035078322fbc0a605cc3c784cc38214113450"
 dependencies = [
  "anyhow",
- "askama",
+ "askama 0.14.0",
  "camino",
  "cargo_metadata 0.19.2",
- "fs-err",
+ "fs-err 2.7.0",
  "glob",
  "goblin",
  "heck",
@@ -4901,10 +5144,36 @@ dependencies = [
  "tempfile",
  "textwrap",
  "toml 0.9.6",
- "uniffi_internal_macros",
- "uniffi_meta",
- "uniffi_pipeline",
- "uniffi_udl",
+ "uniffi_internal_macros 0.31.0",
+ "uniffi_meta 0.31.0",
+ "uniffi_pipeline 0.31.0",
+ "uniffi_udl 0.31.0",
+]
+
+[[package]]
+name = "uniffi_bindgen"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "533b0312c73e3b54eb78a4b257ceae390962dd4767995778309a74644643f9ac"
+dependencies = [
+ "anyhow",
+ "askama 0.16.0",
+ "camino",
+ "cargo_metadata 0.23.1",
+ "fs-err 3.3.1",
+ "glob",
+ "goblin",
+ "heck",
+ "indexmap 2.5.0",
+ "once_cell",
+ "serde",
+ "tempfile",
+ "textwrap",
+ "toml 0.9.6",
+ "uniffi_internal_macros 0.32.0",
+ "uniffi_meta 0.32.0",
+ "uniffi_pipeline 0.32.0",
+ "uniffi_udl 0.32.0",
 ]
 
 [[package]]
@@ -4914,13 +5183,36 @@ source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605c
 dependencies = [
  "anyhow",
  "camino",
- "uniffi_bindgen",
+ "uniffi_bindgen 0.31.0",
+]
+
+[[package]]
+name = "uniffi_build"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763a19ad720fce8c9a98576e04c0ccc5d2d155aa6b953c864587073292c7ccfc"
+dependencies = [
+ "anyhow",
+ "camino",
+ "uniffi_bindgen 0.32.0",
 ]
 
 [[package]]
 name = "uniffi_core"
 version = "0.31.0"
 source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605cc3c784cc38214113450#59b035078322fbc0a605cc3c784cc38214113450"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "once_cell",
+ "static_assertions",
+]
+
+[[package]]
+name = "uniffi_core"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e32e261c5b0dfaba6488f536e71957dddd6b1a498ac7eb791bee56b60a086be"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4941,19 +5233,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "uniffi_internal_macros"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84ae78069a5e6772ef694fd5bdb628532c88d2c2f0e7142bf6a384636eadb1af"
+dependencies = [
+ "anyhow",
+ "indexmap 2.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "uniffi_macros"
 version = "0.31.0"
 source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605cc3c784cc38214113450#59b035078322fbc0a605cc3c784cc38214113450"
 dependencies = [
  "camino",
- "fs-err",
+ "fs-err 2.7.0",
  "once_cell",
  "proc-macro2",
  "quote",
  "serde",
  "syn 2.0.106",
  "toml 0.9.6",
- "uniffi_meta",
+ "uniffi_meta 0.31.0",
+]
+
+[[package]]
+name = "uniffi_macros"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330be6770532e86320df31f54c70bb0be67588594e8e77fa56e9083a3fed5d0d"
+dependencies = [
+ "camino",
+ "fs-err 3.3.1",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.106",
+ "toml 0.9.6",
+ "uniffi_meta 0.32.0",
 ]
 
 [[package]]
@@ -4963,8 +5285,20 @@ source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605c
 dependencies = [
  "anyhow",
  "siphasher",
- "uniffi_internal_macros",
- "uniffi_pipeline",
+ "uniffi_internal_macros 0.31.0",
+ "uniffi_pipeline 0.31.0",
+]
+
+[[package]]
+name = "uniffi_meta"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78de021f5547e56ab16c665a49d67d4fd3d31e77422f7739a2e9359d328cd9e7"
+dependencies = [
+ "anyhow",
+ "siphasher",
+ "uniffi_internal_macros 0.32.0",
+ "uniffi_pipeline 0.32.0",
 ]
 
 [[package]]
@@ -4976,7 +5310,20 @@ dependencies = [
  "heck",
  "indexmap 2.5.0",
  "tempfile",
- "uniffi_internal_macros",
+ "uniffi_internal_macros 0.31.0",
+]
+
+[[package]]
+name = "uniffi_pipeline"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f8201bb1907ed8a42d80e11cbc25c8a033e7a31c3cff1d911f56eedb81d4948"
+dependencies = [
+ "anyhow",
+ "heck",
+ "indexmap 2.5.0",
+ "tempfile",
+ "uniffi_internal_macros 0.32.0",
 ]
 
 [[package]]
@@ -4986,8 +5333,20 @@ source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605c
 dependencies = [
  "anyhow",
  "textwrap",
- "uniffi_meta",
- "weedle2",
+ "uniffi_meta 0.31.0",
+ "weedle2 5.0.0 (git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605cc3c784cc38214113450)",
+]
+
+[[package]]
+name = "uniffi_udl"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6e57996bc58009cc29bf04845d627ae313c2547b87171c1c349d6c51a1656c0"
+dependencies = [
+ "anyhow",
+ "textwrap",
+ "uniffi_meta 0.32.0",
+ "weedle2 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5082,8 +5441,8 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -5108,7 +5467,7 @@ dependencies = [
  "hyper",
  "hyper-tls",
  "tokio",
- "uniffi",
+ "uniffi 0.31.0",
  "url",
  "viaduct",
 ]
@@ -5323,8 +5682,8 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 2.0.3",
- "uniffi",
+ "thiserror 2.0.20",
+ "uniffi 0.31.0",
  "url",
 ]
 
@@ -5342,9 +5701,29 @@ dependencies = [
 [[package]]
 name = "weedle2"
 version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "998d2c24ec099a87daf9467808859f9d82b61f1d9c9701251aea037f514eae0e"
+dependencies = [
+ "nom",
+]
+
+[[package]]
+name = "weedle2"
+version = "5.0.0"
 source = "git+https://github.com/mozilla/uniffi-rs.git?rev=59b035078322fbc0a605cc3c784cc38214113450#59b035078322fbc0a605cc3c784cc38214113450"
 dependencies = [
  "nom",
+]
+
+[[package]]
+name = "whatsys"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "192bcd2925a9791ba474bc673938f8c59b8978b3f304ef2c50672156bacf943b"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -5400,9 +5779,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows-link"
-version = "0.1.3"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e6ad25900d524eaabdbbb96d20b4311e1e7ae1699af4fb28c17ae66c80d798a"
+checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
 
 [[package]]
 name = "windows-sys"
@@ -5653,12 +6032,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "winnow"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "wit-bindgen-rt"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3268f3d866458b787f390cf61f4bbb563b922d091359f9608842999eaee3943c"
 dependencies = [
  "bitflags 2.11.0",
+]
+
+[[package]]
+name = "wr_malloc_size_of"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "482308b684f11723b200a32808094bb460b5ac4840903ccbcb78ad92a6354a1f"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
@@ -5730,9 +6127,9 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xshell-venv"
-version = "1.4.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ce3f9ddca75ddede32d5cc5a154fa237f4209ad71e6e2fc3db3ed18667d606b"
+checksum = "b02ebe4a3558b86c64aeab700c924b08613020fca9c94d5f2cd412691b6c00bd"
 dependencies = [
  "xshell",
 ]
@@ -5777,6 +6174,18 @@ dependencies = [
  "quote",
  "syn 2.0.106",
  "synstructure",
+]
+
+[[package]]
+name = "zeitstempel"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7082d20989e6410d2d1c304c8b73fb66aa2c8f68a169b94bf31d340e85b3a4f"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "once_cell",
+ "winapi",
 ]
 
 [[package]]
@@ -5875,7 +6284,7 @@ dependencies = [
  "memchr",
  "pbkdf2",
  "sha1",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "time",
  "xz2",
  "zeroize",
