@@ -18,6 +18,10 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 
+### Logins
+
+- Refactor the database encryption support into a new support crate `db-crypto`, which provides all the same functions and traits as were previously available in `logins::encryption` module. However, this leads to two breaking changes: the functionality has been moved into a new `db_crypto` UniFFI namespace, and the error type has changed from `LoginsApiError` to `DbCryptoApiError`. ([#7542](https://github.com/mozilla/application-services/pull/7542))
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
