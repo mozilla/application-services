@@ -29,13 +29,6 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
-        if let Some(cache) = self.http_cache.take() {
-            cache.shutdown_db()?;
-        }
-        Ok(())
-    }
-
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
@@ -80,6 +73,13 @@ impl<T: Telemetry> MARSTransport<T> {
             HTTPError::check(&response)?;
             Ok(response)
         }
+    }
+
+    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+        if let Some(cache) = self.http_cache.take() {
+            cache.shutdown_db()?;
+        }
+        Ok(())
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {

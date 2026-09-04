@@ -11,7 +11,7 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> = Lazy::new(|| url!("https://ads.mozill
 
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> = Lazy::new(|| url!("https://ads.allizom.org/v1/"));
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
 pub enum Environment {
     #[default]
     Prod,
@@ -24,6 +24,8 @@ impl Environment {
     pub fn into_url(self, path: &str) -> Url {
         let mut url = self.base_url();
         url.path_segments_mut()
+            // Cannot fail: every `base_url()` arm is an `https` URL, which `url`
+            // guarantees is hierarchical.
             .expect("base URL must be hierarchical")
             .pop_if_empty()
             .extend(path.split('/').filter(|segment| !segment.is_empty()));
