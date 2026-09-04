@@ -30,7 +30,9 @@ mod tests {
     fn test_sync_meta() {
         error_support::init_for_tests();
 
-        let store = Arc::new(Store::new_shared_memory("addresses-bridge").unwrap());
+        let store = Arc::new(
+            Store::new_shared_memory("addresses-bridge", crate::db::test::test_encdec()).unwrap(),
+        );
         let bridge = store.addresses_bridged_engine();
 
         bridge.sync_started().unwrap();
@@ -67,7 +69,10 @@ mod tests {
     fn test_sync_via_bridge() {
         error_support::init_for_tests();
 
-        let store = Arc::new(Store::new_shared_memory("addresses-bridge-roundtrip").unwrap());
+        let store = Arc::new(
+            Store::new_shared_memory("addresses-bridge-roundtrip", crate::db::test::test_encdec())
+                .unwrap(),
+        );
 
         // A local-only address: nothing on the server knows about it yet, so it
         // should be uploaded.

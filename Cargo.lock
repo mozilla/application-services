@@ -208,6 +208,7 @@ name = "autofill"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "db-crypto",
  "error-support",
  "interrupt-support",
  "jwcrypto",
