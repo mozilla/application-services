@@ -3,9 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-use std::time::Duration;
-
+use crate::ads_cache::{AdsCache, AdsCacheable};
 use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -15,6 +13,8 @@ use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
+use std::collections::HashMap;
+use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 
@@ -42,6 +42,7 @@ where
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
+    ads_cache: AdsCache,
 }
 
 impl<T> AdsClient<T>
@@ -91,6 +92,7 @@ where
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
+            ads_cache: AdsCache::new(),
         }
     }
 
@@ -108,6 +110,15 @@ where
         self.client.shutdown_db()?;
 
         Ok(())
+    }
+
+    pub fn cache_ads<A: AdsCacheable>(&mut self, ads: HashMap<String, A::StorageType>) {
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        self.ads_cache.cache_ads::<A>(ads, now);
+    }
+
+    pub fn get_cached_ads<A: AdsCacheable>(&self, placement_id: &str) -> Option<&A::StorageType> {
+        self.ads_cache.get_cached_ads::<A>(placement_id)
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -275,6 +286,7 @@ where
     }
 }
 
+// Event fires in both sync and background strategies.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientOperationEvent {
     New,
@@ -282,6 +294,35 @@ pub enum ClientOperationEvent {
     RecordImpression,
     ReportAd,
     RequestAds,
+}
+
+// Event fires when dispatch is fired, not when the event resolves.
+pub enum CommandDispatchedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+// Event fires when the corresponding background event resolves.
+pub enum CommandProcessedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+// Event fires when the corresponding background event fails to resolve.
+pub enum CommandFailedOperationEvent {
+    RecordClick,
+    RecordImpression,
+    ReportAd,
+    RequestAds,
+}
+
+pub enum WorkerMetaEvent {
+    Start,
+    Stop,
 }
 
 #[cfg(test)]
@@ -312,6 +353,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry,
+            ads_cache: AdsCache::new(),
         }
     }
 

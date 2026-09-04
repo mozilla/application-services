@@ -3,7 +3,11 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{mpsc, Arc},
+    time::Duration,
+};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -15,15 +19,22 @@ use client::AdsClient;
 use error_support::error;
 use http_cache::CachePolicy;
 use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
+pub mod ads_cache;
 mod client;
 mod ffi;
 pub mod http_cache;
 mod mars;
 pub mod telemetry;
+pub mod worker;
 
 pub use ffi::*;
 
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+use crate::{
+    client::error::BackgroundWorkerError,
+    ffi::telemetry::MozAdsTelemetryWrapper,
+    mars::ad_response::{AdImage, AdSpoc, AdTile},
+    worker::{command::DispatchCommand, AdsClientWorkerWrapper},
+};
 
 #[cfg(test)]
 mod test_utils;
@@ -38,8 +49,11 @@ uniffi::custom_type!(AdsClientUrl, String, {
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: MozAdsClientInner,
+    worker: AdsClientWorkerWrapper<MozAdsTelemetryWrapper>,
 }
+
+pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 
 #[uniffi::export]
 impl MozAdsClient {
@@ -175,5 +189,144 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None))]
+    pub fn prefetch_ads(
+        &self,
+        image_ad_requests: Vec<MozAdsPlacementRequest>,
+        spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        tile_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+    ) -> AdsClientApiResult<()> {
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
+        let cache_policy: CachePolicy = options.into();
+
+        // Dispatch image requests
+        if !image_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestImageAds {
+                image_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+            })?;
+        }
+        // Dispatch spoc requests
+        if !spoc_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestSpocAds {
+                spoc_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+            })?;
+        }
+
+        // Dispatch tiles requests
+        if !tile_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestTileAds {
+                tile_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+            })?;
+        }
+
+        Ok(())
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_image_ads(&self, placement_id: String) -> AdsClientApiResult<Option<MozAdsImage>> {
+        let inner = self.inner.lock();
+        let image_ads: Option<&AdImage> = inner.get_cached_ads::<AdImage>(&placement_id);
+        Ok(image_ads.map(|ad| ad.clone().into()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_spoc_ads(
+        &self,
+        placement_id: String,
+    ) -> AdsClientApiResult<Option<Vec<MozAdsSpoc>>> {
+        let inner = self.inner.lock();
+        let spoc_ads: Option<&Vec<AdSpoc>> = inner.get_cached_ads::<AdSpoc>(&placement_id);
+        Ok(spoc_ads.map(|res| res.iter().map(|ad| ad.clone().into()).collect()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method()]
+    pub fn query_tile_ads(&self, placement_id: String) -> AdsClientApiResult<Option<MozAdsTile>> {
+        let inner = self.inner.lock();
+        let image_ads: Option<&AdTile> = inner.get_cached_ads::<AdTile>(&placement_id);
+        Ok(image_ads.map(|ad| ad.clone().into()))
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_record_click(
+        &self,
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&click_url)
+            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+        self.worker
+            .dispatch(DispatchCommand::RecordClick { url, ohttp })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_record_impression(
+        &self,
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+        })?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+        self.worker
+            .dispatch(DispatchCommand::RecordImpression { url, ohttp })
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn dispatch_report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&report_url)
+            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+        self.worker.dispatch(DispatchCommand::ReportAd {
+            url,
+            reason: reason.into(),
+            ohttp,
+        })
+    }
+
+    // Pings the background worker and waits for a response back, for use in tests.
+    // Because the background worker is synchronous, this returns if the worker is empty,
+    // making it useful for integration tests to wait until all tasks have completed.
+    #[handle_error(ComponentError)]
+    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
+        let (tx, rx) = mpsc::sync_channel(0);
+        self.worker.dispatch(DispatchCommand::Ping(tx))?;
+
+        if let Some(timeout) = timeout {
+            rx.recv_timeout(timeout)
+                .map_err(BackgroundWorkerError::from)?;
+        } else {
+            rx.recv().map_err(|_| BackgroundWorkerError::WorkerClosed)?;
+        }
+        Ok(())
     }
 }
