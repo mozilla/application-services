@@ -8,6 +8,12 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Autofill
+
+- **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged.
+
 ## ✨ What's Changed ✨
 
 ### Autofill
