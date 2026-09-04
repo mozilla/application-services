@@ -177,7 +177,7 @@ impl MozAdsClientBuilder {
 impl MozAdsClientBuilder {
     #[cfg(test)]
     pub fn fetch_telemetry(&self) -> Option<Weak<dyn MozAdsTelemetry>> {
-        self.0.lock().telemetry.as_ref().map(|t| Arc::downgrade(t))
+        self.0.lock().telemetry.as_ref().map(Arc::downgrade)
     }
 }
 
