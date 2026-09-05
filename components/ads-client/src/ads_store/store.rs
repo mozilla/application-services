@@ -2,13 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::ads_store::StorableAd;
 use crate::database::bytesize::ByteSize;
 use crate::database::clock::Clock;
-use crate::{
-    ads_store::PlacementId,
-    database::clock::CacheClock,
-    mars::ad_response::{StorableAd, StorableAdType},
-};
+use crate::mars::error::FetchAdsError;
+use crate::{ads_store::PlacementId, database::clock::CacheClock};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use std::sync::Arc;
@@ -79,48 +77,39 @@ impl AdsStoreHolder {
         Ok(ByteSize::b(size_bytes_ads))
     }
 
-    pub fn lookup(&self, placement_id: &PlacementId) -> SqliteResult<Option<StorableAd>> {
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
-            return Err(Self::forced_fault_error("forced lookup failure"));
+            return Err(Self::forced_fault_error("forced lookup failure").into());
         }
         let conn = self.conn.lock();
-        conn.query_row(
-            "SELECT placement_id, ad_type, ad_body
+        let res = conn
+            .query_row(
+                "SELECT placement_id, ad_body
              FROM ads WHERE placement_id = ?1",
-            params![placement_id.as_ref()],
-            |row| {
-                let placement_id: String = row.get(0)?;
-                let ad_type: u8 = row.get(1)?;
-                let ad_body: Vec<u8> = row.get(2)?;
-
-                let placement_id = PlacementId::new(&placement_id);
-                let ad_type = StorableAdType::try_from(ad_type).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1,
-                        rusqlite::types::Type::Integer,
-                        e.into(),
-                    )
-                })?;
-
-                Ok(StorableAd {
-                    placement_id,
-                    ad_type,
-                    ad_body,
-                })
-            },
-        )
-        .optional()
+                params![placement_id.as_ref()],
+                |row| {
+                    let ad_body: Vec<u8> = row.get(1)?;
+                    Ok(ad_body)
+                },
+            )
+            .optional()?;
+        Ok(res.map(|x| serde_json::from_slice(&x)).transpose()?)
     }
 
     /// Upsert an object into the store.
-    pub fn store_ad(&self, ad: StorableAd) -> SqliteResult<()> {
+    pub fn store_ad(
+        &self,
+        placement_id: &PlacementId,
+        ad: StorableAd,
+    ) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
-            return Err(Self::forced_fault_error("forced store failure"));
+            return Err(Self::forced_fault_error("forced store failure").into());
         }
-        let placement_id_str: &str = ad.placement_id.as_ref();
-        let size_bytes = ad.ad_body.len() as i64;
+        let placement_id_str: &str = placement_id.as_ref();
+        let ad_body = serde_json::to_vec(&ad)?;
+        let size_bytes = ad_body.len() as i64;
         let now = self.clock.now_epoch_seconds();
 
         let conn = self.conn.lock();
@@ -128,23 +117,15 @@ impl AdsStoreHolder {
             "INSERT INTO ads (
                 stored_at,
                 placement_id,
-                ad_type,
                 ad_body,
                 size_bytes
             )
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            VALUES (?1, ?2, ?3, ?4)
             ON CONFLICT(placement_id) DO UPDATE SET
                 stored_at=excluded.stored_at,
-                ad_type=excluded.ad_type,
                 ad_body=excluded.ad_body,
                 size_bytes=excluded.size_bytes",
-            params![
-                now,
-                placement_id_str,
-                ad.ad_type.to_u8(),
-                ad.ad_body,
-                size_bytes,
-            ],
+            params![now, placement_id_str, ad_body, size_bytes,],
         )?;
         Ok(())
     }
@@ -206,7 +187,7 @@ mod tests {
     use url::Url;
 
     // Create a sample ad for tests. The body defaults to an example serialized AdImage (if body is None).
-    fn create_test_raw_ad(placement_id: &str, body: Option<Vec<u8>>) -> StorableAd {
+    fn create_test_raw_ad(placement_id: &str) -> (PlacementId, StorableAd) {
         let base_url = mockito::server_url();
         let ad = AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),
@@ -220,11 +201,7 @@ mod tests {
                 report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
             },
         };
-        StorableAd {
-            placement_id: PlacementId::new(placement_id),
-            ad_type: StorableAdType::Image,
-            ad_body: body.unwrap_or(serde_json::to_vec(&ad).unwrap()),
-        }
+        (PlacementId::new(placement_id), StorableAd::Image(ad))
     }
 
     fn create_test_store() -> AdsStoreHolder {
@@ -239,11 +216,11 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Lookup);
 
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-        let err = store.lookup(&ad.placement_id).unwrap_err();
+        let (placement, _) = create_test_raw_ad("mock_billboard_1");
+        let err = store.lookup(&placement).unwrap_err();
 
         match err {
-            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+            FetchAdsError::Sqlite(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
                 assert!(msg.contains("forced lookup failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -255,11 +232,11 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Store);
 
-        let ad = create_test_raw_ad("mock_billboard_1", None);
+        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
 
-        let err = store.store_ad(ad).unwrap_err();
+        let err = store.store_ad(&placement, ad).unwrap_err();
         match err {
-            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+            FetchAdsError::Sqlite(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
                 assert!(msg.contains("forced store failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -271,8 +248,8 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Trim);
 
-        let ad = create_test_raw_ad("mock_billboard_1", None);
-        store.store_ad(ad).unwrap();
+        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
+        store.store_ad(&placement, ad).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
@@ -286,12 +263,12 @@ mod tests {
     #[test]
     fn test_store_and_retrieve_ads() {
         let store = create_test_store();
-        let ad = create_test_raw_ad("mock_billboard_1", None);
+        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
 
-        store.store_ad(ad.clone()).unwrap();
+        store.store_ad(&placement, ad.clone()).unwrap();
 
-        let retrieved = store.lookup(&ad.placement_id).unwrap().unwrap();
-        assert_eq!(retrieved.ad_body, ad.ad_body);
+        let retrieved = store.lookup(&placement).unwrap().unwrap();
+        assert_eq!(retrieved, ad);
     }
 
     #[test]
@@ -301,11 +278,13 @@ mod tests {
             .expect("failed to open memory cache db");
         let store = AdsStoreHolder::new(conn);
 
-        for i in 0..5 {
-            let large_body = vec![0u8; 300];
-            let ad = create_test_raw_ad(&format!("mock_billboard_{i}"), Some(large_body));
-            store.store_ad(ad.clone()).unwrap();
+        for i in 0..10 {
+            let (placement_id, ad) = create_test_raw_ad(&format!("mock_billboard_{i}"));
+            store.store_ad(&placement_id, ad.clone()).unwrap();
         }
+
+        let total_size = store.current_total_size_bytes().unwrap();
+        assert!(total_size.as_u64() >= 1024);
 
         store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
 
@@ -320,40 +299,40 @@ mod tests {
     #[test]
     fn test_clear_all_ads() {
         let store = create_test_store();
-        let ad_1 = create_test_raw_ad("mock_billboard_1", None);
+        let (placement_1, ad_1) = create_test_raw_ad("mock_billboard_1");
 
-        store.store_ad(ad_1.clone()).unwrap();
+        store.store_ad(&placement_1, ad_1.clone()).unwrap();
 
-        let ad_2 = create_test_raw_ad("mock_billboard_2", None);
-        store.store_ad(ad_2.clone()).unwrap();
+        let (placement_2, ad_2) = create_test_raw_ad("mock_billboard_2");
+        store.store_ad(&placement_2, ad_2.clone()).unwrap();
 
-        assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
-        assert!(store.lookup(&ad_2.placement_id).unwrap().is_some());
+        assert!(store.lookup(&placement_1).unwrap().is_some());
+        assert!(store.lookup(&placement_2).unwrap().is_some());
 
         let deleted_count = store.clear_all().unwrap();
         assert_eq!(deleted_count, 2);
 
-        assert!(store.lookup(&ad_1.placement_id).unwrap().is_none());
-        assert!(store.lookup(&ad_2.placement_id).unwrap().is_none());
+        assert!(store.lookup(&placement_1).unwrap().is_none());
+        assert!(store.lookup(&placement_2).unwrap().is_none());
     }
 
     #[test]
     fn test_invalidate_ad_by_placement_id() {
         let store = create_test_store();
 
-        let ad_1 = create_test_raw_ad("mock_billboard_1", None);
-        let ad_2 = create_test_raw_ad("mock_billboard_2", None);
+        let (placement_1, ad_1) = create_test_raw_ad("mock_billboard_1");
+        let (placement_2, ad_2) = create_test_raw_ad("mock_billboard_2");
 
-        store.store_ad(ad_1.clone()).unwrap();
-        store.store_ad(ad_2.clone()).unwrap();
+        store.store_ad(&placement_1, ad_1.clone()).unwrap();
+        store.store_ad(&placement_2, ad_2.clone()).unwrap();
 
-        assert!(store.lookup(&ad_1.placement_id).unwrap().is_some());
-        assert!(store.lookup(&ad_2.placement_id).unwrap().is_some());
+        assert!(store.lookup(&placement_1).unwrap().is_some());
+        assert!(store.lookup(&placement_2).unwrap().is_some());
 
-        let deleted = store.invalidate_ad_by_id(&ad_1.placement_id).unwrap();
+        let deleted = store.invalidate_ad_by_id(&placement_1).unwrap();
         assert_eq!(deleted, 1);
 
-        assert!(store.lookup(&ad_1.placement_id).unwrap().is_none());
-        assert!(store.lookup(&ad_2.placement_id).unwrap().is_some());
+        assert!(store.lookup(&placement_1).unwrap().is_none());
+        assert!(store.lookup(&placement_2).unwrap().is_some());
     }
 }

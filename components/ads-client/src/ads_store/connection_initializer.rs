@@ -23,7 +23,6 @@ impl open_database::ConnectionInitializer for AdsStoreConnectionInitializer {
             CREATE TABLE IF NOT EXISTS ads (
                 stored_at INTEGER NOT NULL,
                 placement_id TEXT NOT NULL,
-                ad_type SMALLINT NOT NULL,
                 ad_body BLOB NOT NULL,
                 size_bytes INTEGER NOT NULL,
                 PRIMARY KEY (placement_id)

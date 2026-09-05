@@ -2,9 +2,12 @@ pub mod builder;
 pub mod connection_initializer;
 pub mod store;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     database::bytesize::ByteSize,
+    mars::ad_response::{AdImage, AdSpoc, AdTile},
 };
 use std::path::Path;
 
@@ -25,6 +28,13 @@ impl AsRef<str> for PlacementId {
     fn as_ref(&self) -> &str {
         &self.0
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StorableAd {
+    Image(AdImage),
+    Spoc(AdSpoc),
+    Tile(AdTile),
 }
 
 pub struct AdsStore {
@@ -56,7 +66,7 @@ impl AdsStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mars::ad_response::{AdCallbacks, AdImage, StorableAd, StorableAdType};
+    use crate::mars::ad_response::{AdCallbacks, AdImage};
     use url::Url;
 
     #[test]
@@ -71,7 +81,7 @@ mod tests {
         let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
 
         let base_url = mockito::server_url();
-        let ad = AdImage {
+        let ad = StorableAd::Image(AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),
             image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
             format: "billboard".to_string(),
@@ -82,25 +92,19 @@ mod tests {
                 impression: Url::parse(&format!("{}/impression/example_ad_1", base_url)).unwrap(),
                 report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
             },
-        };
-
-        let ad = StorableAd {
-            placement_id: PlacementId::new("mock_billboard_1"),
-            ad_type: StorableAdType::Image,
-            ad_body: serde_json::to_vec(&ad).unwrap(),
-        };
-
-        store.holder.store_ad(ad.clone()).unwrap();
+        });
+        let placement_id = PlacementId::new("mock_billboard_1");
+        store.holder.store_ad(&placement_id, ad.clone()).unwrap();
 
         // Verify it's cached
-        let retrieved = store.holder.lookup(&ad.placement_id).unwrap();
+        let retrieved = store.holder.lookup(&placement_id).unwrap();
         assert!(retrieved.is_some());
 
         // Clear the cache
         store.clear().unwrap();
 
         // Verify it's cleared
-        let retrieved_after_clear = store.holder.lookup(&ad.placement_id).unwrap();
+        let retrieved_after_clear = store.holder.lookup(&placement_id).unwrap();
         assert!(retrieved_after_clear.is_none());
     }
 
@@ -109,7 +113,7 @@ mod tests {
         let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
 
         let base_url = mockito::server_url();
-        let ad = AdImage {
+        let ad = StorableAd::Image(AdImage {
             url: "https://ads.fakeexample.org/example_ad_1".to_string(),
             image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
             format: "billboard".to_string(),
@@ -120,29 +124,19 @@ mod tests {
                 impression: Url::parse(&format!("{}/impression/example_ad_1", base_url)).unwrap(),
                 report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
             },
-        };
+        });
 
-        let ad_1 = StorableAd {
-            placement_id: PlacementId::new("mock_billboard_1"),
-            ad_type: StorableAdType::Image,
-            ad_body: serde_json::to_vec(&ad).unwrap(),
-        };
-        let ad_2 = StorableAd {
-            placement_id: PlacementId::new("mock_billboard_2"),
-            ad_type: StorableAdType::Image,
-            ad_body: serde_json::to_vec(&ad).unwrap(),
-        };
+        let placement_1 = PlacementId::new("mock_billboard_1");
+        let placement_2 = PlacementId::new("mock_billboard_2");
+        store.holder.store_ad(&placement_1, ad.clone()).unwrap();
+        store.holder.store_ad(&placement_2, ad.clone()).unwrap();
 
-        store.holder.store_ad(ad_1.clone()).unwrap();
+        assert!(store.holder.lookup(&placement_1).unwrap().is_some());
+        assert!(store.holder.lookup(&placement_2).unwrap().is_some());
 
-        store.holder.store_ad(ad_2.clone()).unwrap();
+        store.invalidate_by_id(&placement_1).unwrap();
 
-        assert!(store.holder.lookup(&ad_1.placement_id).unwrap().is_some());
-        assert!(store.holder.lookup(&ad_2.placement_id).unwrap().is_some());
-
-        store.invalidate_by_id(&ad_1.placement_id).unwrap();
-
-        assert!(store.holder.lookup(&ad_1.placement_id).unwrap().is_none());
-        assert!(store.holder.lookup(&ad_2.placement_id).unwrap().is_some());
+        assert!(store.holder.lookup(&placement_1).unwrap().is_none());
+        assert!(store.holder.lookup(&placement_2).unwrap().is_some());
     }
 }
