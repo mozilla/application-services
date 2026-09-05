@@ -43,6 +43,9 @@ pub enum FetchAdsError {
     #[error("OHTTP preflight failed: {0}")]
     Preflight(#[from] CallbackRequestError),
 
+    #[error("Internal database error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
 

@@ -1,0 +1,142 @@
+pub mod builder;
+pub mod connection_initializer;
+pub mod store;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
+    database::bytesize::ByteSize,
+    mars::ad_response::{AdImage, AdSpoc, AdTile},
+};
+use std::path::Path;
+
+/// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub struct PlacementId(String);
+
+impl PlacementId {
+    pub fn new(s: &str) -> PlacementId {
+        PlacementId(s.to_string())
+    }
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for PlacementId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StorableAd {
+    Image(AdImage),
+    Spoc(AdSpoc),
+    Tile(AdTile),
+}
+
+pub struct AdsStore {
+    holder: AdsStoreHolder,
+    #[allow(dead_code)]
+    max_size: ByteSize,
+}
+
+impl AdsStore {
+    pub fn builder<P: AsRef<Path>>(db_path: P) -> AdsStoreBuilder {
+        AdsStoreBuilder::new(db_path.as_ref())
+    }
+
+    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+        self.holder.clear_all()?;
+        Ok(())
+    }
+
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
+        self.holder.close()
+    }
+
+    pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
+        self.holder.invalidate_ad_by_id(placement_id)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mars::ad_response::{AdCallbacks, AdImage};
+    use url::Url;
+
+    #[test]
+    fn test_ads_store_creation() {
+        // Test that AdsStore can be created successfully with test config
+        let store: Result<AdsStore, _> = AdsStore::builder("test_store.db").build();
+        assert!(store.is_ok());
+    }
+
+    #[test]
+    fn test_clear_store() {
+        let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
+
+        let base_url = mockito::server_url();
+        let ad = StorableAd::Image(AdImage {
+            url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+            image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+            format: "billboard".to_string(),
+            block_key: "abc123".into(),
+            alt_text: Some("An ad for a puppy".to_string()),
+            callbacks: AdCallbacks {
+                click: Url::parse(&format!("{}/click/example_ad_1", base_url)).unwrap(),
+                impression: Url::parse(&format!("{}/impression/example_ad_1", base_url)).unwrap(),
+                report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
+            },
+        });
+        let placement_id = PlacementId::new("mock_billboard_1");
+        store.holder.store_ad(&placement_id, ad.clone()).unwrap();
+
+        // Verify it's cached
+        let retrieved = store.holder.lookup(&placement_id).unwrap();
+        assert!(retrieved.is_some());
+
+        // Clear the cache
+        store.clear().unwrap();
+
+        // Verify it's cleared
+        let retrieved_after_clear = store.holder.lookup(&placement_id).unwrap();
+        assert!(retrieved_after_clear.is_none());
+    }
+
+    #[test]
+    fn test_invalidate_by_id() {
+        let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
+
+        let base_url = mockito::server_url();
+        let ad = StorableAd::Image(AdImage {
+            url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+            image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+            format: "billboard".to_string(),
+            block_key: "abc123".into(),
+            alt_text: Some("An ad for a puppy".to_string()),
+            callbacks: AdCallbacks {
+                click: Url::parse(&format!("{}/click/example_ad_1", base_url)).unwrap(),
+                impression: Url::parse(&format!("{}/impression/example_ad_1", base_url)).unwrap(),
+                report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
+            },
+        });
+
+        let placement_1 = PlacementId::new("mock_billboard_1");
+        let placement_2 = PlacementId::new("mock_billboard_2");
+        store.holder.store_ad(&placement_1, ad.clone()).unwrap();
+        store.holder.store_ad(&placement_2, ad.clone()).unwrap();
+
+        assert!(store.holder.lookup(&placement_1).unwrap().is_some());
+        assert!(store.holder.lookup(&placement_2).unwrap().is_some());
+
+        store.invalidate_by_id(&placement_1).unwrap();
+
+        assert!(store.holder.lookup(&placement_1).unwrap().is_none());
+        assert!(store.holder.lookup(&placement_2).unwrap().is_some());
+    }
+}

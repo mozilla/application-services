@@ -4,17 +4,22 @@
 */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
-use crate::http_cache::{ByteSize, CachePolicy, HttpCache};
+use crate::ads_store::AdsStore;
+use crate::database::bytesize::ByteSize;
+use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
+use crate::shutdown::{AdsStoreShutdown, ShutdownReferences};
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
+use parking_lot::Mutex;
 use url::Url;
 use uuid::Uuid;
 
@@ -39,6 +44,7 @@ pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
+    ads_store: Arc<Mutex<Option<AdsStore>>>,
     client: MARSClient<T>,
     context_id_provider: Box<dyn ContextIdProvider>,
     telemetry: T,
@@ -85,12 +91,24 @@ where
             }
         });
 
+        let ads_store =
+            client_config
+                .store_config
+                .and_then(|x| match AdsStore::builder(x.db_path).build() {
+                    Ok(store) => Some(store),
+                    Err(e) => {
+                        telemetry.record(&e);
+                        None
+                    }
+                });
+
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
         Self {
             client,
             context_id_provider,
             telemetry: telemetry.clone(),
+            ads_store: Arc::new(Mutex::new(ads_store)),
         }
     }
 
@@ -261,6 +279,13 @@ where
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
+
+    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
+        ShutdownReferences::new(
+            self.telemetry.clone(),
+            AdsStoreShutdown::new(self.ads_store.clone()),
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -277,6 +302,7 @@ mod tests {
     use std::assert_eq;
 
     use crate::{
+        ads_store::builder::AdsStoreBuilder,
         ffi::telemetry::MozAdsTelemetryWrapper,
         mars::Environment,
         test_utils::{
@@ -300,6 +326,11 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             )),
             telemetry,
+            ads_store: Arc::new(Mutex::new(Some(
+                AdsStoreBuilder::new("test_store.db")
+                    .build()
+                    .expect("Simplest AdsStoreBuilder should be constructable"),
+            ))),
         }
     }
 
@@ -310,6 +341,7 @@ mod tests {
             context_id_provider: None,
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            store_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -417,6 +449,7 @@ mod tests {
             context_id_provider: Some(Box::new(FixedContextId)),
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            store_config: None,
         };
         let client = AdsClient::new(config);
 
