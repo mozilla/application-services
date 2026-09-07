@@ -108,6 +108,48 @@ dictionary Passport {
 };
 
 /// Metadata fields managed internally by the library: the guid, timestamps and
+/// local sync state. These are automatically set on `add_credit_card` and
+/// updated on operations like `touch` and `update_credit_card`. Not included in
+/// `UpdatableCreditCardFields`; use `add_credit_card_with_meta` when importing
+/// records that already have metadata.
+dictionary CreditCardMeta {
+    string guid;
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+    i64 sync_change_counter;
+};
+
+/// A credit card together with its metadata, passed to `add_credit_card_with_meta`
+/// and `update_credit_card_with_meta` when importing a record from another store.
+dictionary UpdatableCreditCardFieldsWithMeta {
+    UpdatableCreditCardFields fields;
+    CreditCardMeta meta;
+};
+
+/// A bulk insert result entry, returned per input record by `add_many_credit_cards_with_meta`
+[Enum]
+interface CreditCardBulkResultEntry {
+    Success(CreditCard credit_card);
+    Error(string message);
+};
+
+/// A tombstone for a record deleted locally but not yet uploaded, supplied to
+/// `add_many_credit_card_tombstones` when migrating from another store.
+dictionary CreditCardTombstone {
+    string guid;
+    i64 time_deleted;
+};
+
+/// Per-record result of `add_many_credit_card_tombstones`.
+[Enum]
+interface CreditCardBulkTombstoneResultEntry {
+    Success(string guid);
+    Error(string message);
+};
+
+/// Metadata fields managed internally by the library: the guid, timestamps and
 /// local sync state. These are automatically set on `add_address` and updated on
 /// operations like `touch` and `update_address`. Not included in
 /// `UpdatableAddressFields`; use `add_address_with_meta` when importing records
@@ -190,6 +232,27 @@ interface Store {
     void touch_credit_card(string guid);
 
     [Throws=AutofillApiError]
+    CreditCard add_credit_card_with_meta(UpdatableCreditCardFieldsWithMeta entry_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<CreditCardBulkResultEntry> add_many_credit_cards_with_meta(sequence<UpdatableCreditCardFieldsWithMeta> entries_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<CreditCardBulkTombstoneResultEntry> add_many_credit_card_tombstones(sequence<CreditCardTombstone> tombstones);
+
+    /// Removes every credit card and every credit card tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_credit_card` to delete on the
+    /// user's behalf.
+    [Throws=AutofillApiError]
+    void delete_all_credit_cards();
+
+    [Throws=AutofillApiError]
+    void update_credit_card_with_meta(UpdatableCreditCardFieldsWithMeta entry_with_meta);
+
+    [Throws=AutofillApiError]
     Address add_address(UpdatableAddressFields a);
 
     [Throws=AutofillApiError]
@@ -202,6 +265,11 @@ interface Store {
     sequence<AddressBulkTombstoneResultEntry> add_many_address_tombstones(sequence<AddressTombstone> tombstones);
 
     /// Removes every address and every address tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_address` to delete on the
+    /// user's behalf.
     [Throws=AutofillApiError]
     void delete_all_addresses();
 

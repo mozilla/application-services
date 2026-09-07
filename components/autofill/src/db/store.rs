@@ -6,7 +6,10 @@ use crate::db::models::address::{
     Address, AddressBulkResultEntry, AddressBulkTombstoneResultEntry, AddressTombstone,
     UpdatableAddressFields, UpdatableAddressFieldsWithMeta,
 };
-use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
+use crate::db::models::credit_card::{
+    CreditCard, CreditCardBulkResultEntry, CreditCardBulkTombstoneResultEntry, CreditCardTombstone,
+    UpdatableCreditCardFields, UpdatableCreditCardFieldsWithMeta,
+};
 use crate::db::models::passport::{Passport, UpdatablePassportFields};
 use crate::db::{
     addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics, passports, AutofillDb,
@@ -88,6 +91,97 @@ impl Store {
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
         let credit_card = credit_cards::add_credit_card(&self.lock_db()?.writer, fields)?;
         Ok(credit_card.into())
+    }
+
+    /// Adds a credit card **including metadata**. Normally the metadata (guid,
+    /// timestamps, sync change counter) is owned by this store and
+    /// `add_credit_card` will take care of it. This is for the case where a
+    /// record is being migrated from another store that already holds it.
+    #[handle_error(Error)]
+    pub fn add_credit_card_with_meta(
+        &self,
+        entry_with_meta: UpdatableCreditCardFieldsWithMeta,
+    ) -> ApiResult<CreditCard> {
+        Ok(credit_cards::add_credit_card_with_meta(
+            &self.lock_db()?.writer,
+            entry_with_meta.fields,
+            entry_with_meta.meta,
+        )?
+        .into())
+    }
+
+    /// Adds multiple credit cards **including metadata**, with a result per
+    /// record.
+    #[handle_error(Error)]
+    pub fn add_many_credit_cards_with_meta(
+        &self,
+        entries_with_meta: Vec<UpdatableCreditCardFieldsWithMeta>,
+    ) -> ApiResult<Vec<CreditCardBulkResultEntry>> {
+        let results = credit_cards::add_many_credit_cards_with_meta(
+            &self.lock_db()?.writer,
+            entries_with_meta,
+        )?;
+        Ok(results
+            .into_iter()
+            .map(|result| match result {
+                Ok(credit_card) => CreditCardBulkResultEntry::Success {
+                    credit_card: credit_card.into(),
+                },
+                Err(message) => CreditCardBulkResultEntry::Error { message },
+            })
+            .collect())
+    }
+
+    /// Adds tombstones for credit cards whose deletion has not yet been
+    /// uploaded, with a result per record.
+    #[handle_error(Error)]
+    pub fn add_many_credit_card_tombstones(
+        &self,
+        tombstones: Vec<CreditCardTombstone>,
+    ) -> ApiResult<Vec<CreditCardBulkTombstoneResultEntry>> {
+        let results = credit_cards::add_many_credit_card_tombstones(
+            &self.lock_db()?.writer,
+            tombstones
+                .into_iter()
+                .map(|t| (t.guid, t.time_deleted))
+                .collect(),
+        )?;
+        Ok(results
+            .into_iter()
+            .map(|result| match result {
+                Ok(guid) => CreditCardBulkTombstoneResultEntry::Success { guid },
+                Err(message) => CreditCardBulkTombstoneResultEntry::Error { message },
+            })
+            .collect())
+    }
+
+    /// Removes every credit card and every credit card tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_credit_card` to delete on the
+    /// user's behalf.
+    #[handle_error(Error)]
+    pub fn delete_all_credit_cards(&self) -> ApiResult<()> {
+        credit_cards::delete_all_credit_cards(&self.lock_db()?.writer)?;
+        Ok(())
+    }
+
+    /// Updates a credit card **including metadata**, setting both its fields
+    /// and its timestamps and `times_used` to the supplied values. Normally you
+    /// will use `update_credit_card` instead, which leaves `time_last_modified`
+    /// to this store; this is for keeping a record identical to one held
+    /// elsewhere. Errors with `NoSuchRecord` if the guid is absent.
+    #[handle_error(Error)]
+    pub fn update_credit_card_with_meta(
+        &self,
+        entry_with_meta: UpdatableCreditCardFieldsWithMeta,
+    ) -> ApiResult<()> {
+        credit_cards::update_credit_card_with_meta(
+            &self.lock_db()?.writer,
+            entry_with_meta.fields,
+            entry_with_meta.meta,
+        )
     }
 
     #[handle_error(Error)]
@@ -197,6 +291,11 @@ impl Store {
     }
 
     /// Removes every address and every address tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_address` to delete on the
+    /// user's behalf.
     #[handle_error(Error)]
     pub fn delete_all_addresses(&self) -> ApiResult<()> {
         addresses::delete_all_addresses(&self.lock_db()?.writer)?;
