@@ -495,20 +495,56 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_credit_card_add_with_meta_clamps_negative_timestamps() -> Result<()> {
+    fn test_credit_card_add_with_meta_sanitizes_out_of_range_timestamps() -> Result<()> {
         let db = new_mem_db();
 
-        let meta = CreditCardMeta {
-            guid: "abc".to_string(),
-            time_created: -1,
-            time_last_used: Some(-1),
-            time_last_modified: -1,
-            times_used: 0,
-            sync_change_counter: 0,
-        };
-        add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta)?;
+        // Negative, and the value from bug 2066257 - a negative microsecond
+        // timestamp that a JS consumer already reinterpreted as a u64 and
+        // divided by 1000, so it reaches us as a huge positive number. Both are
+        // "we don't know when", and a `.max(0)` would only catch the first.
+        for (guid, out_of_range) in [("abc", -1), ("def", 18446744071857664)] {
+            let meta = CreditCardMeta {
+                guid: guid.to_string(),
+                time_created: out_of_range,
+                time_last_used: Some(out_of_range),
+                time_last_modified: out_of_range,
+                times_used: 0,
+                sync_change_counter: 0,
+            };
+            add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta)?;
 
-        let retrieved = get_credit_card(&db, &Guid::new("abc"))?;
+            let retrieved = get_credit_card(&db, &Guid::new(guid))?;
+            assert_eq!(
+                retrieved.metadata.time_created.as_millis(),
+                0,
+                "{out_of_range} survived"
+            );
+            assert_eq!(retrieved.metadata.time_last_used.as_millis(), 0);
+            assert_eq!(retrieved.metadata.time_last_modified.as_millis(), 0);
+        }
+
+        Ok(())
+    }
+
+    /// Surface 2: a value already on disk, put there before the import path
+    /// sanitized anything. Reading it must repair rather than propagate it.
+    #[test]
+    fn test_credit_card_from_row_sanitizes_corrupt_timestamps() -> Result<()> {
+        let db = new_mem_db();
+
+        let card = add_credit_card(&db, meta_test_fields("Jane Doe"))?;
+        db.execute(
+            // Three shapes that are not representable dates: the u64-reinterpreted
+            // value from bug 2066257, a raw negative, and MAX_DATE_MS + 1.
+            "UPDATE credit_cards_data
+             SET time_created = 18446744071857664,
+                 time_last_used = -1,
+                 time_last_modified = 8640000000000001
+             WHERE guid = :guid",
+            rusqlite::named_params! { ":guid": card.guid },
+        )?;
+
+        let retrieved = get_credit_card(&db, &card.guid)?;
         assert_eq!(retrieved.metadata.time_created.as_millis(), 0);
         assert_eq!(retrieved.metadata.time_last_used.as_millis(), 0);
         assert_eq!(retrieved.metadata.time_last_modified.as_millis(), 0);

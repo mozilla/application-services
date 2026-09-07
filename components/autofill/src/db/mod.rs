@@ -112,12 +112,17 @@ pub(crate) fn with_savepoint<T>(
     }
 }
 
-/// `Timestamp` is a `u64`, so a negative millisecond value would wrap to a huge
-/// one and then win every "latest wins" comparison in `Metadata::merge`. Clamp to
-/// 0, which already means "unset" for these fields. The tuple constructor is used
-/// rather than `Timestamp::from`, which asserts non-zero.
+/// Builds a `Timestamp` from millis an application supplied.
+///
+/// Anything that is not a representable date becomes 0, which already means
+/// "unset" for these fields - see `sanitize_timestamp`. A bare `.max(0)` would
+/// not be enough: the corrupt values actually seen in the wild arrive *already*
+/// huge, because the negative-to-`u64` reinterpretation happened before the
+/// value reached us, and one of those would win every "latest wins" comparison
+/// in `Metadata::merge`. The tuple constructor is used rather than
+/// `Timestamp::from`, which asserts non-zero.
 pub(crate) fn timestamp_from_millis(millis: i64) -> types::Timestamp {
-    types::Timestamp(millis.max(0) as u64)
+    types::Timestamp(types::sanitize_timestamp(millis) as u64)
 }
 
 /// How an `update_internal_*` should treat the record's change counter.

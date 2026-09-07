@@ -135,9 +135,9 @@ impl InternalCreditCard {
             cc_exp_year: p.entry.cc_exp_year,
             cc_type: p.entry.cc_type,
             metadata: Metadata {
-                time_created: p.entry.time_created,
-                time_last_used: p.entry.time_last_used,
-                time_last_modified: p.entry.time_last_modified,
+                time_created: p.entry.time_created.sanitized(),
+                time_last_used: p.entry.time_last_used.sanitized(),
+                time_last_modified: p.entry.time_last_modified.sanitized(),
                 times_used: p.entry.times_used,
                 sync_change_counter: 0,
             },
@@ -296,4 +296,31 @@ fn test_to_from_payload() {
     );
     // But the encrypted value should not.
     assert_ne!(cc2.cc_number_enc, cc.cc_number_enc);
+}
+
+/// Surface 3: the sync server is a source we cannot refuse. A record whose
+/// timestamps are not representable dates must be repaired on the way in, not
+/// stored and then allowed to win every "latest wins" merge.
+#[test]
+fn test_from_payload_sanitizes_out_of_range_timestamps() {
+    nss_as::ensure_initialized();
+    let key = crate::encryption::create_autofill_key().unwrap();
+    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let cc = InternalCreditCard {
+        cc_number_enc: crate::encryption::encrypt_string(key, "1234567812345678".to_string())
+            .unwrap(),
+        ..Default::default()
+    };
+
+    let mut payload = cc.into_payload(&encdec).unwrap();
+    // the value from bug 2066257, a u64-reinterpreted negative, and one just
+    // past the largest date a JS `Date` can hold.
+    payload.entry.time_created = Timestamp(18446744071857664);
+    payload.entry.time_last_used = Timestamp(u64::MAX);
+    payload.entry.time_last_modified = Timestamp(types::MAX_DATE_MS as u64 + 1);
+
+    let cc = InternalCreditCard::from_payload(payload, &encdec).unwrap();
+    assert_eq!(cc.metadata.time_created.as_millis(), 0);
+    assert_eq!(cc.metadata.time_last_used.as_millis(), 0);
+    assert_eq!(cc.metadata.time_last_modified.as_millis(), 0);
 }

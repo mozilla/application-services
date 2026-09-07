@@ -6,6 +6,7 @@
 use super::Metadata;
 use rusqlite::Row;
 use sync_guid::Guid;
+use types::Timestamp;
 
 #[derive(Debug, Clone, Default)]
 pub struct UpdatableCreditCardFields {
@@ -143,9 +144,9 @@ impl InternalCreditCard {
             cc_exp_year: row.get("cc_exp_year")?,
             cc_type: row.get("cc_type")?,
             metadata: Metadata {
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
+                time_created: row.get::<_, Timestamp>("time_created")?.sanitized(),
+                time_last_used: row.get::<_, Timestamp>("time_last_used")?.sanitized(),
+                time_last_modified: row.get::<_, Timestamp>("time_last_modified")?.sanitized(),
                 times_used: row.get("times_used")?,
                 sync_change_counter: row.get("sync_change_counter")?,
             },
