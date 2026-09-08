@@ -12,7 +12,7 @@ pub mod debug_tools;
 
 mod each_chunk;
 mod lazy;
-mod maintenance;
+pub mod maintenance;
 mod maybe_cached;
 pub mod open_database;
 mod repeat;
