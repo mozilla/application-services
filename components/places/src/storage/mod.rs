@@ -11,7 +11,7 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{warn, Error, InvalidPlaceInfo, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
@@ -272,16 +272,7 @@ pub fn run_maintenance_prune(
 /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
 /// it supports a stop-watch style API, not recording specific values).
 pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
-    let auto_vacuum_setting: u32 = conn.conn_ext_query_one("PRAGMA auto_vacuum")?;
-    if auto_vacuum_setting == 2 {
-        // Ideally, we run an incremental vacuum to delete 2 pages
-        conn.execute_one("PRAGMA incremental_vacuum(2)")?;
-    } else {
-        // If auto_vacuum=incremental isn't set, configure it and run a full vacuum.
-        warn!("run_maintenance_vacuum: Need to run a full vacuum to set auto_vacuum=incremental");
-        conn.execute_one("PRAGMA auto_vacuum=incremental")?;
-        conn.execute_one("VACUUM")?;
-    }
+    sql_support::maintenance::vacuum(conn)?;
     Ok(())
 }
 
