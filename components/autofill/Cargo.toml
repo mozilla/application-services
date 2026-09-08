@@ -25,7 +25,6 @@ sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "2"
 types = { path = "../support/types" }
 uniffi = { version = "0.31" }
-url = { version = "2.2", features = ["serde"] }
 
 [dev-dependencies]
 libsqlite3-sys = { version = "0.35.0" }
