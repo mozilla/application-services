@@ -1,0 +1,15 @@
+[package]
+name = "containers"
+description = "Storage for Firefox containers"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+
+[dependencies]
+error-support = { path = "../support/error" }
+idna = "1"
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uniffi = { version = "0.31" }

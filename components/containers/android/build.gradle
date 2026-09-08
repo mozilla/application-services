@@ -1,0 +1,10 @@
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+apply from: "$publishDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.containers'
+}
+
+ext.configureUniFFIBindgen("containers")
+ext.dependsOnTheMegazord()
+ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

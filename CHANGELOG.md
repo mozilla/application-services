@@ -15,6 +15,10 @@
 
 ## ✨ What's Changed ✨
 
+### Containers
+
+- Created a new component, `containers`, holding the list of Firefox containers and the format they are stored in.
+
 ### Autofill
 
 - `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
