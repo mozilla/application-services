@@ -1,0 +1,37 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! A generic, storage-agnostic, event-based sync engine.
+//!
+//! Transports opaque, GUID-keyed events instead of reconciling whole data
+//! structures. Consumers implement [`reducer::EventReducer`] to integrate
+//! winning events; the engine owns the sync logic (ordering, the per-field
+//! last-seen gate, schema evolution, baselines). Pure-Rust, like [`sync15`].
+//!
+//! Modules: [`event`] (event + gate key + total order), [`schema`] (multi-schema
+//! payload + dual-write/migrate-on-read), [`reducer`] (storage contract),
+//! [`metadata`] (sync bookkeeping persistence), [`engine`] (ties them together
+//! and implements [`sync15::engine::SyncEngine`]).
+
+#![warn(rust_2018_idioms)]
+
+pub mod baseline;
+pub mod engine;
+pub mod error;
+pub mod event;
+pub mod metadata;
+#[cfg(feature = "sql")]
+pub mod metadata_sql;
+pub mod reducer;
+pub mod schema;
+
+pub use baseline::{BaselineConfig, BaselineState, WirePosition, SNAPSHOT_EVENT_TYPE};
+pub use engine::EventSyncEngine;
+pub use error::{Error, Result};
+pub use event::{batch_record_id, Event, EventPosition, GateKey};
+pub use metadata::{MemoryMetadataStore, MetadataStore};
+#[cfg(feature = "sql")]
+pub use metadata_sql::SqliteMetadataStore;
+pub use reducer::{EventReducer, ResolvedEvent, SnapshotEntity};
+pub use schema::{EventBody, MigrateFn, SchemaRegistry, SchemaVersion};

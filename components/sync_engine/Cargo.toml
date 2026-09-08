@@ -1,0 +1,22 @@
+[package]
+name = "sync_engine"
+edition = "2021"
+version = "0.1.0"
+authors = ["Sync Team <sync-team@mozilla.com>"]
+license = "MPL-2.0"
+description = "A generic, storage-agnostic, event-based sync engine (see README.md)."
+
+[features]
+# disable whith `--no-default-features`
+default = ["sql"]
+sql = ["dep:rusqlite", "dep:sql-support"]
+
+[dependencies]
+anyhow = "1.0"
+rusqlite = { version = "0.37.0", features = ["bundled"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sql-support = { path = "../support/sql", optional = true }
+sync-guid = { path = "../support/guid", features = ["random"] }
+sync15 = { path = "../sync15", features = ["sync-engine"] }
+thiserror = "2"

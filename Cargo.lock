@@ -4336,6 +4336,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sync_engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "thiserror 2.0.3",
+]
+
+[[package]]
 name = "sync_manager"
 version = "0.1.0"
 dependencies = [
