@@ -4,7 +4,7 @@
 
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
-use crate::database::bytesize::ByteSize;
+use crate::common::bytesize::ByteSize;
 use crate::http_cache::HttpCache;
 use rusqlite::Connection;
 use sql_support::open_database;

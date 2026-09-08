@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
-    database::bytesize::ByteSize,
+    common::bytesize::ByteSize,
     mars::ad_response::{AdImage, AdSpoc, AdTile},
 };
 use std::path::Path;

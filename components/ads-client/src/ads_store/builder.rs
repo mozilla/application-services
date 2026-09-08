@@ -5,7 +5,7 @@
 use super::connection_initializer::AdsStoreConnectionInitializer;
 use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
-use crate::database::bytesize::ByteSize;
+use crate::common::bytesize::ByteSize;
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;

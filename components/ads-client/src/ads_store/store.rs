@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ads_store::StorableAd;
-use crate::database::bytesize::ByteSize;
-use crate::database::clock::Clock;
+use crate::common::bytesize::ByteSize;
+use crate::common::clock::Clock;
 use crate::mars::error::FetchAdsError;
-use crate::{ads_store::PlacementId, database::clock::CacheClock};
+use crate::{ads_store::PlacementId, common::clock::CacheClock};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use std::sync::Arc;
@@ -44,7 +44,7 @@ impl AdsStoreHolder {
 
     #[cfg(test)]
     pub fn new_with_test_clock(conn: Connection) -> Self {
-        use crate::database::clock::TestClock;
+        use crate::common::clock::TestClock;
 
         Self {
             conn: Mutex::new(conn),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::ads_store::AdsStore;
-use crate::database::bytesize::ByteSize;
+use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
