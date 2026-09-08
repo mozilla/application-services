@@ -49,21 +49,6 @@ pub fn property(
     Ok(ct.property_getter(oracle, &vars, &prop, &default))
 }
 
-pub fn preference_getter(
-    type_: impl Borrow<TypeIdentifier>,
-    _: &dyn askama::Values,
-    prefs: impl fmt::Display,
-    pref_key: impl fmt::Display,
-) -> Result<String, askama::Error> {
-    let oracle = &ConcreteCodeOracle;
-    let ct = oracle.find(type_.borrow());
-    if let Some(getter) = ct.preference_getter(oracle, &prefs, &pref_key) {
-        Ok(getter)
-    } else {
-        unreachable!("The preference for type {} isn't available. This is a bug in Nimbus FML Kotlin generator", type_.borrow());
-    }
-}
-
 pub fn to_json(
     prop: impl fmt::Display,
     _: &dyn askama::Values,

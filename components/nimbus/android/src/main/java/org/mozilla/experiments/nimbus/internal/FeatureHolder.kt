@@ -24,7 +24,7 @@ import kotlin.concurrent.withLock
 class FeatureHolder<T : FMLFeatureInterface>(
     private var getSdk: () -> FeaturesInterface?,
     private val featureId: String,
-    private var create: (Variables, SharedPreferences?) -> T,
+    private var create: (Variables) -> T,
 ) {
     private val lock = ReentrantLock()
 
@@ -51,8 +51,7 @@ class FeatureHolder<T : FMLFeatureInterface>(
                 val variables = getSdk()?.getVariables(featureId, false) ?: run {
                     NullVariables.instance
                 }
-                val prefs = getSdk()?.prefs
-                create(variables, prefs).also { value ->
+                create(variables).also { value ->
                     cachedValue = value
                 }
             }
@@ -182,18 +181,10 @@ interface FMLObjectInterface {
 }
 
 /**
- * A bare-bones interface for the FML generated features.
+ * A marker interface for FML generated feature classes.
  *
  * App developers should use the generated concrete classes, which
  * implement this interface.
  */
-interface FMLFeatureInterface : FMLObjectInterface {
-    /**
-     * A test if the feature configuration has been modified somehow, invalidating any experiment
-     * that uses it.
-     *
-     * This may be `true` if a `pref-key` has been set in the feature manifest and the user has
-     * set that preference.
-     */
-    fun isModified(): Boolean = false
-}
+@Suppress("EmptyClassBlock")
+interface FMLFeatureInterface : FMLObjectInterface
