@@ -479,7 +479,7 @@ fn get_encryption_key(db_path: &str, opts: &Opts) -> Result<String> {
 }
 
 fn main() -> Result<()> {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 
     let opts = Opts::parse();
     if !opts.no_logging {

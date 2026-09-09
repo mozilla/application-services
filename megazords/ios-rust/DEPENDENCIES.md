@@ -15,8 +15,9 @@ the details of which are reproduced below.
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
 * [MIT License: h2](#mit-license-h2)
-* [MIT License: http-body](#mit-license-http-body)
+* [MIT License: http-body, http-body-util](#mit-license-http-body-http-body-util)
 * [MIT License: hyper](#mit-license-hyper)
+* [MIT License: hyper-util](#mit-license-hyper-util)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
@@ -31,7 +32,8 @@ the details of which are reproduced below.
 * [MIT License: tokio](#mit-license-tokio)
 * [MIT License: tokio-native-tls, tracing, tracing-attributes, tracing-core, tracing-subscriber](#mit-license-tokio-native-tls-tracing-tracing-attributes-tracing-core-tracing-subscriber)
 * [MIT License: tokio-util](#mit-license-tokio-util)
-* [MIT License: tower-service](#mit-license-tower-service)
+* [MIT License: tower, tower-layer, tower-service](#mit-license-tower-tower-layer-tower-service)
+* [MIT License: tower-http](#mit-license-tower-http)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle2](#mit-license-weedle2)
@@ -44,6 +46,7 @@ the details of which are reproduced below.
 * [Zlib License: foldhash](#zlib-license-foldhash)
 * [Unicode-3.0 License: icu_casemap, icu_casemap_data, icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_casemap-icu_casemap_data-icu_collections-icu_locale-icu_locale_core-icu_locale_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_segmenter-icu_segmenter_data-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
+* [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 * [(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident](#(mit-or-apache-20)-and-unicode-30-license-unicode-ident)
 -------------
 ## Mozilla Public License 2.0
@@ -453,6 +456,7 @@ The following text applies to code linked from these dependencies:
 [askama_macros](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
 [async-trait](https://github.com/dtolnay/async-trait),
+[atomic-waker](https://github.com/smol-rs/atomic-waker),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -498,7 +502,6 @@ The following text applies to code linked from these dependencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
-[httpdate](https://github.com/pyfisch/httpdate),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
 [iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
@@ -506,6 +509,7 @@ The following text applies to code linked from these dependencies:
 [idna_adapter](https://github.com/hsivonen/idna_adapter),
 [indexmap](https://github.com/indexmap-rs/indexmap),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
+[ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
@@ -514,6 +518,7 @@ The following text applies to code linked from these dependencies:
 [libm](https://github.com/rust-lang/libm),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
+[mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [num-traits](https://github.com/rust-num/num-traits),
@@ -536,9 +541,11 @@ The following text applies to code linked from these dependencies:
 [regex-automata](https://github.com/rust-lang/regex/tree/master/regex-automata),
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
+[reqwest](https://github.com/seanmonstar/reqwest),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
+[rustls-pki-types](https://github.com/rustls/pki-types),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
@@ -550,6 +557,7 @@ The following text applies to code linked from these dependencies:
 [serde_json](https://github.com/serde-rs/json),
 [serde_path_to_error](https://github.com/dtolnay/path-to-error),
 [serde_spanned](https://github.com/toml-rs/toml),
+[serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
 [shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
@@ -559,6 +567,7 @@ The following text applies to code linked from these dependencies:
 [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
+[sync_wrapper](https://github.com/Actyx/sync_wrapper),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
@@ -574,7 +583,8 @@ The following text applies to code linked from these dependencies:
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
 [xshell-macros](https://github.com/matklad/xshell),
-[xshell](https://github.com/matklad/xshell)
+[xshell](https://github.com/matklad/xshell),
+[zeroize](https://github.com/RustCrypto/utils/tree/master/zeroize)
 
 ```
                               Apache License
@@ -1060,13 +1070,14 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: http-body
+## MIT License: http-body, http-body-util
 
 The following text applies to code linked from these dependencies:
+[http-body-util](https://github.com/hyperium/http-body),
 [http-body](https://github.com/hyperium/http-body)
 
 ```
-Copyright (c) 2019 Hyper Contributors
+Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1100,7 +1111,35 @@ The following text applies to code linked from these dependencies:
 [hyper](https://github.com/hyperium/hyper)
 
 ```
-Copyright (c) 2014-2021 Sean McArthur
+Copyright (c) 2014-2026 Sean McArthur
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+-------------
+## MIT License: hyper-util
+
+The following text applies to code linked from these dependencies:
+[hyper-util](https://github.com/hyperium/hyper-util)
+
+```
+Copyright (c) 2023-2025 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1542,13 +1581,49 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tower-service
+## MIT License: tower, tower-layer, tower-service
 
 The following text applies to code linked from these dependencies:
-[tower-service](https://github.com/tower-rs/tower)
+[tower-layer](https://github.com/tower-rs/tower),
+[tower-service](https://github.com/tower-rs/tower),
+[tower](https://github.com/tower-rs/tower)
 
 ```
 Copyright (c) 2019 Tower Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tower-http
+
+The following text applies to code linked from these dependencies:
+[tower-http](https://github.com/tower-rs/tower-http)
+
+```
+Copyright (c) 2019-2021 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -2130,6 +2205,32 @@ The following text applies to code linked from these dependencies:
 
 ```
 This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
+```
+-------------
+## (Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs
+
+The following text applies to code linked from these dependencies:
+[encoding_rs](https://github.com/hsivonen/encoding_rs)
+
+```
+encoding_rs is copyright Mozilla Foundation.
+
+Licensed under the Apache License, Version 2.0
+<LICENSE-APACHE or
+https://www.apache.org/licenses/LICENSE-2.0> or the MIT
+license <LICENSE-MIT or https://opensource.org/licenses/MIT>,
+at your option. All files in the project carrying such
+notice may not be copied, modified, or distributed except
+according to those terms.
+
+This crate includes data derived from the data files supplied
+with the WHATWG Encoding Standard, which, when incorporated into
+source code, are licensed under the BSD 3-Clause License
+<LICENSE-WHATWG>.
+
+Test code within encoding_rs is dedicated to the Public Domain when so
+designated (see the individual files for PD/CC0-dedicated sections).
+
 ```
 -------------
 ## (MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident

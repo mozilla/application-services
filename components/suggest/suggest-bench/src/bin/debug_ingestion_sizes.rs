@@ -5,6 +5,6 @@
 use suggest::benchmarks::ingest;
 
 fn main() {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
     ingest::print_debug_ingestion_sizes()
 }
