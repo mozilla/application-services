@@ -25,22 +25,12 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
-pub trait ContextIdProvider: Send + Sync {
-    fn context_id(&self) -> context_id::ApiResult<String>;
-}
-
-impl ContextIdProvider for ContextIDComponent {
-    fn context_id(&self) -> context_id::ApiResult<String> {
-        self.request(DEFAULT_ROTATION_DAYS)
-    }
-}
-
 pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
     client: MARSClient<T>,
-    context_id_provider: Box<dyn ContextIdProvider>,
+    context_id_component: ContextIDComponent,
     telemetry: T,
 }
 
@@ -49,14 +39,12 @@ where
     T: Clone + Telemetry,
 {
     pub fn new(client_config: AdsClientConfig<T>) -> Self {
-        let context_id_provider = client_config.context_id_provider.unwrap_or_else(|| {
-            Box::new(ContextIDComponent::new(
-                &Uuid::new_v4().to_string(),
-                0,
-                cfg!(test),
-                Box::new(DefaultContextIdCallback),
-            ))
-        });
+        let context_id_component = ContextIDComponent::new(
+            &Uuid::new_v4().to_string(),
+            0,
+            cfg!(test),
+            Box::new(DefaultContextIdCallback),
+        );
 
         let telemetry = client_config.telemetry;
         let environment = client_config.environment;
@@ -89,7 +77,7 @@ where
         telemetry.record(&ClientOperationEvent::New);
         Self {
             client,
-            context_id_provider,
+            context_id_component,
             telemetry: telemetry.clone(),
         }
     }
@@ -99,7 +87,7 @@ where
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_provider.context_id()
+        self.context_id_component.request(DEFAULT_ROTATION_DAYS)
     }
 
     pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
@@ -274,7 +262,6 @@ pub enum ClientOperationEvent {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_eq;
 
     use crate::{
         ffi::telemetry::MozAdsTelemetryWrapper,
@@ -293,12 +280,12 @@ mod tests {
         let telemetry = client.get_telemetry();
         AdsClient {
             client,
-            context_id_provider: Box::new(ContextIDComponent::new(
+            context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
                 false,
                 Box::new(DefaultContextIdCallback),
-            )),
+            ),
             telemetry,
         }
     }
@@ -307,7 +294,6 @@ mod tests {
     fn test_get_context_id() {
         let config = AdsClientConfig {
             cache_config: None,
-            context_id_provider: None,
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
         };
@@ -392,35 +378,30 @@ mod tests {
     }
 
     #[test]
-    fn test_custom_context_id_provider() {
+    fn test_context_id_is_sent_to_mars() {
         viaduct_dev::init_backend_dev();
-
-        struct FixedContextId;
-        impl ContextIdProvider for FixedContextId {
-            fn context_id(&self) -> context_id::ApiResult<String> {
-                Ok("custom-context-id-12345".to_string())
-            }
-        }
-
-        let expected_response = get_example_happy_image_response();
-        let m = mockito::mock("POST", "/ads")
-            .match_body(mockito::Matcher::PartialJsonString(
-                r#"{"context_id":"custom-context-id-12345"}"#.to_string(),
-            ))
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(serde_json::to_string(&expected_response.data).unwrap())
-            .create();
 
         let config = AdsClientConfig {
             cache_config: None,
-            context_id_provider: Some(Box::new(FixedContextId)),
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
         };
         let client = AdsClient::new(config);
 
-        assert_eq!(client.get_context_id().unwrap(), "custom-context-id-12345");
+        // The client generates its own context id, so read it back first and
+        // assert that exactly that value reaches the wire.
+        let context_id = client.get_context_id().unwrap();
+        assert!(Uuid::parse_str(&context_id).is_ok());
+
+        let expected_response = get_example_happy_image_response();
+        let m = mockito::mock("POST", "/ads")
+            .match_body(mockito::Matcher::PartialJsonString(format!(
+                r#"{{"context_id":"{context_id}"}}"#
+            )))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .create();
 
         let result = client.request_image_ads(
             make_happy_placement_requests(),

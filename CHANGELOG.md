@@ -13,8 +13,6 @@
 
 [Full Changelog](In progress)
 
-## ✨ What's Changed ✨
-
 ### Autofill
 
 - `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
@@ -23,6 +21,8 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 - `shutdown` no longer requires a full `AdsClient` lock (at the cost of no longer shutting down the sqlite db), and telemetry is no longer cloned in the `MozAdsClientBuilder` functions.
+
+- ⚠️ **Breaking**: Removed the `MozAdsContextIdProvider` callback interface and the `context_id_provider()` builder method. The ads client now always manages its own context ID via the embedded `ContextIDComponent`. This interface was introduced as a temporary workaround in AC-95 and was never safely usable from Firefox Desktop (`MozAdsClient` is async-wrapped while the provider callback was sync, causing off-main-thread crashes — see [Bug 2062806](https://bugzilla.mozilla.org/show_bug.cgi?id=2062806)). Mobile consumers that do not set a provider are unaffected. ([AC-99](https://mozilla-hub.atlassian.net/browse/AC-99))
 
 ### sql_support
 

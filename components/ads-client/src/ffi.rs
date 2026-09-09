@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
-use crate::client::{AdsClient, ContextIdProvider};
+use crate::client::AdsClient;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
@@ -29,33 +29,6 @@ use std::collections::HashMap;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
-
-// TODO: Temporary workaround for HNT requirements — do not use for new integrations.
-// Context ID management should remain internal to the ads client and this interface should be removed.
-#[uniffi::export(with_foreign)]
-pub trait MozAdsContextIdProvider: Send + Sync {
-    fn context_id(&self) -> String;
-}
-
-struct MozAdsContextIdProviderWrapper(Arc<dyn MozAdsContextIdProvider>);
-
-impl MozAdsContextIdProviderWrapper {
-    fn new(provider: Arc<dyn MozAdsContextIdProvider>) -> Self {
-        Self(provider)
-    }
-}
-
-impl ContextIdProvider for MozAdsContextIdProviderWrapper {
-    fn context_id(&self) -> context_id::ApiResult<String> {
-        Ok(self.0.context_id())
-    }
-}
-
-impl From<MozAdsContextIdProviderWrapper> for Box<dyn ContextIdProvider> {
-    fn from(wrapper: MozAdsContextIdProviderWrapper) -> Self {
-        Box::new(wrapper)
-    }
-}
 
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
@@ -108,7 +81,6 @@ pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
 #[derive(Default)]
 struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
-    context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
@@ -135,11 +107,6 @@ impl MozAdsClientBuilder {
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
-            context_id_provider: inner
-                .context_id_provider
-                .clone()
-                .map(MozAdsContextIdProviderWrapper::new)
-                .map(Into::into),
             environment: inner.environment.unwrap_or_default().into(),
             telemetry: telemetry.clone(),
         };
@@ -152,14 +119,6 @@ impl MozAdsClientBuilder {
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
         self.0.lock().cache_config = Some(cache_config);
-        self
-    }
-
-    pub fn context_id_provider(
-        self: Arc<Self>,
-        provider: Arc<dyn MozAdsContextIdProvider>,
-    ) -> Arc<Self> {
-        self.0.lock().context_id_provider = Some(provider);
         self
     }
 
