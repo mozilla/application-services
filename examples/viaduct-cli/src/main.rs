@@ -74,7 +74,7 @@ fn main() -> Result<()> {
                 make_request()?
             };
 
-            viaduct_hyper::viaduct_init_backend_hyper();
+            viaduct_backend_rust::viaduct_init_backend_rust();
             let settings = ClientSettings {
                 timeout: cli.timeout.unwrap_or(0) as u32,
                 ..ClientSettings::default()
@@ -99,7 +99,7 @@ fn main() -> Result<()> {
 fn run_ohttp_example(relay_url: String, gateway_host: String, channel: String) -> Result<()> {
     // Step 1: Initialize viaduct backend
     println!("Initializing viaduct backend...");
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
     println!("Backend initialized successfully");
 
     // Step 2: Configure the OHTTP channel

@@ -1,5 +1,12 @@
 # v158.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Viaduct
+- Moved the Rust-based backend away from `hyper` back to `reqwest`.
+  The new crate name is `viaduct-backend-rust`.
+  iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
+
 [Full Changelog](In progress)
 
 # v157.0 (_2026-09-10_)

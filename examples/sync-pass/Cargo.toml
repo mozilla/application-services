@@ -27,7 +27,7 @@ tempfile = "3"
 serde_json = "1.0"
 url = "2.2"
 viaduct = { path = "../../components/viaduct"}
-viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 rusqlite = { version = "0.37.0", features = ["limits"] }
 init_rust_components = { path = "../../components/init_rust_components", features = ["keydb"] }
 
