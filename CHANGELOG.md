@@ -23,6 +23,7 @@
 
 - Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
 - `shutdown` no longer requires a full `AdsClient` lock (at the cost of no longer shutting down the sqlite db), and telemetry is no longer cloned in the `MozAdsClientBuilder` functions.
+- Added `MozAdsEnvironment::Custom(url::Url)` and `Environment::Custom(url::Url)` variants for connecting to arbitrary MARS backend servers (used primarily in local development).
 
 ### sql_support
 

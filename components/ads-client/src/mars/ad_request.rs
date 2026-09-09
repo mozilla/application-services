@@ -57,7 +57,7 @@ impl Hash for AdRequest {
 
 impl From<AdRequest> for Request {
     fn from(ad_request: AdRequest) -> Self {
-        let url = ad_request.environment.into_url(ENDPOINT);
+        let url = ad_request.environment.clone().into_url(ENDPOINT);
         let mut request = Request::post(url).json(&ad_request);
         request.headers.extend(ad_request.headers);
         request
@@ -153,6 +153,7 @@ mod tests {
 
     use super::*;
     use serde_json::{json, to_value};
+    use url::Url;
 
     #[test]
     fn test_ad_placement_request_with_content_serialize() {
@@ -437,6 +438,40 @@ mod tests {
         .unwrap();
 
         assert_ne!(RequestHash::new(&req_off), RequestHash::new(&req_on));
+    }
+
+    #[test]
+    fn test_custom_env_produces_different_hash() {
+        use crate::http_cache::RequestHash;
+
+        let make_placements = || {
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "tile_1".to_string(),
+            }]
+        };
+
+        let req_http = AdRequest::try_new(
+            Default::default(),
+            "same-id".to_string(),
+            Environment::Custom(Url::parse("http://example.com").unwrap()),
+            AdRequestFlags::default(),
+            false,
+            make_placements(),
+        )
+        .unwrap();
+        let req_https = AdRequest::try_new(
+            Default::default(),
+            "same-id".to_string(),
+            Environment::Custom(Url::parse("https://example.com").unwrap()),
+            AdRequestFlags::default(),
+            false,
+            make_placements(),
+        )
+        .unwrap();
+
+        assert_ne!(RequestHash::new(&req_http), RequestHash::new(&req_https));
     }
 
     #[test]
