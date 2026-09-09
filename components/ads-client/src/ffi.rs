@@ -108,7 +108,6 @@ impl MozAdsClientBuilder {
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
-            context_id_provider: None,
             environment: inner.environment.clone().unwrap_or_default().into(),
             telemetry: telemetry.clone(),
             store_config: inner.store_config.clone().map(Into::into),
