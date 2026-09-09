@@ -110,8 +110,7 @@ pub(crate) struct JSONEngineBase {
     pub charset: Option<String>,
 
     /// The classification of search engine according to the main search types
-    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
-    /// a general search engine is supported.
+    /// (e.g. general, ai, and unknown).
     #[serde(default)]
     pub classification: SearchEngineClassification,
 
