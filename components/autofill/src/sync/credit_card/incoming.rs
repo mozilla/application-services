@@ -7,6 +7,7 @@ use super::CreditCardPayload;
 use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
+use crate::db::CounterUpdate;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
@@ -223,7 +224,15 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         new_record: Self::Record,
         flag_as_changed: bool,
     ) -> Result<()> {
-        update_internal_credit_card(tx, &new_record, flag_as_changed)?;
+        update_internal_credit_card(
+            tx,
+            &new_record,
+            if flag_as_changed {
+                CounterUpdate::Increment
+            } else {
+                CounterUpdate::Leave
+            },
+        )?;
         Ok(())
     }
 

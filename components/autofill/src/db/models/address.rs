@@ -6,6 +6,7 @@
 use super::Metadata;
 use rusqlite::Row;
 use sync_guid::Guid;
+use types::Timestamp;
 
 // UpdatableAddressFields contains the fields we support for creating a new
 // address or updating an existing one. It's missing the guid, our "internal"
@@ -162,9 +163,9 @@ impl InternalAddress {
             tel: row.get("tel")?,
             email: row.get("email")?,
             metadata: Metadata {
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
+                time_created: row.get::<_, Timestamp>("time_created")?.sanitized(),
+                time_last_used: row.get::<_, Timestamp>("time_last_used")?.sanitized(),
+                time_last_modified: row.get::<_, Timestamp>("time_last_modified")?.sanitized(),
                 times_used: row.get("times_used")?,
                 sync_change_counter: row.get("sync_change_counter")?,
             },

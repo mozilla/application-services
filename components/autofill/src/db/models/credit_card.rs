@@ -6,6 +6,7 @@
 use super::Metadata;
 use rusqlite::Row;
 use sync_guid::Guid;
+use types::Timestamp;
 
 #[derive(Debug, Clone, Default)]
 pub struct UpdatableCreditCardFields {
@@ -17,6 +18,58 @@ pub struct UpdatableCreditCardFields {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
+}
+
+/// Metadata fields managed internally by the library: the guid, timestamps and
+/// local sync state. These are automatically set on `add_credit_card` and
+/// updated on operations like `touch` and `update_credit_card`. Not included in
+/// `UpdatableCreditCardFields`; use `add_credit_card_with_meta` when importing
+/// records that already have metadata.
+#[derive(Debug, Clone, Default)]
+pub struct CreditCardMeta {
+    pub guid: String,
+    pub time_created: i64,
+    pub time_last_used: Option<i64>,
+    pub time_last_modified: i64,
+    pub times_used: i64,
+    /// Local changes not yet uploaded; 0 means it matches what was last synced.
+    pub sync_change_counter: i64,
+}
+
+/// A tombstone for a record deleted locally but not yet uploaded, supplied to
+/// `add_many_credit_card_tombstones` when migrating from another store.
+#[derive(Debug, Clone, Default)]
+pub struct CreditCardTombstone {
+    pub guid: String,
+    pub time_deleted: i64,
+}
+
+/// Per-record result of `add_many_credit_card_tombstones`.
+#[derive(Debug)]
+pub enum CreditCardBulkTombstoneResultEntry {
+    Success { guid: String },
+    Error { message: String },
+}
+
+/// A credit card together with its metadata, passed to
+/// `add_credit_card_with_meta` and `update_credit_card_with_meta` when importing
+/// a record from another store.
+#[derive(Debug, Clone, Default)]
+pub struct UpdatableCreditCardFieldsWithMeta {
+    pub fields: UpdatableCreditCardFields,
+    pub meta: CreditCardMeta,
+}
+
+/// A bulk insert result entry, returned per input record by
+/// `add_many_credit_cards_with_meta` so that one record failing does not abort
+/// the batch. Note that although the success case is much larger than the error
+/// case, this is negligible in real life, as we expect a very small
+/// success/error ratio.
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
+pub enum CreditCardBulkResultEntry {
+    Success { credit_card: CreditCard },
+    Error { message: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -91,9 +144,9 @@ impl InternalCreditCard {
             cc_exp_year: row.get("cc_exp_year")?,
             cc_type: row.get("cc_type")?,
             metadata: Metadata {
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
+                time_created: row.get::<_, Timestamp>("time_created")?.sanitized(),
+                time_last_used: row.get::<_, Timestamp>("time_last_used")?.sanitized(),
+                time_last_modified: row.get::<_, Timestamp>("time_last_modified")?.sanitized(),
                 times_used: row.get("times_used")?,
                 sync_change_counter: row.get("sync_change_counter")?,
             },

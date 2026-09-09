@@ -2,6 +2,11 @@
 
 ## ✨ What's Changed ✨
 
+### Autofill
+
+- Added credit card equivalents of the address bulk-import API, for applications migrating a credit card collection into this store: `add_credit_card_with_meta()`, `add_many_credit_cards_with_meta()`, `update_credit_card_with_meta()`, `add_many_credit_card_tombstones()` and `delete_all_credit_cards()`. These take the guid, timestamps and sync change counter from the caller, so a migrated record keeps the identity it already had. `cc_number_enc` is stored exactly as supplied and is not checked against the store's key, matching `add_credit_card()`. ([bug 2068982](https://bugzilla.mozilla.org/show_bug.cgi?id=2068982))
+- Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter the store: on the metadata an application supplies to the bulk-import APIs, on every read out of the local database, and on incoming sync payloads. This matches the treatment logins received in [bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257) and covers addresses, credit cards and passports. ([bug 2068982](https://bugzilla.mozilla.org/show_bug.cgi?id=2068982))
+
 ### Logins
 
 - Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter or leave the store: on the metadata an application supplies to `add_with_meta()`, on every read out of the local database, and on incoming sync payloads, similar to what Desktop does. ([bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257))
@@ -20,6 +25,13 @@
 - `shutdown` no longer requires a full `AdsClient` lock (at the cost of no longer shutting down the sqlite db), and telemetry is no longer cloned in the `MozAdsClientBuilder` functions.
 - Adds `AdsStore`, a durable sqlite structure for storing ads, which will allow for a stateful refactor of the ads-client.
 
+- Added `MozAdsEnvironment::Custom(url::Url)` and `Environment::Custom(url::Url)` variants for connecting to arbitrary MARS backend servers (used primarily in local development).
+
+### sql_support
+
+- All databases are initialized with `PRAGMA auto_vacuum=incremental`.
+  This avoids having to do a full vacuum on the first `sql_support::run_maintenance` call.
+  (https://bugzilla.mozilla.org/show_bug.cgi?id=2064759)
 
 # v156.0 (_2026-08-27_)
 

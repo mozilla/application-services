@@ -205,6 +205,33 @@ mod tests {
         }
     }
 
+    /// Passports have no with-meta import and no sync engine, so the read path
+    /// is their only untrusted timestamp surface - but a value already on disk
+    /// still has to be repaired rather than propagated.
+    #[test]
+    fn test_passport_from_row_sanitizes_corrupt_timestamps() -> Result<()> {
+        let db = new_mem_db();
+
+        let saved = add_passport(&db, sample_fields("Jane Doe", "X1234567"))?;
+        db.execute(
+            // Three shapes that are not representable dates: the u64-reinterpreted
+            // value from bug 2066257, a raw negative, and MAX_DATE_MS + 1.
+            "UPDATE passports_data
+             SET time_created = 18446744071857664,
+                 time_last_used = -1,
+                 time_last_modified = 8640000000000001
+             WHERE guid = :guid",
+            rusqlite::named_params! { ":guid": saved.guid },
+        )?;
+
+        let retrieved = get_passport(&db, &saved.guid)?;
+        assert_eq!(retrieved.metadata.time_created.as_millis(), 0);
+        assert_eq!(retrieved.metadata.time_last_used.as_millis(), 0);
+        assert_eq!(retrieved.metadata.time_last_modified.as_millis(), 0);
+
+        Ok(())
+    }
+
     #[test]
     fn test_passport_create_and_read() -> Result<()> {
         let db = new_mem_db();

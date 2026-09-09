@@ -77,7 +77,7 @@ where
         let mut ad_request = AdRequest::try_new(
             blocks,
             context_id,
-            self.environment,
+            self.environment.clone(),
             flags,
             ohttp,
             placements,
@@ -130,7 +130,7 @@ where
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
         let response = self.transport.send(
-            PreflightRequest(self.environment.into_url("ads-preflight")),
+            PreflightRequest(self.environment.clone().into_url("ads-preflight")),
             &CachePolicy::CacheFirst { ttl: None },
             false,
         )?;
