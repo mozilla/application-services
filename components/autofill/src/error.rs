@@ -81,6 +81,15 @@ pub enum Error {
     DatabaseClosed,
 }
 
+impl From<sql_support::path::Error> for Error {
+    fn from(e: sql_support::path::Error) -> Self {
+        match e {
+            sql_support::path::Error::IllegalDatabasePath(path) => Error::IllegalDatabasePath(path),
+            sql_support::path::Error::IoError(e) => Error::IoError(e),
+        }
+    }
+}
+
 // Define how our internal errors are handled and converted to external errors
 // See `support/error/README.md` for how this works, especially the warning about PII.
 impl GetErrorHandling for Error {

@@ -225,7 +225,6 @@ dependencies = [
  "thiserror 2.0.3",
  "types",
  "uniffi",
- "url",
 ]
 
 [[package]]
@@ -397,7 +396,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.3",
  "uniffi",
- "url",
 ]
 
 [[package]]
@@ -4157,11 +4155,13 @@ dependencies = [
  "error-support",
  "interrupt-support",
  "lazy_static",
+ "libc",
  "parking_lot",
  "rusqlite",
  "tempfile",
  "text-table",
  "thiserror 2.0.3",
+ "url",
 ]
 
 [[package]]

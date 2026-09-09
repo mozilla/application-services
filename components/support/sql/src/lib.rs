@@ -15,6 +15,7 @@ mod lazy;
 pub mod maintenance;
 mod maybe_cached;
 pub mod open_database;
+pub mod path;
 mod repeat;
 
 pub use conn_ext::*;
