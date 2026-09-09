@@ -140,7 +140,7 @@ impl MozAdsClientBuilder {
                 .clone()
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
-            environment: inner.environment.unwrap_or_default().into(),
+            environment: inner.environment.clone().unwrap_or_default().into(),
             telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
@@ -181,13 +181,14 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, uniffi::Enum, Eq, PartialEq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,
     Staging,
     #[cfg(test)]
     Test,
+    Custom(AdsClientUrl),
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -385,6 +386,7 @@ impl From<Environment> for MozAdsEnvironment {
             Environment::Staging => MozAdsEnvironment::Staging,
             #[cfg(test)]
             Environment::Test => MozAdsEnvironment::Test,
+            Environment::Custom(url) => MozAdsEnvironment::Custom(url),
         }
     }
 }
@@ -396,6 +398,7 @@ impl From<MozAdsEnvironment> for Environment {
             MozAdsEnvironment::Staging => Environment::Staging,
             #[cfg(test)]
             MozAdsEnvironment::Test => Environment::Test,
+            MozAdsEnvironment::Custom(url) => Environment::Custom(url),
         }
     }
 }
