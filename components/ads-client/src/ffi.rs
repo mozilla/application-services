@@ -141,11 +141,7 @@ impl MozAdsClientBuilder {
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
         MozAdsClient {
