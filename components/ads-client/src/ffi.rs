@@ -157,7 +157,7 @@ impl MozAdsClientBuilder {
         MozAdsClient {
             inner,
             shutdown_references,
-            _worker: worker
+            _worker: worker,
         }
     }
 

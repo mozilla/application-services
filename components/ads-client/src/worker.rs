@@ -42,7 +42,7 @@ impl AdsClientWorkerWrapper {
 
             Ok(())
         } else {
-            Err(BackgroundWorkerError::WorkerClosed.into())
+            Err(BackgroundWorkerError::Closed.into())
         }
     }
 }

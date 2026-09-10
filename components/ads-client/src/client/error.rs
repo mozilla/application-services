@@ -40,20 +40,20 @@ pub enum RequestAdsError {
 #[derive(Debug, thiserror::Error)]
 pub enum BackgroundWorkerError {
     #[error("Error requesting new ads from the background worker: worker closed")]
-    WorkerClosed,
+    Closed,
 
     #[error("Error requesting new ads from the background worker: worker full")]
-    WorkerFull,
+    Full,
 
-    #[error("Worker timed out waiting for response: {0}")]
-    WorkerTimedOut(#[from] RecvTimeoutError),
+    #[error("Background worker timed out waiting for response: {0}")]
+    TimedOut(#[from] RecvTimeoutError),
 }
 
 impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
     fn from(value: TrySendError<command::DispatchCommand>) -> Self {
         match value {
-            TrySendError::Disconnected(_) => BackgroundWorkerError::WorkerClosed,
-            TrySendError::Full(_) => BackgroundWorkerError::WorkerFull,
+            TrySendError::Disconnected(_) => BackgroundWorkerError::Closed,
+            TrySendError::Full(_) => BackgroundWorkerError::Full,
         }
     }
 }

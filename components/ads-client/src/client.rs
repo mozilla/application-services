@@ -123,9 +123,10 @@ where
         let ads_store = self.ads_store.lock();
         if let Some(ads_store) = ads_store.as_ref() {
             ads_store.store_ads(ads)?;
+            Ok(())
+        } else {
+            Err(FetchAdsError::SqliteShutdown)
         }
-        // TODO: Should we error if no ads store?
-        Ok(())
     }
 
     pub fn get_cached_ad(
@@ -136,8 +137,7 @@ where
         if let Some(ads_store) = ads_store.as_ref() {
             Ok(ads_store.lookup(placement_id)?)
         } else {
-            // TODO: Should we error if no ads store?
-            Ok(None)
+            Err(FetchAdsError::SqliteShutdown)
         }
     }
 

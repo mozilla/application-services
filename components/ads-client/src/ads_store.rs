@@ -49,33 +49,6 @@ pub enum StorableAd {
     Tile(AdTile),
 }
 
-impl StorableAd {
-    // TODO: Should these be result?
-    pub fn into_image(self) -> Option<AdImage> {
-        if let StorableAd::Image(image) = self {
-            Some(image)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_spocs(self) -> Option<Vec<AdSpoc>> {
-        if let StorableAd::Spoc(spocs) = self {
-            Some(spocs)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_tile(self) -> Option<AdTile> {
-        if let StorableAd::Tile(tile) = self {
-            Some(tile)
-        } else {
-            None
-        }
-    }
-}
-
 pub struct AdsStore {
     holder: AdsStoreHolder,
     #[allow(dead_code)]
