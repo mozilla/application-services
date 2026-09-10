@@ -4,7 +4,7 @@ use error_support::handle_error;
 
 use crate::{
     ads_store::StorableAd,
-    client::error::{BackgroundWorkerError, ComponentError, RequestAdsError},
+    client::error::{ComponentError, RequestAdsError},
     http_cache::CachePolicy,
     mars::ad_request::AdPlacementRequest,
     AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
@@ -12,8 +12,6 @@ use crate::{
 
 // Command dispatch enum for passing different instructions to the background worker thread.
 // `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
-// `RecordClick`, `RecordImpression`, `ReportAd` are fire and forget mechanisms that do not load data.
-// `Ping` is a synchronous command for internal use that triggers its inner channel when command resolves (eg: when the queue is empty).
 pub enum DispatchCommand {
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
@@ -36,7 +34,6 @@ pub enum DispatchCommand {
         flags: HashMap<String, bool>,
         blocks: Vec<String>,
     },
-    Ping(SyncSender<()>),
 }
 
 impl DispatchCommand {
@@ -80,7 +77,6 @@ impl DispatchCommand {
                 }
                 Ok(())
             }
-            // TODO: Can we modify these to be one call?
             DispatchCommand::RequestSpocAds {
                 spoc_ad_requests,
                 cache_policy,
@@ -141,12 +137,6 @@ impl DispatchCommand {
                         )
                         .map_err(RequestAdsError::from)?;
                 }
-                Ok(())
-            }
-            DispatchCommand::Ping(sender) => {
-                sender
-                    .try_send(())
-                    .map_err(|err| BackgroundWorkerError::PongFailure(Box::new(err)))?;
                 Ok(())
             }
         }

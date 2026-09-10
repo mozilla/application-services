@@ -191,21 +191,4 @@ impl MozAdsClient {
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
-
-    // Pings the background worker and waits for a response back, for use in tests.
-    // Because the background worker is synchronous, this returns if the worker is empty,
-    // making it useful for integration tests to wait until all tasks have completed.
-    #[handle_error(ComponentError)]
-    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
-        let (tx, rx) = mpsc::sync_channel(0);
-        self.worker.dispatch(DispatchCommand::Ping(tx))?;
-
-        if let Some(timeout) = timeout {
-            rx.recv_timeout(timeout)
-                .map_err(BackgroundWorkerError::from)?;
-        } else {
-            rx.recv().map_err(|_| BackgroundWorkerError::WorkerClosed)?;
-        }
-        Ok(())
-    }
 }
