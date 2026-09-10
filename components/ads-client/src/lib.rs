@@ -5,8 +5,7 @@
 
 use std::{
     collections::HashMap,
-    sync::{mpsc, Arc},
-    time::Duration,
+    sync::Arc,
 };
 
 use client::error::ComponentError;
@@ -31,10 +30,9 @@ pub mod worker;
 pub use ffi::*;
 
 use crate::{
-    client::error::BackgroundWorkerError,
     ffi::telemetry::MozAdsTelemetryWrapper,
     shutdown::ShutdownReferences,
-    worker::{command::DispatchCommand, AdsClientWorkerWrapper},
+    worker::AdsClientWorkerWrapper,
 };
 
 #[cfg(test)]
@@ -53,7 +51,7 @@ pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 pub struct MozAdsClient {
     inner: MozAdsClientInner,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
-    worker: AdsClientWorkerWrapper,
+    _worker: AdsClientWorkerWrapper,
 }
 
 #[uniffi::export]

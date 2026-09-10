@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::mpsc::SyncSender};
+use std::collections::HashMap;
 
 use error_support::handle_error;
 
@@ -39,10 +39,6 @@ pub enum DispatchCommand {
 impl DispatchCommand {
     // Runs a dispatched command synchronously in it's thread.
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
-    // This includes telemetry calls, meaning that for a successful `RecordClick`, all of the following will get logged:
-    // - CommandDispatchedOperationEvent::RecordClick  (on dispatch)
-    // - ClientOperationEvent::RecordClick (on `AdsClient` method success)
-    // - CommandProcessedOperationEvent::RecordClick (on process)
     #[handle_error(ComponentError)]
     pub fn run_command(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
         match self {
