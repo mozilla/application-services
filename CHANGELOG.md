@@ -12,6 +12,7 @@
 
 ### Autofill
 
+- Credit-card numbers are now stored as an encrypted JSON blob with room for a CVV, rather than the bare number. The v6 schema upgrade rewrites existing rows in place without touching sync metadata; opening the database with an older build now fails rather than reading a blob as a card number.
 - `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
 
 ### Ads-Client

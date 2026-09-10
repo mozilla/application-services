@@ -2,11 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::db::models::credit_card::SecureCreditCardFields;
 use crate::db::sql_fns;
+use crate::encryption::EncryptorDecryptor;
 use crate::sync::address::name_utils::{join_name_parts, NameParts};
 use error_support::debug;
 use rusqlite::{functions::FunctionFlags, Connection, Transaction};
 use sql_support::open_database::{ConnectionInitializer, Error, Result};
+use std::sync::Arc;
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
@@ -104,11 +107,13 @@ const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_sch
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
 const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
 
-pub struct AutofillConnectionInitializer;
+pub struct AutofillConnectionInitializer {
+    pub(crate) encdec: Arc<dyn EncryptorDecryptor>,
+}
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 5;
+    const END_VERSION: u32 = 6;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -139,6 +144,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             2 => upgrade_from_v2(db),
             3 => upgrade_from_v3(db),
             4 => upgrade_from_v4(db),
+            5 => upgrade_from_v5(db, self.encdec.as_ref()),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -279,6 +285,33 @@ fn upgrade_from_v4(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn upgrade_from_v5(db: &Connection, encdec: &dyn EncryptorDecryptor) -> Result<()> {
+    // Rewrite bare-number ciphertexts as encrypted `SecureCreditCardFields`
+    // blobs. Empty ciphertext marks scrubbed data waiting to be replaced from
+    // Sync, so it stays empty. A row the key cannot read is left alone: it is
+    // unreadable either way, and the scrub flow replaces it from Sync.
+    let rows = db
+        .prepare("SELECT guid, cc_number_enc FROM credit_cards_data WHERE cc_number_enc != ''")?
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    for (guid, old_ciphertext) in rows {
+        let Ok(fields) = SecureCreditCardFields::decrypt(&old_ciphertext, encdec, &guid) else {
+            continue;
+        };
+        let Ok(new_ciphertext) = fields.encrypt(encdec, &guid) else {
+            continue;
+        };
+        db.execute(
+            "UPDATE credit_cards_data SET cc_number_enc = ? WHERE guid = ?",
+            (&new_ciphertext, &guid),
+        )?;
+    }
+    Ok(())
+}
+
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -296,6 +329,12 @@ mod tests {
     use sync_guid::Guid;
     use types::Timestamp;
 
+    fn initializer() -> AutofillConnectionInitializer {
+        AutofillConnectionInitializer {
+            encdec: crate::db::test::test_encdec(),
+        }
+    }
+
     const CREATE_V0_DB: &str = include_str!("../../sql/tests/create_v0_db.sql");
     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
     const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
@@ -305,7 +344,7 @@ mod tests {
     #[test]
     fn test_wal_size_is_bounded() {
         // A memory database has no -wal file, so open a real one.
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, "");
+        let db_file = MigratedDatabaseFile::new(initializer(), "");
         let db = AutofillDb::new(&db_file.path, crate::db::test::test_encdec())
             .expect("should open the database");
 
@@ -343,7 +382,7 @@ mod tests {
     #[test]
     fn test_all_upgrades() {
         // Let's start with v1, since the v0 upgrade deletes data
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V1_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V1_DB);
         db_file.run_all_upgrades();
         let conn = db_file.open();
 
@@ -382,8 +421,76 @@ mod tests {
     }
 
     #[test]
+    fn test_upgrade_version_5() {
+        use crate::db::credit_cards::add_credit_card;
+        use crate::db::models::credit_card::UpdatableCreditCardFields;
+        use crate::encryption::{decrypt_str, encrypt_str};
+
+        let encdec = crate::db::test::test_encdec();
+        let foreign_encdec = crate::db::test::test_encdec();
+        // Hold this connection open so the shared-memory database survives
+        // until the second open below runs the upgrade.
+        let db = AutofillDb::new_memory("schema-upgrade-v5", encdec.clone()).unwrap();
+
+        let card = |cc_number_enc: &str, last_4: &str| UpdatableCreditCardFields {
+            cc_name: "jane doe".to_string(),
+            cc_number_enc: cc_number_enc.to_string(),
+            cc_number_last_4: last_4.to_string(),
+            cc_exp_month: 9,
+            cc_exp_year: 2027,
+            cc_type: "visa".to_string(),
+        };
+        let legacy = add_credit_card(
+            &db,
+            card(
+                &encrypt_str(encdec.as_ref(), "4111111111117629").unwrap(),
+                "7629",
+            ),
+        )
+        .unwrap();
+        let scrubbed = add_credit_card(&db, card("", "5559")).unwrap();
+        let foreign = add_credit_card(
+            &db,
+            card(
+                &encrypt_str(foreign_encdec.as_ref(), "2345678923456789").unwrap(),
+                "6789",
+            ),
+        )
+        .unwrap();
+        db.execute_batch("PRAGMA user_version = 5").unwrap();
+
+        let upgraded = AutofillDb::new_memory("schema-upgrade-v5", encdec.clone()).unwrap();
+
+        let stored = get_credit_card(&upgraded, &legacy.guid).unwrap();
+        assert_ne!(stored.cc_number_enc, legacy.cc_number_enc);
+        assert_eq!(
+            decrypt_str(encdec.as_ref(), &stored.cc_number_enc).unwrap(),
+            r#"{"cc_number":"4111111111117629"}"#,
+            "the on-disk format is what SecureCreditCardFields serializes to"
+        );
+        assert_eq!(
+            stored.metadata, legacy.metadata,
+            "a re-encryption is not a user edit - bumping the change counter uploads every card"
+        );
+
+        assert_eq!(
+            get_credit_card(&upgraded, &scrubbed.guid)
+                .unwrap()
+                .cc_number_enc,
+            ""
+        );
+        assert_eq!(
+            get_credit_card(&upgraded, &foreign.guid)
+                .unwrap()
+                .cc_number_enc,
+            foreign.cc_number_enc,
+            "an unreadable row survives untouched"
+        );
+    }
+
+    #[test]
     fn test_upgrade_version_0() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V0_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V0_DB);
         // Just to test what we think we are testing, select a field that
         // doesn't exist now but will after we recreate the table.
         let select_cc_number_enc = "SELECT cc_number_enc from credit_cards_data";
@@ -402,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_1() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V1_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V1_DB);
 
         db_file.upgrade_to(2);
         let db = db_file.open();
@@ -416,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_2() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V2_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V2_DB);
         let db = db_file.open();
 
         db.execute_batch("SELECT name from addresses_data")
@@ -452,7 +559,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_3() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V3_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V3_DB);
         let db = db_file.open();
 
         // Assert that the existing addresses have the fully qualified address_level1 name.
@@ -480,7 +587,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_4() {
-        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V4_DB);
+        let db_file = MigratedDatabaseFile::new(initializer(), CREATE_V4_DB);
         let db = db_file.open();
 
         // passports_data must not exist yet at v4.
