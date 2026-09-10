@@ -976,7 +976,7 @@ dependencies = [
  "nss-as",
  "parking_lot",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
  "uniffi",
 ]
 
