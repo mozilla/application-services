@@ -27,6 +27,13 @@ impl AdsClientWorkerWrapper {
         }
     }
 
+    pub fn new_empty() -> AdsClientWorkerWrapper {
+        AdsClientWorkerWrapper {
+            _worker_thread: None,
+            worker_dispatch: None,
+        }
+    }
+
     pub fn dispatch(&self, command: DispatchCommand) -> Result<(), ComponentError> {
         if let Some(worker_dispatch) = &self.worker_dispatch {
             worker_dispatch

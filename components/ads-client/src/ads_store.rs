@@ -106,7 +106,6 @@ impl AdsStore {
     }
 
     pub fn store_ads(&self, ads: HashMap<PlacementId, StorableAd>) -> Result<(), FetchAdsError> {
-        // TODO: The query can be rewritten to have multiple ads inserted in one
         for (placement_id, ad) in ads {
             self.holder.store_ad(&placement_id, ad)?;
         }

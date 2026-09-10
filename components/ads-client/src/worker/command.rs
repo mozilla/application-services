@@ -1,13 +1,12 @@
 use std::{collections::HashMap, sync::mpsc::SyncSender};
 
 use error_support::handle_error;
-use url::Url;
 
 use crate::{
     ads_store::StorableAd,
     client::error::{BackgroundWorkerError, ComponentError, RequestAdsError},
     http_cache::CachePolicy,
-    mars::{ad_request::AdPlacementRequest, ReportReason},
+    mars::ad_request::AdPlacementRequest,
     AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
 
@@ -36,19 +35,6 @@ pub enum DispatchCommand {
         ohttp: bool,
         flags: HashMap<String, bool>,
         blocks: Vec<String>,
-    },
-    RecordClick {
-        url: Url,
-        ohttp: bool,
-    },
-    RecordImpression {
-        url: Url,
-        ohttp: bool,
-    },
-    ReportAd {
-        url: Url,
-        reason: ReportReason,
-        ohttp: bool,
     },
     Ping(SyncSender<()>),
 }
@@ -83,7 +69,6 @@ impl DispatchCommand {
                             blocks,
                         )
                         .map_err(ComponentError::RequestAds)?;
-                    // TODO: Bulk insert
                     inner
                         .cache_ads(
                             image_response
@@ -156,27 +141,6 @@ impl DispatchCommand {
                         )
                         .map_err(RequestAdsError::from)?;
                 }
-                Ok(())
-            }
-            DispatchCommand::RecordClick { url, ohttp } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_click(url, ohttp)
-                    .map_err(ComponentError::RecordClick)?;
-                Ok(())
-            }
-            DispatchCommand::RecordImpression { url, ohttp } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .record_impression(url, ohttp)
-                    .map_err(ComponentError::RecordImpression)?;
-                Ok(())
-            }
-            DispatchCommand::ReportAd { url, ohttp, reason } => {
-                let inner = ads_client_inner.lock();
-                inner
-                    .report_ad(url, reason, ohttp)
-                    .map_err(ComponentError::ReportAd)?;
                 Ok(())
             }
             DispatchCommand::Ping(sender) => {

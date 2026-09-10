@@ -134,6 +134,7 @@ impl MozAdsClientBuilder {
             .take()
             .map(MozAdsTelemetryWrapper::new)
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
+        let store_set = inner.store_config.is_some();
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -148,7 +149,11 @@ impl MozAdsClientBuilder {
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
         let inner = Arc::new(Mutex::new(client));
-        let worker = worker::AdsClientWorkerWrapper::new(inner.clone());
+        let worker = if store_set {
+            worker::AdsClientWorkerWrapper::new(inner.clone())
+        } else {
+            worker::AdsClientWorkerWrapper::new_empty()
+        };
         MozAdsClient {
             inner,
             shutdown_references,
