@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::ads_store::AdsStore;
+use crate::ads_store::{AdsStore, PlacementId, StorableAd};
 use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
+use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::shutdown::{AdsStoreShutdown, ShutdownReferences};
 use crate::telemetry::Telemetry;
@@ -114,6 +114,31 @@ where
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         self.client.clear_cache()
+    }
+
+    pub fn cache_ads(
+        &mut self,
+        ads: HashMap<PlacementId, StorableAd>,
+    ) -> Result<(), FetchAdsError> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            ads_store.store_ads(ads)?;
+        }
+        // TODO: Should we error if no ads store?
+        Ok(())
+    }
+
+    pub fn get_cached_ad(
+        &self,
+        placement_id: &PlacementId,
+    ) -> Result<Option<StorableAd>, FetchAdsError> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            Ok(ads_store.lookup(placement_id)?)
+        } else {
+            // TODO: Should we error if no ads store?
+            Ok(None)
+        }
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
