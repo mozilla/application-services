@@ -51,7 +51,9 @@ impl AutofillDb {
         let conn = open_database::open_database_with_flags(
             db_path,
             flags,
-            &schema::AutofillConnectionInitializer,
+            &schema::AutofillConnectionInitializer {
+                encdec: encdec.clone(),
+            },
         )?;
 
         Ok(Self {
