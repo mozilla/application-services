@@ -31,8 +31,7 @@ pub mod worker;
 pub use ffi::*;
 
 use crate::{
-    ads_store::{PlacementId, StorableAd},
-    client::error::{BackgroundWorkerError, RequestAdsError},
+    client::error::BackgroundWorkerError,
     ffi::telemetry::MozAdsTelemetryWrapper,
     shutdown::ShutdownReferences,
     worker::{command::DispatchCommand, AdsClientWorkerWrapper},
@@ -48,7 +47,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
     try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
     lower: |obj| obj.as_str().to_string(),
 });
-uniffi::custom_type!(PlacementId, String);
 
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 #[derive(uniffi::Object)]
@@ -192,102 +190,6 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
-    }
-
-    // TODO: Can we make this one request?
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(image_ad_requests = [], spoc_ad_requests = [], tile_ad_requests = [], options = None))]
-    pub fn prefetch_ads(
-        &self,
-        image_ad_requests: Vec<MozAdsPlacementRequest>,
-        spoc_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
-        tile_ad_requests: Vec<MozAdsPlacementRequest>,
-        options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<()> {
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let blocks = options.blocks.clone();
-        let cache_policy: CachePolicy = options.into();
-
-        // Dispatch image requests
-        if !image_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestImageAds {
-                image_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-        // Dispatch spoc requests
-        if !spoc_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestSpocAds {
-                spoc_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-
-        // Dispatch tiles requests
-        if !tile_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestTileAds {
-                tile_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-
-        Ok(())
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method()]
-    pub fn query_image_ads(
-        &self,
-        placement_id: PlacementId,
-    ) -> AdsClientApiResult<Option<MozAdsImage>> {
-        let inner = self.inner.lock();
-        let image_ad: Option<StorableAd> = inner
-            .get_cached_ad(&placement_id)
-            .map_err(RequestAdsError::from)?;
-        Ok(image_ad
-            .and_then(|ad| ad.into_image())
-            .map(|ad| ad.clone().into()))
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method()]
-    pub fn query_spoc_ads(
-        &self,
-        placement_id: PlacementId,
-    ) -> AdsClientApiResult<Option<Vec<MozAdsSpoc>>> {
-        let inner = self.inner.lock();
-        let spoc_ads: Option<StorableAd> = inner
-            .get_cached_ad(&placement_id)
-            .map_err(RequestAdsError::from)?;
-        Ok(spoc_ads
-            .and_then(|ad| ad.into_spocs())
-            .map(|ad| ad.clone().into_iter().map(|x| x.into()).collect()))
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method()]
-    pub fn query_tile_ads(
-        &self,
-        placement_id: PlacementId,
-    ) -> AdsClientApiResult<Option<MozAdsTile>> {
-        let inner = self.inner.lock();
-        let tile_ad: Option<StorableAd> = inner
-            .get_cached_ad(&placement_id)
-            .map_err(RequestAdsError::from)?;
-        Ok(tile_ad
-            .and_then(|ad| ad.into_tile())
-            .map(|ad| ad.clone().into()))
     }
 
     // Pings the background worker and waits for a response back, for use in tests.
