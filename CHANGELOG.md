@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Glean
+- Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
+
 # v157.0 (_2026-09-10_)
 
 ## ✨ What's Changed ✨
