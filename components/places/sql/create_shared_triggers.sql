@@ -184,7 +184,7 @@ BEGIN
         OLD.rev_host,
         MAX(OLD.frecency, 0)
     )
-    ON CONFLICT(prefix, host) DO UPDATE
+    ON CONFLICT(host, prefix) DO UPDATE
         SET frecency = frecency + OLD.frecency
         WHERE OLD.frecency > 0;
 
@@ -211,7 +211,7 @@ BEGIN
         get_host_and_port(OLD.url),
         -MAX(OLD.frecency, 0)
     )
-    ON CONFLICT(prefix, host) DO UPDATE
+    ON CONFLICT(host, prefix) DO UPDATE
     SET frecency_delta = frecency_delta - OLD.frecency
     WHERE OLD.frecency > 0;
 END;
@@ -250,7 +250,7 @@ BEGIN
         get_host_and_port(NEW.url),
         MAX(NEW.frecency, 0) - MAX(OLD.frecency, 0)
     )
-    ON CONFLICT(prefix, host) DO UPDATE
+    ON CONFLICT(host, prefix) DO UPDATE
     SET frecency_delta = frecency_delta + EXCLUDED.frecency_delta;
 END;
 
