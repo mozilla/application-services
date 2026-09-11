@@ -135,6 +135,10 @@ impl MozAdsClientBuilder {
             .map(MozAdsTelemetryWrapper::new)
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         let store_set = inner.store_config.is_some();
+        let worker_buffer_size = inner
+            .store_config
+            .as_ref()
+            .and_then(|x| x.worker_buffer_size);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -150,7 +154,7 @@ impl MozAdsClientBuilder {
         let shutdown_references = client.shutdown_references();
         let inner = Arc::new(Mutex::new(client));
         let worker = if store_set {
-            worker::AdsClientWorkerWrapper::new(inner.clone())
+            worker::AdsClientWorkerWrapper::new(inner.clone(), worker_buffer_size)
         } else {
             worker::AdsClientWorkerWrapper::new_empty()
         };
@@ -219,6 +223,7 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
+    pub worker_buffer_size: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]

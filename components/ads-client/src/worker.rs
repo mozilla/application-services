@@ -10,7 +10,8 @@ use std::{
 
 pub mod command;
 
-pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE: usize = 1000;
+// This is a somewhat arbitrary default value that is overridable. 
+pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT: usize = 10000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
 pub struct AdsClientWorkerWrapper {
@@ -19,8 +20,13 @@ pub struct AdsClientWorkerWrapper {
 }
 
 impl AdsClientWorkerWrapper {
-    pub fn new(inner: MozAdsClientInner) -> AdsClientWorkerWrapper {
-        let (worker_dispatch, worker_thread) = Option::unzip(build_worker_thread(inner.clone()));
+    pub fn new(
+        inner: MozAdsClientInner,
+        worker_buffer_size: Option<u32>,
+    ) -> AdsClientWorkerWrapper {
+        let worker_buffer_size = worker_buffer_size.and_then(|x| usize::try_from(x).ok());
+        let (worker_dispatch, worker_thread) =
+            Option::unzip(build_worker_thread(inner.clone(), worker_buffer_size));
         AdsClientWorkerWrapper {
             _worker_thread: worker_thread,
             worker_dispatch,
@@ -51,8 +57,11 @@ impl AdsClientWorkerWrapper {
 // Returns None if thread fails to build.
 pub fn build_worker_thread(
     inner_client: MozAdsClientInner,
+    max_channel_size: Option<usize>,
 ) -> Option<(SyncSender<DispatchCommand>, JoinHandle<()>)> {
-    let (tx, rx) = mpsc::sync_channel(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE);
+    let (tx, rx) = mpsc::sync_channel(
+        max_channel_size.unwrap_or(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT),
+    );
     let worker_thread_handle = std::thread::Builder::new()
         .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
         .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
