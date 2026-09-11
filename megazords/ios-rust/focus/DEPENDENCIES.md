@@ -40,6 +40,7 @@ the details of which are reproduced below.
 * [Zlib License: foldhash](#zlib-license-foldhash)
 * [Unicode-3.0 License: icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locale-icu_locale_core-icu_locale_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_segmenter-icu_segmenter_data-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
+* [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 * [(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident](#(mit-or-apache-20)-and-unicode-30-license-unicode-ident)
 -------------
 ## Mozilla Public License 2.0
@@ -444,6 +445,7 @@ The following text applies to code linked from these dependencies:
 [askama_parser](https://github.com/askama-rs/askama),
 [async-trait](https://github.com/dtolnay/async-trait),
 [autocfg](https://github.com/cuviper/autocfg),
+[base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
 [bhttp](https://github.com/martinthomson/ohttp),
 [bitflags](https://github.com/bitflags/bitflags),
@@ -494,6 +496,7 @@ The following text applies to code linked from these dependencies:
 [idna_adapter](https://github.com/hsivonen/idna_adapter),
 [indexmap](https://github.com/indexmap-rs/indexmap),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
+[ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
@@ -502,10 +505,10 @@ The following text applies to code linked from these dependencies:
 [libm](https://github.com/rust-lang/libm),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
+[mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [num-traits](https://github.com/rust-num/num-traits),
-[num_cpus](https://github.com/seanmonstar/num_cpus),
 [ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
@@ -521,9 +524,11 @@ The following text applies to code linked from these dependencies:
 [regex-automata](https://github.com/rust-lang/regex/tree/master/regex-automata),
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
+[reqwest](https://github.com/seanmonstar/reqwest),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
+[rustls-pemfile](https://github.com/rustls/pemfile),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
@@ -534,6 +539,7 @@ The following text applies to code linked from these dependencies:
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_spanned](https://github.com/toml-rs/toml),
+[serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
 [shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
@@ -542,6 +548,7 @@ The following text applies to code linked from these dependencies:
 [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
+[sync_wrapper](https://github.com/Actyx/sync_wrapper),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
@@ -1399,31 +1406,27 @@ The following text applies to code linked from these dependencies:
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
-Copyright (c) 2023 Tokio Contributors
+MIT License
 
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
+Copyright (c) Tokio Contributors
 
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------
@@ -1821,6 +1824,32 @@ The following text applies to code linked from these dependencies:
 
 ```
 This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
+```
+-------------
+## (Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs
+
+The following text applies to code linked from these dependencies:
+[encoding_rs](https://github.com/hsivonen/encoding_rs)
+
+```
+encoding_rs is copyright Mozilla Foundation.
+
+Licensed under the Apache License, Version 2.0
+<LICENSE-APACHE or
+https://www.apache.org/licenses/LICENSE-2.0> or the MIT
+license <LICENSE-MIT or https://opensource.org/licenses/MIT>,
+at your option. All files in the project carrying such
+notice may not be copied, modified, or distributed except
+according to those terms.
+
+This crate includes data derived from the data files supplied
+with the WHATWG Encoding Standard, which, when incorporated into
+source code, are licensed under the BSD 3-Clause License
+<LICENSE-WHATWG>.
+
+Test code within encoding_rs is dedicated to the Public Domain when so
+designated (see the individual files for PD/CC0-dedicated sections).
+
 ```
 -------------
 ## (MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident

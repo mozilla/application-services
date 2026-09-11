@@ -88,7 +88,7 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 
     let cli = Cli::parse();
 

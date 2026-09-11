@@ -231,6 +231,13 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "LICENSE-APACHE",
         },
     },
+    "rustls-pemfile": {
+        "license": {"check": "Apache-2.0 OR ISC OR MIT"},
+        "license_file": {
+            "check": None,
+            "fixup": "LICENSE-APACHE",
+        },
+    },
     "siphasher": {
         "license": {"check": "MIT/Apache-2.0"},
         "license_file": {
@@ -974,6 +981,20 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-apache-2.0",
         },
     },
+    # It's not clear why we need these overrides, but these links are correct so hopefully this is
+    # okay.  This is very messy, but it will go away once we move to the monorepo.
+    "system-configuration": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mullvad/system-configuration-rs/refs/tags/v0.5.1/system-configuration/Cargo.toml",
+        },
+    },
+    "system-configuration-sys": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mullvad/system-configuration-rs/refs/tags/v0.5.1/system-configuration/Cargo.toml",
+        },
+    },
 }
 
 # Sets of common licence file names, by license type.
@@ -1269,6 +1290,7 @@ class WorkspaceMetadata:
             err += f"Potential license files: {foundLicenseFiles}"
         else:
             err = "Could not find license file for '{}'.\n".format(pkgInfo["name"])
+            err += f"{repr(pkgInfo)}"
             err += "Please locate the correct license file and add it to `PACKAGE_METADATA_FIXUPS`.\n"
             err += "You may need to poke around in the source repository at {}".format(
                 pkgInfo["repository"]
