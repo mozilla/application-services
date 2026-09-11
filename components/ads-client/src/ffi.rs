@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
 
-use crate::client::config::{AdsCacheConfig, AdsClientConfig, AdsStoreConfig};
+use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::{AdsClient, ContextIdProvider};
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
@@ -22,8 +22,8 @@ use crate::mars::ad_response::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-use crate::AdsClientUrl;
 use crate::MozAdsClient;
+use crate::{AdsClientUrl, ShutdownReferences};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -110,7 +110,6 @@ struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
     context_id_provider: Option<Arc<dyn MozAdsContextIdProvider>>,
     environment: Option<MozAdsEnvironment>,
-    store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
@@ -141,25 +140,18 @@ impl MozAdsClientBuilder {
                 .clone()
                 .map(MozAdsContextIdProviderWrapper::new)
                 .map(Into::into),
-            environment: inner.environment.clone().unwrap_or_default().into(),
+            environment: inner.environment.unwrap_or_default().into(),
             telemetry: telemetry.clone(),
-            store_config: inner.store_config.clone().map(Into::into),
         };
         let client = AdsClient::new(client_config);
-        let shutdown_references = client.shutdown_references();
         MozAdsClient {
             inner: Mutex::new(client),
-            shutdown_references,
+            shutdown_references: ShutdownReferences::new(telemetry),
         }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
         self.0.lock().cache_config = Some(cache_config);
-        self
-    }
-
-    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
-        self.0.lock().store_config = Some(store_config);
         self
     }
 
@@ -189,14 +181,13 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,
     Staging,
     #[cfg(test)]
     Test,
-    Custom(AdsClientUrl),
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -206,11 +197,6 @@ pub struct MozAdsCacheConfig {
     pub default_cache_ttl_seconds: Option<u64>,
     #[uniffi(default = None)]
     pub max_size_mib: Option<u64>,
-}
-
-#[derive(Clone, uniffi::Record)]
-pub struct MozAdsStoreConfig {
-    pub db_path: String,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -399,7 +385,6 @@ impl From<Environment> for MozAdsEnvironment {
             Environment::Staging => MozAdsEnvironment::Staging,
             #[cfg(test)]
             Environment::Test => MozAdsEnvironment::Test,
-            Environment::Custom(url) => MozAdsEnvironment::Custom(url),
         }
     }
 }
@@ -411,7 +396,6 @@ impl From<MozAdsEnvironment> for Environment {
             MozAdsEnvironment::Staging => Environment::Staging,
             #[cfg(test)]
             MozAdsEnvironment::Test => Environment::Test,
-            MozAdsEnvironment::Custom(url) => Environment::Custom(url),
         }
     }
 }
@@ -477,14 +461,6 @@ impl From<MozAdsCacheConfig> for AdsCacheConfig {
             db_path: config.db_path,
             default_cache_ttl_seconds: config.default_cache_ttl_seconds,
             max_size_mib: config.max_size_mib,
-        }
-    }
-}
-
-impl From<MozAdsStoreConfig> for AdsStoreConfig {
-    fn from(config: MozAdsStoreConfig) -> Self {
-        Self {
-            db_path: config.db_path,
         }
     }
 }

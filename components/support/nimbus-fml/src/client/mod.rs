@@ -13,6 +13,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "uniffi-bindings")] {
     use crate::{editing::{CorrectionCandidate, CursorPosition, CursorSpan}, frontend::DocumentationLink};
     use url::Url;
+    use std::str::FromStr;
     use descriptor::FmlFeatureDescriptor;
     use inspector::{FmlEditorError, FmlFeatureExample, FmlFeatureInspector};
     }
@@ -145,6 +146,29 @@ impl FmlClient {
 }
 
 pub(crate) type JsonObject = serde_json::Map<String, serde_json::Value>;
+
+#[cfg(feature = "uniffi-bindings")]
+uniffi::custom_type!(JsonObject, String, {
+    remote,
+    try_lift: |val| {
+        let json: serde_json::Value = serde_json::from_str(&val)?;
+
+        match json.as_object() {
+            Some(obj) => Ok(obj.to_owned()),
+            _ => Err(uniffi::deps::anyhow::anyhow!(
+                "Unexpected JSON-non-object in the bagging area"
+            )),
+        }
+    },
+    lower: |obj| serde_json::Value::Object(obj).to_string(),
+});
+
+#[cfg(feature = "uniffi-bindings")]
+uniffi::custom_type!(Url, String, {
+    remote,
+    try_lift: |val| Ok(Self::from_str(&val)?),
+    lower: |obj| obj.as_str().to_string(),
+});
 
 #[cfg(feature = "uniffi-bindings")]
 uniffi::include_scaffolding!("fml");

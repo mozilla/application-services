@@ -11,14 +11,13 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> = Lazy::new(|| url!("https://ads.mozill
 
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> = Lazy::new(|| url!("https://ads.allizom.org/v1/"));
 
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Environment {
     #[default]
     Prod,
     Staging,
     #[cfg(test)]
     Test,
-    Custom(Url),
 }
 
 impl Environment {
@@ -37,7 +36,6 @@ impl Environment {
             Environment::Staging => MARS_API_ENDPOINT_STAGING.clone(),
             #[cfg(test)]
             Environment::Test => Url::parse(&mockito::server_url()).unwrap(),
-            Environment::Custom(url) => url,
         }
     }
 }

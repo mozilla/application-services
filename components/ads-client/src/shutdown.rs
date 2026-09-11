@@ -1,54 +1,24 @@
-use std::sync::Arc;
+use crate::{ffi::telemetry::MozAdsTelemetryWrapper, telemetry::Telemetry};
 
-use parking_lot::Mutex;
-
-use crate::{ads_store::AdsStore, telemetry::Telemetry};
-
-pub struct ShutdownReferences<T: Telemetry> {
-    ads_cache_shutdown: AdsStoreShutdown,
-    telemetry: T,
+pub struct ShutdownReferences {
+    telemetry: MozAdsTelemetryWrapper,
 }
 
-impl<T: Telemetry> ShutdownReferences<T> {
-    pub fn new(telemetry: T, ads_cache_shutdown: AdsStoreShutdown) -> ShutdownReferences<T> {
-        ShutdownReferences {
-            ads_cache_shutdown,
-            telemetry,
-        }
+impl ShutdownReferences {
+    pub fn new(telemetry: MozAdsTelemetryWrapper) -> ShutdownReferences {
+        ShutdownReferences { telemetry }
     }
 
     // Shutdown anything that needs to be shut down safely and drop references to telemetry callbacks.
     // Should be called only when dropping the ads client. This may be extended to drop more things.
-    pub fn shutdown(&self) -> Result<(), rusqlite::Error> {
+    pub fn shutdown(&self) {
         // Drop telemetry (within the telemetry wrapper)
         self.telemetry.shutdown();
-
-        self.ads_cache_shutdown.shutdown()?;
 
         // TODO: It may be prudent to call the MARSClient `shutdown_db` function here as well.
         // However, this requires a mutable lock to be held over the MARSClient (and/or AdsClient),
         // which might get held elsewhere over a network request.  We can consider re-adding this after
         // a refactor or for the new stateful sqlite database.
-
-        Ok(())
-    }
-}
-
-pub struct AdsStoreShutdown(Arc<Mutex<Option<AdsStore>>>);
-impl AdsStoreShutdown {
-    pub fn new(ads_store: Arc<Mutex<Option<AdsStore>>>) -> AdsStoreShutdown {
-        AdsStoreShutdown(ads_store)
-    }
-
-    pub fn shutdown(&self) -> Result<(), rusqlite::Error> {
-        let ads_store = {
-            let mut ads_store_lock = self.0.lock();
-            ads_store_lock.take()
-        };
-        if let Some(ads_store) = ads_store {
-            ads_store.shutdown_db()?;
-        }
-        Ok(())
     }
 }
 

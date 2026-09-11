@@ -647,11 +647,7 @@ impl ViaductApiClient {
     }
 
     fn make_request(&mut self, url: Url) -> Result<Response> {
-        self._make_request(url.clone())
-            .inspect_err(|e| breadcrumb!("Request error: {e} ({url})"))
-    }
-
-    fn _make_request(&mut self, url: Url) -> Result<Response> {
+        breadcrumb!("make_request: {url}");
         self.remote_state.ensure_no_backoff()?;
 
         let req = Request::get(url);

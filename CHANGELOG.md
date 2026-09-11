@@ -1,3 +1,16 @@
+# v157.0.1 (_2026-09-11_)
+
+A respin of v157.0 for the Firefox 157 train. The tree is identical to [`11c84e57`](https://github.com/mozilla/application-services/commit/11c84e57fbdf1fd5241f1b90a85949a85d332278), which is the revision vendored into mozilla-central for 157, so Desktop and Android build from the same application-services source for this cycle.
+
+The following shipped in v157.0 and is **not** in v157.0.1. All of it remains on `main` and is expected to ship in v158.0:
+
+- Upgrade to UniFFI 0.32 ([#7555](https://github.com/mozilla/application-services/pull/7555)). Consuming this requires matching Glean and application-services changes in mozilla-central which are not ready for 157.
+- `MozAdsEnvironment::Custom(url::Url)` and `Environment::Custom(url::Url)` ([#7591](https://github.com/mozilla/application-services/pull/7591)). Adding a variant with associated data makes `MozAdsEnvironment` a non-flat UniFFI enum, which changes the generated Kotlin variants from `MozAdsEnvironment.PROD` to `MozAdsEnvironment.Prod` and broke the Firefox Android build.
+- `AdsStore`, a durable sqlite structure for storing ads ([#7567](https://github.com/mozilla/application-services/pull/7567)).
+- Remote settings downloads are only logged on error ([bug 2064758](https://bugzilla.mozilla.org/show_bug.cgi?id=2064758)).
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v157.0.1)
+
 # v157.0 (_2026-09-10_)
 
 ## ✨ What's Changed ✨
