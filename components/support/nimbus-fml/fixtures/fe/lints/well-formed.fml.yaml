@@ -1,0 +1,32 @@
+---
+# Trips no lints.
+about:
+  description: Fixture for the lint tests.
+channels:
+  - release
+features:
+  toolbar-redesign:
+    description: The redesigned toolbar shown at the bottom of the browser screen.
+    meta-bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2053531
+    contacts:
+      - jdoe@example.com
+    documentation:
+      - name: User documentation
+        url: https://example.com/toolbar-redesign
+    variables:
+      enabled:
+        description: Whether the redesigned toolbar is shown instead of the old one.
+        type: Boolean
+        default: false
+      button-style:
+        description: How the buttons in the toolbar are drawn.
+        type: ButtonStyle
+        default: outline
+enums:
+  ButtonStyle:
+    description: The ways a toolbar button can be drawn.
+    variants:
+      outline:
+        description: The button is drawn as an outline only.
+      filled:
+        description: The button is drawn filled with the accent colour.

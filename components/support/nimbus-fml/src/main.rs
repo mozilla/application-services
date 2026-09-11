@@ -11,6 +11,7 @@ mod error;
 mod fixtures;
 mod frontend;
 mod intermediate_representation;
+mod lints;
 mod parser;
 mod schema;
 mod util;
