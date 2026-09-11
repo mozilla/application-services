@@ -40,6 +40,10 @@
   This avoids having to do a full vacuum on the first `sql_support::run_maintenance` call.
   (https://bugzilla.mozilla.org/show_bug.cgi?id=2064759)
 
+### Remote Settings
+
+- Added an optional `distribution` field to `RemoteSettingsContext`, exposed as `env.distribution` in JEXL `filter_expression`s so records can be targeted at specific distributions (e.g. partner repacks). ([Bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
