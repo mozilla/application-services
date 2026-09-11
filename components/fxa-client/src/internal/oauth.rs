@@ -119,7 +119,7 @@ impl FirefoxAccount {
 
     /// Check whether user is authorized using our refresh token.
     pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
-        let resp = match self.state.refresh_token() {
+        let resp = match self.state.refresh_token_for_reauth() {
             Some(refresh_token) => {
                 self.auth_circuit_breaker.check()?;
                 self.client
