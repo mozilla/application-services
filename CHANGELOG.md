@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- Adds a background worker to allow for future fire-and-forget logic.
+
 # v157.0 (_2026-09-10_)
 
 ## ✨ What's Changed ✨

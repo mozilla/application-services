@@ -10,7 +10,7 @@ use std::{
 
 pub mod command;
 
-// This is a somewhat arbitrary default value that is overridable. 
+// This is a somewhat arbitrary default value that is overridable.
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT: usize = 10000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
