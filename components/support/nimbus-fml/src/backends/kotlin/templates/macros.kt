@@ -56,7 +56,7 @@ private constructor(
       get() =
          {%- let prefs = "it" %}
          {%- let key = p.pref_key().unwrap() %}
-         {{ prefs() }}?.let {
+         {% call prefs() %}?.let {
             if ({{ prefs }}.contains({{ key|quoted }})) {
                try {
                   {{ p.typ()|preference_getter(prefs, key) }}
