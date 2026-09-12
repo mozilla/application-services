@@ -14,27 +14,24 @@ pub mod command;
 pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT: usize = 10000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
-pub struct AdsClientWorkerWrapper {
+pub struct BackgroundWorker {
     _worker_thread: Option<JoinHandle<()>>,
     worker_dispatch: Option<SyncSender<DispatchCommand>>,
 }
 
-impl AdsClientWorkerWrapper {
-    pub fn new(
-        inner: MozAdsClientInner,
-        worker_buffer_size: Option<u32>,
-    ) -> AdsClientWorkerWrapper {
+impl BackgroundWorker {
+    pub fn new(inner: MozAdsClientInner, worker_buffer_size: Option<u32>) -> BackgroundWorker {
         let worker_buffer_size = worker_buffer_size.and_then(|x| usize::try_from(x).ok());
         let (worker_dispatch, worker_thread) =
             Option::unzip(build_worker_thread(inner.clone(), worker_buffer_size));
-        AdsClientWorkerWrapper {
+        BackgroundWorker {
             _worker_thread: worker_thread,
             worker_dispatch,
         }
     }
 
-    pub fn new_empty() -> AdsClientWorkerWrapper {
-        AdsClientWorkerWrapper {
+    pub fn new_empty() -> BackgroundWorker {
+        BackgroundWorker {
             _worker_thread: None,
             worker_dispatch: None,
         }

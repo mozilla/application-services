@@ -27,8 +27,7 @@ pub mod worker;
 pub use ffi::*;
 
 use crate::{
-    ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences,
-    worker::AdsClientWorkerWrapper,
+    ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences, worker::BackgroundWorker,
 };
 
 #[cfg(test)]
@@ -47,7 +46,7 @@ pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 pub struct MozAdsClient {
     inner: MozAdsClientInner,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
-    _worker: AdsClientWorkerWrapper,
+    _worker: BackgroundWorker,
 }
 
 #[uniffi::export]

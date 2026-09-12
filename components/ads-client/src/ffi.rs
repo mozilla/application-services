@@ -154,9 +154,9 @@ impl MozAdsClientBuilder {
         let shutdown_references = client.shutdown_references();
         let inner = Arc::new(Mutex::new(client));
         let worker = if store_set {
-            worker::AdsClientWorkerWrapper::new(inner.clone(), worker_buffer_size)
+            worker::BackgroundWorker::new(inner.clone(), worker_buffer_size)
         } else {
-            worker::AdsClientWorkerWrapper::new_empty()
+            worker::BackgroundWorker::new_empty()
         };
         MozAdsClient {
             inner,

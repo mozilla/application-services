@@ -63,7 +63,7 @@ impl DispatchCommand {
                         )
                         .map_err(ComponentError::RequestAds)?;
                     inner
-                        .cache_ads(
+                        .store_ads(
                             image_response
                                 .into_iter()
                                 .map(|(k, v)| (k.into(), StorableAd::Image(v)))
@@ -94,7 +94,7 @@ impl DispatchCommand {
                         )
                         .map_err(ComponentError::RequestAds)?;
                     inner
-                        .cache_ads(
+                        .store_ads(
                             spoc_response
                                 .into_iter()
                                 .map(|(k, v)| (k.into(), StorableAd::Spoc(v)))
@@ -125,7 +125,7 @@ impl DispatchCommand {
                         )
                         .map_err(ComponentError::RequestAds)?;
                     inner
-                        .cache_ads(
+                        .store_ads(
                             tile_response
                                 .into_iter()
                                 .map(|(k, v)| (k.into(), StorableAd::Tile(v)))
