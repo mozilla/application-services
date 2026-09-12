@@ -3,10 +3,18 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
+use std::sync::mpsc::{RecvTimeoutError, TrySendError};
+
+use crate::{
+    mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError},
+    worker::command,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
+    #[error("Error requesting ads from worker: {0}")]
+    BackgroundWorker(#[from] BackgroundWorkerError),
+
     #[error("Error recording a click for a placement: {0}")]
     RecordClick(#[from] RecordClickError),
 
@@ -27,4 +35,25 @@ pub enum RequestAdsError {
 
     #[error("Error requesting ads from MARS: {0}")]
     FetchAds(#[from] FetchAdsError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BackgroundWorkerError {
+    #[error("Error requesting new ads from the background worker: worker closed")]
+    Closed,
+
+    #[error("Error requesting new ads from the background worker: worker full")]
+    Full,
+
+    #[error("Background worker timed out waiting for response: {0}")]
+    TimedOut(#[from] RecvTimeoutError),
+}
+
+impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
+    fn from(value: TrySendError<command::DispatchCommand>) -> Self {
+        match value {
+            TrySendError::Disconnected(_) => BackgroundWorkerError::Closed,
+            TrySendError::Full(_) => BackgroundWorkerError::Full,
+        }
+    }
 }

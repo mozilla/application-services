@@ -23,7 +23,7 @@ use crate::mars::ad_response::{
 use crate::mars::Environment;
 use crate::mars::ReportReason;
 use crate::AdsClientUrl;
-use crate::MozAdsClient;
+use crate::{worker, MozAdsClient};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 
@@ -134,6 +134,11 @@ impl MozAdsClientBuilder {
             .take()
             .map(MozAdsTelemetryWrapper::new)
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
+        let store_set = inner.store_config.is_some();
+        let worker_buffer_size = inner
+            .store_config
+            .as_ref()
+            .and_then(|x| x.worker_buffer_size);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             context_id_provider: inner
@@ -147,9 +152,16 @@ impl MozAdsClientBuilder {
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
+        let inner = Arc::new(Mutex::new(client));
+        let worker = if store_set {
+            worker::BackgroundWorker::new(inner.clone(), worker_buffer_size)
+        } else {
+            worker::BackgroundWorker::new_empty()
+        };
         MozAdsClient {
-            inner: Mutex::new(client),
+            inner,
             shutdown_references,
+            _worker: worker,
         }
     }
 
@@ -211,6 +223,7 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
+    pub worker_buffer_size: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
