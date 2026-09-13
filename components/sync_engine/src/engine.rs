@@ -71,6 +71,17 @@ struct PendingBaseline {
     remaining: HashSet<Guid>,
 }
 
+/// A local event awaiting upload. Like [`PendingBaseline`], we wait for every
+/// frame to be confirmed before advancing the gate, so a half-uploaded framed
+/// event (whose frames may span sync batches) never records a position no peer
+/// can reassemble.
+struct PendingEvent {
+    gate: GateKey,
+    /// The id the event's [`EventPosition`] is keyed on (its group id).
+    position_id: Guid,
+    remaining: HashSet<Guid>,
+}
+
 /// A record read from the server, tagged with the group its frames reassemble
 /// into (its own record id when whole) and its record position.
 struct StagedRecord {
@@ -100,10 +111,10 @@ pub struct EventSyncEngine {
     staged: Mutex<Vec<IncomingBso>>,
     /// Local events recorded but not yet handed to `apply`.
     outgoing: Mutex<Vec<PendingOutgoing>>,
-    /// Local events awaiting upload confirmation. Keyed by the first frame's id
-    /// (the id `set_uploaded` sees first); the value carries the gate and the id
-    /// its position is keyed on.
-    awaiting_upload: Mutex<HashMap<Guid, (GateKey, Guid)>>,
+    /// Local events awaiting upload confirmation, keyed by the event's group id
+    /// (`position_id`). We wait for every frame to be confirmed before advancing
+    /// the gate, so a half-uploaded framed event never moves it.
+    awaiting_upload: Mutex<HashMap<Guid, PendingEvent>>,
     /// Baselines we wrote, keyed by group id, awaiting full-upload confirmation.
     pending_baselines: Mutex<HashMap<Guid, PendingBaseline>>,
 }
@@ -510,14 +521,21 @@ impl SyncEngine for EventSyncEngine {
         self.meta.set_last_sync(timestamp)?;
 
         // 3. Emit local events, remembered for `set_uploaded`. A framed event
-        //    tracks bookkeeping on its first frame's id; the rest just upload.
+        //    tracks every frame; the gate only advances once all are confirmed.
         let mut bsos = Vec::new();
         let outgoing = std::mem::take(&mut *self.outgoing.lock().unwrap());
         {
             let mut awaiting = self.awaiting_upload.lock().unwrap();
             for p in outgoing {
-                let first = p.bsos[0].envelope.id.clone();
-                awaiting.insert(first, (p.gate, p.position_id));
+                let remaining = p.bsos.iter().map(|b| b.envelope.id.clone()).collect();
+                awaiting.insert(
+                    p.position_id.clone(),
+                    PendingEvent {
+                        gate: p.gate,
+                        position_id: p.position_id,
+                        remaining,
+                    },
+                );
                 bsos.extend(p.bsos);
             }
         }
@@ -580,25 +598,37 @@ impl SyncEngine for EventSyncEngine {
         let mut pending = self.pending_baselines.lock().unwrap();
         let mut state = self.meta.baseline_state()?;
         for id in ids {
-            if let Some((gate, position_id)) = awaiting.remove(&id) {
-                // Key the gate off the event's position id (its group), not this
-                // frame's id, so a framed event advances the gate once.
-                let pos = EventPosition::new(new_timestamp, position_id);
-                self.meta.set_position(gate, pos.clone())?;
-                // Count our own events toward the cadence: we never re-download
-                // them, so this is the only place we observe them.
-                if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
-                    state.events_since_baseline += 1;
-                    state.max_schema_since_baseline =
-                        state.max_schema_since_baseline.max(self.schema.current());
-                    state.newest_event = Some(max_position(state.newest_event.take(), pos));
-                }
-            } else {
-                // Maybe a baseline frame; mark it confirmed (ids are unique to
-                // one group).
+            // Confirm the frame against its pending event, or failing that its
+            // pending baseline (ids are unique to one group).
+            let matched = awaiting.values_mut().any(|pe| pe.remaining.remove(&id));
+            if !matched {
                 for pb in pending.values_mut() {
                     pb.remaining.remove(&id);
                 }
+            }
+        }
+
+        // Once every frame of an event is confirmed, advance the gate. A framed
+        // event that spans sync batches only lands here on the final batch, so
+        // the server never holds a position no peer can reassemble.
+        let complete_events: Vec<Guid> = awaiting
+            .iter()
+            .filter(|(_, pe)| pe.remaining.is_empty())
+            .map(|(group, _)| group.clone())
+            .collect();
+        for group in complete_events {
+            let pe = awaiting.remove(&group).expect("just listed");
+            // Key the gate off the event's position id (its group), not any one
+            // frame's id, so a framed event advances the gate once.
+            let pos = EventPosition::new(new_timestamp, pe.position_id);
+            self.meta.set_position(pe.gate, pos.clone())?;
+            // Count our own events toward the cadence: we never re-download them,
+            // so this is the only place we observe them.
+            if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
+                state.events_since_baseline += 1;
+                state.max_schema_since_baseline =
+                    state.max_schema_since_baseline.max(self.schema.current());
+                state.newest_event = Some(max_position(state.newest_event.take(), pos));
             }
         }
 
@@ -1217,6 +1247,58 @@ mod tests {
                 .iter()
                 .any(|e| e.payload["name"] == json!("stale")),
             "event below a confirmed baseline's floor should be ignored"
+        );
+    }
+
+    #[test]
+    fn gate_advances_only_after_all_event_frames_confirmed() {
+        let reducer = Arc::new(RecordingReducer::default());
+        // Tiny record budget forces a local event to split into byte frames.
+        let engine = engine_with(reducer).with_baseline_config(BaselineConfig {
+            events_per_baseline: None,
+            baseline_timeout_ms: None,
+            max_record_payload_bytes: 200,
+        });
+        let mut telem = sync15::telemetry::Engine::new("containers");
+
+        // A local event too big for one record: it frames into several parts.
+        let entity = Guid::new("bigXbigXbigX");
+        engine
+            .record_local_event(
+                "created",
+                entity.clone(),
+                json!({ "name": "x".repeat(1000) }),
+            )
+            .unwrap();
+        let outgoing = engine
+            .apply(ServerTimestamp::from_millis(100), &mut telem)
+            .unwrap();
+        assert!(
+            outgoing.len() > 1,
+            "the event should have framed into >1 part, got {}",
+            outgoing.len()
+        );
+
+        let gate = GateKey::new("created", entity);
+        let ids: Vec<Guid> = outgoing.iter().map(|b| b.envelope.id.clone()).collect();
+
+        // Confirming only the first frame must not advance the gate: the server
+        // holds a partial event no peer can reassemble.
+        engine
+            .set_uploaded(ServerTimestamp::from_millis(110), vec![ids[0].clone()])
+            .unwrap();
+        assert!(
+            engine.meta.position(&gate).unwrap().is_none(),
+            "gate must not advance until every frame is confirmed"
+        );
+
+        // Confirming the remaining frames completes the event; the gate advances.
+        engine
+            .set_uploaded(ServerTimestamp::from_millis(120), ids[1..].to_vec())
+            .unwrap();
+        assert!(
+            engine.meta.position(&gate).unwrap().is_some(),
+            "gate should advance once every frame is confirmed"
         );
     }
 }
