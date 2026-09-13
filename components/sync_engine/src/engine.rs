@@ -176,10 +176,12 @@ impl EventSyncEngine {
         let json = serde_json::to_string(record)?;
         let max = self.baseline_config.max_record_payload_bytes;
         if json.len() <= max {
-            return Ok(vec![OutgoingBso::from_content(
-                OutgoingEnvelope::from(base.clone()),
-                record,
-            )?]);
+            // Reuse the JSON we already serialized to measure. Like a frame, it
+            // carries no `id`; the reader re-adds it from the envelope.
+            return Ok(vec![OutgoingBso {
+                envelope: OutgoingEnvelope::from(base.clone()),
+                payload: json,
+            }]);
         }
         // A raw slice lands in `data`, where serde re-escapes `"` and `\` (the
         // only chars serialized JSON carries raw), at worst doubling it. So halve
@@ -333,7 +335,14 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
 
     let mut out = Vec::with_capacity(buckets.len());
     for (group, bucket) in buckets {
-        let modified = bucket[0].modified;
+        // The record is complete once its newest frame lands, so key the position
+        // off the max `modified` across the group — deterministic regardless of
+        // frame arrival order, and matching the writer's own gate position.
+        let modified = bucket
+            .iter()
+            .map(|r| r.modified)
+            .max_by_key(|t| t.as_millis())
+            .expect("bucket is non-empty");
         let Some(wire) = reassemble(bucket) else {
             continue;
         };
@@ -346,8 +355,8 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
         out.push(IncomingEvent {
             event_type: wire.event_type,
             entity: wire.entity,
-            // A framed record's frames share `modified`; key the position off the
-            // group so it is stable regardless of which frame we read it from.
+            // Key the position off the group so it is stable regardless of which
+            // frame we read it from.
             position: EventPosition::new(modified, group),
             body: wire.body,
             max_schema,
@@ -360,14 +369,17 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
 /// Join one group's staged records into the original [`WireEvent`], or `None` if
 /// the group is an incomplete/inconsistent set of frames or fails to parse.
 fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
-    // A whole record stands alone; anything sharing its group would be a bug.
-    if let [only] = bucket.as_mut_slice() {
-        if let RawRecord::Whole(_) = only.raw {
-            match bucket.pop().expect("length one").raw {
-                RawRecord::Whole(wire) => return Some(wire),
-                RawRecord::Frame { .. } => unreachable!(),
-            }
-        }
+    // A lone whole record stands alone and is used directly; a lone frame or a
+    // larger group falls through to frame reassembly below.
+    if let [StagedRecord {
+        raw: RawRecord::Whole(_),
+        ..
+    }] = bucket.as_slice()
+    {
+        let RawRecord::Whole(wire) = bucket.remove(0).raw else {
+            unreachable!("slice pattern guarantees a whole record")
+        };
+        return Some(wire);
     }
 
     // Otherwise it is a set of frames: sort by part, require exactly `0..count`,
@@ -1088,6 +1100,51 @@ mod tests {
         );
         // Frames reassembled to the identical body despite reversed delivery.
         assert_eq!(ev.body, body);
+    }
+
+    #[test]
+    fn assemble_events_position_uses_max_modified_regardless_of_order() {
+        // Frames of one record can carry different `modified` if they span upload
+        // batches. The assembled position must be deterministic (the max) and
+        // independent of arrival order, or clients diverge.
+        let record = WireEvent::baseline(
+            WirePosition {
+                modified_ms: 100,
+                record_id: Guid::new("cover"),
+            },
+            EventBody::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
+        );
+        let json = serde_json::to_string(&record).unwrap();
+        let chunks = slice_utf8(&json, 15);
+        let count = chunks.len() as u32;
+        assert!(count > 1, "need multiple frames, got {count}");
+
+        // Each frame gets a distinct `modified`; the newest is 100 + count * 10.
+        let make = || -> Vec<StagedRecord> {
+            chunks
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, data)| StagedRecord {
+                    group: Guid::new("g"),
+                    modified: ServerTimestamp::from_millis(100 + (i as i64 + 1) * 10),
+                    raw: RawRecord::Frame {
+                        part: i as u32,
+                        part_count: count,
+                        data,
+                    },
+                })
+                .collect()
+        };
+        let expected = EventPosition::new(
+            ServerTimestamp::from_millis(100 + count as i64 * 10),
+            Guid::new("g"),
+        );
+
+        assert_eq!(assemble_events(make(), 1)[0].position, expected);
+        let mut reversed = make();
+        reversed.reverse();
+        assert_eq!(assemble_events(reversed, 1)[0].position, expected);
     }
 
     #[test]
