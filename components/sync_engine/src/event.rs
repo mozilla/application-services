@@ -2,18 +2,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Core event primitives: the event, the per-field gate key, and the total
-//! order deciding which of two concurrent events wins.
+//! Core event primitives: the event, the per-field gate key, the total order
+//! deciding which of two concurrent events wins, and the on-wire event
+//! representation ([`Wire`], [`WireEvent`], [`WirePart`]).
 //!
 //! Events are opaque and GUID-keyed. Each has a record id (server key; batches
 //! suffix the base UUID with `_{X}`, see [`batch_record_id`]), an entity (what
 //! the event is about; with the type it forms the [`GateKey`]), a caller-defined
 //! type, and a schema-versioned [`crate::schema::EventBody`].
+//!
+//! [`IncomingEvent`] is the assembled shape the engine consumes. [`WireEvent`]
+//! and [`WirePart`] are how a record is serialized and (when too large) framed
+//! for transport. The byte-slicing and reassembly of frames lives in the engine.
 
-use crate::schema::EventBody;
+use crate::schema::{EventBody, SchemaVersion};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use sync15::{Guid, ServerTimestamp};
+
+/// Reserved event type under which a baseline is schema-migrated.
+pub const BASELINE_EVENT_TYPE: &str = "__baseline__";
+
+/// Reserved event type for a `baseline-needed` marker (asks a schema-capable
+/// client to write a baseline).
+pub const BASELINE_NEEDED_EVENT_TYPE: &str = "__baseline_needed__";
 
 /// The identity a last-seen entry is scoped to. Conflict resolution is per
 /// `(event type, entity)`: a `modify-name` on X is ordered independently from a
@@ -74,30 +86,152 @@ impl PartialOrd for EventPosition {
     }
 }
 
-/// An event authored locally or read from the server, before its body is
-/// resolved to a single schema representation.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Event {
-    pub event_type: String,
-    pub entity: Guid,
-    pub body: EventBody,
+/// A position as carried on the wire in a baseline's `covers_up_to`. Separate
+/// from [`EventPosition`] so the encoding is explicit integer milliseconds and
+/// always parseable independent of the caller's payload schema.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WirePosition {
+    pub modified_ms: i64,
+    pub record_id: Guid,
 }
 
-impl Event {
-    pub fn new(event_type: impl Into<String>, entity: Guid, body: EventBody) -> Self {
+impl From<&EventPosition> for WirePosition {
+    fn from(pos: &EventPosition) -> Self {
         Self {
-            event_type: event_type.into(),
-            entity,
-            body,
+            modified_ms: pos.modified.as_millis(),
+            record_id: pos.record_id.clone(),
         }
     }
+}
 
+impl From<WirePosition> for EventPosition {
+    fn from(wire: WirePosition) -> Self {
+        EventPosition::new(
+            ServerTimestamp::from_millis(wire.modified_ms),
+            wire.record_id,
+        )
+    }
+}
+
+/// An incoming event read from the server, reassembled from its transport frames
+/// if it was split, before its body is resolved to a single schema.
+///
+/// The single shape the gate and the baseline path both consume. A baseline is
+/// just an event with a reserved type. A baseline also carries `covers_up_to`:
+/// the point in the global order it stands in for, which advances the floor (its
+/// own `position` is just where the record landed).
+#[derive(Clone, Debug, PartialEq)]
+pub struct IncomingEvent {
+    pub event_type: String,
+    pub entity: Guid,
+    /// The record's place in the server order: `(modified, group-or-own-id)`.
+    pub position: EventPosition,
+    /// The schema-versioned payload, whole even if the record was split for
+    /// transport (splitting and reassembly happen on raw bytes, below this).
+    pub body: EventBody,
+    /// Highest schema version tag the body carries (visible even when this client
+    /// can't read that schema).
+    pub max_schema: SchemaVersion,
+    /// The covered position, for a baseline; `None` for every other event.
+    pub covers_up_to: Option<EventPosition>,
+}
+
+impl IncomingEvent {
     pub fn gate_key(&self) -> GateKey {
         GateKey::new(self.event_type.clone(), self.entity.clone())
     }
 }
 
-/// Record id for the `index`th event of a batch sharing a base UUID (`_{X}`).
+/// A whole logical record, distinguished by `event_type`: a domain event, a
+/// baseline ([`BASELINE_EVENT_TYPE`]), or a `baseline-needed` marker
+/// ([`BASELINE_NEEDED_EVENT_TYPE`]). Record id and `modified` live in the BSO
+/// envelope; the rest is the payload.
+///
+/// A record too large for one upload is serialized and cut into [`WirePart`]
+/// frames instead. That is pure transport, below this shape.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct WireEvent {
+    #[serde(rename = "type")]
+    pub(crate) event_type: String,
+    /// The entity the event is about. Empty (and omitted) for baselines/markers.
+    #[serde(default = "empty_guid", skip_serializing_if = "guid_is_empty")]
+    pub(crate) entity: Guid,
+    /// The point in the global order a baseline stands in for. Baselines only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) covers_up_to: Option<WirePosition>,
+    /// Emitter schema on a `baseline-needed` marker, so the fleet can elect its
+    /// highest-schema member. Markers only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) schema: Option<SchemaVersion>,
+    /// The schema-versioned payload. Absent on a `baseline-needed` marker.
+    #[serde(default, skip_serializing_if = "EventBody::is_empty")]
+    pub(crate) body: EventBody,
+}
+
+/// One `_{n}` frame of a record too big for a single upload: an opaque slice of
+/// the serialized [`WireEvent`]. Frames sharing a `group` reassemble in `part`
+/// order, concatenating `data`, back into the original record's bytes. The engine
+/// never inspects the payload; it slices and rejoins raw bytes.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct WirePart {
+    pub(crate) group: Guid,
+    pub(crate) part: u32,
+    pub(crate) part_count: u32,
+    pub(crate) data: String,
+}
+
+/// A record read from the server: either whole, or one frame of a split one.
+/// Untagged, so a whole record stays lean (no wrapper) on the wire.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum Wire {
+    Whole(WireEvent),
+    Frame(WirePart),
+}
+
+fn empty_guid() -> Guid {
+    Guid::new("")
+}
+fn guid_is_empty(g: &Guid) -> bool {
+    g.as_str().is_empty()
+}
+
+impl WireEvent {
+    /// A domain event.
+    pub(crate) fn event(event_type: String, entity: Guid, body: EventBody) -> Self {
+        Self {
+            event_type,
+            entity,
+            covers_up_to: None,
+            schema: None,
+            body,
+        }
+    }
+
+    /// A baseline covering `covers_up_to`.
+    pub(crate) fn baseline(covers_up_to: WirePosition, body: EventBody) -> Self {
+        Self {
+            event_type: BASELINE_EVENT_TYPE.to_string(),
+            entity: empty_guid(),
+            covers_up_to: Some(covers_up_to),
+            schema: None,
+            body,
+        }
+    }
+
+    /// A `baseline-needed` marker advertising the emitter's schema.
+    pub(crate) fn baseline_needed(schema: SchemaVersion) -> Self {
+        Self {
+            event_type: BASELINE_NEEDED_EVENT_TYPE.to_string(),
+            entity: empty_guid(),
+            covers_up_to: None,
+            schema: Some(schema),
+            body: EventBody::new(),
+        }
+    }
+}
+
+/// Record id for the `index`th frame of a split record sharing a base id (`_{X}`).
 pub fn batch_record_id(base: &Guid, index: usize) -> Guid {
     Guid::new(&format!("{}_{}", base.as_str(), index))
 }
@@ -125,6 +259,19 @@ mod tests {
         let b = pos(200, "X");
         assert!(!a.supersedes(&b));
         assert!(!b.supersedes(&a));
+    }
+
+    #[test]
+    fn wire_position_round_trips() {
+        let pos = EventPosition::new(ServerTimestamp::from_millis(1234), Guid::new("rec-1"));
+        let wire = WirePosition::from(&pos);
+        assert_eq!(wire.modified_ms, 1234);
+        let back: EventPosition = wire.clone().into();
+        assert_eq!(back, pos);
+
+        let json = serde_json::to_string(&wire).unwrap();
+        let parsed: WirePosition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, wire);
     }
 
     #[test]

@@ -28,7 +28,7 @@ use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
 use sync_engine::{
     BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
-    SchemaRegistry, SnapshotEntity,
+    SchemaRegistry, BASELINE_EVENT_TYPE,
 };
 
 // -------------------------------------------------------------------------
@@ -78,16 +78,17 @@ impl FakeServer {
         (ts, ids)
     }
 
+    /// Records that make up baselines: a whole baseline record, or a transport
+    /// frame (in these tests only baselines are ever large enough to frame).
     pub fn baseline_count(&self) -> usize {
         self.records
             .values()
             .filter(|(bso, _)| {
                 serde_json::from_str::<Value>(&bso.payload)
                     .ok()
-                    .and_then(|v| {
-                        v.get("record")
-                            .and_then(Value::as_str)
-                            .map(|s| s == "baseline")
+                    .map(|v| {
+                        v.get("type").and_then(Value::as_str) == Some(BASELINE_EVENT_TYPE)
+                            || v.get("data").is_some()
                     })
                     .unwrap_or(false)
             })
@@ -139,24 +140,26 @@ impl MapReducer {
 }
 
 impl EventReducer for MapReducer {
-    fn snapshot(&self) -> Vec<SnapshotEntity> {
+    fn baseline(&self) -> Value {
         let s = self.state.lock().unwrap();
-        let mut entities: Vec<SnapshotEntity> = s
+        let mut entities: Vec<Value> = s
             .iter()
-            .map(|(entity, payload)| SnapshotEntity {
-                entity: entity.clone(),
-                payload: payload.clone(),
-            })
+            .map(|(entity, payload)| json!({ "entity": entity, "payload": payload }))
             .collect();
-        entities.sort_by(|a, b| a.entity.as_str().cmp(b.entity.as_str()));
-        entities
+        // Deterministic order, so the same state produces the same bytes.
+        entities.sort_by(|a, b| a["entity"].as_str().cmp(&b["entity"].as_str()));
+        Value::Array(entities)
     }
 
-    fn apply_baseline(&self, entities: Vec<SnapshotEntity>) {
+    fn apply_baseline(&self, payload: Value) {
         let mut s = self.state.lock().unwrap();
         s.clear();
-        for e in entities {
-            s.insert(e.entity, e.payload);
+        if let Value::Array(items) = payload {
+            for item in items {
+                if let Some(id) = item["entity"].as_str() {
+                    s.insert(Guid::new(id), item["payload"].clone());
+                }
+            }
         }
     }
 

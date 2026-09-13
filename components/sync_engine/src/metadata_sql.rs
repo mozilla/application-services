@@ -9,9 +9,9 @@
 //! of the primary key, so many engines can share a database file. Each store is
 //! scoped to one collection and only touches its own rows.
 
-use crate::baseline::{BaselineState, WirePosition};
+use crate::baseline::BaselineState;
 use crate::error::{Error, Result};
-use crate::event::{EventPosition, GateKey};
+use crate::event::{EventPosition, GateKey, WirePosition};
 use crate::metadata::MetadataStore;
 use crate::schema::SchemaVersion;
 use rusqlite::{

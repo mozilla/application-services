@@ -26,12 +26,15 @@ pub mod metadata_sql;
 pub mod reducer;
 pub mod schema;
 
-pub use baseline::{BaselineConfig, BaselineState, WirePosition, SNAPSHOT_EVENT_TYPE};
+pub use baseline::{BaselineConfig, BaselineState};
 pub use engine::EventSyncEngine;
 pub use error::{Error, Result};
-pub use event::{batch_record_id, Event, EventPosition, GateKey};
+pub use event::{
+    batch_record_id, EventPosition, GateKey, IncomingEvent, WirePosition, BASELINE_EVENT_TYPE,
+    BASELINE_NEEDED_EVENT_TYPE,
+};
 pub use metadata::{MemoryMetadataStore, MetadataStore};
 #[cfg(feature = "sql")]
 pub use metadata_sql::SqliteMetadataStore;
-pub use reducer::{EventReducer, ResolvedEvent, SnapshotEntity};
+pub use reducer::{EventReducer, ResolvedEvent};
 pub use schema::{EventBody, MigrateFn, SchemaRegistry, SchemaVersion};

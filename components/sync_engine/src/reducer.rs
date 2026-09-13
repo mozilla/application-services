@@ -9,15 +9,7 @@
 //! resolution) and hands the reducer only gate-winning events, already resolved
 //! to the client's current schema.
 
-use serde::{Deserialize, Serialize};
 use sync15::Guid;
-
-/// One entity in a baseline snapshot: stable guid plus full current payload.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SnapshotEntity {
-    pub entity: Guid,
-    pub payload: serde_json::Value,
-}
 
 /// An event that won its gate and was resolved to the current schema, ready to
 /// apply to local storage.
@@ -37,11 +29,18 @@ pub struct ResolvedEvent {
 /// Implementations must guard against feedback loops: applying an event here
 /// must not record a new local event back into the engine.
 pub trait EventReducer: Send + Sync {
-    /// Return the full current state, for the engine to serialize into a baseline.
-    fn snapshot(&self) -> Vec<SnapshotEntity>;
+    /// Return the full current state as one opaque payload, for the engine to
+    /// serialize into a baseline. The engine never inspects it; it dual-writes it,
+    /// and byte-slices the record if it is too large for one upload.
+    ///
+    /// Must be deterministic (e.g. sort collections), so the same state produces
+    /// the same bytes on every client.
+    fn baseline(&self) -> serde_json::Value;
 
-    /// Cold start (sync wins): rebuild local state from a baseline.
-    fn apply_baseline(&self, entities: Vec<SnapshotEntity>);
+    /// Cold start (sync wins): rebuild local state from a baseline payload. It is
+    /// the same value a peer returned from [`EventReducer::baseline`], resolved to
+    /// this client's schema.
+    fn apply_baseline(&self, payload: serde_json::Value);
 
     /// Apply a single winning event.
     ///

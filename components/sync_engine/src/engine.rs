@@ -17,68 +17,76 @@
 //! and prunes when it observes one; a client past the cadence writes a new
 //! baseline, or a `baseline-needed` marker if it's below the schema bar.
 
-use crate::baseline::{split_snapshot, BaselineConfig, WirePosition, SNAPSHOT_EVENT_TYPE};
+use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
-use crate::event::{batch_record_id, Event, EventPosition, GateKey};
+use crate::event::{
+    batch_record_id, EventPosition, GateKey, IncomingEvent, Wire, WireEvent, WirePart,
+    WirePosition, BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
+};
 use crate::metadata::MetadataStore;
-use crate::reducer::{EventReducer, ResolvedEvent, SnapshotEntity};
+use crate::reducer::{EventReducer, ResolvedEvent};
 use crate::schema::{EventBody, SchemaRegistry, SchemaVersion};
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{CollectionName, Guid, ServerTimestamp};
 
-/// The wire representation of a record. Record id and `modified` live in the BSO
-/// envelope; the rest is the payload, tagged by `record` so events, baselines
-/// and markers share one collection.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "record", rename_all = "kebab-case")]
-enum WireRecord {
-    /// A single event; `body` is the schema-versioned payload.
-    Event {
-        #[serde(rename = "type")]
-        event_type: String,
-        entity: Guid,
-        body: EventBody,
-    },
-    /// One part of a baseline: the full state as of `covers_up_to`, under
-    /// [`SNAPSHOT_EVENT_TYPE`]. A baseline too big for one record is split into
-    /// `part_count` parts that share a `group`, with ids `group_0 ..`. A reader
-    /// waits until it has every part before using them. A small baseline is one
-    /// part (`part_count == 1`).
-    Baseline {
-        group: Guid,
-        part: u32,
-        part_count: u32,
-        covers_up_to: WirePosition,
-        body: EventBody,
-    },
-    /// Asks a schema-capable client to write a baseline. Carries the emitter's
-    /// schema so the fleet can elect its highest-schema member.
-    BaselineNeeded { schema: SchemaVersion },
+/// Bytes reserved for a [`WirePart`]'s envelope fields (`group`, `part`,
+/// `part_count`, field names, quoting) when sizing the `data` slice. Generous
+/// next to any real budget.
+const FRAME_OVERHEAD: usize = 96;
+
+/// Slice `s` into chunks of at most `max_bytes`, cutting only on char boundaries
+/// so each chunk is valid UTF-8. Concatenating the chunks restores `s`.
+fn slice_utf8(s: &str, max_bytes: usize) -> Vec<String> {
+    let max_bytes = max_bytes.max(1);
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+    for ch in s.chars() {
+        if !current.is_empty() && current.len() + ch.len_utf8() > max_bytes {
+            chunks.push(std::mem::take(&mut current));
+        }
+        current.push(ch);
+    }
+    chunks.push(current);
+    chunks
 }
 
 /// A local event awaiting upload, remembered so [`SyncEngine::set_uploaded`] can
-/// record its final server position into the gate.
+/// record its final server position into the gate. `position_id` is the id the
+/// event's [`EventPosition`] is keyed on (its record id, or its group when the
+/// record was framed).
 struct PendingOutgoing {
     gate: GateKey,
-    bso: OutgoingBso,
+    position_id: Guid,
+    bsos: Vec<OutgoingBso>,
 }
 
 /// A baseline we wrote. We wait for [`SyncEngine::set_uploaded`] to confirm
-/// every part before advancing the floor, so a half-uploaded baseline never
+/// every frame before advancing the floor, so a half-uploaded baseline never
 /// moves the floor or prunes the gate.
 struct PendingBaseline {
     cover: EventPosition,
     remaining: HashSet<Guid>,
 }
 
-/// A complete baseline reassembled from its `_N` parts, ordered by part index.
-struct StagedBaseline {
-    cover: EventPosition,
-    parts: Vec<EventBody>,
+/// A record read from the server, tagged with the group its frames reassemble
+/// into (its own record id when whole) and its record position.
+struct StagedRecord {
+    group: Guid,
+    modified: ServerTimestamp,
+    raw: RawRecord,
+}
+
+/// Either a complete record or one frame of a split one.
+enum RawRecord {
+    Whole(WireEvent),
+    Frame {
+        part: u32,
+        part_count: u32,
+        data: String,
+    },
 }
 
 pub struct EventSyncEngine {
@@ -92,8 +100,10 @@ pub struct EventSyncEngine {
     staged: Mutex<Vec<IncomingBso>>,
     /// Local events recorded but not yet handed to `apply`.
     outgoing: Mutex<Vec<PendingOutgoing>>,
-    /// Records awaiting upload confirmation, keyed by id so `set_uploaded` gates them.
-    awaiting_upload: Mutex<HashMap<Guid, GateKey>>,
+    /// Local events awaiting upload confirmation. Keyed by the first frame's id
+    /// (the id `set_uploaded` sees first); the value carries the gate and the id
+    /// its position is keyed on.
+    awaiting_upload: Mutex<HashMap<Guid, (GateKey, Guid)>>,
     /// Baselines we wrote, keyed by group id, awaiting full-upload confirmation.
     pending_baselines: Mutex<HashMap<Guid, PendingBaseline>>,
 }
@@ -136,56 +146,69 @@ impl EventSyncEngine {
         payload: serde_json::Value,
     ) -> Result<()> {
         let body = self.schema.dual_write(event_type, payload)?;
-        let record = WireRecord::Event {
-            event_type: event_type.to_string(),
-            entity: entity.clone(),
-            body,
-        };
-        let bso = OutgoingBso::from_content(OutgoingEnvelope::from(Guid::random()), &record)?;
+        let record = WireEvent::event(event_type.to_string(), entity.clone(), body);
+        let base = Guid::random();
+        let bsos = self.frame(&record, &base)?;
         let gate = GateKey::new(event_type, entity);
-        self.outgoing
-            .lock()
-            .unwrap()
-            .push(PendingOutgoing { gate, bso });
+        self.outgoing.lock().unwrap().push(PendingOutgoing {
+            gate,
+            position_id: base,
+            bsos,
+        });
         Ok(())
     }
 
-    /// Apply an incoming event through the gate. Returns whether it won and was
-    /// dispatched to the reducer.
-    ///
-    /// Feed events in ascending server order so the gate advances monotonically;
-    /// [`EventSyncEngine::apply`] does this.
-    pub fn ingest_event(
-        &self,
-        record_id: Guid,
-        modified: ServerTimestamp,
-        event: Event,
-    ) -> Result<bool> {
-        let floor = self.meta.baseline_state()?.floor;
-        self.ingest_with_floor(
-            EventPosition::new(modified, record_id),
-            event,
-            floor.as_ref(),
-        )
+    /// Serialize `record` into upload BSOs. If it fits the record budget it ships
+    /// whole under `base`; otherwise its bytes are sliced into `base_0 ..`
+    /// [`WirePart`] frames. The engine never inspects the payload.
+    fn frame(&self, record: &WireEvent, base: &Guid) -> Result<Vec<OutgoingBso>> {
+        let json = serde_json::to_string(record)?;
+        let max = self.baseline_config.max_record_payload_bytes;
+        if json.len() <= max {
+            return Ok(vec![OutgoingBso::from_content(
+                OutgoingEnvelope::from(base.clone()),
+                record,
+            )?]);
+        }
+        // A raw slice lands in `data`, where serde re-escapes `"` and `\` (the
+        // only chars serialized JSON carries raw), at worst doubling it. So halve
+        // the envelope-adjusted budget to keep each frame under `max`.
+        let data_budget = (max.saturating_sub(FRAME_OVERHEAD) / 2).max(1);
+        let chunks = slice_utf8(&json, data_budget);
+        let part_count = chunks.len() as u32;
+        let mut bsos = Vec::with_capacity(chunks.len());
+        for (i, data) in chunks.into_iter().enumerate() {
+            let frame = Wire::Frame(WirePart {
+                group: base.clone(),
+                part: i as u32,
+                part_count,
+                data,
+            });
+            let id = batch_record_id(base, i);
+            bsos.push(OutgoingBso::from_content(
+                OutgoingEnvelope::from(id),
+                &frame,
+            )?);
+        }
+        Ok(bsos)
     }
 
-    /// Gate + dispatch an event against an explicit baseline floor.
-    fn ingest_with_floor(
-        &self,
-        incoming: EventPosition,
-        event: Event,
-        floor: Option<&EventPosition>,
-    ) -> Result<bool> {
+    /// Gate + dispatch an assembled event against the baseline floor. Returns
+    /// whether it won and was dispatched to the reducer.
+    ///
+    /// Feed events in ascending server order so the gate only moves forward;
+    /// [`EventSyncEngine::apply`] does this.
+    fn ingest(&self, ev: &IncomingEvent, floor: Option<&EventPosition>) -> Result<bool> {
         // Ignore anything superseded by a baseline.
         if let Some(floor) = floor {
-            if !incoming.supersedes(floor) {
+            if !ev.position.supersedes(floor) {
                 return Ok(false);
             }
         }
 
-        let gate = event.gate_key();
+        let gate = ev.gate_key();
         if let Some(stored) = self.meta.position(&gate)? {
-            if !incoming.supersedes(&stored) {
+            if !ev.position.supersedes(&stored) {
                 // Older than or identical to what we already applied.
                 return Ok(false);
             }
@@ -195,7 +218,7 @@ impl EventSyncEngine {
         // skip it without advancing the gate.
         let payload = match self
             .schema
-            .read(&event.event_type, &event.body, self.schema.current())
+            .read(&ev.event_type, &ev.body, self.schema.current())
         {
             Ok(payload) => payload,
             Err(Error::NoReadableSchema { .. }) => return Ok(false),
@@ -203,101 +226,45 @@ impl EventSyncEngine {
         };
 
         self.reducer.apply_event(ResolvedEvent {
-            event_type: event.event_type,
-            entity: event.entity,
+            event_type: ev.event_type.clone(),
+            entity: ev.entity.clone(),
             payload,
         });
-        self.meta.set_position(gate, incoming)?;
+        self.meta.set_position(gate, ev.position.clone())?;
         Ok(true)
     }
 
-    /// Read each part at the current schema and join them, in order, into the
-    /// full snapshot. `None` if any part has no schema this client can read (the
-    /// baseline is then below our floor).
-    fn read_snapshot_parts(&self, parts: &[EventBody]) -> Result<Option<Vec<SnapshotEntity>>> {
-        let mut entities = Vec::new();
-        for body in parts {
-            match self
-                .schema
-                .read(SNAPSHOT_EVENT_TYPE, body, self.schema.current())
-            {
-                Ok(payload) => {
-                    entities.extend(serde_json::from_value::<Vec<SnapshotEntity>>(payload)?)
-                }
-                Err(Error::NoReadableSchema { .. }) => return Ok(None),
-                Err(e) => return Err(e),
-            }
+    /// Resolve a baseline's body to the current schema. `None` if it carries no
+    /// schema this client can read (the baseline is then below our floor).
+    fn read_baseline(&self, body: &EventBody) -> Result<Option<serde_json::Value>> {
+        match self
+            .schema
+            .read(BASELINE_EVENT_TYPE, body, self.schema.current())
+        {
+            Ok(payload) => Ok(Some(payload)),
+            Err(Error::NoReadableSchema { .. }) => Ok(None),
+            Err(e) => Err(e),
         }
-        Ok(Some(entities))
     }
 
-    /// Serialize the reducer's current snapshot into baseline records, splitting
-    /// it across `group_0 ..` parts so each stays under the record budget.
-    /// Returns the group id and its parts.
+    /// Serialize the reducer's current state into a baseline record, framed if it
+    /// exceeds the record budget. Returns the group id and its frames.
     fn build_baseline_bsos(
         &self,
         covers_up_to: &EventPosition,
     ) -> Result<(Guid, Vec<OutgoingBso>)> {
-        let entities = self.reducer.snapshot();
+        let payload = self.reducer.baseline();
+        let body = self.schema.dual_write(BASELINE_EVENT_TYPE, payload)?;
+        let record = WireEvent::baseline(WirePosition::from(covers_up_to), body);
         let group = Guid::random();
-        let cover_wire = WirePosition::from(covers_up_to);
-
-        // Measure a candidate part by the byte size of its dual-written record
-        // (what actually ships). On a dual-write error we return `MAX` so the
-        // splitter stops growing the part; the real error surfaces when we build
-        // the parts below.
-        let measure = |chunk: &[SnapshotEntity]| -> usize {
-            let Ok(value) = serde_json::to_value(chunk) else {
-                return usize::MAX;
-            };
-            let Ok(body) = self.schema.dual_write(SNAPSHOT_EVENT_TYPE, value) else {
-                return usize::MAX;
-            };
-            let record = WireRecord::Baseline {
-                group: group.clone(),
-                part: 0,
-                part_count: 0,
-                covers_up_to: cover_wire.clone(),
-                body,
-            };
-            serde_json::to_vec(&record)
-                .map(|v| v.len())
-                .unwrap_or(usize::MAX)
-        };
-
-        let chunks = split_snapshot(
-            entities,
-            self.baseline_config.max_record_payload_bytes,
-            measure,
-        );
-        let part_count = chunks.len() as u32;
-        let mut bsos = Vec::with_capacity(chunks.len());
-        for (i, chunk) in chunks.into_iter().enumerate() {
-            let body = self
-                .schema
-                .dual_write(SNAPSHOT_EVENT_TYPE, serde_json::to_value(&chunk)?)?;
-            let record = WireRecord::Baseline {
-                group: group.clone(),
-                part: i as u32,
-                part_count,
-                covers_up_to: cover_wire.clone(),
-                body,
-            };
-            let id = batch_record_id(&group, i);
-            bsos.push(OutgoingBso::from_content(
-                OutgoingEnvelope::from(id),
-                &record,
-            )?);
-        }
+        let bsos = self.frame(&record, &group)?;
         Ok((group, bsos))
     }
 
     fn build_baseline_needed_bso(&self) -> Result<OutgoingBso> {
         Ok(OutgoingBso::from_content(
             OutgoingEnvelope::from(Guid::random()),
-            &WireRecord::BaselineNeeded {
-                schema: self.schema.current(),
-            },
+            WireEvent::baseline_needed(self.schema.current()),
         )?)
     }
 }
@@ -310,38 +277,114 @@ fn max_position(prev: Option<EventPosition>, b: EventPosition) -> EventPosition 
     }
 }
 
-/// Join a group's parts into a complete baseline, or `None` if parts are missing
-/// or disagree. We skip a partial group until it is whole, so a half-visible
-/// baseline never advances the floor.
-fn assemble_baseline(
-    mut parts: Vec<(u32, u32, EventPosition, EventBody)>,
-) -> Option<StagedBaseline> {
-    // Sort by the part number so `_10` comes after `_2` (sorting by record id
-    // would not). Then require the parts to be exactly `0..count`, with one
-    // agreed count and one cover.
-    parts.sort_by_key(|(part, ..)| *part);
-    let count = parts.first()?.1;
-    if parts.len() as u32 != count {
-        return None;
-    }
-    let cover = parts[0].2.clone();
-    for (i, (part, part_count, part_cover, _)) in parts.iter().enumerate() {
-        if *part != i as u32 || *part_count != count || *part_cover != cover {
-            return None;
+/// Parse each staged BSO into a [`StagedRecord`], tagged with the group its
+/// frames reassemble into (a whole record's group is its own id) and its record
+/// position. Tombstones and malformed records are dropped.
+fn event_parts(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
+    let mut parts = Vec::with_capacity(staged.len());
+    for bso in staged {
+        let modified = bso.envelope.modified;
+        let record_id = bso.envelope.id.clone();
+        match bso.into_content::<Wire>().kind {
+            IncomingKind::Content(Wire::Whole(wire)) => parts.push(StagedRecord {
+                group: record_id,
+                modified,
+                raw: RawRecord::Whole(wire),
+            }),
+            IncomingKind::Content(Wire::Frame(p)) => parts.push(StagedRecord {
+                group: p.group,
+                modified,
+                raw: RawRecord::Frame {
+                    part: p.part,
+                    part_count: p.part_count,
+                    data: p.data,
+                },
+            }),
+            _ => {}
         }
     }
-    Some(StagedBaseline {
-        cover,
-        parts: parts.into_iter().map(|(_, _, _, body)| body).collect(),
-    })
+    parts
 }
 
-/// A parsed incoming event plus the highest schema version tag it carries
-/// (visible even when we can't parse that schema).
-struct StagedEvent {
-    pos: EventPosition,
-    event: Event,
-    max_schema: SchemaVersion,
+/// Reassemble records into whole [`IncomingEvent`]s. Records are bucketed by
+/// group: a whole record is a size-1 group used directly; a framed record's
+/// frames are joined (in `part` order, concatenating `data`) into the original
+/// serialized [`WireEvent`] and parsed once. A framed group is skipped until it
+/// holds exactly `0..part_count`, so a baseline mid-upload is never half-applied.
+///
+/// `current` is the schema fallback for a record carrying no readable version
+/// tag (a `baseline-needed` marker has no body).
+fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<IncomingEvent> {
+    let mut buckets: HashMap<Guid, Vec<StagedRecord>> = HashMap::new();
+    for part in parts {
+        buckets.entry(part.group.clone()).or_default().push(part);
+    }
+
+    let mut out = Vec::with_capacity(buckets.len());
+    for (group, bucket) in buckets {
+        let modified = bucket[0].modified;
+        let Some(wire) = reassemble(bucket) else {
+            continue;
+        };
+        let max_schema = wire
+            .body
+            .versions()
+            .max()
+            .or(wire.schema)
+            .unwrap_or(current);
+        out.push(IncomingEvent {
+            event_type: wire.event_type,
+            entity: wire.entity,
+            // A framed record's frames share `modified`; key the position off the
+            // group so it is stable regardless of which frame we read it from.
+            position: EventPosition::new(modified, group),
+            body: wire.body,
+            max_schema,
+            covers_up_to: wire.covers_up_to.map(EventPosition::from),
+        });
+    }
+    out
+}
+
+/// Join one group's staged records into the original [`WireEvent`], or `None` if
+/// the group is an incomplete/inconsistent set of frames or fails to parse.
+fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
+    // A whole record stands alone; anything sharing its group would be a bug.
+    if let [only] = bucket.as_mut_slice() {
+        if let RawRecord::Whole(_) = only.raw {
+            match bucket.pop().expect("length one").raw {
+                RawRecord::Whole(wire) => return Some(wire),
+                RawRecord::Frame { .. } => unreachable!(),
+            }
+        }
+    }
+
+    // Otherwise it is a set of frames: sort by part, require exactly `0..count`,
+    // then concatenate the data and parse the original record.
+    let mut frames: Vec<(u32, u32, String)> = bucket
+        .into_iter()
+        .map(|r| match r.raw {
+            RawRecord::Frame {
+                part,
+                part_count,
+                data,
+            } => Some((part, part_count, data)),
+            RawRecord::Whole(_) => None,
+        })
+        .collect::<Option<_>>()?;
+    frames.sort_by_key(|(part, ..)| *part);
+    let count = frames.first()?.1;
+    if frames.len() as u32 != count {
+        return None;
+    }
+    let mut joined = String::new();
+    for (i, (part, part_count, data)) in frames.into_iter().enumerate() {
+        if part != i as u32 || part_count != count {
+            return None;
+        }
+        joined.push_str(&data);
+    }
+    serde_json::from_str(&joined).ok()
 }
 
 impl SyncEngine for EventSyncEngine {
@@ -365,59 +408,27 @@ impl SyncEngine for EventSyncEngine {
     ) -> anyhow::Result<Vec<OutgoingBso>> {
         let staged = std::mem::take(&mut *self.staged.lock().unwrap());
 
-        // Partition incoming records into events, baseline parts and markers.
-        let mut events: Vec<StagedEvent> = Vec::new();
-        // Baseline parts bucketed by group id; assembled into complete baselines below.
-        let mut baseline_parts: HashMap<Guid, Vec<(u32, u32, EventPosition, EventBody)>> =
-            HashMap::new();
+        // Parse -> reassemble parts -> a stream of whole events. Then split by
+        // reserved type into domain events, baselines and `baseline-needed`
+        // markers.
+        let assembled = assemble_events(event_parts(staged), self.schema.current());
+        let mut events: Vec<IncomingEvent> = Vec::new();
+        let mut baselines: Vec<IncomingEvent> = Vec::new();
         let mut baseline_needed = false;
         // Highest schema advertised by a peer's `baseline-needed` this sync; used
         // to elect the writer once the bar stays blocked past the timeout.
         let mut peer_needed_schema: Option<SchemaVersion> = None;
-        for bso in staged {
-            let pos = EventPosition::new(bso.envelope.modified, bso.envelope.id.clone());
-            match bso.into_content::<WireRecord>().kind {
-                IncomingKind::Content(WireRecord::Event {
-                    event_type,
-                    entity,
-                    body,
-                }) => {
-                    let max_schema = body
-                        .versions()
-                        .max()
-                        .unwrap_or_else(|| self.schema.current());
-                    events.push(StagedEvent {
-                        pos,
-                        event: Event::new(event_type, entity, body),
-                        max_schema,
-                    });
-                }
-                IncomingKind::Content(WireRecord::Baseline {
-                    group,
-                    part,
-                    part_count,
-                    covers_up_to,
-                    body,
-                }) => baseline_parts.entry(group).or_default().push((
-                    part,
-                    part_count,
-                    covers_up_to.into(),
-                    body,
-                )),
-                IncomingKind::Content(WireRecord::BaselineNeeded { schema }) => {
-                    baseline_needed = true;
-                    peer_needed_schema = Some(peer_needed_schema.map_or(schema, |m| m.max(schema)));
-                }
-                // Events are immutable; tombstones/malformed are unexpected.
-                _ => {}
+        for ev in assembled {
+            if ev.event_type == BASELINE_EVENT_TYPE {
+                baselines.push(ev);
+            } else if ev.event_type == BASELINE_NEEDED_EVENT_TYPE {
+                baseline_needed = true;
+                peer_needed_schema =
+                    Some(peer_needed_schema.map_or(ev.max_schema, |m| m.max(ev.max_schema)));
+            } else {
+                events.push(ev);
             }
         }
-
-        // Only complete groups count; a partial baseline is ignored until whole.
-        let baselines: Vec<StagedBaseline> = baseline_parts
-            .into_values()
-            .filter_map(assemble_baseline)
-            .collect();
 
         let mut state = self.meta.baseline_state()?;
         let is_new_client = self.meta.last_sync()?.as_millis() == 0 && state.floor.is_none();
@@ -427,20 +438,27 @@ impl SyncEngine for EventSyncEngine {
         //    (always parseable) and prunes.
         let mut floor_advance: Option<EventPosition> = None;
         if is_new_client {
-            let mut readable: Vec<(EventPosition, Vec<SnapshotEntity>)> = Vec::new();
+            let mut readable: Vec<(EventPosition, serde_json::Value)> = Vec::new();
             for baseline in &baselines {
-                if let Some(entities) = self.read_snapshot_parts(&baseline.parts)? {
-                    readable.push((baseline.cover.clone(), entities));
+                let Some(cover) = baseline.covers_up_to.clone() else {
+                    continue;
+                };
+                if let Some(payload) = self.read_baseline(&baseline.body)? {
+                    readable.push((cover, payload));
                 }
             }
             readable.sort_by(|a, b| a.0.cmp(&b.0));
-            if let Some((cover, entities)) = readable.pop() {
-                self.reducer.apply_baseline(entities);
+            if let Some((cover, payload)) = readable.pop() {
+                self.reducer.apply_baseline(payload);
                 floor_advance = Some(cover);
             }
             // No readable baseline => apply all events from empty (floor stays
             // None). Present-but-unreadable is the below-floor case.
-        } else if let Some(newest_cover) = baselines.iter().map(|b| b.cover.clone()).max() {
+        } else if let Some(newest_cover) = baselines
+            .iter()
+            .filter_map(|b| b.covers_up_to.clone())
+            .max()
+        {
             if state
                 .floor
                 .as_ref()
@@ -472,33 +490,35 @@ impl SyncEngine for EventSyncEngine {
 
         // 2. Apply events newer than the floor in ascending order, accruing the
         //    cadence counters for events beyond the floor.
-        events.sort_by(|a, b| a.pos.cmp(&b.pos));
+        events.sort_by(|a, b| a.position.cmp(&b.position));
         let floor = state.floor.clone();
-        for staged_event in events {
-            let pos = staged_event.pos.clone();
+        for ev in events {
+            let pos = ev.position.clone();
             let beyond_floor = floor.as_ref().is_none_or(|f| pos.supersedes(f));
             if beyond_floor {
                 state.events_since_baseline += 1;
                 state.max_schema_since_baseline =
-                    state.max_schema_since_baseline.max(staged_event.max_schema);
+                    state.max_schema_since_baseline.max(ev.max_schema);
                 state.newest_event = Some(max_position(state.newest_event.take(), pos.clone()));
             }
-            if pending_keys.contains(&staged_event.event.gate_key()) {
+            if pending_keys.contains(&ev.gate_key()) {
                 continue;
             }
-            self.ingest_with_floor(staged_event.pos, staged_event.event, floor.as_ref())?;
+            self.ingest(&ev, floor.as_ref())?;
         }
 
         self.meta.set_last_sync(timestamp)?;
 
-        // 3. Emit local events, remembered for `set_uploaded`.
+        // 3. Emit local events, remembered for `set_uploaded`. A framed event
+        //    tracks bookkeeping on its first frame's id; the rest just upload.
         let mut bsos = Vec::new();
         let outgoing = std::mem::take(&mut *self.outgoing.lock().unwrap());
         {
             let mut awaiting = self.awaiting_upload.lock().unwrap();
             for p in outgoing {
-                awaiting.insert(p.bso.envelope.id.clone(), p.gate);
-                bsos.push(p.bso);
+                let first = p.bsos[0].envelope.id.clone();
+                awaiting.insert(first, (p.gate, p.position_id));
+                bsos.extend(p.bsos);
             }
         }
 
@@ -560,8 +580,10 @@ impl SyncEngine for EventSyncEngine {
         let mut pending = self.pending_baselines.lock().unwrap();
         let mut state = self.meta.baseline_state()?;
         for id in ids {
-            if let Some(gate) = awaiting.remove(&id) {
-                let pos = EventPosition::new(new_timestamp, id);
+            if let Some((gate, position_id)) = awaiting.remove(&id) {
+                // Key the gate off the event's position id (its group), not this
+                // frame's id, so a framed event advances the gate once.
+                let pos = EventPosition::new(new_timestamp, position_id);
                 self.meta.set_position(gate, pos.clone())?;
                 // Count our own events toward the cadence: we never re-download
                 // them, so this is the only place we observe them.
@@ -572,7 +594,7 @@ impl SyncEngine for EventSyncEngine {
                     state.newest_event = Some(max_position(state.newest_event.take(), pos));
                 }
             } else {
-                // Maybe a baseline part; mark it confirmed (ids are unique to
+                // Maybe a baseline frame; mark it confirmed (ids are unique to
                 // one group).
                 for pb in pending.values_mut() {
                     pb.remaining.remove(&id);
@@ -640,29 +662,45 @@ mod tests {
     use super::*;
     use crate::baseline::BaselineConfig;
     use crate::metadata::MemoryMetadataStore;
-    use crate::reducer::SnapshotEntity;
+    use serde::Serialize;
     use serde_json::json;
     use std::sync::Arc;
     use std::sync::Mutex as StdMutex;
 
-    /// A reducer that records what it was handed and can serve a snapshot.
+    /// A reducer that records what it was handed and can serve a baseline. Its
+    /// baseline payload is an array of `{ entity, payload }` objects.
     #[derive(Default)]
     struct RecordingReducer {
         applied: StdMutex<Vec<ResolvedEvent>>,
-        baselines: StdMutex<Vec<Vec<SnapshotEntity>>>,
-        snapshot: StdMutex<Vec<SnapshotEntity>>,
+        baselines: StdMutex<Vec<serde_json::Value>>,
+        baseline: StdMutex<serde_json::Value>,
     }
 
     impl EventReducer for Arc<RecordingReducer> {
-        fn snapshot(&self) -> Vec<SnapshotEntity> {
-            self.snapshot.lock().unwrap().clone()
+        fn baseline(&self) -> serde_json::Value {
+            let b = self.baseline.lock().unwrap();
+            if b.is_null() {
+                json!([])
+            } else {
+                b.clone()
+            }
         }
-        fn apply_baseline(&self, entities: Vec<SnapshotEntity>) {
-            self.baselines.lock().unwrap().push(entities);
+        fn apply_baseline(&self, payload: serde_json::Value) {
+            self.baselines.lock().unwrap().push(payload);
         }
         fn apply_event(&self, event: ResolvedEvent) {
             self.applied.lock().unwrap().push(event);
         }
+    }
+
+    /// A baseline payload as the reducer produces it: an array of entities.
+    fn baseline_payload(entities: &[(&str, serde_json::Value)]) -> serde_json::Value {
+        serde_json::Value::Array(
+            entities
+                .iter()
+                .map(|(id, payload)| json!({ "entity": id, "payload": payload }))
+                .collect(),
+        )
     }
 
     fn engine_with(reducer: Arc<RecordingReducer>) -> EventSyncEngine {
@@ -678,19 +716,86 @@ mod tests {
         EventBody::single(1, payload)
     }
 
-    /// An incoming BSO for a wire record at a given server position.
-    fn incoming(record: &WireRecord, modified_ms: i64, id: &str) -> IncomingBso {
+    /// An incoming BSO for any wire record at a given server position.
+    fn incoming<T: Serialize>(record: &T, modified_ms: i64, id: &str) -> IncomingBso {
         OutgoingBso::from_content(OutgoingEnvelope::from(Guid::new(id)), record)
             .unwrap()
             .to_test_incoming_ts(ServerTimestamp::from_millis(modified_ms))
     }
 
-    fn event_record(event_type: &str, entity: &str, payload: serde_json::Value) -> WireRecord {
-        WireRecord::Event {
+    /// Frame a baseline record into `_{n}` [`WirePart`] BSOs at `max_bytes`, as
+    /// the engine would when it overflows the budget.
+    fn baseline_frames(
+        group: &str,
+        cover_ms: i64,
+        cover_id: &str,
+        entities: &[(&str, serde_json::Value)],
+        max_bytes: usize,
+    ) -> Vec<IncomingBso> {
+        let body = EventBody::single(1, baseline_payload(entities));
+        let record = WireEvent::baseline(
+            WirePosition {
+                modified_ms: cover_ms,
+                record_id: Guid::new(cover_id),
+            },
+            body,
+        );
+        let json = serde_json::to_string(&record).unwrap();
+        let chunks = slice_utf8(&json, max_bytes);
+        let count = chunks.len() as u32;
+        chunks
+            .into_iter()
+            .enumerate()
+            .map(|(i, data)| {
+                let frame = Wire::Frame(WirePart {
+                    group: Guid::new(group),
+                    part: i as u32,
+                    part_count: count,
+                    data,
+                });
+                let id = batch_record_id(&Guid::new(group), i);
+                incoming(&frame, cover_ms + 50, id.as_str())
+            })
+            .collect()
+    }
+
+    fn event_record(event_type: &str, entity: &str, payload: serde_json::Value) -> WireEvent {
+        WireEvent::event(event_type.to_string(), Guid::new(entity), body(payload))
+    }
+
+    /// An assembled domain event, for gating [`EventSyncEngine::ingest`].
+    fn incoming_event(
+        event_type: &str,
+        entity: &str,
+        modified_ms: i64,
+        id: &str,
+        payload: serde_json::Value,
+    ) -> IncomingEvent {
+        IncomingEvent {
             event_type: event_type.to_string(),
             entity: Guid::new(entity),
+            position: EventPosition::new(ServerTimestamp::from_millis(modified_ms), Guid::new(id)),
             body: body(payload),
+            max_schema: 1,
+            covers_up_to: None,
         }
+    }
+
+    #[test]
+    fn domain_event_wire_is_lean() {
+        // A domain event carries only type/entity/body: the baseline-only fields
+        // (covers_up_to, schema) default and stay off the wire, and framing is a
+        // separate shape, so nothing else appears.
+        let wire = serde_json::to_value(event_record(
+            "modify-name",
+            "containerX",
+            json!({ "name": "foo" }),
+        ))
+        .unwrap();
+        let obj = wire.as_object().unwrap();
+        let mut keys: Vec<&str> = obj.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, vec!["body", "entity", "type"]);
     }
 
     #[test]
@@ -700,25 +805,27 @@ mod tests {
         let entity = Guid::new("containerX");
 
         assert!(engine
-            .ingest_event(
-                Guid::new("evt-bar"),
-                ServerTimestamp::from_millis(210),
-                Event::new(
+            .ingest(
+                &incoming_event(
                     "modify-name",
-                    entity.clone(),
-                    body(json!({ "name": "bar" }))
+                    entity.as_str(),
+                    210,
+                    "evt-bar",
+                    json!({ "name": "bar" })
                 ),
+                None,
             )
             .unwrap());
         assert!(!engine
-            .ingest_event(
-                Guid::new("evt-foo"),
-                ServerTimestamp::from_millis(200),
-                Event::new(
+            .ingest(
+                &incoming_event(
                     "modify-name",
-                    entity.clone(),
-                    body(json!({ "name": "foo" }))
+                    entity.as_str(),
+                    200,
+                    "evt-foo",
+                    json!({ "name": "foo" })
                 ),
+                None,
             )
             .unwrap());
 
@@ -734,25 +841,27 @@ mod tests {
         let entity = Guid::new("containerX");
 
         engine
-            .ingest_event(
-                Guid::new("evt-name"),
-                ServerTimestamp::from_millis(210),
-                Event::new(
+            .ingest(
+                &incoming_event(
                     "modify-name",
-                    entity.clone(),
-                    body(json!({ "name": "bar" })),
+                    entity.as_str(),
+                    210,
+                    "evt-name",
+                    json!({ "name": "bar" }),
                 ),
+                None,
             )
             .unwrap();
         assert!(engine
-            .ingest_event(
-                Guid::new("evt-color"),
-                ServerTimestamp::from_millis(200),
-                Event::new(
+            .ingest(
+                &incoming_event(
                     "modify-color",
-                    entity.clone(),
-                    body(json!({ "color": "blue" }))
+                    entity.as_str(),
+                    200,
+                    "evt-color",
+                    json!({ "color": "blue" })
                 ),
+                None,
             )
             .unwrap());
         assert_eq!(reducer.applied.lock().unwrap().len(), 2);
@@ -765,20 +874,16 @@ mod tests {
 
         // A baseline covering up to (100, "e100"), plus an older event (covered,
         // ignored) and a newer event (applied).
-        let snapshot = vec![SnapshotEntity {
-            entity: Guid::new("containerX"),
-            payload: json!({ "name": "foo" }),
-        }];
-        let baseline = WireRecord::Baseline {
-            group: Guid::new("g1"),
-            part: 0,
-            part_count: 1,
-            covers_up_to: WirePosition {
+        let baseline = WireEvent::baseline(
+            WirePosition {
                 modified_ms: 100,
                 record_id: Guid::new("e100"),
             },
-            body: EventBody::single(1, serde_json::to_value(&snapshot).unwrap()),
-        };
+            EventBody::single(
+                1,
+                baseline_payload(&[("containerX", json!({ "name": "foo" }))]),
+            ),
+        );
 
         let staged = vec![
             incoming(&baseline, 150, "baseline-1"),
@@ -803,10 +908,10 @@ mod tests {
             .unwrap();
         assert!(outgoing.is_empty());
 
-        // Baseline applied once.
+        // Baseline applied once, as the reducer's own payload array.
         let baselines = reducer.baselines.lock().unwrap();
         assert_eq!(baselines.len(), 1);
-        assert_eq!(baselines[0][0].payload, json!({ "name": "foo" }));
+        assert_eq!(baselines[0][0]["payload"], json!({ "name": "foo" }));
 
         // Stale event ignored, fresh one applied.
         let applied = reducer.applied.lock().unwrap();
@@ -817,10 +922,8 @@ mod tests {
     #[test]
     fn cadence_writes_a_baseline_and_advances_the_floor() {
         let reducer = Arc::new(RecordingReducer::default());
-        *reducer.snapshot.lock().unwrap() = vec![SnapshotEntity {
-            entity: Guid::new("containerX"),
-            payload: json!({ "name": "foo" }),
-        }];
+        *reducer.baseline.lock().unwrap() =
+            baseline_payload(&[("containerX", json!({ "name": "foo" }))]);
         // Threshold of 2 events triggers a baseline.
         let engine = engine_with(reducer.clone()).with_baseline_config(BaselineConfig {
             events_per_baseline: Some(2),
@@ -848,18 +951,15 @@ mod tests {
 
         // Exactly one baseline record emitted.
         assert_eq!(outgoing.len(), 1);
-        let record: WireRecord = outgoing[0]
+        let record: WireEvent = outgoing[0]
             .to_test_incoming()
             .into_content()
             .content()
             .unwrap();
-        match record {
-            WireRecord::Baseline { covers_up_to, .. } => {
-                assert_eq!(covers_up_to.modified_ms, 110);
-                assert_eq!(covers_up_to.record_id.as_str(), "e110");
-            }
-            _ => panic!("expected a baseline record"),
-        }
+        assert_eq!(record.event_type, BASELINE_EVENT_TYPE);
+        let cover = record.covers_up_to.expect("a baseline carries a cover");
+        assert_eq!(cover.modified_ms, 110);
+        assert_eq!(cover.record_id.as_str(), "e110");
     }
 
     #[test]
@@ -876,11 +976,7 @@ mod tests {
         // can't parse.
         let mut evt_body = EventBody::single(1, json!({ "n": "foo" }));
         evt_body.insert(2, json!({ "name": "foo" }));
-        let record = WireRecord::Event {
-            event_type: "modify-name".to_string(),
-            entity: Guid::new("containerX"),
-            body: evt_body,
-        };
+        let record = WireEvent::event("modify-name".to_string(), Guid::new("containerX"), evt_body);
 
         let mut telem = sync15::telemetry::Engine::new("containers");
         engine
@@ -891,61 +987,97 @@ mod tests {
             .unwrap();
 
         assert_eq!(outgoing.len(), 1);
-        let parsed: WireRecord = outgoing[0]
+        let parsed: WireEvent = outgoing[0]
             .to_test_incoming()
             .into_content()
             .content()
             .unwrap();
-        assert!(matches!(parsed, WireRecord::BaselineNeeded { schema: 1 }));
+        assert_eq!(parsed.event_type, BASELINE_NEEDED_EVENT_TYPE);
+        assert_eq!(parsed.schema, Some(1));
     }
 
-    fn baseline_part(group: &str, part: u32, count: u32, ent: &str, name: &str) -> WireRecord {
-        let snapshot = vec![SnapshotEntity {
-            entity: Guid::new(ent),
-            payload: json!({ "name": name }),
-        }];
-        WireRecord::Baseline {
-            group: Guid::new(group),
-            part,
-            part_count: count,
-            covers_up_to: WirePosition {
+    /// Frame `record` into [`StagedRecord`] frames at `max_bytes`, for exercising
+    /// [`assemble_events`] directly.
+    fn frames_of(record: &WireEvent, group: &str, max_bytes: usize) -> Vec<StagedRecord> {
+        let json = serde_json::to_string(record).unwrap();
+        let chunks = slice_utf8(&json, max_bytes);
+        let count = chunks.len() as u32;
+        chunks
+            .into_iter()
+            .enumerate()
+            .map(|(i, data)| StagedRecord {
+                group: Guid::new(group),
+                modified: ServerTimestamp::from_millis(100),
+                raw: RawRecord::Frame {
+                    part: i as u32,
+                    part_count: count,
+                    data,
+                },
+            })
+            .collect()
+    }
+
+    #[test]
+    fn assemble_events_reassembles_frames_in_numeric_order() {
+        // A baseline sliced tiny, so it takes more than ten frames. That is enough
+        // that a plain string sort (rather than numeric) would put `_10` before
+        // `_2` and corrupt the reassembled bytes.
+        let body = EventBody::single(
+            1,
+            baseline_payload(&[
+                ("A", json!({ "x": 1 })),
+                ("B", json!({ "x": 2 })),
+                ("C", json!({ "x": 3 })),
+                ("D", json!({ "x": 4 })),
+            ]),
+        );
+        let record = WireEvent::baseline(
+            WirePosition {
                 modified_ms: 100,
-                record_id: Guid::new("e100"),
+                record_id: Guid::new("cover"),
             },
-            body: EventBody::single(1, serde_json::to_value(&snapshot).unwrap()),
+            body.clone(),
+        );
+        let mut frames = frames_of(&record, "g", 15);
+        assert!(
+            frames.len() > 10,
+            "need >10 frames to exercise numeric ordering, got {}",
+            frames.len()
+        );
+        frames.reverse();
+
+        let assembled = assemble_events(frames, 1);
+        assert_eq!(assembled.len(), 1);
+        let ev = &assembled[0];
+        assert_eq!(
+            ev.covers_up_to,
+            Some(EventPosition::new(
+                ServerTimestamp::from_millis(100),
+                Guid::new("cover")
+            ))
+        );
+        // Frames reassembled to the identical body despite reversed delivery.
+        assert_eq!(ev.body, body);
+    }
+
+    #[test]
+    fn assemble_events_rejects_incomplete_group() {
+        // Two frames, but they claim a group of three.
+        let record = WireEvent::baseline(
+            WirePosition {
+                modified_ms: 100,
+                record_id: Guid::new("cover"),
+            },
+            EventBody::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
+        );
+        let mut frames = frames_of(&record, "g", 15);
+        frames.truncate(2);
+        for f in &mut frames {
+            if let RawRecord::Frame { part_count, .. } = &mut f.raw {
+                *part_count = 3;
+            }
         }
-    }
-
-    #[test]
-    fn assemble_baseline_orders_parts_numerically() {
-        let cover = EventPosition::new(ServerTimestamp::from_millis(100), Guid::new("cover"));
-        let count = 11;
-        // Bodies tagged with their part index, supplied in reverse so `_10`
-        // precedes `_2` under a naive sort.
-        let mut parts: Vec<(u32, u32, EventPosition, EventBody)> = (0..count)
-            .map(|i| (i, count, cover.clone(), EventBody::single(1, json!(i))))
-            .collect();
-        parts.reverse();
-
-        let assembled = assemble_baseline(parts).expect("complete group");
-        assert_eq!(assembled.cover, cover);
-        let order: Vec<u32> = assembled
-            .parts
-            .iter()
-            .map(|b| serde_json::from_value(b.get(1).unwrap().clone()).unwrap())
-            .collect();
-        assert_eq!(order, (0..count).collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn assemble_baseline_rejects_incomplete_group() {
-        let cover = EventPosition::new(ServerTimestamp::from_millis(100), Guid::new("cover"));
-        // Claims 3 parts but only 2 are present.
-        let parts = vec![
-            (0, 3, cover.clone(), EventBody::single(1, json!(0))),
-            (1, 3, cover.clone(), EventBody::single(1, json!(1))),
-        ];
-        assert!(assemble_baseline(parts).is_none());
+        assert!(assemble_events(frames, 1).is_empty());
     }
 
     #[test]
@@ -953,23 +1085,31 @@ mod tests {
         let reducer = Arc::new(RecordingReducer::default());
         let engine = engine_with(reducer.clone());
 
-        // Two parts of one baseline, delivered out of order.
-        let staged = vec![
-            incoming(&baseline_part("g", 1, 2, "B", "b"), 150, "g_1"),
-            incoming(&baseline_part("g", 0, 2, "A", "a"), 150, "g_0"),
-        ];
+        // A baseline framed tiny (so it splits), delivered out of order.
+        let mut frames = baseline_frames(
+            "g",
+            100,
+            "e100",
+            &[("A", json!({ "name": "a" })), ("B", json!({ "name": "b" }))],
+            40,
+        );
+        assert!(frames.len() > 1, "baseline should have split into frames");
+        frames.reverse();
+
         let mut telem = sync15::telemetry::Engine::new("containers");
-        engine.stage_incoming(staged, &mut telem).unwrap();
+        engine.stage_incoming(frames, &mut telem).unwrap();
         engine
             .apply(ServerTimestamp::from_millis(150), &mut telem)
             .unwrap();
 
         let baselines = reducer.baselines.lock().unwrap();
         assert_eq!(baselines.len(), 1);
-        // Reassembled in part order, not delivery order.
+        // Reassembled to the original payload despite reversed frame delivery.
         let names: Vec<String> = baselines[0]
+            .as_array()
+            .unwrap()
             .iter()
-            .map(|e| e.payload["name"].as_str().unwrap().to_string())
+            .map(|e| e["payload"]["name"].as_str().unwrap().to_string())
             .collect();
         assert_eq!(names, vec!["a".to_string(), "b".to_string()]);
     }
@@ -979,13 +1119,16 @@ mod tests {
         let reducer = Arc::new(RecordingReducer::default());
         let engine = engine_with(reducer.clone());
 
-        // Only part 0 of a 2-part group arrives.
+        // Only frame 0 of a 2-frame group arrives.
+        let frame = Wire::Frame(WirePart {
+            group: Guid::new("g"),
+            part: 0,
+            part_count: 2,
+            data: "{".to_string(),
+        });
         let mut telem = sync15::telemetry::Engine::new("containers");
         engine
-            .stage_incoming(
-                vec![incoming(&baseline_part("g", 0, 2, "A", "a"), 150, "g_0")],
-                &mut telem,
-            )
+            .stage_incoming(vec![incoming(&frame, 150, "g_0")], &mut telem)
             .unwrap();
         engine
             .apply(ServerTimestamp::from_millis(150), &mut telem)
@@ -998,10 +1141,7 @@ mod tests {
     #[test]
     fn floor_advances_only_after_baseline_upload_confirmed() {
         let reducer = Arc::new(RecordingReducer::default());
-        *reducer.snapshot.lock().unwrap() = vec![SnapshotEntity {
-            entity: Guid::new("X"),
-            payload: json!({ "name": "x" }),
-        }];
+        *reducer.baseline.lock().unwrap() = baseline_payload(&[("X", json!({ "name": "x" }))]);
         let engine = engine_with(reducer.clone()).with_baseline_config(BaselineConfig {
             events_per_baseline: Some(1),
             baseline_timeout_ms: None,

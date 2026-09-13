@@ -2,9 +2,9 @@
 name = "sync_engine"
 edition = "2021"
 version = "0.1.0"
-authors = ["Sync Team <sync-team@mozilla.com>"]
+authors = ["Marco Ciullo <mciullo@mozilla.com>"]
 license = "MPL-2.0"
-description = "A generic, storage-agnostic, event-based sync engine (see README.md)."
+description = "A generic event-based sync engine."
 
 [features]
 # disable whith `--no-default-features`

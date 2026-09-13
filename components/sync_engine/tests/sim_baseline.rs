@@ -47,8 +47,8 @@ fn late_joiner_cold_starts_from_a_baseline() {
 #[test]
 fn split_baseline_reassembles_on_a_late_joiner() {
     let mut server = FakeServer::new();
-    // Tiny record budget forces about one entity per part. Low threshold makes
-    // the baseline land quickly.
+    // Tiny record budget forces the baseline to split into several byte frames.
+    // Low threshold makes the baseline land quickly.
     let config = || BaselineConfig {
         events_per_baseline: Some(3),
         baseline_timeout_ms: None,
@@ -56,15 +56,16 @@ fn split_baseline_reassembles_on_a_late_joiner() {
     };
     let a = SimClient::new("A", schema_v1(), config());
 
-    // More than ten containers, so a split produces `_10`, `_11`, ... and the
-    // late joiner must reassemble by numeric part, not record-id order.
+    // Enough containers that the serialized baseline overflows one 200-byte
+    // record and is framed into `_0`, `_1`, ... which the late joiner must
+    // reassemble in numeric part order.
     for i in 0..12 {
         a.create(json!({ "name": format!("c{i}") }));
     }
     sync_to_quiescence(&[&a], &mut server);
     assert!(
-        server.baseline_count() >= 12,
-        "the baseline should have been split into >=12 parts, got {}",
+        server.baseline_count() > 1,
+        "the baseline should have been framed into >1 part, got {}",
         server.baseline_count()
     );
 
