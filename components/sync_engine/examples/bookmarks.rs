@@ -14,7 +14,7 @@ use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
 use sync_engine::{
     BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
-    SchemaRegistry, SnapshotEntity,
+    SchemaRegistry,
 };
 
 const MENU: &str = "menu________";
@@ -140,24 +140,26 @@ impl BookmarkStore {
 }
 
 impl EventReducer for BookmarkStore {
-    fn snapshot(&self) -> Vec<SnapshotEntity> {
+    fn baseline(&self) -> Value {
         let s = self.state.lock().unwrap();
-        let mut out: Vec<SnapshotEntity> = s
+        let mut out: Vec<Value> = s
             .iter()
-            .map(|(entity, payload)| SnapshotEntity {
-                entity: entity.clone(),
-                payload: payload.clone(),
-            })
+            .map(|(entity, payload)| json!({ "entity": entity, "payload": payload }))
             .collect();
-        out.sort_by(|a, b| a.entity.as_str().cmp(b.entity.as_str()));
-        out
+        // Deterministic order, so the same state produces the same bytes.
+        out.sort_by(|a, b| a["entity"].as_str().cmp(&b["entity"].as_str()));
+        Value::Array(out)
     }
 
-    fn apply_baseline(&self, entities: Vec<SnapshotEntity>) {
+    fn apply_baseline(&self, payload: Value) {
         let mut s = self.state.lock().unwrap();
         s.clear();
-        for e in entities {
-            s.insert(e.entity, e.payload);
+        if let Value::Array(items) = payload {
+            for item in items {
+                if let Some(id) = item["entity"].as_str() {
+                    s.insert(Guid::new(id), item["payload"].clone());
+                }
+            }
         }
     }
 
