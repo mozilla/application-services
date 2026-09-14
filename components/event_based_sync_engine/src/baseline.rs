@@ -12,9 +12,7 @@
 //! A baseline's body is schema-versioned like an event body, under the reserved
 //! event type [`crate::event::BASELINE_EVENT_TYPE`].
 //!
-//! Not yet implemented: splitting a large baseline across an atomic batch;
-//! deleting superseded records from the server; detecting a client that fell
-//! behind past compaction.
+//! Not yet implemented: deleting superseded records from the server
 
 use crate::event::EventPosition;
 use crate::schema::SchemaVersion;
@@ -23,11 +21,6 @@ use sync15::ServerTimestamp;
 /// if no baseline lands within this time (~30 days in ms), the highest-schema client
 /// still active takes over.
 pub const DEFAULT_BASELINE_TIMEOUT_MS: i64 = 30 * 24 * 60 * 60 * 1000;
-
-/// Default byte budget for a single baseline record before it is split into
-/// `_N` parts. Conservative so it holds on any server, with slack for the
-/// encryption/base64 overhead applied after we measure the plaintext record.
-pub const DEFAULT_MAX_RECORD_PAYLOAD_BYTES: usize = 256 * 1024;
 
 /// Tuning for automatic baseline generation.
 #[derive(Clone, Debug)]
@@ -44,10 +37,6 @@ pub struct BaselineConfig {
     /// at least this many ms of server time, the highest-schema client still
     /// syncing writes one anyway. `None` disables the override.
     pub baseline_timeout_ms: Option<i64>,
-    /// Byte budget for a single record. A record larger than this is framed into
-    /// `_N` transport parts, each under the budget (the engine slices the
-    /// serialized record's bytes; it never inspects the payload).
-    pub max_record_payload_bytes: usize,
 }
 
 impl Default for BaselineConfig {
@@ -56,7 +45,6 @@ impl Default for BaselineConfig {
         Self {
             events_per_baseline: Some(500),
             baseline_timeout_ms: Some(DEFAULT_BASELINE_TIMEOUT_MS),
-            max_record_payload_bytes: DEFAULT_MAX_RECORD_PAYLOAD_BYTES,
         }
     }
 }

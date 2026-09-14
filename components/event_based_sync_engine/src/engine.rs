@@ -38,6 +38,9 @@ use sync15::{CollectionName, Guid, ServerTimestamp};
 /// next to any real budget.
 const FRAME_OVERHEAD: usize = 96;
 
+/// Default byte budget for a single record before it is framed into `_N` parts.
+pub const DEFAULT_MAX_RECORD_PAYLOAD_BYTES: usize = 256 * 1024;
+
 /// Split `s`'s raw bytes into base64-encoded frame payloads.
 fn split_frames(s: &str, max_bytes: usize) -> Vec<String> {
     // base64 emits 4 output chars per 3 input bytes
@@ -101,6 +104,11 @@ pub struct EventSyncEngine {
     schema: SchemaRegistry,
     meta: Box<dyn MetadataStore>,
     baseline_config: BaselineConfig,
+    /// Byte budget for a single record. A larger record is split into `_N`
+    /// parts, each under the budget, by slicing its serialized bytes (the
+    /// payload is never inspected). Applies to
+    /// every event.
+    max_record_payload_bytes: usize,
 
     /// Incoming records staged by `stage_incoming`, drained by `apply`.
     staged: Mutex<Vec<IncomingBso>>,
@@ -127,6 +135,7 @@ impl EventSyncEngine {
             schema,
             meta,
             baseline_config: BaselineConfig::default(),
+            max_record_payload_bytes: DEFAULT_MAX_RECORD_PAYLOAD_BYTES,
             staged: Mutex::new(Vec::new()),
             outgoing: Mutex::new(Vec::new()),
             awaiting_upload: Mutex::new(HashMap::new()),
@@ -137,6 +146,12 @@ impl EventSyncEngine {
     /// Override the baseline cadence configuration.
     pub fn with_baseline_config(mut self, config: BaselineConfig) -> Self {
         self.baseline_config = config;
+        self
+    }
+
+    /// Override the per-record byte budget used to frame every event.
+    pub fn with_max_record_payload_bytes(mut self, max: usize) -> Self {
+        self.max_record_payload_bytes = max;
         self
     }
 
@@ -169,7 +184,7 @@ impl EventSyncEngine {
     /// `base_0 ..` [`WirePart`] frames. The engine never inspects the payload.
     fn frame(&self, record: &WireEvent, base: &Guid) -> Result<Vec<OutgoingBso>> {
         let json = serde_json::to_string(record)?;
-        let max = self.baseline_config.max_record_payload_bytes;
+        let max = self.max_record_payload_bytes;
         if json.len() <= max {
             // Reuse the JSON we already serialized to measure. Like a frame, it
             // carries no `id`; the reader re-adds it from the envelope.
@@ -964,7 +979,6 @@ mod tests {
         let engine = engine_with(reducer.clone()).with_baseline_config(BaselineConfig {
             events_per_baseline: Some(2),
             baseline_timeout_ms: None,
-            ..BaselineConfig::default()
         });
 
         let staged = vec![
@@ -1005,7 +1019,6 @@ mod tests {
         let engine = engine_with(reducer).with_baseline_config(BaselineConfig {
             events_per_baseline: Some(1),
             baseline_timeout_ms: None,
-            ..BaselineConfig::default()
         });
 
         // Body carries a schema-2 representation our schema-1 client sees but
@@ -1223,11 +1236,12 @@ mod tests {
     fn floor_advances_only_after_baseline_upload_confirmed() {
         let reducer = Arc::new(RecordingReducer::default());
         *reducer.baseline.lock().unwrap() = baseline_payload(&[("X", json!({ "name": "x" }))]);
-        let engine = engine_with(reducer.clone()).with_baseline_config(BaselineConfig {
-            events_per_baseline: Some(1),
-            baseline_timeout_ms: None,
-            max_record_payload_bytes: usize::MAX,
-        });
+        let engine = engine_with(reducer.clone())
+            .with_baseline_config(BaselineConfig {
+                events_per_baseline: Some(1),
+                baseline_timeout_ms: None,
+            })
+            .with_max_record_payload_bytes(usize::MAX);
         let mut telem = sync15::telemetry::Engine::new("containers");
 
         // An incoming event trips the cadence; a baseline is emitted but not yet
@@ -1305,11 +1319,12 @@ mod tests {
     fn gate_advances_only_after_all_event_frames_confirmed() {
         let reducer = Arc::new(RecordingReducer::default());
         // Tiny record budget forces a local event to split into byte frames.
-        let engine = engine_with(reducer).with_baseline_config(BaselineConfig {
-            events_per_baseline: None,
-            baseline_timeout_ms: None,
-            max_record_payload_bytes: 200,
-        });
+        let engine = engine_with(reducer)
+            .with_baseline_config(BaselineConfig {
+                events_per_baseline: None,
+                baseline_timeout_ms: None,
+            })
+            .with_max_record_payload_bytes(200);
         let mut telem = sync15::telemetry::Engine::new("containers");
 
         // A local event too big for one record: it frames into several parts.

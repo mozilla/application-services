@@ -517,7 +517,10 @@ mod tests {
     impl TempDir {
         fn new() -> Self {
             let mut path = std::env::temp_dir();
-            path.push(format!("event_based_sync_engine_meta_test_{}", Guid::random().as_str()));
+            path.push(format!(
+                "event_based_sync_engine_meta_test_{}",
+                Guid::random().as_str()
+            ));
             std::fs::create_dir_all(&path).unwrap();
             Self { path }
         }

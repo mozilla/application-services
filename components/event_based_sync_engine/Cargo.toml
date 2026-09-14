@@ -1,5 +1,5 @@
 [package]
-name = "sync_engine"
+name = "event_based_sync_engine"
 edition = "2021"
 version = "0.1.0"
 authors = ["Marco Ciullo <mciullo@mozilla.com>"]
