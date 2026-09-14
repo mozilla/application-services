@@ -178,6 +178,7 @@ fn overview_panel(
     metric: SyncMetric,
 ) -> Panel {
     if application == Application::Ios && channel == ReleaseChannel::Nightly {
+        // iOs doesn't have a nightly
         return TextPanel {
             content: "## N/A".into(),
             mode: "markdown".into(),
