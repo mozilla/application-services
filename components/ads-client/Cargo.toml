@@ -8,6 +8,7 @@ exclude = ["/android"]
 [features]
 dev = []
 default = []
+stateful = []
 
 [dependencies]
 chrono = "0.4"

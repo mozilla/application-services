@@ -6,11 +6,9 @@
 pub mod error;
 pub mod telemetry;
 
-use std::sync::Arc;
-#[cfg(test)]
-use std::sync::Weak;
-
-use crate::client::config::{AdsCacheConfig, AdsClientConfig, AdsStoreConfig};
+#[cfg(feature = "stateful")]
+use crate::client::config::AdsStoreConfig;
+use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
@@ -26,6 +24,9 @@ use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Weak;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -110,6 +111,7 @@ impl MozAdsClientBuilder {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
             telemetry: telemetry.clone(),
+            #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
         };
         let client = AdsClient::new(client_config);
@@ -440,6 +442,7 @@ impl From<MozAdsCacheConfig> for AdsCacheConfig {
     }
 }
 
+#[cfg(feature = "stateful")]
 impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
