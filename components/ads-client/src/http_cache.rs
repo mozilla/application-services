@@ -73,6 +73,9 @@ impl HttpCache {
         item: T,
         policy: &CachePolicy,
     ) -> HttpCacheSendResult {
+        #[cfg(feature = "stateful")]
+        panic!();
+
         let hash = RequestHash::new(&item);
         let request = item.into();
         let mut outcomes = vec![];
