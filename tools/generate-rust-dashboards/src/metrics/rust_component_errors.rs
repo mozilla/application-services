@@ -77,6 +77,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
                 },
                 unit: None,
             },
+            ..FieldConfig::default()
         },
         transformations: vec![
             Transformation::PartitionByValues {
@@ -278,6 +279,7 @@ fn error_list_count_panel() -> Panel {
                 },
                 ..FieldConfigDefaults::default()
             },
+            ..FieldConfig::default()
         },
         ..TimeSeriesPanel::default()
     }

@@ -230,6 +230,7 @@ fn overview_panel(
                 custom: metric.field_config_custom(),
                 unit: metric.unit(),
             },
+            ..FieldConfig::default()
         },
         transformations: vec![
             Transformation::PartitionByValues {
@@ -282,6 +283,7 @@ fn details_dash_count_panel(title: &str, metric: SyncMetric) -> Panel {
                 custom: metric.field_config_custom(),
                 unit: metric.unit(),
             },
+            ..FieldConfig::default()
         },
         ..TimeSeriesPanel::default()
     }

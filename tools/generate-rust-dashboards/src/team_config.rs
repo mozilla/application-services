@@ -44,6 +44,7 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         "key_regenerated_other",
                     ],
                     applications: vec![Android, Ios],
+                    options: EventsOptions::default(),
                 }
                 .into(),
                 EventsMetric {
@@ -52,6 +53,9 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                     category: "credit_card_key_regeneration",
                     metrics: vec!["keychain_data_lost", "lost", "corrupt", "other"],
                     applications: vec![Ios],
+                    options: EventsOptions {
+                        unique_user_counts: true,
+                    },
                 }
                 .into(),
             ],
