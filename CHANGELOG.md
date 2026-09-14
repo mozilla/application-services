@@ -9,6 +9,13 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Search
+
+- Added in-development v3 APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
+  The APIs are currently the same as v2 but do not support configuration overrides.
+
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
