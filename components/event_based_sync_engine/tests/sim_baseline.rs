@@ -11,7 +11,7 @@ use serde_json::json;
 use support::{
     assert_converged, no_baselines, schema_v1, sync_to_quiescence, FakeServer, SimClient,
 };
-use sync_engine::BaselineConfig;
+use event_based_sync_engine::BaselineConfig;
 
 #[test]
 fn late_joiner_cold_starts_from_a_baseline() {

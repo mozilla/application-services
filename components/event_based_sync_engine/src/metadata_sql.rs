@@ -64,7 +64,7 @@ const POSITION_PREFIX: &str = "position:";
 struct MetadataConnectionInitializer;
 
 impl ConnectionInitializer for MetadataConnectionInitializer {
-    const NAME: &'static str = "sync_engine metadata";
+    const NAME: &'static str = "event_based_sync_engine metadata";
     const END_VERSION: u32 = VERSION;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
@@ -517,7 +517,7 @@ mod tests {
     impl TempDir {
         fn new() -> Self {
             let mut path = std::env::temp_dir();
-            path.push(format!("sync_engine_meta_test_{}", Guid::random().as_str()));
+            path.push(format!("event_based_sync_engine_meta_test_{}", Guid::random().as_str()));
             std::fs::create_dir_all(&path).unwrap();
             Self { path }
         }

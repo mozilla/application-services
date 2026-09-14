@@ -13,7 +13,7 @@ use support::{
     assert_converged, no_baselines, schema_v1, schema_v2, schema_v3, sync_to_quiescence,
     FakeServer, SimClient,
 };
-use sync_engine::BaselineConfig;
+use event_based_sync_engine::BaselineConfig;
 
 #[test]
 fn old_and_new_schema_clients_interoperate() {

@@ -26,7 +26,7 @@ use std::sync::{Arc, Mutex};
 use sync15::bso::OutgoingBso;
 use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
-use sync_engine::{
+use event_based_sync_engine::{
     BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
     SchemaRegistry, BASELINE_EVENT_TYPE,
 };
