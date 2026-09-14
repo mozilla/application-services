@@ -126,6 +126,47 @@ pub(crate) struct JSONEngineBase {
     pub urls: JSONEngineUrls,
 }
 
+/// Represents the engine base section of the configuration for v3.
+#[derive(Debug, Default, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineBaseV3 {
+    /// A list of aliases for this engine.
+    pub aliases: Option<Vec<String>>,
+
+    /// The character set this engine uses for queries. Defaults to 'UTF=8' if not set.
+    pub charset: Option<String>,
+
+    /// The classification of search engine according to the main search types
+    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
+    /// a general search engine is supported.
+    #[serde(default)]
+    pub classification: SearchEngineClassification,
+
+    /// The user visible name for the search engine.
+    pub name: String,
+
+    /// The partner code for the engine. This will be inserted into parameters
+    /// which include `{partnerCode}`.
+    pub partner_code: Option<String>,
+
+    /// The URLs associated with the search engine.
+    pub urls: JSONEngineUrls,
+}
+
+/// Temporary helper to reduce work for handling the original and v3 types.
+impl From<JSONEngineBaseV3> for JSONEngineBase {
+    fn from(base: JSONEngineBaseV3) -> Self {
+        Self {
+            aliases: base.aliases,
+            charset: base.charset,
+            classification: base.classification,
+            name: base.name,
+            partner_code: base.partner_code,
+            urls: base.urls,
+        }
+    }
+}
+
 /// Specifies details of possible user environments that the engine or variant
 /// applies to.
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -246,6 +287,23 @@ pub(crate) struct JSONEngineRecord {
     pub variants: Vec<JSONEngineVariant>,
 }
 
+/// Represents an individual engine record in the v3 configuration.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineRecordV3 {
+    /// The identiifer for the search engine.
+    pub identifier: String,
+
+    /// The base information of the search engine, may be extended by the
+    /// variants.
+    pub base: JSONEngineBaseV3,
+
+    /// Describes variations of this search engine that may occur depending on
+    /// the user's environment. The last variant that matches the user's
+    /// environment will be applied to the engine, subvariants may also be applied.
+    pub variants: Vec<JSONEngineVariant>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONSpecificDefaultRecord {
@@ -332,8 +390,29 @@ pub(crate) enum JSONSearchConfigurationRecords {
     Unknown,
 }
 
+/// Represents an individual record in the raw search configuration v3.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "recordType", rename_all = "camelCase")]
+pub(crate) enum JSONSearchConfigurationRecordsV3 {
+    DefaultEngines(JSONDefaultEnginesRecord),
+    Engine(Box<JSONEngineRecordV3>),
+    EngineOrders(JSONEngineOrdersRecord),
+    AvailableLocales(JSONAvailableLocalesRecord),
+    // Include some flexibilty if we choose to add new record types in future.
+    // Current versions of the application receiving the configuration will
+    // ignore the new record types.
+    #[serde(other)]
+    Unknown,
+}
+
 /// Represents the search configuration as received from remote settings.
 #[derive(Debug, Deserialize)]
 pub(crate) struct JSONSearchConfiguration {
     pub data: Vec<JSONSearchConfigurationRecords>,
+}
+
+/// Represents the search configuration v3 as received from remote settings.
+#[derive(Debug, Deserialize)]
+pub(crate) struct JSONSearchConfigurationV3 {
+    pub data: Vec<JSONSearchConfigurationRecordsV3>,
 }

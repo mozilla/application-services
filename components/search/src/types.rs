@@ -245,6 +245,79 @@ pub struct SearchEngineDefinition {
     pub click_url: Option<String>,
 }
 
+/// A search-config-v3 definition for an individual search engine to be
+/// presented to the user.
+#[derive(Debug, uniffi::Record, PartialEq, Clone, Default)]
+pub struct SearchEngineDefinitionV3 {
+    /// A list of aliases for this engine.
+    pub aliases: Vec<String>,
+
+    /// The character set this engine uses for queries.
+    pub charset: String,
+
+    /// The classification of search engine according to the main search types
+    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
+    /// a general search engine is supported.
+    /// On Android, only general search engines may be selected as "default"
+    /// search engines.
+    pub classification: SearchEngineClassification,
+
+    /// The identifier of the search engine. This is used as an internal
+    /// identifier, e.g. for saving the user's settings for the engine. It is
+    /// also used to form the base telemetry id and may be extended by telemetrySuffix.
+    pub identifier: String,
+
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
+    /// The user visible name of the search engine.
+    pub name: String,
+
+    /// This search engine is presented as an option that the user may enable.
+    /// The application should not include these in the default list of the
+    /// user's engines. If not supported, it should filter them out.
+    pub optional: bool,
+
+    /// The partner code for the engine. This will be inserted into parameters
+    /// which include `{partnerCode}`. May be the empty string.
+    pub partner_code: String,
+
+    /// Optional suffix that is appended to the search engine identifier
+    /// following a dash, i.e. `<identifier>-<suffix>`. If it is an empty string
+    /// no dash should be appended.
+    pub telemetry_suffix: String,
+
+    /// The URLs associated with the search engine.
+    pub urls: SearchEngineUrls,
+
+    /// A hint to the order that this engine should be in the engine list. This
+    /// is derived from the `engineOrders` section of the search configuration.
+    /// The higher the number, the nearer to the front it should be.
+    /// If the number is not specified, other methods of sorting may be relied
+    /// upon (e.g. alphabetical).
+    pub order_hint: Option<u32>,
+}
+
+/// Temporary helper to reduce work for handling the original and v3 types.
+impl From<SearchEngineDefinition> for SearchEngineDefinitionV3 {
+    fn from(engine: SearchEngineDefinition) -> Self {
+        Self {
+            aliases: engine.aliases,
+            charset: engine.charset,
+            classification: engine.classification,
+            identifier: engine.identifier,
+            is_new_until: engine.is_new_until,
+            name: engine.name,
+            optional: engine.optional,
+            partner_code: engine.partner_code,
+            telemetry_suffix: engine.telemetry_suffix,
+            urls: engine.urls,
+            order_hint: engine.order_hint,
+        }
+    }
+}
+
 /// Details of the search engines to display to the user, generated as a result
 /// of processing the search configuration.
 #[derive(Debug, uniffi::Record, PartialEq)]
@@ -263,6 +336,37 @@ pub struct RefinedSearchConfig {
     /// * Engines sorted by descending `SearchEngineDefinition.orderHint`
     /// * Any other engines in alphabetical order (locale based comparison)
     pub engines: Vec<SearchEngineDefinition>,
+
+    /// The identifier of the engine that should be used for the application
+    /// default engine. If this is undefined, an error has occurred, and the
+    /// application should either default to the first engine in the engines
+    /// list or otherwise handle appropriately.
+    pub app_default_engine_id: Option<String>,
+
+    /// If specified, the identifier of the engine that should be used for the
+    /// application default engine in private browsing mode.
+    /// Only desktop uses this currently.
+    pub app_private_default_engine_id: Option<String>,
+}
+
+/// Details of the search engines to display to the user, generated as a result
+/// of processing the search configuration v3.
+#[derive(Debug, uniffi::Record, PartialEq)]
+pub struct RefinedSearchConfigV3 {
+    /// A sorted list of engines. Clients may use the engine in the order that
+    /// this list is specified, or they may implement their own order if they
+    /// have other requirements.
+    ///
+    /// The application default engines should not be assumed from this order in
+    /// case of future changes.
+    ///
+    /// The sort order is:
+    ///
+    /// * Application Default Engine
+    /// * Application Default Engine for Private Mode (if specified & different)
+    /// * Engines sorted by descending `SearchEngineDefinition.orderHint`
+    /// * Any other engines in alphabetical order (locale based comparison)
+    pub engines: Vec<SearchEngineDefinitionV3>,
 
     /// The identifier of the engine that should be used for the application
     /// default engine. If this is undefined, an error has occurred, and the
