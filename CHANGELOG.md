@@ -2,6 +2,10 @@
 
 [Full Changelog](In progress)
 
+### Ads-Client
+
+- Removed the `MozAdsContextIdProvider` callback interface and the `context_id_provider()` builder method. Wiring it up from Firefox Desktop crashed off the main thread ([Bug 2062806](https://bugzilla.mozilla.org/show_bug.cgi?id=2062806)) and nothing else used it, so the ads client now always uses its embedded `ContextIDComponent`. ([AC-99](https://mozilla-hub.atlassian.net/browse/AC-99))
+
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
 
