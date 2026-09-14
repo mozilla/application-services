@@ -13,7 +13,7 @@
 //!
 //! [`IncomingEvent`] is the assembled shape the engine consumes. [`WireEvent`]
 //! and [`WirePart`] are how a record is serialized and (when too large) framed
-//! for transport. The byte-slicing and reassembly of frames lives in the engine.
+//! for transport. The base64 framing and reassembly of frames lives in the engine.
 
 use crate::schema::{EventBody, SchemaVersion};
 use serde::{Deserialize, Serialize};
@@ -168,10 +168,11 @@ pub(crate) struct WireEvent {
     pub(crate) body: EventBody,
 }
 
-/// One `_{n}` frame of a record too big for a single upload: an opaque slice of
-/// the serialized [`WireEvent`]. Frames sharing a `group` reassemble in `part`
-/// order, concatenating `data`, back into the original record's bytes. The engine
-/// never inspects the payload; it slices and rejoins raw bytes.
+/// One `_{n}` frame of a record too big for a single upload: an opaque,
+/// base64-encoded slice of the serialized [`WireEvent`]. Frames sharing a `group`
+/// reassemble in `part` order, base64-decoding `data`, back into the original
+/// record's bytes. The engine never inspects the payload; encoding lets it cut the
+/// bytes at any offset without minding UTF-8 boundaries.
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct WirePart {
     pub(crate) group: Guid,

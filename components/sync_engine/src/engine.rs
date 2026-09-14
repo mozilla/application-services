@@ -26,6 +26,7 @@ use crate::event::{
 use crate::metadata::MetadataStore;
 use crate::reducer::{EventReducer, ResolvedEvent};
 use crate::schema::{EventBody, SchemaRegistry, SchemaVersion};
+use base64::prelude::{Engine, BASE64_STANDARD};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso, OutgoingEnvelope};
@@ -37,20 +38,14 @@ use sync15::{CollectionName, Guid, ServerTimestamp};
 /// next to any real budget.
 const FRAME_OVERHEAD: usize = 96;
 
-/// Slice `s` into chunks of at most `max_bytes`, cutting only on char boundaries
-/// so each chunk is valid UTF-8. Concatenating the chunks restores `s`.
-fn slice_utf8(s: &str, max_bytes: usize) -> Vec<String> {
-    let max_bytes = max_bytes.max(1);
-    let mut chunks = Vec::new();
-    let mut current = String::new();
-    for ch in s.chars() {
-        if !current.is_empty() && current.len() + ch.len_utf8() > max_bytes {
-            chunks.push(std::mem::take(&mut current));
-        }
-        current.push(ch);
-    }
-    chunks.push(current);
-    chunks
+/// Split `s`'s raw bytes into base64-encoded frame payloads.
+fn split_frames(s: &str, max_bytes: usize) -> Vec<String> {
+    // base64 emits 4 output chars per 3 input bytes
+    let chunk = (max_bytes.max(4) / 4) * 3;
+    s.as_bytes()
+        .chunks(chunk)
+        .map(|c| BASE64_STANDARD.encode(c))
+        .collect()
 }
 
 /// A local event awaiting upload, remembered so [`SyncEngine::set_uploaded`] can
@@ -170,8 +165,8 @@ impl EventSyncEngine {
     }
 
     /// Serialize `record` into upload BSOs. If it fits the record budget it ships
-    /// whole under `base`; otherwise its bytes are sliced into `base_0 ..`
-    /// [`WirePart`] frames. The engine never inspects the payload.
+    /// whole under `base`; otherwise its bytes are split and base64-encoded into
+    /// `base_0 ..` [`WirePart`] frames. The engine never inspects the payload.
     fn frame(&self, record: &WireEvent, base: &Guid) -> Result<Vec<OutgoingBso>> {
         let json = serde_json::to_string(record)?;
         let max = self.baseline_config.max_record_payload_bytes;
@@ -183,11 +178,10 @@ impl EventSyncEngine {
                 payload: json,
             }]);
         }
-        // A raw slice lands in `data`, where serde re-escapes `"` and `\` (the
-        // only chars serialized JSON carries raw), at worst doubling it. So halve
-        // the envelope-adjusted budget to keep each frame under `max`.
-        let data_budget = (max.saturating_sub(FRAME_OVERHEAD) / 2).max(1);
-        let chunks = slice_utf8(&json, data_budget);
+        // Each frame's base64 `data` is plain ASCII JSON never re-escapes, so the
+        // whole envelope-adjusted budget is available for it.
+        let data_budget = max.saturating_sub(FRAME_OVERHEAD).max(1);
+        let chunks = split_frames(&json, data_budget);
         let part_count = chunks.len() as u32;
         let mut bsos = Vec::with_capacity(chunks.len());
         for (i, data) in chunks.into_iter().enumerate() {
@@ -321,7 +315,7 @@ fn event_parts(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
 
 /// Reassemble records into whole [`IncomingEvent`]s. Records are bucketed by
 /// group: a whole record is a size-1 group used directly; a framed record's
-/// frames are joined (in `part` order, concatenating `data`) into the original
+/// frames are joined (in `part` order, base64-decoding `data`) into the original
 /// serialized [`WireEvent`] and parsed once. A framed group is skipped until it
 /// holds exactly `0..part_count`, so a baseline mid-upload is never half-applied.
 ///
@@ -383,7 +377,7 @@ fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
     }
 
     // Otherwise it is a set of frames: sort by part, require exactly `0..count`,
-    // then concatenate the data and parse the original record.
+    // then base64-decode and concatenate the data and parse the original record.
     let mut frames: Vec<(u32, u32, String)> = bucket
         .into_iter()
         .map(|r| match r.raw {
@@ -400,14 +394,14 @@ fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
     if frames.len() as u32 != count {
         return None;
     }
-    let mut joined = String::new();
+    let mut joined = Vec::new();
     for (i, (part, part_count, data)) in frames.into_iter().enumerate() {
         if part != i as u32 || part_count != count {
             return None;
         }
-        joined.push_str(&data);
+        joined.extend(BASE64_STANDARD.decode(&data).ok()?);
     }
-    serde_json::from_str(&joined).ok()
+    serde_json::from_slice(&joined).ok()
 }
 
 impl SyncEngine for EventSyncEngine {
@@ -783,7 +777,7 @@ mod tests {
             body,
         );
         let json = serde_json::to_string(&record).unwrap();
-        let chunks = slice_utf8(&json, max_bytes);
+        let chunks = split_frames(&json, max_bytes);
         let count = chunks.len() as u32;
         chunks
             .into_iter()
@@ -1042,7 +1036,7 @@ mod tests {
     /// [`assemble_events`] directly.
     fn frames_of(record: &WireEvent, group: &str, max_bytes: usize) -> Vec<StagedRecord> {
         let json = serde_json::to_string(record).unwrap();
-        let chunks = slice_utf8(&json, max_bytes);
+        let chunks = split_frames(&json, max_bytes);
         let count = chunks.len() as u32;
         chunks
             .into_iter()
@@ -1115,7 +1109,7 @@ mod tests {
             EventBody::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
         );
         let json = serde_json::to_string(&record).unwrap();
-        let chunks = slice_utf8(&json, 15);
+        let chunks = split_frames(&json, 15);
         let count = chunks.len() as u32;
         assert!(count > 1, "need multiple frames, got {count}");
 
