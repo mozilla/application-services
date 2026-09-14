@@ -6,16 +6,16 @@
 //!
 //! Run with: `cargo run -p event_based_sync_engine --example bookmarks`
 
+use event_based_sync_engine::{
+    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
+    SchemaRegistry,
+};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
-use event_based_sync_engine::{
-    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
-    SchemaRegistry,
-};
 
 const MENU: &str = "menu________";
 const TOOLBAR: &str = "toolbar_____";
@@ -322,7 +322,6 @@ fn main() {
     let off = || BaselineConfig {
         events_per_baseline: None,
         baseline_timeout_ms: None,
-        ..BaselineConfig::default()
     };
 
     {

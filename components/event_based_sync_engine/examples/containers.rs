@@ -6,16 +6,16 @@
 //!
 //! Run with: `cargo run -p event_based_sync_engine --example containers`
 
+use event_based_sync_engine::{
+    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
+    SchemaRegistry, BASELINE_EVENT_TYPE,
+};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
-use event_based_sync_engine::{
-    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
-    SchemaRegistry, BASELINE_EVENT_TYPE,
-};
 
 #[derive(Default)]
 struct FakeServer {
@@ -265,7 +265,6 @@ fn main() {
     let off = || BaselineConfig {
         events_per_baseline: None,
         baseline_timeout_ms: None,
-        ..BaselineConfig::default()
     };
 
     {
@@ -340,7 +339,6 @@ fn main() {
             BaselineConfig {
                 events_per_baseline: Some(3),
                 baseline_timeout_ms: None,
-                ..BaselineConfig::default()
             },
         );
 
