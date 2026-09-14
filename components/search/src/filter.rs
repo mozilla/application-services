@@ -8,11 +8,12 @@ use crate::configuration_overrides_types::JSONOverridesRecord;
 use crate::environment_matching::matches_user_environment;
 use crate::{
     error::Error, JSONDefaultEnginesRecord, JSONEngineBase, JSONEngineMethod, JSONEngineRecord,
-    JSONEngineUrl, JSONEngineUrls, JSONEngineVariant, JSONSearchConfigurationRecords,
-    RefinedSearchConfig, SearchEngineDefinition, SearchEngineUrl, SearchEngineUrls,
-    SearchUserEnvironment,
+    JSONEngineRecordV3, JSONEngineUrl, JSONEngineUrls, JSONEngineVariant,
+    JSONSearchConfigurationRecords, JSONSearchConfigurationRecordsV3, RefinedSearchConfig,
+    RefinedSearchConfigV3, SearchEngineDefinition, SearchEngineDefinitionV3, SearchEngineUrl,
+    SearchEngineUrls, SearchUserEnvironment,
 };
-use crate::{sort_helpers, JSONAvailableLocalesRecord, JSONEngineOrdersRecord};
+use crate::{sort_helpers, JSONAvailableLocalesRecord, JSONEngineBaseV3, JSONEngineOrdersRecord};
 use remote_settings::RemoteSettingsRecord;
 use std::collections::HashSet;
 
@@ -89,6 +90,49 @@ impl SearchEngineUrls {
     }
 }
 
+pub(crate) trait EngineDefinition: Clone {
+    fn identifier(&self) -> &str;
+    fn name(&self) -> &str;
+    fn order_hint(&self) -> Option<u32>;
+    fn set_order_hint(&mut self, order_hint: Option<u32>);
+}
+
+impl EngineDefinition for SearchEngineDefinition {
+    fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn order_hint(&self) -> Option<u32> {
+        self.order_hint
+    }
+
+    fn set_order_hint(&mut self, order_hint: Option<u32>) {
+        self.order_hint = order_hint;
+    }
+}
+
+impl EngineDefinition for SearchEngineDefinitionV3 {
+    fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn order_hint(&self) -> Option<u32> {
+        self.order_hint
+    }
+
+    fn set_order_hint(&mut self, order_hint: Option<u32>) {
+        self.order_hint = order_hint;
+    }
+}
+
 impl SearchEngineDefinition {
     fn merge_variant(
         &mut self,
@@ -158,18 +202,43 @@ impl SearchEngineDefinition {
     }
 }
 
-pub(crate) struct FilterRecordsResult {
-    engines: Vec<SearchEngineDefinition>,
+impl SearchEngineDefinitionV3 {
+    pub(crate) fn from_configuration_details(
+        user_environment: &SearchUserEnvironment,
+        identifier: &str,
+        base: JSONEngineBaseV3,
+        variant: &JSONEngineVariant,
+        sub_variant: &Option<JSONEngineVariant>,
+    ) -> SearchEngineDefinitionV3 {
+        // v3 engines are currently built identically to v2 engines, so this
+        // delegates to the v2 builder. As search-config-v3 diverges from v2,
+        // we'll need to replace the delegation piecewise (e.g. set v3-only
+        // fields on the result, or fork the builder entirely).
+        SearchEngineDefinition::from_configuration_details(
+            user_environment,
+            identifier,
+            base.into(),
+            variant,
+            sub_variant,
+        )
+        .into()
+    }
+}
+
+pub(crate) struct FilterRecordsResult<E> {
+    engines: Vec<E>,
     default_engines_record: Option<JSONDefaultEnginesRecord>,
     engine_orders_record: Option<JSONEngineOrdersRecord>,
 }
 
 pub(crate) trait Filter {
+    type Engine: EngineDefinition;
+
     fn filter_records(
         &self,
         user_environment: &mut SearchUserEnvironment,
         overrides: Option<Vec<JSONOverridesRecord>>,
-    ) -> Result<FilterRecordsResult, Error>;
+    ) -> Result<FilterRecordsResult<Self::Engine>, Error>;
 }
 
 fn apply_overrides(
@@ -210,11 +279,13 @@ fn negotiate_languages(user_environment: &mut SearchUserEnvironment, available_l
 }
 
 impl Filter for Vec<RemoteSettingsRecord> {
+    type Engine = SearchEngineDefinition;
+
     fn filter_records(
         &self,
         user_environment: &mut SearchUserEnvironment,
         overrides: Option<Vec<JSONOverridesRecord>>,
-    ) -> Result<FilterRecordsResult, Error> {
+    ) -> Result<FilterRecordsResult<Self::Engine>, Error> {
         let mut available_locales = Vec::new();
         for record in self {
             if let Some(val) = record.fields.get("recordType") {
@@ -275,11 +346,13 @@ impl Filter for Vec<RemoteSettingsRecord> {
 }
 
 impl Filter for Vec<JSONSearchConfigurationRecords> {
+    type Engine = SearchEngineDefinition;
+
     fn filter_records(
         &self,
         user_environment: &mut SearchUserEnvironment,
         overrides: Option<Vec<JSONOverridesRecord>>,
-    ) -> Result<FilterRecordsResult, Error> {
+    ) -> Result<FilterRecordsResult<Self::Engine>, Error> {
         let mut available_locales = Vec::new();
         for record in self {
             if let JSONSearchConfigurationRecords::AvailableLocales(locales_record) = record {
@@ -325,11 +398,68 @@ impl Filter for Vec<JSONSearchConfigurationRecords> {
     }
 }
 
-pub(crate) fn filter_engine_configuration_impl(
+impl Filter for Vec<JSONSearchConfigurationRecordsV3> {
+    type Engine = SearchEngineDefinitionV3;
+
+    fn filter_records(
+        &self,
+        user_environment: &mut SearchUserEnvironment,
+        _overrides: Option<Vec<JSONOverridesRecord>>,
+    ) -> Result<FilterRecordsResult<Self::Engine>, Error> {
+        let mut available_locales = Vec::new();
+        for record in self {
+            if let JSONSearchConfigurationRecordsV3::AvailableLocales(locales_record) = record {
+                available_locales = locales_record.locales.clone();
+            }
+        }
+        negotiate_languages(user_environment, &available_locales);
+
+        let mut engines = Vec::new();
+        let mut default_engines_record = None;
+        let mut engine_orders_record = None;
+
+        for record in self {
+            match record {
+                JSONSearchConfigurationRecordsV3::Engine(engine) => {
+                    let result = maybe_extract_engine_config_v3(user_environment, engine.clone());
+                    engines.extend(result);
+                }
+                JSONSearchConfigurationRecordsV3::DefaultEngines(default_engines) => {
+                    default_engines_record = Some(default_engines);
+                }
+                JSONSearchConfigurationRecordsV3::EngineOrders(engine_orders) => {
+                    engine_orders_record = Some(engine_orders)
+                }
+                JSONSearchConfigurationRecordsV3::AvailableLocales(_) => {
+                    // Handled above
+                }
+                JSONSearchConfigurationRecordsV3::Unknown => {
+                    // Prevents panics if a new record type is added in future.
+                }
+            }
+        }
+
+        Ok(FilterRecordsResult {
+            engines,
+            default_engines_record: default_engines_record.cloned(),
+            engine_orders_record: engine_orders_record.cloned(),
+        })
+    }
+}
+
+/// The intermediate result of filtering a configuration, before it is
+/// converted into the version-specific refined configuration type.
+struct FilteredConfiguration<E> {
+    engines: Vec<E>,
+    app_default_engine_id: Option<String>,
+    app_private_default_engine_id: Option<String>,
+}
+
+fn filter_engine_configuration_core<F: Filter>(
     user_environment: SearchUserEnvironment,
-    configuration: &impl Filter,
+    configuration: &F,
     overrides: Option<Vec<JSONOverridesRecord>>,
-) -> Result<RefinedSearchConfig, Error> {
+) -> Result<FilteredConfiguration<F::Engine>, Error> {
     let mut user_environment = user_environment.clone();
     user_environment.locale = user_environment.locale.to_lowercase();
     user_environment.region = user_environment.region.to_lowercase();
@@ -363,12 +493,58 @@ pub(crate) fn filter_engine_configuration_impl(
             )
         });
 
-        RefinedSearchConfig {
+        FilteredConfiguration {
             engines,
             app_default_engine_id: default_engine_id,
             app_private_default_engine_id: default_private_engine_id,
         }
     })
+}
+
+pub(crate) fn filter_engine_configuration_impl(
+    user_environment: SearchUserEnvironment,
+    configuration: &impl Filter<Engine = SearchEngineDefinition>,
+    overrides: Option<Vec<JSONOverridesRecord>>,
+) -> Result<RefinedSearchConfig, Error> {
+    filter_engine_configuration_core(user_environment, configuration, overrides).map(|filtered| {
+        RefinedSearchConfig {
+            engines: filtered.engines,
+            app_default_engine_id: filtered.app_default_engine_id,
+            app_private_default_engine_id: filtered.app_private_default_engine_id,
+        }
+    })
+}
+
+pub(crate) fn filter_engine_configuration_v3_impl(
+    user_environment: SearchUserEnvironment,
+    configuration: &impl Filter<Engine = SearchEngineDefinitionV3>,
+) -> Result<RefinedSearchConfigV3, Error> {
+    filter_engine_configuration_core(user_environment, configuration, None).map(|filtered| {
+        RefinedSearchConfigV3 {
+            engines: filtered.engines,
+            app_default_engine_id: filtered.app_default_engine_id,
+            app_private_default_engine_id: filtered.app_private_default_engine_id,
+        }
+    })
+}
+
+fn find_matching_variant(
+    variants: Vec<JSONEngineVariant>,
+    user_environment: &SearchUserEnvironment,
+) -> Option<(JSONEngineVariant, Option<JSONEngineVariant>)> {
+    let matching_variant = variants
+        .into_iter()
+        .rev()
+        .find(|r| matches_user_environment(&r.environment, user_environment))?;
+
+    let matching_sub_variant = matching_variant
+        .sub_variants
+        .iter()
+        .rev()
+        .find(|r| matches_user_environment(&r.environment, user_environment))
+        .cloned();
+
+    Some((matching_variant, matching_sub_variant))
 }
 
 fn maybe_extract_engine_config(
@@ -377,37 +553,42 @@ fn maybe_extract_engine_config(
 ) -> Option<SearchEngineDefinition> {
     let JSONEngineRecord {
         identifier,
-        variants,
         base,
+        variants,
     } = *record;
-    let matching_variant = variants
-        .into_iter()
-        .rev()
-        .find(|r| matches_user_environment(&r.environment, user_environment));
-
-    let mut matching_sub_variant = None;
-    if let Some(variant) = &matching_variant {
-        matching_sub_variant = variant
-            .sub_variants
-            .iter()
-            .rev()
-            .find(|r| matches_user_environment(&r.environment, user_environment))
-            .cloned();
-    }
-
-    matching_variant.map(|variant| {
+    find_matching_variant(variants, user_environment).map(|(variant, sub_variant)| {
         SearchEngineDefinition::from_configuration_details(
             user_environment,
             &identifier,
             base,
             &variant,
-            &matching_sub_variant,
+            &sub_variant,
         )
     })
 }
 
-fn determine_default_engines(
-    engines: &[SearchEngineDefinition],
+fn maybe_extract_engine_config_v3(
+    user_environment: &SearchUserEnvironment,
+    record: Box<JSONEngineRecordV3>,
+) -> Option<SearchEngineDefinitionV3> {
+    let JSONEngineRecordV3 {
+        identifier,
+        base,
+        variants,
+    } = *record;
+    find_matching_variant(variants, user_environment).map(|(variant, sub_variant)| {
+        SearchEngineDefinitionV3::from_configuration_details(
+            user_environment,
+            &identifier,
+            base,
+            &variant,
+            &sub_variant,
+        )
+    })
+}
+
+fn determine_default_engines<E: EngineDefinition>(
+    engines: &[E],
     default_engines_record: Option<JSONDefaultEnginesRecord>,
     user_environment: &SearchUserEnvironment,
 ) -> (Option<String>, Option<String>) {
@@ -455,18 +636,18 @@ fn determine_default_engines(
     }
 }
 
-fn find_engine_id(engines: &[SearchEngineDefinition], engine_id: String) -> Option<String> {
+fn find_engine_id<E: EngineDefinition>(engines: &[E], engine_id: String) -> Option<String> {
     if engine_id.is_empty() {
         return None;
     }
-    match engines.iter().any(|e| e.identifier == engine_id) {
+    match engines.iter().any(|e| e.identifier() == engine_id) {
         true => Some(engine_id.clone()),
         false => None,
     }
 }
 
-fn find_engine_id_with_match(
-    engines: &[SearchEngineDefinition],
+fn find_engine_id_with_match<E: EngineDefinition>(
+    engines: &[E],
     engine_id_match: String,
 ) -> Option<String> {
     if engine_id_match.is_empty() {
@@ -475,14 +656,30 @@ fn find_engine_id_with_match(
     if let Some(match_no_star) = engine_id_match.strip_suffix('*') {
         return engines
             .iter()
-            .find(|e| e.identifier.starts_with(match_no_star))
-            .map(|e| e.identifier.clone());
+            .find(|e| e.identifier().starts_with(match_no_star))
+            .map(|e| e.identifier().to_string());
     }
 
     engines
         .iter()
-        .find(|e| e.identifier == engine_id_match)
-        .map(|e| e.identifier.clone())
+        .find(|e| e.identifier() == engine_id_match)
+        .map(|e| e.identifier().to_string())
+}
+
+/// Converts raw remote settings records into typed v3 configuration records.
+pub(crate) fn parse_v3_record_fields(
+    records: &[RemoteSettingsRecord],
+) -> Result<Vec<JSONSearchConfigurationRecordsV3>, Error> {
+    // TODO: Bug 1947241 - Find a way to avoid having to serialise the records
+    // back to strings and then deserialise them into the records that we want.
+    records
+        .iter()
+        .map(|record| {
+            Ok(serde_json::from_str(&serde_json::to_string(
+                &record.fields,
+            )?)?)
+        })
+        .collect()
 }
 
 #[cfg(test)]

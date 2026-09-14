@@ -9,6 +9,11 @@
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
 
+### Search
+
+- Added in-development v3 APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
+  The APIs are currently the same as v2 but do not support configuration overrides.
+
 # v157.0 (_2026-09-10_)
 
 ## ✨ What's Changed ✨
