@@ -8,12 +8,12 @@
 
 mod support;
 
+use event_based_sync_engine::BaselineConfig;
 use serde_json::json;
 use support::{
     assert_converged, no_baselines, schema_v1, schema_v2, schema_v3, sync_to_quiescence,
     FakeServer, SimClient,
 };
-use event_based_sync_engine::BaselineConfig;
 
 #[test]
 fn old_and_new_schema_clients_interoperate() {
@@ -62,7 +62,6 @@ fn schema_bar_block_without_timeout_never_compacts() {
         BaselineConfig {
             events_per_baseline: Some(2),
             baseline_timeout_ms: None,
-            ..BaselineConfig::default()
         },
     );
     for _ in 0..8 {
@@ -103,7 +102,6 @@ fn schema_bar_block_resolves_after_timeout() {
         BaselineConfig {
             events_per_baseline: Some(2),
             baseline_timeout_ms: Some(3),
-            ..BaselineConfig::default()
         },
     );
     sync_to_quiescence(&[&release], &mut server);
@@ -137,7 +135,6 @@ fn timeout_override_defers_to_highest_active_schema() {
     let config = || BaselineConfig {
         events_per_baseline: Some(2),
         baseline_timeout_ms: Some(3),
-        ..BaselineConfig::default()
     };
     // Both remain below the bar (max schema 3); v2 outranks v1.
     let v2 = SimClient::new("v2", schema_v2(), config());

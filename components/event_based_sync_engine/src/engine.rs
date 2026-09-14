@@ -61,23 +61,29 @@ struct PendingOutgoing {
     bsos: Vec<OutgoingBso>,
 }
 
-/// A baseline we wrote. We wait for [`SyncEngine::set_uploaded`] to confirm
-/// every frame before advancing the floor, so a half-uploaded baseline never
-/// moves the floor or prunes the gate.
-struct PendingBaseline {
-    cover: EventPosition,
+/// A record we uploaded, keyed by group id, waiting for
+/// [`SyncEngine::set_uploaded`] to confirm each of its frames. Its
+/// [`OnComplete`] runs only once every frame is confirmed, so a half-uploaded
+/// record (its frames may span sync batches) never moves a gate or the floor.
+/// Events and baselines share this and differ only in `on_complete`.
+struct AwaitingConfirmation {
     remaining: HashSet<Guid>,
+    on_complete: OnComplete,
 }
 
-/// A local event awaiting upload. Like [`PendingBaseline`], we wait for every
-/// frame to be confirmed before advancing the gate, so a half-uploaded framed
-/// event (whose frames may span sync batches) never records a position no peer
-/// can reassemble.
-struct PendingEvent {
-    gate: GateKey,
-    /// The id the event's [`EventPosition`] is keyed on (its group id).
-    position_id: Guid,
-    remaining: HashSet<Guid>,
+/// What confirming an [`AwaitingConfirmation`]'s last frame does. An event
+/// extends the stream (advances its gate, counts toward the cadence); a baseline
+/// collapses it (advances the floor, prunes below it, resets the cadence).
+enum OnComplete {
+    /// `position_id` is the id the event's [`EventPosition`] is keyed on (its
+    /// group id).
+    Event {
+        gate: GateKey,
+        position_id: Guid,
+    },
+    Baseline {
+        cover: EventPosition,
+    },
 }
 
 /// A record read from the server, tagged with the group its frames reassemble
@@ -114,12 +120,10 @@ pub struct EventSyncEngine {
     staged: Mutex<Vec<IncomingBso>>,
     /// Local events recorded but not yet handed to `apply`.
     outgoing: Mutex<Vec<PendingOutgoing>>,
-    /// Local events awaiting upload confirmation, keyed by the event's group id
-    /// (`position_id`). We wait for every frame to be confirmed before advancing
-    /// the gate, so a half-uploaded framed event never moves it.
-    awaiting_upload: Mutex<HashMap<Guid, PendingEvent>>,
-    /// Baselines we wrote, keyed by group id, awaiting full-upload confirmation.
-    pending_baselines: Mutex<HashMap<Guid, PendingBaseline>>,
+    /// Framed records we uploaded (events and baselines alike), keyed by group
+    /// id, awaiting confirmation of every frame before their [`OnComplete`]
+    /// side-effect runs.
+    awaiting_confirmation: Mutex<HashMap<Guid, AwaitingConfirmation>>,
 }
 
 impl EventSyncEngine {
@@ -138,8 +142,7 @@ impl EventSyncEngine {
             max_record_payload_bytes: DEFAULT_MAX_RECORD_PAYLOAD_BYTES,
             staged: Mutex::new(Vec::new()),
             outgoing: Mutex::new(Vec::new()),
-            awaiting_upload: Mutex::new(HashMap::new()),
-            pending_baselines: Mutex::new(HashMap::new()),
+            awaiting_confirmation: Mutex::new(HashMap::new()),
         }
     }
 
@@ -302,7 +305,7 @@ fn max_position(prev: Option<EventPosition>, b: EventPosition) -> EventPosition 
 /// Parse each staged BSO into a [`StagedRecord`], tagged with the group its
 /// frames reassemble into (a whole record's group is its own id) and its record
 /// position. Tombstones and malformed records are dropped.
-fn event_parts(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
+fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
     let mut parts = Vec::with_capacity(staged.len());
     for bso in staged {
         let modified = bso.envelope.modified;
@@ -443,7 +446,7 @@ impl SyncEngine for EventSyncEngine {
         // Parse -> reassemble parts -> a stream of whole events. Then split by
         // reserved type into domain events, baselines and `baseline-needed`
         // markers.
-        let assembled = assemble_events(event_parts(staged), self.schema.current());
+        let assembled = assemble_events(staged_records(staged), self.schema.current());
         let mut events: Vec<IncomingEvent> = Vec::new();
         let mut baselines: Vec<IncomingEvent> = Vec::new();
         let mut baseline_needed = false;
@@ -546,15 +549,17 @@ impl SyncEngine for EventSyncEngine {
         let mut bsos = Vec::new();
         let outgoing = std::mem::take(&mut *self.outgoing.lock().unwrap());
         {
-            let mut awaiting = self.awaiting_upload.lock().unwrap();
+            let mut awaiting = self.awaiting_confirmation.lock().unwrap();
             for p in outgoing {
                 let remaining = p.bsos.iter().map(|b| b.envelope.id.clone()).collect();
                 awaiting.insert(
                     p.position_id.clone(),
-                    PendingEvent {
-                        gate: p.gate,
-                        position_id: p.position_id,
+                    AwaitingConfirmation {
                         remaining,
+                        on_complete: OnComplete::Event {
+                            gate: p.gate,
+                            position_id: p.position_id,
+                        },
                     },
                 );
                 bsos.extend(p.bsos);
@@ -593,10 +598,13 @@ impl SyncEngine for EventSyncEngine {
                     // half-uploaded baseline never moves the floor.
                     let (group, parts) = self.build_baseline_bsos(&cover)?;
                     let remaining = parts.iter().map(|b| b.envelope.id.clone()).collect();
-                    self.pending_baselines
-                        .lock()
-                        .unwrap()
-                        .insert(group, PendingBaseline { cover, remaining });
+                    self.awaiting_confirmation.lock().unwrap().insert(
+                        group,
+                        AwaitingConfirmation {
+                            remaining,
+                            on_complete: OnComplete::Baseline { cover },
+                        },
+                    );
                     bsos.extend(parts);
                 } else {
                     // Below the bar: start the timeout clock, defer to a capable client.
@@ -615,34 +623,40 @@ impl SyncEngine for EventSyncEngine {
     }
 
     fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> anyhow::Result<()> {
-        let mut awaiting = self.awaiting_upload.lock().unwrap();
-        let mut pending = self.pending_baselines.lock().unwrap();
+        let mut awaiting = self.awaiting_confirmation.lock().unwrap();
         let mut state = self.meta.baseline_state()?;
         for id in ids {
-            // Confirm the frame against its pending event, or failing that its
-            // pending baseline (ids are unique to one group).
-            let matched = awaiting.values_mut().any(|pe| pe.remaining.remove(&id));
-            if !matched {
-                for pb in pending.values_mut() {
-                    pb.remaining.remove(&id);
+            // Confirm the frame against its group (ids are unique to one group).
+            for p in awaiting.values_mut() {
+                if p.remaining.remove(&id) {
+                    break;
                 }
             }
         }
 
-        // Once every frame of an event is confirmed, advance the gate. A framed
-        // event that spans sync batches only lands here on the final batch, so
-        // the server never holds a position no peer can reassemble.
-        let complete_events: Vec<Guid> = awaiting
+        // A record split across sync batches completes only on its final batch.
+        // Run events before baselines: a baseline resets the cadence counter
+        // an event increments, so the order must not depend on map iteration.
+        let complete: Vec<Guid> = awaiting
             .iter()
-            .filter(|(_, pe)| pe.remaining.is_empty())
+            .filter(|(_, p)| p.remaining.is_empty())
             .map(|(group, _)| group.clone())
             .collect();
-        for group in complete_events {
-            let pe = awaiting.remove(&group).expect("just listed");
+        let mut events = Vec::new();
+        let mut baselines = Vec::new();
+        for group in complete {
+            match awaiting.remove(&group).expect("just listed").on_complete {
+                OnComplete::Event { gate, position_id } => events.push((gate, position_id)),
+                OnComplete::Baseline { cover } => baselines.push(cover),
+            }
+        }
+
+        // Confirmed events advance the gate.
+        for (gate, position_id) in events {
             // Key the gate off the event's position id (its group), not any one
             // frame's id, so a framed event advances the gate once.
-            let pos = EventPosition::new(new_timestamp, pe.position_id);
-            self.meta.set_position(pe.gate, pos.clone())?;
+            let pos = EventPosition::new(new_timestamp, position_id);
+            self.meta.set_position(gate, pos.clone())?;
             // Count our own events toward the cadence: we never re-download them,
             // so this is the only place we observe them.
             if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
@@ -653,20 +667,12 @@ impl SyncEngine for EventSyncEngine {
             }
         }
 
-        // Once every part of a baseline is confirmed, do the floor advance and
-        // prune the write path left for us.
-        let complete: Vec<Guid> = pending
-            .iter()
-            .filter(|(_, pb)| pb.remaining.is_empty())
-            .map(|(group, _)| group.clone())
-            .collect();
-        for group in complete {
-            let pb = pending.remove(&group).expect("just listed");
-            if state.floor.as_ref().is_none_or(|f| pb.cover.supersedes(f)) {
-                self.meta.prune_positions(&pb.cover)?;
-                state.newest_event =
-                    Some(max_position(state.newest_event.take(), pb.cover.clone()));
-                state.floor = Some(pb.cover);
+        // Confirmed baselines advance the floor and prune below it.
+        for cover in baselines {
+            if state.floor.as_ref().is_none_or(|f| cover.supersedes(f)) {
+                self.meta.prune_positions(&cover)?;
+                state.newest_event = Some(max_position(state.newest_event.take(), cover.clone()));
+                state.floor = Some(cover);
                 state.events_since_baseline = 0;
                 state.max_schema_since_baseline = self.schema.current();
                 state.bar_blocked_since = None;

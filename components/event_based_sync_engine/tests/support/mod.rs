@@ -20,16 +20,16 @@
 // per-binary dead-code noise rather than annotate every item.
 #![allow(dead_code)]
 
+use event_based_sync_engine::{
+    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
+    SchemaRegistry, BASELINE_EVENT_TYPE, DEFAULT_MAX_RECORD_PAYLOAD_BYTES,
+};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use sync15::bso::OutgoingBso;
 use sync15::engine::SyncEngine;
 use sync15::{telemetry, Guid, ServerTimestamp};
-use event_based_sync_engine::{
-    BaselineConfig, EventReducer, EventSyncEngine, MemoryMetadataStore, ResolvedEvent,
-    SchemaRegistry, BASELINE_EVENT_TYPE,
-};
 
 // -------------------------------------------------------------------------
 // Fake server: an in-memory, GUID-keyed collection with a logical clock.
@@ -196,6 +196,17 @@ pub struct SimClient {
 
 impl SimClient {
     pub fn new(name: &'static str, schema: SchemaRegistry, config: BaselineConfig) -> Self {
+        Self::with_record_budget(name, schema, config, DEFAULT_MAX_RECORD_PAYLOAD_BYTES)
+    }
+
+    /// Like [`SimClient::new`] but with a custom per-record byte budget, to
+    /// exercise framing.
+    pub fn with_record_budget(
+        name: &'static str,
+        schema: SchemaRegistry,
+        config: BaselineConfig,
+        max_record_payload_bytes: usize,
+    ) -> Self {
         let reducer = MapReducer::new();
         let engine = EventSyncEngine::new(
             "containers",
@@ -203,7 +214,8 @@ impl SimClient {
             schema,
             Box::new(MemoryMetadataStore::new()),
         )
-        .with_baseline_config(config);
+        .with_baseline_config(config)
+        .with_max_record_payload_bytes(max_record_payload_bytes);
         Self {
             name,
             reducer,
@@ -312,7 +324,6 @@ pub fn no_baselines() -> BaselineConfig {
     BaselineConfig {
         events_per_baseline: None,
         baseline_timeout_ms: None,
-        ..BaselineConfig::default()
     }
 }
 

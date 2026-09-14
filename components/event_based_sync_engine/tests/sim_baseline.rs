@@ -7,11 +7,11 @@
 
 mod support;
 
+use event_based_sync_engine::BaselineConfig;
 use serde_json::json;
 use support::{
     assert_converged, no_baselines, schema_v1, sync_to_quiescence, FakeServer, SimClient,
 };
-use event_based_sync_engine::BaselineConfig;
 
 #[test]
 fn late_joiner_cold_starts_from_a_baseline() {
@@ -20,7 +20,6 @@ fn late_joiner_cold_starts_from_a_baseline() {
     let config = BaselineConfig {
         events_per_baseline: Some(3),
         baseline_timeout_ms: None,
-        ..BaselineConfig::default()
     };
     let a = SimClient::new("A", schema_v1(), config);
 
@@ -47,14 +46,13 @@ fn late_joiner_cold_starts_from_a_baseline() {
 #[test]
 fn split_baseline_reassembles_on_a_late_joiner() {
     let mut server = FakeServer::new();
-    // Tiny record budget forces the baseline to split into several byte frames.
     // Low threshold makes the baseline land quickly.
     let config = || BaselineConfig {
         events_per_baseline: Some(3),
         baseline_timeout_ms: None,
-        max_record_payload_bytes: 200,
     };
-    let a = SimClient::new("A", schema_v1(), config());
+    // Tiny record budget forces the baseline to split into several byte frames.
+    let a = SimClient::with_record_budget("A", schema_v1(), config(), 200);
 
     // Enough containers that the serialized baseline overflows one 200-byte
     // record and is framed into `_0`, `_1`, ... which the late joiner must
