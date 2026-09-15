@@ -3,15 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::sync::mpsc::{RecvTimeoutError, TrySendError};
-
-use crate::{
-    mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError},
-    worker::command,
-};
+use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
+#[cfg(feature = "stateful")]
+use crate::worker::command;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
+    #[cfg(feature = "stateful")]
     #[error("Error requesting ads from worker: {0}")]
     BackgroundWorker(#[from] BackgroundWorkerError),
 
@@ -37,6 +35,7 @@ pub enum RequestAdsError {
     FetchAds(#[from] FetchAdsError),
 }
 
+#[cfg(feature = "stateful")]
 #[derive(Debug, thiserror::Error)]
 pub enum BackgroundWorkerError {
     #[error("Error requesting new ads from the background worker: worker closed")]
@@ -49,6 +48,7 @@ pub enum BackgroundWorkerError {
     TimedOut(#[from] RecvTimeoutError),
 }
 
+#[cfg(feature = "stateful")]
 impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
     fn from(value: TrySendError<command::DispatchCommand>) -> Self {
         match value {

@@ -9,7 +9,9 @@ use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
+#[cfg(feature = "stateful")]
+use crate::mars::error::FetchAdsError;
+use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 #[cfg(feature = "stateful")]
 use crate::shutdown::AdsStoreShutdown;
@@ -111,6 +113,7 @@ where
         self.client.clear_cache()
     }
 
+    #[cfg(feature = "stateful")]
     pub fn store_ads(
         &mut self,
         ads: HashMap<PlacementId, StorableAd>,
@@ -124,6 +127,7 @@ where
         }
     }
 
+    #[cfg(feature = "stateful")]
     pub fn get_stored_ad_images(&self, placement_id: &PlacementId) -> Option<AdImage> {
         let ads_store = self.ads_store.lock();
         if let Some(ads_store) = ads_store.as_ref() {
@@ -140,6 +144,7 @@ where
         }
     }
 
+    #[cfg(feature = "stateful")]
     pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
         let ads_store = self.ads_store.lock();
         if let Some(ads_store) = ads_store.as_ref() {
@@ -156,6 +161,7 @@ where
         }
     }
 
+    #[cfg(feature = "stateful")]
     pub fn get_stored_ad_tile(&self, placement_id: &PlacementId) -> Option<AdTile> {
         let ads_store = self.ads_store.lock();
         if let Some(ads_store) = ads_store.as_ref() {

@@ -23,13 +23,14 @@ pub mod http_cache;
 mod mars;
 pub mod shutdown;
 pub mod telemetry;
+#[cfg(feature = "stateful")]
 pub mod worker;
 
 pub use ffi::*;
 
-use crate::{
-    ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences, worker::BackgroundWorker,
-};
+#[cfg(feature = "stateful")]
+use crate::worker::BackgroundWorker;
+use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
 mod test_utils;
@@ -47,6 +48,7 @@ pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 pub struct MozAdsClient {
     inner: MozAdsClientInner,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
+    #[cfg(feature = "stateful")]
     _worker: BackgroundWorker,
 }
 
