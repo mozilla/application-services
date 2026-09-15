@@ -5,7 +5,7 @@
 /// Very simple SQL query builder
 ///
 /// Use this if it helps or use raw SQL if it's easier.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Query {
     pub select: Vec<String>,
     pub from: String,
