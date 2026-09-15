@@ -1,18 +1,7 @@
 namespace autofill {
-    // We expose the crypto primitives on the namespace
-
     /// Create a new, random, encryption key.
     [Throws=AutofillApiError]
     string create_autofill_key();
-
-    /// Encrypt an arbitrary string - `key` must have come from `create_key()`
-    [Throws=AutofillApiError]
-    string encrypt_string(string key, string cleartext);
-
-    /// Decrypt an arbitrary string - `key` must have come from `create_key()`
-    /// and `ciphertext` must have come from `encrypt_string()`
-    [Throws=AutofillApiError]
-    string decrypt_string(string key, string ciphertext);
 
     /// Utility function to create a StaticKeyManager to be used for the time
     /// being until support lands for [trait implementation of an UniFFI
@@ -29,7 +18,9 @@ namespace autofill {
     Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. Takes the number
+/// pre-encrypted: either produced by `Store.encrypt_string` (Desktop's
+/// adapter) or carried over from another store by a migration.
 dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number_enc;
@@ -232,6 +223,16 @@ interface Store {
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
+
+    /// Encrypt/decrypt with the store's own key, in the same stored format as
+    /// the record paths. For consumers that manage `cc_number_enc` themselves.
+    /// With an NSS-backed key, `decrypt_string` is the call that can prompt
+    /// for the primary password.
+    [Throws=AutofillApiError]
+    string encrypt_string(string cleartext);
+
+    [Throws=AutofillApiError]
+    string decrypt_string(string ciphertext);
 
     [Throws=AutofillApiError]
     CreditCard get_credit_card(string guid);

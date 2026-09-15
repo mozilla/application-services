@@ -18,6 +18,7 @@
 
 ### Autofill
 
+- **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed. Use `Store.encrypt_string()` / `Store.decrypt_string()`, which encrypt with the store's own key - same ciphertext format, no key parameter. `create_autofill_key()` stays.
 - **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged. The sync engine no longer implements `set_local_encryption_key`: stop passing an encryption key for `creditcards` in the sync manager's `local_encryption_keys` before updating - passing one now panics.
 
 ## ✨ What's Changed ✨
