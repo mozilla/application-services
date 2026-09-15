@@ -9,7 +9,7 @@ use crate::{
     schema::{
         Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
         FieldConfigDefaults, GridPos, LogPanel, Panel, QueryVariable, QueryVariableQuery, Target,
-        TextBoxVariable, TimeSeriesPanel, Transformation, VariableSortOrder,
+        TextBoxVariable, TextPanel, TimeSeriesPanel, Transformation, VariableSortOrder,
     },
     sql::Query,
     util::UrlBuilder,
@@ -29,6 +29,16 @@ pub fn add_to_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> 
 }
 
 fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseChannel) -> Panel {
+    if application == Application::Ios && channel == ReleaseChannel::Nightly {
+        // iOs doesn't have a nightly
+        return TextPanel {
+            content: "## N/A".into(),
+            mode: "markdown".into(),
+            grid_pos: GridPos::height(8),
+        }
+        .into();
+    }
+
     let mut query = Query {
         prep_statements: error_type_re_prep_statements(config),
         select: vec![
@@ -77,6 +87,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
                 },
                 unit: None,
             },
+            ..FieldConfig::default()
         },
         transformations: vec![
             Transformation::PartitionByValues {
@@ -278,6 +289,7 @@ fn error_list_count_panel() -> Panel {
                 },
                 ..FieldConfigDefaults::default()
             },
+            ..FieldConfig::default()
         },
         ..TimeSeriesPanel::default()
     }
