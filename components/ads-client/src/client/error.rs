@@ -3,6 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#[cfg(feature = "stateful")]
+use std::sync::mpsc::{RecvTimeoutError, TrySendError};
+
 use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
 #[cfg(feature = "stateful")]
 use crate::worker::command;
