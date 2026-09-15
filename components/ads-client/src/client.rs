@@ -3,10 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-
+#[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
@@ -14,12 +11,19 @@ use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
-use crate::shutdown::{AdsStoreShutdown, ShutdownReferences};
+#[cfg(feature = "stateful")]
+use crate::shutdown::AdsStoreShutdown;
+use crate::shutdown::ShutdownReferences;
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
+#[cfg(feature = "stateful")]
 use parking_lot::Mutex;
+use std::collections::HashMap;
+#[cfg(feature = "stateful")]
+use std::sync::Arc;
+use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 
@@ -34,6 +38,7 @@ pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
+    #[cfg(feature = "stateful")]
     ads_store: Arc<Mutex<Option<AdsStore>>>,
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
@@ -79,6 +84,7 @@ where
             }
         });
 
+        #[cfg(feature = "stateful")]
         let ads_store =
             client_config
                 .store_config
@@ -96,6 +102,7 @@ where
             client,
             context_id_component,
             telemetry: telemetry.clone(),
+            #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(ads_store)),
         }
     }
@@ -271,6 +278,7 @@ where
     pub fn shutdown_references(&self) -> ShutdownReferences<T> {
         ShutdownReferences::new(
             self.telemetry.clone(),
+            #[cfg(feature = "stateful")]
             AdsStoreShutdown::new(self.ads_store.clone()),
         )
     }
@@ -288,8 +296,9 @@ pub enum ClientOperationEvent {
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "stateful")]
+    use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
-        ads_store::builder::AdsStoreBuilder,
         ffi::telemetry::MozAdsTelemetryWrapper,
         mars::Environment,
         test_utils::{
@@ -313,6 +322,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
             ),
             telemetry,
+            #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(
                 AdsStoreBuilder::new("test_store.db")
                     .build()
@@ -327,6 +337,7 @@ mod tests {
             cache_config: None,
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            #[cfg(feature = "stateful")]
             store_config: None,
         };
         let client = AdsClient::new(config);
@@ -417,6 +428,7 @@ mod tests {
             cache_config: None,
             environment: Environment::Test,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            #[cfg(feature = "stateful")]
             store_config: None,
         };
         let client = AdsClient::new(config);

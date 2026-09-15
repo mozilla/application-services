@@ -33,6 +33,11 @@ impl From<TestRequest> for Request {
 fn test_cache_works_using_real_timeouts() {
     viaduct_dev::init_backend_dev();
 
+    let test_db_location = "integration_tests.db";
+    match std::fs::remove_file(std::path::Path::new(test_db_location)) {
+        Ok(()) => println!("Deleted previous test's `{test_db_location}`"),
+        Err(e) => println!("Did not delete previous test's `{test_db_location}`: {e}"),
+    }
     let cache = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
