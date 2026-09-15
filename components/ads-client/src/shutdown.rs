@@ -1,17 +1,25 @@
+#[cfg(feature = "stateful")]
+use parking_lot::Mutex;
+#[cfg(feature = "stateful")]
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
-use crate::{ads_store::AdsStore, telemetry::Telemetry};
+#[cfg(feature = "stateful")]
+use crate::ads_store::AdsStore;
+use crate::telemetry::Telemetry;
 
 pub struct ShutdownReferences<T: Telemetry> {
+    #[cfg(feature = "stateful")]
     ads_cache_shutdown: AdsStoreShutdown,
     telemetry: T,
 }
 
 impl<T: Telemetry> ShutdownReferences<T> {
-    pub fn new(telemetry: T, ads_cache_shutdown: AdsStoreShutdown) -> ShutdownReferences<T> {
+    pub fn new(
+        telemetry: T,
+        #[cfg(feature = "stateful")] ads_cache_shutdown: AdsStoreShutdown,
+    ) -> ShutdownReferences<T> {
         ShutdownReferences {
+            #[cfg(feature = "stateful")]
             ads_cache_shutdown,
             telemetry,
         }
@@ -23,6 +31,7 @@ impl<T: Telemetry> ShutdownReferences<T> {
         // Drop telemetry (within the telemetry wrapper)
         self.telemetry.shutdown();
 
+        #[cfg(feature = "stateful")]
         self.ads_cache_shutdown.shutdown()?;
 
         // TODO: It may be prudent to call the MARSClient `shutdown_db` function here as well.
@@ -34,7 +43,9 @@ impl<T: Telemetry> ShutdownReferences<T> {
     }
 }
 
+#[cfg(feature = "stateful")]
 pub struct AdsStoreShutdown(Arc<Mutex<Option<AdsStore>>>);
+#[cfg(feature = "stateful")]
 impl AdsStoreShutdown {
     pub fn new(ads_store: Arc<Mutex<Option<AdsStore>>>) -> AdsStoreShutdown {
         AdsStoreShutdown(ads_store)
@@ -51,7 +62,6 @@ impl AdsStoreShutdown {
         Ok(())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder};

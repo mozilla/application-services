@@ -68,10 +68,11 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: "3.4"
 
       - name: Install Jazzy
-        run: gem install jazzy
+        # mustache 1.1.3 broke jazzy 0.15.4 (realm/jazzy#1435). Drop the pin once jazzy ships a fix.
+        run: gem install mustache -v 1.1.2 && gem install jazzy
 
       - name: Install xcpretty
         run: |

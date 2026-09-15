@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+#[cfg(feature = "stateful")]
 use crate::ads_store::builder::AdsStoreBuilderError;
 use crate::client::error::RequestAdsError;
 use crate::client::ClientOperationEvent;
@@ -97,6 +98,8 @@ impl Telemetry for MozAdsTelemetryWrapper {
             });
             return;
         }
+
+        #[cfg(feature = "stateful")]
         if let Some(cache_builder_error) = event.downcast_ref::<AdsStoreBuilderError>() {
             inner.record_build_cache_error(
                 match cache_builder_error {

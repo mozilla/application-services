@@ -11,8 +11,8 @@ where
     T: Telemetry,
 {
     pub cache_config: Option<AdsCacheConfig>,
-    pub context_id_provider: Option<Box<dyn super::ContextIdProvider>>,
     pub environment: Environment,
+    #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
     pub telemetry: T,
 }
@@ -24,6 +24,7 @@ pub struct AdsCacheConfig {
     pub max_size_mib: Option<u64>,
 }
 
+#[cfg(feature = "stateful")]
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
     pub db_path: String,
