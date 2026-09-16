@@ -65,6 +65,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_parse_rs</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Mozilla Public License 2.0: uniffi_pipeline</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
@@ -155,6 +159,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: clang-sys</name>
     <url>https://github.com/KyleMayes/clang-sys/blob/master/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: codespan-reporting</name>
+    <url>https://github.com/brendanzab/codespan/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Apache License 2.0: core-foundation-sys</name>
@@ -509,6 +517,10 @@ the details of which are reproduced below.
     <url>https://github.com/paholg/typenum/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: unicode-width</name>
+    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: url</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
@@ -567,6 +579,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: memchr</name>
     <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: termcolor</name>
+    <url>https://github.com/BurntSushi/termcolor/blob/master/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: bincode</name>
@@ -791,6 +807,10 @@ the details of which are reproduced below.
   <license>
     <name>Optional Notice: SQLite</name>
     <url>https://sqlite.org/copyright.html</url>
+  </license>
+  <license>
+    <name>Apache-2.0 WITH LLVM-exception License: target-lexicon</name>
+    <url>https://github.com/bytecodealliance/target-lexicon/blob/main/LICENSE</url>
   </license>
   <license>
     <name>(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident</name>
