@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::SyncSender};
 
 use error_support::handle_error;
 
 use crate::{
     ads_store::StorableAd,
-    client::error::{ComponentError, RequestAdsError},
+    client::error::{BackgroundWorkerError, ComponentError, RequestAdsError},
     http_cache::CachePolicy,
     mars::ad_request::AdPlacementRequest,
     AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
@@ -13,6 +13,7 @@ use crate::{
 // Command dispatch enum for passing different instructions to the background worker thread.
 // `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
 pub enum DispatchCommand {
+    Ping(SyncSender<()>),
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         cache_policy: CachePolicy,
@@ -133,6 +134,12 @@ impl DispatchCommand {
                         )
                         .map_err(RequestAdsError::from)?;
                 }
+                Ok(())
+            }
+            DispatchCommand::Ping(sender) => {
+                sender
+                    .try_send(())
+                    .map_err(|err| BackgroundWorkerError::PongFailure(Box::new(err)))?;
                 Ok(())
             }
         }

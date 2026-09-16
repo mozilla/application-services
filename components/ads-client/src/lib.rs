@@ -3,12 +3,18 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::{collections::HashMap, sync::Arc};
-
+#[cfg(feature = "stateful")]
+use crate::{
+    ads_store::PlacementId, client::error::BackgroundWorkerError, worker::command::DispatchCommand,
+    worker::BackgroundWorker,
+};
 use client::error::ComponentError;
 use error_support::handle_error;
 use mars::error::CallbackRequestError;
 use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc};
+#[cfg(feature = "stateful")]
+use std::{sync::mpsc, time::Duration};
 use url::Url as AdsClientUrl;
 
 use client::AdsClient;
@@ -28,8 +34,6 @@ pub mod worker;
 
 pub use ffi::*;
 
-#[cfg(feature = "stateful")]
-use crate::worker::BackgroundWorker;
 use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
@@ -43,13 +47,16 @@ uniffi::custom_type!(AdsClientUrl, String, {
     lower: |obj| obj.as_str().to_string(),
 });
 
+#[cfg(feature = "stateful")]
+uniffi::custom_type!(PlacementId, String);
+
 pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: MozAdsClientInner,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
     #[cfg(feature = "stateful")]
-    _worker: BackgroundWorker,
+    worker: BackgroundWorker,
 }
 
 #[uniffi::export]
@@ -186,5 +193,122 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+#[cfg(feature = "stateful")]
+#[uniffi::export]
+impl MozAdsClient {
+    // TODO: Can we make this one request?
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(ad_requests = [], options = None))]
+    pub fn prefetch_ads(
+        &self,
+        ad_requests: Vec<MozAdsPlacementRequestGeneric>,
+        options: Option<MozAdsRequestOptions>,
+    ) -> AdsClientApiResult<()> {
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
+        let blocks = options.blocks.clone();
+        let cache_policy: CachePolicy = options.into();
+
+        // Sort the ads to batch them into separate requests.
+        // TODO: We will refactor some of the MARS backend to be able to do this in one request, and therefore not need sorting, nor will it need this conversion away from a central type.
+        let mut image_ad_requests = vec![];
+        let mut spoc_ad_requests = vec![];
+        let mut tile_ad_requests = vec![];
+        for ad in ad_requests {
+            match ad.ad_type {
+                MozAdType::Image => image_ad_requests.push(MozAdsPlacementRequest {
+                    iab_content: ad.iab_content,
+                    placement_id: ad.placement_id.into(),
+                }),
+                MozAdType::Spoc => spoc_ad_requests.push(MozAdsPlacementRequestWithCount {
+                    iab_content: ad.iab_content,
+                    placement_id: ad.placement_id.into(),
+                    count: ad.count.unwrap_or(1),
+                }),
+                MozAdType::Tile => tile_ad_requests.push(MozAdsPlacementRequest {
+                    iab_content: ad.iab_content,
+                    placement_id: ad.placement_id.into(),
+                }),
+            }
+        }
+
+        // Dispatch image requests
+        if !image_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestImageAds {
+                image_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+                blocks: blocks.clone(),
+            })?;
+        }
+        // Dispatch spoc requests
+        if !spoc_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestSpocAds {
+                spoc_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+                blocks: blocks.clone(),
+            })?;
+        }
+
+        // Dispatch tiles requests
+        if !tile_ad_requests.is_empty() {
+            self.worker.dispatch(DispatchCommand::RequestTileAds {
+                tile_ad_requests,
+                ohttp,
+                cache_policy,
+                flags: flags.clone(),
+                blocks: blocks.clone(),
+            })?;
+        }
+
+        Ok(())
+    }
+
+    #[uniffi::method()]
+    pub fn query_image_ads(&self, placement_id: PlacementId) -> Option<MozAdsImage> {
+        use crate::mars::ad_response::AdImage;
+        let inner = self.inner.lock();
+        let image_ad: AdImage = inner.get_stored_ad_images(&placement_id)?;
+        Some(image_ad.into())
+    }
+
+    #[uniffi::method()]
+    pub fn query_spoc_ads(&self, placement_id: PlacementId) -> Option<Vec<MozAdsSpoc>> {
+        use crate::mars::ad_response::AdSpoc;
+        let inner = self.inner.lock();
+        let spoc_ads: Vec<AdSpoc> = inner.get_stored_ad_spocs(&placement_id)?;
+        Some(spoc_ads.into_iter().map(|ad| ad.into()).collect())
+    }
+
+    #[uniffi::method()]
+    pub fn query_tile_ads(&self, placement_id: PlacementId) -> Option<MozAdsTile> {
+        use crate::mars::ad_response::AdTile;
+        let inner = self.inner.lock();
+        let tile_ad: AdTile = inner.get_stored_ad_tile(&placement_id)?;
+        Some(tile_ad.into())
+    }
+
+    // Pings the background worker and waits for a response back, for use in tests.
+    // Because the background worker is synchronous, this returns if the worker is empty,
+    // making it useful for integration tests to wait until all tasks have completed.
+    #[handle_error(ComponentError)]
+    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
+        let (tx, rx) = mpsc::sync_channel(0);
+        self.worker.dispatch(DispatchCommand::Ping(tx))?;
+
+        if let Some(timeout) = timeout {
+            rx.recv_timeout(timeout)
+                .map_err(BackgroundWorkerError::from)?;
+        } else {
+            rx.recv().map_err(|_| BackgroundWorkerError::Closed)?;
+        }
+        Ok(())
     }
 }

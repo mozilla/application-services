@@ -5,7 +5,8 @@
 
 pub mod error;
 pub mod telemetry;
-
+#[cfg(feature = "stateful")]
+use crate::ads_store::PlacementId;
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
@@ -69,6 +70,24 @@ pub struct MozAdsPlacementRequestWithCount {
     #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
     pub placement_id: String,
+}
+
+#[cfg(feature = "stateful")]
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsPlacementRequestGeneric {
+    // This is passed as a count to MARS, but does not always apply. Currently, this only applies to spoc, in which case it defaults to `1`.
+    pub count: Option<u32>,
+    #[uniffi(default = None)]
+    pub iab_content: Option<MozAdsIABContent>,
+    pub placement_id: PlacementId,
+    pub ad_type: MozAdType,
+}
+
+#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
+pub enum MozAdType {
+    Image,
+    Spoc, // todo: maybe put the count IN spoc?
+    Tile,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -136,7 +155,7 @@ impl MozAdsClientBuilder {
             inner,
             shutdown_references,
             #[cfg(feature = "stateful")]
-            _worker: worker,
+            worker,
         }
     }
 
@@ -191,6 +210,7 @@ pub struct MozAdsCacheConfig {
 pub struct MozAdsStoreConfig {
     pub db_path: String,
     pub worker_buffer_size: Option<u32>,
+    pub in_memory: bool,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]

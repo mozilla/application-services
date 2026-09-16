@@ -33,6 +33,7 @@ pub enum AdsStoreBuilderError {
 pub struct AdsStoreBuilder {
     db_path: PathBuf,
     max_size: Option<ByteSize>,
+    memory: bool,
 }
 
 impl AdsStoreBuilder {
@@ -40,6 +41,7 @@ impl AdsStoreBuilder {
         Self {
             db_path: db_path.into(),
             max_size: None,
+            memory: false,
         }
     }
 
@@ -48,9 +50,14 @@ impl AdsStoreBuilder {
         self
     }
 
+    pub fn in_memory(mut self) -> Self {
+        self.memory = true;
+        self
+    }
+
     fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
         let initializer = AdsStoreConnectionInitializer {};
-        let conn = if cfg!(test) {
+        let conn = if cfg!(test) || self.memory {
             open_database::open_memory_database(&initializer)?
         } else {
             open_database::open_database(&self.db_path, &initializer)?
