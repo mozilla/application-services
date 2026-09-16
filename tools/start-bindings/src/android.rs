@@ -24,8 +24,6 @@ pub fn generate_android(crate_name: String, description: String) -> Result<()> {
     println!();
     write_file(
         BuildGradle {
-            // configureUniFFIBindgen replaces underscores rather than hyphens
-            crate_name: crate_name.replace("-", "_"),
             kotlin_module_name: crate_name.replace("-", ""),
         }
         .render()?,
@@ -181,7 +179,6 @@ fn buildconfig_needs_update(path: &Utf8Path, crate_name: &str) -> Result<bool> {
 #[derive(Template)]
 #[template(path = "build.gradle", escape = "none")]
 struct BuildGradle {
-    crate_name: String,
     kotlin_module_name: String,
 }
 

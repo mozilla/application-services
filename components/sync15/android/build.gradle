@@ -5,6 +5,5 @@ android {
     namespace 'org.mozilla.appservices.sync15'
 }
 
-ext.configureUniFFIBindgen("sync15")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

@@ -9,6 +9,5 @@ dependencies {
     api project(":remotesettings")
 }
 
-ext.configureUniFFIBindgen("search")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

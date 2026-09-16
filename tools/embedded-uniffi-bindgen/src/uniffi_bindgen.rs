@@ -176,6 +176,7 @@ pub fn run_main() -> anyhow::Result<()> {
                     crate_filter: crate_name,
                     metadata_no_deps,
                     format: !no_format,
+                    ..GenerateOptions::default()
                 },
                 paths,
             )?;

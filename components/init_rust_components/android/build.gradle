@@ -13,6 +13,5 @@ dependencies {
     implementation project(':errorsupport')
 }
 
-ext.configureUniFFIBindgen("init_rust_components")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

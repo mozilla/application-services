@@ -5,6 +5,5 @@ android {
     namespace 'org.mozilla.appservices.db_crypto'
 }
 
-ext.configureUniFFIBindgen("db_crypto")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

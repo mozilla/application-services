@@ -52,6 +52,5 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
 }
 
-ext.configureUniFFIBindgen("nimbus")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
