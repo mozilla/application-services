@@ -8,6 +8,9 @@ license = "MPL-2.0"
 [[bin]]
 name = "embedded-uniffi-bindgen"
 
+[[bin]]
+name = "uniffi-bindgen-kotlin-jni"
+
 [dependencies]
 anyhow = "1"
 camino = "1"
@@ -17,4 +20,5 @@ clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 serde = { version = "1", features = ["derive"] }
 uniffi_bindgen = { version = "0.32" }
 uniffi_pipeline = { version = "0.32" }
+uniffi-bindgen-kotlin-jni = { version = "0.32" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }

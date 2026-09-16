@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply from: "$appServicesRootDir/build-scripts/uniffi.gradle"
 
 if (!gradle.hasProperty("mozconfig")) {
     apply plugin: 'kotlin-android'
@@ -63,6 +64,8 @@ configurations {
 }
 
 dependencies {
+    implementation libs.kotlinx.coroutines
+
     // Needed so we can copy the libraries into libsForTests.
     jna(libs.jna) {
         artifact {
@@ -178,6 +181,17 @@ if (!gradle.hasProperty("mozconfig")) {
     def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         into layout.buildDirectory.dir("megazordNative")
+    }
+
+    def generateUniffiBindings = tasks.register("generateUniffiBindings", GenerateUniffiBindings) {
+        workingDirectory.set(project.rootDir)
+        // Use `--crate=uniffi` to get the shared `uniffi/Uniffi.kt` file 
+        crate.set("uniffi")
+        outputDir.set(layout.buildDirectory.dir("generated/uniffi/"))
+    }
+
+    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+        variant.sources.java.addGeneratedSourceDirectory(generateUniffiBindings) { it.outputDir }
     }
 
     artifacts {

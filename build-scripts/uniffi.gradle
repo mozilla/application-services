@@ -1,0 +1,42 @@
+// Shared UniFFI gradle helpers.
+//
+// Usage:
+//
+// apply from: "$appServicesRootDir/build-scripts/uniffi.gradle"
+//
+// tasks.register("generateUniffiBindings", GenerateUniffiBindings) {
+//     workingDirectory.set(project.rootDir)
+//     crate.set([crate-name])
+//     outputDir.set(layout.buildDirectory.dir("generated/uniffi/"))
+// }
+
+// Typed task used in the standalone app-services build, where the megazord
+// dynamic library is produced by a separate gradle task and only exists when
+// generateUniffiBindings runs (not at configuration time).
+abstract class GenerateUniffiBindings extends DefaultTask {
+    @Internal
+    abstract DirectoryProperty getWorkingDirectory()
+
+    @Input
+    abstract Property<String> getCrate()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void run() {
+        execOperations.exec {
+            workingDir workingDirectory.get().asFile
+            commandLine '/usr/bin/env', 'cargo', 'run',
+                '--package', 'embedded-uniffi-bindgen',
+                '--bin', 'uniffi-bindgen-kotlin-jni', '--',
+                'bindings', '--crate', crate.get(),
+                "src:megazord", outputDir.get().asFile
+        }
+    }
+}
+
+ext.GenerateUniffiBindings = GenerateUniffiBindings
