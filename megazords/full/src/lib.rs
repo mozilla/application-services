@@ -31,6 +31,11 @@ pub use tabs;
 pub use tracing_support;
 pub use viaduct;
 
+include!(concat!(
+    env!("OUT_DIR"),
+    "/uniffi_bindgen_kotlin_jni.uniffi.rs"
+));
+
 // TODO: Uncomment this code when webext-storage component is integrated in android
 // pub use webext_storage;
 
