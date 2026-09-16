@@ -13,6 +13,6 @@ name = "push-livetest"
 [dev-dependencies]
 push = { path = "../../components/push" }
 viaduct = { path = "../../components/viaduct"}
-viaduct-hyper = { path = "../../components/support/viaduct-hyper"}
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust"}
 hex = "0.4"
 tempfile = "3"

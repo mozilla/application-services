@@ -81,7 +81,7 @@ fn main() -> Result<()> {
         DEFAULT_LOG_FILTER
     });
     nss_as::ensure_initialized();
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
     let service = build_service(&cli)?;
     match cli.command {
         Commands::Sync { collections } => sync(service, collections),

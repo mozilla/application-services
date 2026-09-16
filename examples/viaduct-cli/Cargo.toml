@@ -10,7 +10,7 @@ serde = "1"
 serde_json = "1"
 url = "2"
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
-viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 clap = {version = "4.2", default-features = false, features = ["std", "derive", "help"]}
 cli-support = { path = "../cli-support" }
 
