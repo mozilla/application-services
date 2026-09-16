@@ -7,9 +7,11 @@
 use crate::configuration_overrides_types::JSONOverridesRecord;
 use crate::configuration_overrides_types::JSONSearchConfigurationOverrides;
 use crate::filter::filter_engine_configuration_impl;
+use crate::filter::filter_engine_configuration_v3_impl;
+use crate::filter::parse_v3_record_fields;
 use crate::{
-    error::Error, JSONSearchConfiguration, RefinedSearchConfig, SearchApiResult,
-    SearchUserEnvironment,
+    error::Error, JSONSearchConfiguration, JSONSearchConfigurationV3, RefinedSearchConfig,
+    RefinedSearchConfigV3, SearchApiResult, SearchUserEnvironment,
 };
 use error_support::handle_error;
 use parking_lot::Mutex;
@@ -19,8 +21,10 @@ use std::sync::Arc;
 #[derive(Default)]
 pub(crate) struct SearchEngineSelectorInner {
     configuration: Option<JSONSearchConfiguration>,
+    configuration_v3: Option<JSONSearchConfigurationV3>,
     configuration_overrides: Option<JSONSearchConfigurationOverrides>,
     search_config_client: Option<Arc<RemoteSettingsClient>>,
+    search_config_v3_client: Option<Arc<RemoteSettingsClient>>,
     search_config_overrides_client: Option<Arc<RemoteSettingsClient>>,
 }
 
@@ -60,6 +64,20 @@ impl SearchEngineSelector {
         }
     }
 
+    /// Sets the RemoteSettingsService to use. The selector will create the
+    /// relevant remote settings client(s) from the service.
+    ///
+    /// # Params:
+    ///   - `service`: The remote settings service instance for the application.
+    ///   - `options`: The remote settings options to be passed to the client(s).
+    ///   - `apply_engine_overrides`: Whether or not to apply overrides from
+    ///     `search-config-v2-overrides` to the selected engines. Should be false unless the
+    ///     application supports the click URL feature.
+    pub fn use_remote_settings_server_v3(self: Arc<Self>, service: &Arc<RemoteSettingsService>) {
+        let mut inner = self.0.lock();
+        inner.search_config_v3_client = Some(service.make_client("search-config-v3".to_string()));
+    }
+
     /// Sets the search configuration from the given string. If the configuration
     /// string is unchanged since the last update, the cached configuration is
     /// reused to avoid unnecessary reprocessing. This helps optimize performance,
@@ -74,6 +92,20 @@ impl SearchEngineSelector {
         Ok(())
     }
 
+    /// Sets the search configuration from the given string. If the configuration
+    /// string is unchanged since the last update, the cached configuration is
+    /// reused to avoid unnecessary reprocessing. This helps optimize performance,
+    /// particularly during test runs where the same configuration may be used
+    /// repeatedly.
+    #[handle_error(Error)]
+    pub fn set_search_config_v3(self: Arc<Self>, configuration: String) -> SearchApiResult<()> {
+        if configuration.is_empty() {
+            return Err(Error::SearchConfigNotSpecified);
+        }
+        self.0.lock().configuration_v3 = serde_json::from_str(&configuration)?;
+        Ok(())
+    }
+
     #[handle_error(Error)]
     pub fn set_config_overrides(self: Arc<Self>, overrides: String) -> SearchApiResult<()> {
         if overrides.is_empty() {
@@ -82,11 +114,6 @@ impl SearchEngineSelector {
         self.0.lock().configuration_overrides = serde_json::from_str(&overrides)?;
         Ok(())
     }
-
-    /// Clears the search configuration from memory if it is known that it is
-    /// not required for a time, e.g. if the configuration will only be re-filtered
-    /// after an app/environment update.
-    pub fn clear_search_config(self: Arc<Self>) {}
 
     /// Filters the search configuration with the user's given environment,
     /// and returns the set of engines and parameters that should be presented
@@ -153,6 +180,37 @@ impl SearchEngineSelector {
         };
         return filter_engine_configuration_impl(user_environment, &config, Some(config_overrides));
     }
+
+    /// Filters the search configuration with the user's given environment,
+    /// and returns the set of engines and parameters that should be presented
+    /// to the user.
+    #[handle_error(Error)]
+    pub fn filter_engine_configuration_v3(
+        self: Arc<Self>,
+        user_environment: SearchUserEnvironment,
+    ) -> SearchApiResult<RefinedSearchConfigV3> {
+        let inner = self.0.lock();
+        if let Some(client) = &inner.search_config_v3_client {
+            // Remote settings ships dumps of the collections, so it is highly
+            // unlikely that we'll ever hit the case where we have no records.
+            // However, just in case of an issue that does causes us to receive
+            // no records, we will raise an error so that the application can
+            // handle or record it appropriately.
+            match client.get_records(false) {
+                Some(records) if !records.is_empty() => {
+                    let parsed_records = parse_v3_record_fields(&records)?;
+                    return filter_engine_configuration_v3_impl(user_environment, &parsed_records);
+                }
+                _ => return Err(Error::SearchConfigNoRecords),
+            }
+        }
+        match &inner.configuration_v3 {
+            None => return Err(Error::SearchConfigNotSpecified),
+            Some(configuration) => {
+                filter_engine_configuration_v3_impl(user_environment, &configuration.data.clone())
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -183,6 +241,24 @@ mod tests {
     }
 
     #[test]
+    fn test_set_config_v3_should_allow_basic_config() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config = json!({
+            "data": [
+                EngineRecord::full("test1", "Test 1").build(),
+                {
+                    "recordType": "defaultEngines",
+                    "globalDefault": "test"
+                }
+            ]
+        });
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(config.to_string());
+        config_result.expect("Should have set the configuration v3 successfully");
+    }
+
+    #[test]
     fn test_set_config_should_allow_extra_fields() {
         let selector = Arc::new(SearchEngineSelector::new());
 
@@ -210,6 +286,33 @@ mod tests {
     }
 
     #[test]
+    fn test_set_config_v3_should_allow_extra_fields() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let mut engine = EngineRecord::minimal("test", "Test").build();
+        engine["base"]["urls"]["search"]["extraField1"] = json!(true);
+        engine["base"]["extraField2"] = json!("123");
+        engine["extraField3"] = json!(["foo"]);
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                engine,
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test",
+                  "extraField4": {
+                    "subField1": true
+                  }
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration v3 successfully with extra fields");
+    }
+
+    #[test]
     fn test_set_config_should_ignore_unknown_record_types() {
         let selector = Arc::new(SearchEngineSelector::new());
         let config = json!({
@@ -231,6 +334,27 @@ mod tests {
     }
 
     #[test]
+    fn test_set_config_v3_should_ignore_unknown_record_types() {
+        let selector = Arc::new(SearchEngineSelector::new());
+        let config = json!({
+            "data": [
+                EngineRecord::full("test1", "Test 1").build(),
+                {
+                    "recordType": "defaultEngines",
+                    "globalDefault": "test"
+                },
+                {
+                  "recordType": "unknown"
+                }
+            ]
+        });
+        let config_result = Arc::clone(&selector).set_search_config_v3(config.to_string());
+
+        config_result
+            .expect("Should have set the configuration v3 successfully with unknown record types.");
+    }
+
+    #[test]
     fn test_filter_engine_configuration_throws_without_config() {
         let selector = Arc::new(SearchEngineSelector::new());
 
@@ -241,6 +365,24 @@ mod tests {
         assert!(
             result.is_err(),
             "Should throw an error when a configuration has not been specified before filtering"
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Search configuration not specified"))
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_v3_throws_without_config() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_err(),
+            "Should throw an error when a configuration v3 has not been specified before filtering"
         );
         assert!(result
             .unwrap_err()
@@ -319,6 +461,97 @@ mod tests {
                 app_private_default_engine_id: Some("test2".to_string())
             }
         )
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_v3_returns_basic_engines() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecord::full("test1", "Test 1").build(),
+                EngineRecord::minimal("test2", "Test 2").build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                  "globalDefaultPrivate": "test2"
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the v3 configuration successfully");
+
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the v3 configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(
+                    ExpectedEngine::full("test1", "Test 1").build().into(),
+                    ExpectedEngine::minimal("test2", "Test 2").build().into(),
+                ),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: Some("test2".to_string())
+            }
+        )
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_v2_and_v3_are_independent() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        Arc::clone(&selector)
+            .set_search_config(
+                json!({
+                  "data": [
+                    EngineRecord::minimal("v2-engine", "V2 Engine").build(),
+                    { "recordType": "defaultEngines", "globalDefault": "v2-engine" }
+                  ]
+                })
+                .to_string(),
+            )
+            .expect("Should have set the v2 configuration successfully");
+        Arc::clone(&selector)
+            .set_config_overrides(json!({ "data": [test_helpers::overrides_engine()] }).to_string())
+            .expect("Should have set the v2 configuration overrides successfully");
+        Arc::clone(&selector)
+            .set_search_config_v3(
+                json!({
+                  "data": [
+                    EngineRecord::minimal("v3-engine", "V3 Engine").build(),
+                    { "recordType": "defaultEngines", "globalDefault": "v3-engine" }
+                  ]
+                })
+                .to_string(),
+            )
+            .expect("Should have set the v3 configuration successfully");
+
+        let v2_result = Arc::clone(&selector)
+            .filter_engine_configuration(SearchUserEnvironment::default())
+            .expect("Should have filtered the v2 configuration without error");
+        let v3_result = selector
+            .filter_engine_configuration_v3(SearchUserEnvironment::default())
+            .expect("Should have filtered the v3 configuration without error");
+
+        assert_eq!(v2_result.engines[0].identifier, "v2-engine");
+        assert_eq!(
+            v2_result.app_default_engine_id,
+            Some("v2-engine".to_string())
+        );
+        assert_eq!(v3_result.engines[0].identifier, "v3-engine");
+        assert_eq!(
+            v3_result.app_default_engine_id,
+            Some("v3-engine".to_string())
+        );
     }
 
     #[test]
@@ -896,6 +1129,36 @@ mod tests {
         selector
     }
 
+    fn setup_remote_settings_test_v3(expect_sync_successful: bool) -> Arc<SearchEngineSelector> {
+        error_support::init_for_tests();
+        viaduct_dev::init_backend_dev();
+
+        let config = RemoteSettingsConfig {
+            server: Some(RemoteSettingsServer::Custom {
+                url: mockito::server_url(),
+            }),
+            bucket_name: Some(String::from("main")),
+            app_context: Some(RemoteSettingsContext::default()),
+        };
+        let service = Arc::new(RemoteSettingsService::new(String::from(":memory:"), config));
+
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        Arc::clone(&selector).use_remote_settings_server_v3(&service);
+        let sync_result = Arc::clone(&service).sync();
+        assert!(
+            if expect_sync_successful {
+                sync_result.is_ok()
+            } else {
+                sync_result.is_err()
+            },
+            "Should have completed the sync successfully. {:?}",
+            sync_result
+        );
+
+        selector
+    }
+
     fn mock_changes_endpoint() -> mockito::Mock {
         mock(
             "GET",
@@ -908,10 +1171,10 @@ mod tests {
         .create()
     }
 
-    fn response_body() -> String {
+    fn response_body(collection: &str) -> String {
         json!({
           "metadata": {
-            "id": "search-config-v2",
+            "id": collection,
             "last_modified": 1000,
             "bucket": "main",
             "signatures": [{
@@ -1084,7 +1347,54 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("No search config v2 records received from remote settings"));
+            .contains("No search config records received from remote settings"));
+        changes_mock.expect(1).assert();
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_remote_settings_empty_search_config_records_throws_error_v3() {
+        let changes_mock = mock_changes_endpoint();
+        let m = mock(
+            "GET",
+            "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
+        )
+        .with_body(
+            json!({
+              "metadata": {
+                "id": "search-config-v3",
+                "last_modified": 1000,
+                "bucket": "main",
+                "signatures": [{
+                  "x5u": "fake",
+                  "signature": "fake",
+                  "mode": "fake",
+                }],
+              },
+              "timestamp": 1000,
+              "changes": [
+            ]})
+            .to_string(),
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_err(),
+            "Should throw an error when a configuration has not been specified before filtering"
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No search config records received from remote settings"));
         changes_mock.expect(1).assert();
         m.expect(1).assert();
     }
@@ -1096,7 +1406,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v2/changeset?_expected=0",
         )
-        .with_body(response_body())
+        .with_body(response_body("search-config-v2"))
         .with_status(501)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1115,7 +1425,38 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("No search config v2 records received from remote settings"));
+            .contains("No search config records received from remote settings"));
+        changes_mock.expect(1).assert();
+        m1.expect(1).assert();
+    }
+
+    #[test]
+    fn test_remote_settings_search_config_records_is_none_throws_error_v3() {
+        let changes_mock = mock_changes_endpoint();
+        let m1 = mock(
+            "GET",
+            "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
+        )
+        .with_body(response_body("search-config-v3"))
+        .with_status(501)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test_v3(RECORDS_MISSING);
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_err(),
+            "Should throw an error when a configuration has not been specified before filtering"
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No search config records received from remote settings"));
         changes_mock.expect(1).assert();
         m1.expect(1).assert();
     }
@@ -1127,7 +1468,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v2/changeset?_expected=0",
         )
-        .with_body(response_body())
+        .with_body(response_body("search-config-v2"))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1182,7 +1523,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v2/changeset?_expected=0",
         )
-        .with_body(response_body())
+        .with_body(response_body("search-config-v2"))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1224,7 +1565,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v2/changeset?_expected=0",
         )
-        .with_body(response_body())
+        .with_body(response_body("search-config-v2"))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1283,7 +1624,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v2/changeset?_expected=0",
         )
-        .with_body(response_body())
+        .with_body(response_body("search-config-v2"))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1348,6 +1689,78 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_v3_with_remote_settings() {
+        let changes_mock = mock_changes_endpoint();
+
+        let m = mock(
+            "GET",
+            "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
+        )
+        .with_body(response_body("search-config-v3"))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
+
+        let test_engine = ExpectedEngine::minimal("test", "Test").build();
+        let private_default_fr_engine =
+            ExpectedEngine::minimal("private-default-FR", "Private default FR").build();
+        let distro_default_engine =
+            ExpectedEngine::minimal("distro-default", "Distribution Default").build();
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![
+                    distro_default_engine.clone().into(),
+                    private_default_fr_engine.clone().into(),
+                    test_engine.clone().into(),
+                ],
+                app_default_engine_id: Some("distro-default".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have selected the default engine for the matching specific default"
+        );
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            region: "fr".into(),
+            distribution_id: String::new(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![
+                    test_engine.into(),
+                    private_default_fr_engine.into(),
+                    distro_default_engine.into(),
+                ],
+                app_default_engine_id: Some("test".to_string()),
+                app_private_default_engine_id: Some("private-default-FR".to_string())
+            },
+            "Should have selected the private default engine for the matching specific default"
+        );
+        changes_mock.expect(1).assert();
+        m.expect(1).assert();
+    }
+
+    #[test]
     fn test_filter_with_remote_settings_negotiate_locales() {
         let changes_mock = mock_changes_endpoint();
         let m = mock(
@@ -1390,6 +1803,62 @@ mod tests {
             result_en.unwrap(),
             RefinedSearchConfig {
                 engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build(),],
+                app_default_engine_id: None,
+                app_private_default_engine_id: None,
+            },
+            "Should have selected the en-us engine when given another english locale we don't support"
+        );
+        changes_mock.expect(1).assert();
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_filter_with_remote_settings_negotiate_locales_v3() {
+        let changes_mock = mock_changes_endpoint();
+        let m = mock(
+            "GET",
+            "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
+        )
+        .with_body(response_body_locales())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
+
+        let result_de =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "de-AT".into(),
+                ..Default::default()
+            });
+        assert!(
+            result_de.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result_de
+        );
+
+        assert_eq!(
+            result_de.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![ExpectedEngine::minimal("engine-de", "German Engine")
+                    .build()
+                    .into()],
+                app_default_engine_id: None,
+                app_private_default_engine_id: None,
+            },
+            "Should have selected the de engine when given de-AT which is not an available locale"
+        );
+
+        let result_en =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "en-AU".to_string(),
+                ..Default::default()
+            });
+        assert_eq!(
+            result_en.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build().into(),],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
@@ -1539,6 +2008,69 @@ mod tests {
             result_en.unwrap(),
             RefinedSearchConfig {
                 engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build(),],
+                app_default_engine_id: None,
+                app_private_default_engine_id: None,
+            },
+            "Should have selected the en-us engine when given another english locale we don't support"
+        );
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_negotiate_locales_v3() {
+        let selector = Arc::new(SearchEngineSelector::new());
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                {
+                    "recordType": "availableLocales",
+                    "locales": ["de", "en-US"]
+                },
+                EngineRecord::minimal("engine-de", "German Engine")
+                    .override_variants(Variant::new()
+                    .locales(&["de"]))
+                    .build(),
+                EngineRecord::minimal("engine-en-us", "English US Engine")
+                .override_variants(Variant::new()
+                    .locales(&["en-US"]))
+                    .build(),
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        let result_de =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "de-AT".into(),
+                ..Default::default()
+            });
+        assert!(
+            result_de.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result_de
+        );
+
+        assert_eq!(
+            result_de.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![ExpectedEngine::minimal("engine-de", "German Engine")
+                    .build()
+                    .into(),],
+                app_default_engine_id: None,
+                app_private_default_engine_id: None,
+            },
+            "Should have selected the de engine when given de-AT which is not an available locale"
+        );
+
+        let result_en =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "en-AU".to_string(),
+                ..Default::default()
+            });
+        assert_eq!(
+            result_en.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build().into(),],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
