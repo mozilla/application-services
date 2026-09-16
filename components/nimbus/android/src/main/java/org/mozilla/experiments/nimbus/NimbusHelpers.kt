@@ -5,9 +5,9 @@
 package org.mozilla.experiments.nimbus
 
 import org.json.JSONObject
-import org.mozilla.experiments.nimbus.internal.Disposable
 import org.mozilla.experiments.nimbus.internal.NimbusStringHelperInterface
 import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
+import uniffi.Disposable
 
 /**
  * Instances of this class are useful for implementing a messaging service based upon

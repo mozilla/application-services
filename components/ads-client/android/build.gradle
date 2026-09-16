@@ -43,6 +43,5 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
 }
 
-ext.configureUniFFIBindgen("ads_client")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

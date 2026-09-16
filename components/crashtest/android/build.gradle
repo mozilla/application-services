@@ -5,6 +5,5 @@ android {
     namespace 'org.mozilla.appservices.crashtest'
 }
 
-ext.configureUniFFIBindgen("crashtest")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

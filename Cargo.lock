@@ -531,6 +531,15 @@ dependencies = [
 
 [[package]]
 name = "cargo-platform"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e35af189006b9c0f00a064685c727031e3ed2d8020f7ba284d78cc2671bd36ea"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo-platform"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87a0c0e6148f11f01f32650a2ea02d532b2ad4e81d8bd41e6e565b5adc5e6082"
@@ -541,12 +550,26 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd5eb614ed4c27c5d706420e4320fbe3216ab31fa1c33cd8246ac36dae4479ba"
+dependencies = [
+ "camino",
+ "cargo-platform 0.1.9",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cargo_metadata"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef987d17b0a113becdd19d3d0022d04d7ef41f9efe4f3fb63ac44ba61df3ade9"
 dependencies = [
  "camino",
- "cargo-platform",
+ "cargo-platform 0.3.2",
  "semver",
  "serde",
  "serde_json",
@@ -740,6 +763,17 @@ checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
  "unicode-width 0.1.11",
+]
+
+[[package]]
+name = "codespan-reporting"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
+dependencies = [
+ "serde",
+ "termcolor",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -996,7 +1030,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da6383f459341ea689374bf0a42979739dc421874f112ff26f829b8040b8e613"
 dependencies = [
  "cc",
- "codespan-reporting",
+ "codespan-reporting 0.11.1",
  "once_cell",
  "proc-macro2",
  "quote",
@@ -1217,6 +1251,7 @@ dependencies = [
  "mozilla-central-workspace-hack",
  "serde",
  "toml 0.9.6",
+ "uniffi-bindgen-kotlin-jni",
  "uniffi_bindgen",
  "uniffi_pipeline",
 ]
@@ -2024,18 +2059,18 @@ checksum = "db0d4cf898abf0081f964436dc980e96670a0f36863e4b83aaacdb65c9d7ccc3"
 
 [[package]]
 name = "hashbrown"
-version = "0.14.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
-
-[[package]]
-name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 dependencies = [
  "foldhash",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
 name = "hashlink"
@@ -2434,13 +2469,14 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.5.0"
+version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68b900aa2f7301e21c36462b170ee99994de34dff39a4a6a528e80e7376d07e5"
+checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
- "hashbrown 0.14.3",
+ "hashbrown 0.17.1",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -2578,6 +2614,25 @@ checksum = "78569e0a83d98b0ff28fa79f7a7ea9815085f2dc6259d47700bf2fcbbaad4a50"
 dependencies = [
  "lalrpop-util",
  "regex",
+]
+
+[[package]]
+name = "jni-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6377a88cb3910bee9b0fa88d4f42e1d2da8e79915598f65fb0c7ee14c878af2"
+dependencies = [
+ "jni-sys-macros",
+]
+
+[[package]]
+name = "jni-sys-macros"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -2836,6 +2891,7 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "autofill",
+ "context_id",
  "crashtest",
  "db-crypto",
  "error-support",
@@ -2856,10 +2912,13 @@ dependencies = [
  "rust-log-forwarder",
  "search",
  "suggest",
+ "sync15",
  "sync_manager",
  "tabs",
  "tracing-support",
  "uniffi",
+ "uniffi-bindgen-kotlin-jni",
+ "uniffi-bindgen-kotlin-jni-runtime",
  "viaduct",
 ]
 
@@ -4087,6 +4146,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
+name = "rustc_version"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+dependencies = [
+ "semver",
+]
+
+[[package]]
 name = "rustix"
 version = "0.36.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4277,7 +4345,7 @@ version = "1.0.142"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "030fedb782600dcbd6f02d479bf0d817ac3bb40d644745b769d6a96bc3afc5a7"
 dependencies = [
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "itoa",
  "memchr",
  "ryu",
@@ -4295,9 +4363,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "1.0.4"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8bbf91e5a4d6315eee45e704372590b30e260ee83af6639d64557f51b067776"
+checksum = "4e7523beb55eece201a2356bee0bbca0d1ab466c14c07703b2e0ee6d42cb0c2c"
 dependencies = [
  "serde_core",
 ]
@@ -4398,6 +4466,22 @@ name = "simd-adler32"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
+
+[[package]]
+name = "simd_cesu8"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11031e251abf8611c80f460e19dbdeb54a66db918e49c65a7065b46ac7aec520"
+dependencies = [
+ "rustc_version",
+ "simdutf8",
+]
+
+[[package]]
+name = "simdutf8"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "similar"
@@ -4502,7 +4586,7 @@ dependencies = [
  "anyhow",
  "askama 0.14.0",
  "camino",
- "cargo_metadata",
+ "cargo_metadata 0.23.1",
  "clap",
  "serde_yaml 0.8.24",
  "toml 0.5.9",
@@ -4734,6 +4818,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "target-lexicon"
+version = "0.13.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
+
+[[package]]
 name = "tempfile"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4930,13 +5020,28 @@ version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae2a4cf385da23d1d53bc15cdfa5c2109e93d8d362393c801e87da2f72f0e201"
 dependencies = [
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "serde_core",
  "serde_spanned",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "toml_writer",
  "winnow 0.7.12",
+]
+
+[[package]]
+name = "toml"
+version = "1.1.8+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20489e00e4d8741d6be680764cc12e270655e375a20d1011e844a9c3379e678d"
+dependencies = [
+ "indexmap 2.14.2",
+ "serde_core",
+ "serde_spanned",
+ "toml_datetime 1.1.2+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 1.0.4",
 ]
 
 [[package]]
@@ -4955,30 +5060,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_datetime"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b86d767906c6c42421dcba507eb9d203e779497710a47782a224bb871653053"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "toml_edit"
 version = "0.22.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ae48d6208a266e853d946088ed816055e556cc6028c5e8e2b84d9fa5dd7c7f5"
 dependencies = [
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "toml_datetime 0.6.8",
  "winnow 0.6.19",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.0.2"
+version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b551886f449aa90d4fe2bdaa9f4a2577ad2dde302c61ecf262d80b116db95c10"
+checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
 dependencies = [
- "winnow 0.7.12",
+ "winnow 1.0.4",
 ]
 
 [[package]]
 name = "toml_writer"
-version = "1.0.6+spec-1.1.0"
+version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
+checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "tower"
@@ -5165,12 +5279,12 @@ checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
 
 [[package]]
 name = "uniffi"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "camino",
- "cargo_metadata",
+ "cargo_metadata 0.23.1",
  "clap",
  "uniffi_bindgen",
  "uniffi_build",
@@ -5180,12 +5294,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "uniffi-bindgen-kotlin-jni"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
+dependencies = [
+ "anyhow",
+ "askama 0.14.0",
+ "camino",
+ "cargo_metadata 0.19.2",
+ "clap",
+ "heck",
+ "indexmap 2.14.2",
+ "serde",
+ "toml 1.1.8+spec-1.1.0",
+ "uniffi_bindgen",
+ "uniffi_parse_rs",
+ "uniffi_pipeline",
+]
+
+[[package]]
+name = "uniffi-bindgen-kotlin-jni-runtime"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
+dependencies = [
+ "anyhow",
+ "jni-sys",
+ "simd_cesu8",
+ "uniffi",
+]
+
+[[package]]
 name = "uniffi-bindgen-library-mode"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
- "cargo_metadata",
+ "cargo_metadata 0.23.1",
  "clap",
  "uniffi",
  "uniffi_bindgen",
@@ -5193,18 +5337,18 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "askama 0.16.1",
  "camino",
- "cargo_metadata",
+ "cargo_metadata 0.23.1",
  "fs-err",
  "glob",
  "goblin",
  "heck",
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "once_cell",
  "serde",
  "tempfile",
@@ -5212,14 +5356,15 @@ dependencies = [
  "toml 0.9.6",
  "uniffi_internal_macros",
  "uniffi_meta",
+ "uniffi_parse_rs",
  "uniffi_pipeline",
  "uniffi_udl",
 ]
 
 [[package]]
 name = "uniffi_build"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "camino",
@@ -5228,10 +5373,11 @@ dependencies = [
 
 [[package]]
 name = "uniffi_core"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bytes",
  "once_cell",
  "static_assertions",
@@ -5239,11 +5385,11 @@ dependencies = [
 
 [[package]]
 name = "uniffi_internal_macros"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -5251,8 +5397,8 @@ dependencies = [
 
 [[package]]
 name = "uniffi_macros"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "camino",
  "fs-err",
@@ -5267,8 +5413,8 @@ dependencies = [
 
 [[package]]
 name = "uniffi_meta"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "siphasher",
@@ -5277,21 +5423,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "uniffi_parse_rs"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
+dependencies = [
+ "anyhow",
+ "camino",
+ "codespan-reporting 0.13.1",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.106",
+ "target-lexicon",
+ "thiserror 2.0.20",
+ "toml 0.9.6",
+ "uniffi_meta",
+]
+
+[[package]]
 name = "uniffi_pipeline"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "heck",
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "tempfile",
  "uniffi_internal_macros",
 ]
 
 [[package]]
 name = "uniffi_udl"
-version = "0.32.2"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+version = "0.32.1"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "anyhow",
  "textwrap",
@@ -5662,7 +5826,7 @@ dependencies = [
 [[package]]
 name = "weedle2"
 version = "5.0.0"
-source = "git+https://github.com/mozilla/uniffi-rs.git?rev=81c5d86ccb453ff4a51e91f03d51aa91a8cc549b#81c5d86ccb453ff4a51e91f03d51aa91a8cc549b"
+source = "git+https://github.com/bendk/uniffi-rs.git?rev=958ca2b23e8c8c9847c485b111f50153072c358d#958ca2b23e8c8c9847c485b111f50153072c358d"
 dependencies = [
  "nom",
 ]
@@ -6214,7 +6378,7 @@ dependencies = [
  "flate2",
  "getrandom 0.4.3",
  "hmac",
- "indexmap 2.5.0",
+ "indexmap 2.14.2",
  "lzma-rust2",
  "memchr",
  "nix 0.31.3",

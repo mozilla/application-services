@@ -64,6 +64,8 @@ configurations {
 }
 
 dependencies {
+    implementation libs.kotlinx.coroutines
+
     // Needed so we can copy the libraries into libsForTests.
     jna(libs.jna) {
         artifact {
@@ -175,10 +177,43 @@ artifacts {
     libsForTests(packageLibsForTest)
 }
 
+// Typed task used in the standalone app-services build, where the megazord
+// dynamic library is produced by a separate gradle task and only exists when
+// generateUniffiBindings runs (not at configuration time).
+abstract class GenerateUniffiBindingsCargo extends DefaultTask {
+    @Internal
+    abstract DirectoryProperty getWorkingDirectory()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void run() {
+        execOperations.exec {
+            workingDir workingDirectory.get().asFile
+            commandLine '/usr/bin/env', 'cargo', 'run',
+                '--package', 'embedded-uniffi-bindgen', '--bin', 'uniffi-bindgen-kotlin-jni',
+                'bindings', "src:megazord", outputDir.get().asFile
+        }
+    }
+}
+
 if (!gradle.hasProperty("mozconfig")) {
     def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         into layout.buildDirectory.dir("megazordNative")
+    }
+
+    def generateUniffiBindings = tasks.register("generateUniffiBindings", GenerateUniffiBindingsCargo) {
+        workingDirectory.set(project.rootDir)
+        outputDir.set(layout.buildDirectory.dir("generated/uniffi/"))
+    }
+
+    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+        variant.sources.java.addGeneratedSourceDirectory(generateUniffiBindings) { it.outputDir }
     }
 
     artifacts {

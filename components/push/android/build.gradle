@@ -5,6 +5,5 @@ android {
     namespace 'org.mozilla.appservices.push'
 }
 
-ext.configureUniFFIBindgen("push")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

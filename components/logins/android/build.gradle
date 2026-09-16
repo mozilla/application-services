@@ -57,6 +57,5 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
 }
 
-ext.configureUniFFIBindgen("logins")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

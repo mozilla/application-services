@@ -35,3 +35,6 @@ glean-sym = ["dep:glean-sym"]
 # Use Firefox-on-Glean to publish metrics (Desktop)
 # Note: if set, we will not use `glean-sym`
 glean-fog = ["dep:glean"]
+
+[package.metadata.uniffi]
+skip_dependencies = ["glean", "glean-sym"]

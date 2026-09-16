@@ -49,6 +49,5 @@ android {
     namespace 'org.mozilla.appservices.errorsupport'
 }
 
-ext.configureUniFFIBindgen("error_support")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

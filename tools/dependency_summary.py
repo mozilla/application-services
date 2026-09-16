@@ -224,6 +224,13 @@ PACKAGE_METADATA_FIXUPS = {
         }
     },
     # These packages do not unambiguously declare their licensing file.
+    "jni-macros": {
+        "license": {"check": "MIT OR Apache-2.0"},
+        "license_file": {
+            "check": None,
+            "fixup": "LICENSE-APACHE",
+        },
+    },
     "publicsuffix": {
         "license": {"check": "MIT/Apache-2.0"},
         "license_file": {
@@ -772,6 +779,16 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/lmdb-rs/master/LICENSE",
         },
     },
+    "uniffi-bindgen-kotlin-jni": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        },
+    },
     "uniffi_bindgen": {
         "license_url": {
             "check": None,
@@ -833,6 +850,16 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "uniffi_meta": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        },
+    },
+    "uniffi_parse_rs": {
         "license_url": {
             "check": None,
             "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
@@ -1277,6 +1304,9 @@ class WorkspaceMetadata:
             return licenseId
         # `unicode-ident`
         if licenseId == "(MIT OR Apache-2.0) AND Unicode-3.0":
+            return licenseId
+        # target-lexicon
+        if licenseId == 'Apache-2.0 WITH LLVM-exception':
             return licenseId
 
         # Split "A/B" and "A OR B" into individual license names.

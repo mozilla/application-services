@@ -45,6 +45,5 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
 }
 
-ext.configureUniFFIBindgen("fxa_client")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

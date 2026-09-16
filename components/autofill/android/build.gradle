@@ -16,6 +16,5 @@ dependencies {
     testImplementation project(":init_rust_components")
 }
 
-ext.configureUniFFIBindgen("autofill")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

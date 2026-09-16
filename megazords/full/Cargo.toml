@@ -10,6 +10,7 @@ license = "MPL-2.0"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
+context_id = { path = "../../components/context_id" }
 fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
 tabs = { path = "../../components/tabs/" }
@@ -28,6 +29,7 @@ crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
 suggest = { path = "../../components/suggest" }
 search = { path = "../../components/search" }
+sync15 = { path = "../../components/sync15" }
 tracing-support = { path = "../../components/support/tracing" }
 
 lazy_static = "1.4"
@@ -37,7 +39,8 @@ relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }
 glean-sym = { version = "70" }
-uniffi = { version = "0.32" }
+uniffi = { version = "0.32"}
+uniffi-bindgen-kotlin-jni-runtime = { version = "0.32"}
 
 # Direct dep so this crate can forward the mozbuild-rustlib feature down the
 # NSS link chain. The megazord cdylib produces a self-contained Rust artifact
@@ -52,5 +55,11 @@ db-crypto = { path = "../../components/support/db-crypto" }
 # Metrics reporting will fail with a linker error.
 glean-sym = { version = "70", features = ["active"] }
 
+[build-dependencies]
+uniffi-bindgen-kotlin-jni = { version = "0.32"}
+
 [features]
 mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]
+
+[package.metadata.uniffi]
+skip_dependencies = ["glean-sym"]

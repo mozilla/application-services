@@ -12,6 +12,5 @@ dependencies {
     testImplementation project(':syncmanager')
 }
 
-ext.configureUniFFIBindgen("tabs")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

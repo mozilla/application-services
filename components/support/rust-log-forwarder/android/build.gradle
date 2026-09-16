@@ -9,6 +9,5 @@ dependencies {
     api project(':tracing')
 }
 
-ext.configureUniFFIBindgen("rust_log_forwarder")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
