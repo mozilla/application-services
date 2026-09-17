@@ -111,6 +111,7 @@ remote_ios_repo_url = args.remote_ios_repo_url
 ios_scheme = args.ios_scheme
 ios_test_plan = args.ios_test_plan
 
+as_commit = args.as_commit
 desktop_test = args.desktop_test
 ignore_modified = args.ignore_modified
 
@@ -145,7 +146,7 @@ time_diff_fenix = time.time() - start_time_fenix
 
 # Build against Desktop
 start_time_desktop = time.time()
-success_desktop = build_against_desktop(firefox_dir, None, True, test_name=desktop_test, ignore_modified=ignore_modified, verbose=verbose, action=action)
+success_desktop = build_against_desktop(firefox_dir, as_commit=as_commit, moz_config_location=None, test_name=desktop_test, ignore_modified=ignore_modified, verbose=verbose, action=action)
 time_diff_desktop = time.time() - start_time_desktop
 
 did_tests_string = "" if action != "run-tests" else " (and tested)"
