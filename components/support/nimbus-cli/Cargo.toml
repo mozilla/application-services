@@ -8,7 +8,7 @@ license = "MPL-2.0"
 
 [features]
 default = ["server"]
-server = ["dep:axum", "dep:tokio", "dep:tower", "dep:tower-http", "dep:tower-livereload", "dep:hyper", "dep:local-ip-address"]
+server = ["dep:axum", "dep:tokio", "dep:tower-http", "dep:tower-livereload", "dep:local-ip-address"]
 
 [dependencies]
 clap = {version = "4.2", default-features = false, features = ["std", "derive", "error-context", "help"]}
@@ -29,13 +29,16 @@ serde_yaml = "0.9.21"
 percent-encoding = "2.3.0"
 copypasta = "0.8.2"
 chrono = "0.4.26"
-axum = { version = "0.6.18", optional = true }
-tokio = { version = "1.29.1", optional = true, features = ["sync", "rt", "macros", "rt-multi-thread"] }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4.1", optional = true, features = ["fs", "set-header"] }
-tower-livereload = { version = "0.8.0", optional = true }
-hyper = { version = "0.14.27", optional = true, features = ["server"] }
+axum = { version = "0.8", optional = true }
+tokio = { version = "1.49", optional = true, features = ["sync", "net", "rt", "macros", "rt-multi-thread"] }
+tower-http = { version = "0.6", optional = true, features = ["set-header"] }
+tower-livereload = { version = "0.10", optional = true }
 local-ip-address = { version = "0.5.4", optional = true }
 cfg-if = "1.0.0"
 termcolor = "1.4.1"
 tempfile = "3.1"
+
+[dev-dependencies]
+# The server tests only talk plain HTTP to 127.0.0.1, so `default-features = false` keeps TLS and
+# h2 out of the dependency tree entirely.
+reqwest = { version = "0.13", default-features = false }

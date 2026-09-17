@@ -9,6 +9,10 @@
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
 
+### Nimbus
+
+- `nimbus-cli`'s `start-server` now runs on `axum` 0.8 (and so `hyper` 1.x) instead of `axum` 0.6 / `hyper` 0.14, which removes the `h2` 0.3 flagged by RUSTSEC-2026-0258 from its own dependencies. No change to the server's behaviour or its URLs. ([bug 2071060](https://bugzilla.mozilla.org/show_bug.cgi?id=2071060))
+
 # v157.0 (_2026-09-10_)
 
 ## ✨ What's Changed ✨
