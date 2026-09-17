@@ -486,6 +486,7 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
+            in_memory: config.in_memory,
         }
     }
 }

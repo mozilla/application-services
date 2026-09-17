@@ -50,8 +50,8 @@ impl AdsStoreBuilder {
         self
     }
 
-    pub fn in_memory(mut self) -> Self {
-        self.memory = true;
+    pub fn in_memory(mut self, memory: bool) -> Self {
+        self.memory = memory;
         self
     }
 
