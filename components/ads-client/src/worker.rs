@@ -20,13 +20,27 @@ pub struct BackgroundWorker {
 }
 
 impl BackgroundWorker {
-    pub fn new(inner: MozAdsClientInner, worker_buffer_size: Option<u32>) -> BackgroundWorker {
+    pub fn new(
+        inner_client: MozAdsClientInner,
+        worker_buffer_size: Option<u32>,
+    ) -> BackgroundWorker {
         let worker_buffer_size = worker_buffer_size.and_then(|x| usize::try_from(x).ok());
-        let (worker_dispatch, worker_thread) =
-            Option::unzip(build_worker_thread(inner.clone(), worker_buffer_size));
+
+        let (tx, rx) = mpsc::sync_channel(
+            worker_buffer_size.unwrap_or(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT),
+        );
+        let Some(worker_thread) = std::thread::Builder::new()
+            .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
+            .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
+                error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
+            }).ok()
+        else {
+            return BackgroundWorker { _worker_thread: None, worker_dispatch: None }
+        };
+
         BackgroundWorker {
-            _worker_thread: worker_thread,
-            worker_dispatch,
+            _worker_thread: Some(worker_thread),
+            worker_dispatch: Some(tx),
         }
     }
 
