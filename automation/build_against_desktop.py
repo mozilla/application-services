@@ -21,13 +21,12 @@
 #       --mozconfig         => Absolute path to the mozconfig file to be used.
 #       --verbose           => Includes the stdout of subprocesses (like the xcodebuild output, or other bootstrapping scripts)
 #       --clean-up          => Whether to perform the on-success cleanup step at the end of a successful build (default is True). This clean-up step happens either way on an error or graceful exit (such as with `--action run`).
-#       --test-name          => Test name to run with `./mach test`. If `run-tests` is attached, but no `--test` is provided, the default command will be `./mach test --auto` where appropriate tests will be guessed.
+#       --test-name         => Test name to run with `./mach test`. If `run-tests` is attached, but no `--test-name` is provided, the default command will be `./mach test --auto` where appropriate tests will be guessed.
+#       --ignore-modified   => Whether to run the vendoring step with `--ignore-modified` (eg: to allow running the command multiple times, vendoring multiple times, etc.) 
 import argparse
 import subprocess
 import os
-import signal
 import tempfile
-import sys
 from pathlib import Path
 from shared import (
     find_app_services_root,
@@ -50,6 +49,7 @@ def build_against_desktop(
     as_commit,
     moz_config_location,
     test_name,
+    ignore_modified,
     verbose,
     action,
 ):
@@ -117,18 +117,20 @@ def build_against_desktop(
 
     # The vendoring step
     step_msg("Vendoring commit: `{as_commit}`...")
+    ignore_modified_str = "--ignore-modified" if ignore_modified else ""
     if not run_cmd_is_successful(
-        f"./mach vendor third_party/application-services/moz.yaml --force -r {as_commit}",
+        f"./mach vendor third_party/application-services/moz.yaml --force {ignore_modified_str} -r {as_commit}",
         cwd=firefox_repo_path,
         shell=True,
         stdout=subprocess_stdout,
     ):
         err_msg("Failed to vendor commit `{as_commit} with `./mach vendor third_party/application-services/moz.yaml --force -r {as_commit}`")
+        err_msg("If this is because of uncommitted changes, either revert the vendor or pass `--ignore-modified`.")
         return False
 
     step_msg("Updating vendored dependencies rust...")
     if not run_cmd_is_successful(
-        "./mach vendor rust",
+        "./mach vendor rust --ignore-modified",
         cwd=firefox_repo_path,
         shell=True,
         stdout=subprocess_stdout,
@@ -225,8 +227,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--clean-up",
-        help="Skip the on-success cleanup step done at the end of a successful build. This does not skip the cleanup step if there is an error or graceful exit (such as with `--action run`).",
+        "--ignore-modified",
+        help="Whether to run the vendoring step with `--ignore-modified` (eg: to allow running the command multiple times, vendoring multiple times, etc.)",
         action=argparse.BooleanOptionalAction,
         default=True,
     )
@@ -237,6 +239,6 @@ if __name__ == "__main__":
     verbose = args.verbose
     moz_config_location = args.mozconfig
     action = args.action
-    clean_up = args.clean_up
     test_name = args.test_name
-    build_against_desktop(firefox_dir, as_commit, moz_config_location, test_name, verbose, action)
+    ignore_modified = args.ignore_modified
+    build_against_desktop(firefox_dir, as_commit, moz_config_location, test_name, ignore_modified, verbose, action)
