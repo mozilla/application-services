@@ -84,56 +84,6 @@ impl MozAdsClient {
 
     #[handle_error(ComponentError)]
     #[uniffi::method(default(options = None))]
-    pub fn record_click(
-        &self,
-        click_url: String,
-        options: Option<MozAdsCallbackOptions>,
-    ) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&click_url)
-            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
-        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-        let inner = self.inner.lock();
-        inner
-            .record_click(url, ohttp)
-            .map_err(ComponentError::RecordClick)
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
-    pub fn record_impression(
-        &self,
-        impression_url: String,
-        options: Option<MozAdsCallbackOptions>,
-    ) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
-            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
-        })?;
-        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-        let inner = self.inner.lock();
-        inner
-            .record_impression(url, ohttp)
-            .map_err(ComponentError::RecordImpression)
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
-    pub fn report_ad(
-        &self,
-        report_url: String,
-        reason: MozAdsReportReason,
-        options: Option<MozAdsCallbackOptions>,
-    ) -> AdsClientApiResult<()> {
-        let url = AdsClientUrl::parse(&report_url)
-            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
-        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
-        let inner = self.inner.lock();
-        inner
-            .report_ad(url, reason.into(), ohttp)
-            .map_err(ComponentError::ReportAd)
-    }
-
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(options = None))]
     pub fn request_image_ads(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
@@ -193,6 +143,60 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+#[uniffi::export]
+impl MozAdsClient {
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn record_click(
+        &self,
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&click_url)
+            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+        let inner = self.inner.lock();
+        inner
+            .record_click(url, ohttp)
+            .map_err(ComponentError::RecordClick)
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn record_impression(
+        &self,
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+        })?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+        let inner = self.inner.lock();
+        inner
+            .record_impression(url, ohttp)
+            .map_err(ComponentError::RecordImpression)
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&report_url)
+            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+        let inner = self.inner.lock();
+        inner
+            .report_ad(url, reason.into(), ohttp)
+            .map_err(ComponentError::ReportAd)
     }
 }
 
@@ -293,6 +297,83 @@ impl MozAdsClient {
         let inner = self.inner.lock();
         let tile_ad: AdTile = inner.get_stored_ad_tile(&placement_id)?;
         Some(tile_ad.into())
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn record_click(
+        &self,
+        click_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&click_url)
+            .map_err(|e| ComponentError::RecordClick(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+        // After stateful suite is available, we allow usage of old blocking record/report functions if worker is not provided/available.
+        // Prefetch functions instead return an error rather than default, because there is no default option for them.
+        if self.worker.check_available() {
+            self.worker
+                .dispatch(DispatchCommand::RecordClick { url, ohttp })
+        } else {
+            let inner = self.inner.lock();
+            inner
+                .record_click(url, ohttp)
+                .map_err(ComponentError::RecordClick)
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn record_impression(
+        &self,
+        impression_url: String,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+            ComponentError::RecordImpression(CallbackRequestError::InvalidUrl(e).into())
+        })?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+        // After stateful suite is available, we allow usage of old blocking record/report functions if worker is not provided/available.
+        // Prefetch functions instead return an error rather than default, because there is no default option for them.
+        if self.worker.check_available() {
+            self.worker
+                .dispatch(DispatchCommand::RecordImpression { url, ohttp })
+        } else {
+            let inner = self.inner.lock();
+            inner
+                .record_impression(url, ohttp)
+                .map_err(ComponentError::RecordImpression)
+        }
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
+    pub fn report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+        options: Option<MozAdsCallbackOptions>,
+    ) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&report_url)
+            .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
+        let ohttp = options.map(|o| o.ohttp).unwrap_or(false);
+
+        // After stateful suite is available, we allow usage of old blocking record/report functions if worker is not provided/available.
+        // Prefetch functions instead return an error rather than default, because there is no default option for them.
+        if self.worker.check_available() {
+            self.worker.dispatch(DispatchCommand::ReportAd {
+                url,
+                reason: reason.into(),
+                ohttp,
+            })
+        } else {
+            let inner = self.inner.lock();
+            inner
+                .report_ad(url, reason.into(), ohttp)
+                .map_err(ComponentError::ReportAd)
+        }
     }
 
     // Pings the background worker and waits for a response back, for use in tests.

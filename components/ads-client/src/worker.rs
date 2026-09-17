@@ -62,6 +62,10 @@ impl BackgroundWorker {
             Err(BackgroundWorkerError::Closed.into())
         }
     }
+
+    pub fn check_available(&self) -> bool {
+        self.worker_dispatch.is_some()
+    }
 }
 
 // Spawn worker thread from a reference to the client, returning a synchronous channel transmitter to the thread, and its JoinHandle.

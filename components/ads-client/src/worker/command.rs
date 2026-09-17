@@ -1,12 +1,13 @@
 use std::{collections::HashMap, sync::mpsc::SyncSender};
 
 use error_support::handle_error;
+use url::Url;
 
 use crate::{
     ads_store::StorableAd,
     client::error::{BackgroundWorkerError, ComponentError, RequestAdsError},
     http_cache::CachePolicy,
-    mars::ad_request::AdPlacementRequest,
+    mars::{ad_request::AdPlacementRequest, ReportReason},
     AdsClientApiResult, MozAdsClientInner, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
 
@@ -14,6 +15,19 @@ use crate::{
 // `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
 pub enum DispatchCommand {
     Ping(SyncSender<()>),
+    RecordClick {
+        url: Url,
+        ohttp: bool,
+    },
+    RecordImpression {
+        url: Url,
+        ohttp: bool,
+    },
+    ReportAd {
+        url: Url,
+        reason: ReportReason,
+        ohttp: bool,
+    },
     RequestImageAds {
         image_ad_requests: Vec<MozAdsPlacementRequest>,
         cache_policy: CachePolicy,
@@ -134,6 +148,28 @@ impl DispatchCommand {
                         )
                         .map_err(RequestAdsError::from)?;
                 }
+                Ok(())
+            }
+
+            DispatchCommand::RecordClick { url, ohttp } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .record_click(url, ohttp)
+                    .map_err(ComponentError::RecordClick)?;
+                Ok(())
+            }
+            DispatchCommand::RecordImpression { url, ohttp } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .record_impression(url, ohttp)
+                    .map_err(ComponentError::RecordImpression)?;
+                Ok(())
+            }
+            DispatchCommand::ReportAd { url, ohttp, reason } => {
+                let inner = ads_client_inner.lock();
+                inner
+                    .report_ad(url, reason, ohttp)
+                    .map_err(ComponentError::ReportAd)?;
                 Ok(())
             }
             DispatchCommand::Ping(sender) => {

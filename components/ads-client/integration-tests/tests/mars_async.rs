@@ -1,3 +1,4 @@
+use ads_client::{MozAdsClient, MozAdsReportReason, MozAdsTile};
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -29,6 +30,36 @@ fn prod_client() -> ads_client::MozAdsClient {
             in_memory: true,
         })
         .build()
+}
+
+// Reusable test helper that prefetches a tile ad, waits for background process to complete, and queries it.
+// Should mimic the `test_contract_tile_prod_async` test.
+fn generate_tile_ad_async_helper(client: &MozAdsClient) -> MozAdsTile {
+    // Prefetch
+    let placement_id = PlacementId::new("mock_tile_1");
+    let result = client.prefetch_ads(
+        vec![MozAdsPlacementRequestGeneric {
+            iab_content: None,
+            placement_id: placement_id.clone(),
+            count: None,
+            ad_type: MozAdType::Tile,
+        }],
+        None,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Tile ad dispatch request failed: {:?}",
+        result.err()
+    );
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
+
+    // Query
+    let result = client.query_tile_ads(placement_id);
+    result.expect("`query_tile_ads` in `generate_tile_ad_sync_helper` should return Some")
 }
 
 #[cfg(feature = "stateful")]
@@ -280,4 +311,78 @@ fn test_contract_multi_ad_type_prod_async() {
 
     let result = client.query_tile_ads(placement_tile_id);
     assert!(result.is_some());
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_impression_async() {
+    init_backend();
+
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    // Dispatch record_impression asynchronously
+    let result = client.record_impression(ad.callbacks.impression.to_string(), None);
+    assert!(
+        result.is_ok(),
+        "record_impression failed: {:?}",
+        result.err()
+    );
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
+    // TODO: This doesn't actually guarantee the background worker call was successful, doing so requires a callback.
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_record_click_async() {
+    init_backend();
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    // Dispatch record_click asynchronously
+    let result = client.record_click(ad.callbacks.click.to_string(), None);
+    assert!(result.is_ok(), "record_click failed: {:?}", result.err());
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
+    // TODO: This doesn't actually guarantee the background worker call was successful, doing so requires a callback.
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_report_ad_async() {
+    init_backend();
+
+    let client = prod_client();
+    let ad = generate_tile_ad_async_helper(&client);
+
+    let report_url = ad
+        .callbacks
+        .report
+        .as_ref()
+        .expect("mock_tile_1 should have a report URL");
+
+    let pairs: Vec<(_, _)> = report_url.query_pairs().collect();
+    let placement_id_count = pairs.iter().filter(|(k, _)| k == "placement_id").count();
+    let position_count = pairs.iter().filter(|(k, _)| k == "position").count();
+    assert_eq!(placement_id_count, 1, "expected exactly one placement_id");
+    assert_eq!(position_count, 1, "expected exactly one position");
+
+    // Dispatch report_ad asynchronously
+    let result = client.report_ad(
+        report_url.to_string(),
+        MozAdsReportReason::NotInterested,
+        None,
+    );
+    assert!(result.is_ok(), "report_ad failed: {:?}", result.err());
+
+    // Ping (waits for queue to clear)
+    let ping = client.ping_background_worker(Some(TEST_TIMEOUT_DURATION));
+    assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
+
+    // TODO: This doesn't actually guarantee the background call was successful, doing so requires a callback.
 }
