@@ -8,13 +8,14 @@ use crate::db::models::address::{
 };
 use crate::db::models::credit_card::{
     CreditCard, CreditCardBulkResultEntry, CreditCardBulkTombstoneResultEntry, CreditCardTombstone,
-    UpdatableCreditCardFields, UpdatableCreditCardFieldsWithMeta,
+    SecureCreditCardFields, UpdatableCreditCardFields, UpdatableCreditCardFieldsWithMeta,
 };
 use crate::db::models::passport::{Passport, UpdatablePassportFields};
 use crate::db::{
     addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics, passports, AutofillDb,
 };
 use crate::error::*;
+use db_crypto::EncryptorDecryptor;
 use error_support::handle_error;
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use rusqlite::{
@@ -61,9 +62,9 @@ pub struct Store {
 
 impl Store {
     #[handle_error(Error)]
-    pub fn new(db_path: impl AsRef<Path>) -> ApiResult<Self> {
+    pub fn new(db_path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
         Ok(Self {
-            db: Mutex::new(Some(AutofillDb::new(db_path)?)),
+            db: Mutex::new(Some(AutofillDb::new(db_path, encdec)?)),
         })
     }
 
@@ -77,9 +78,12 @@ impl Store {
 
     /// Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
     #[handle_error(Error)]
-    pub fn new_shared_memory(db_name: &str) -> ApiResult<Self> {
+    pub fn new_shared_memory(
+        db_name: &str,
+        encdec: Arc<dyn EncryptorDecryptor>,
+    ) -> ApiResult<Self> {
         Ok(Self {
-            db: Mutex::new(Some(AutofillDb::new_memory(db_name)?)),
+            db: Mutex::new(Some(AutofillDb::new_memory(db_name, encdec)?)),
         })
     }
 
@@ -91,6 +95,25 @@ impl Store {
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
         let credit_card = credit_cards::add_credit_card(&self.lock_db()?.writer, fields)?;
         Ok(credit_card.into())
+    }
+
+    #[handle_error(Error)]
+    pub fn encrypt_string(&self, cleartext: String) -> ApiResult<String> {
+        let db = self.lock_db()?;
+        SecureCreditCardFields {
+            cc_number: cleartext,
+            ..Default::default()
+        }
+        .encrypt(db.encdec.as_ref(), "<no guid>")
+    }
+
+    #[handle_error(Error)]
+    pub fn decrypt_string(&self, ciphertext: String) -> ApiResult<String> {
+        let db = self.lock_db()?;
+        Ok(
+            SecureCreditCardFields::decrypt(&ciphertext, db.encdec.as_ref(), "<no guid>")?
+                .cc_number,
+        )
     }
 
     /// Adds a credit card **including metadata**. Normally the metadata (guid,
@@ -411,14 +434,10 @@ impl Store {
     #[handle_error(Error)]
     pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
         self: Arc<Self>,
-        local_encryption_key: String,
     ) -> ApiResult<CreditCardsDeletionMetrics> {
         let db = self.lock_db()?;
         let deletion_stats =
-            credit_cards::scrub_undecryptable_credit_card_data_for_remote_replacement(
-                &db.writer,
-                local_encryption_key,
-            )?;
+            credit_cards::scrub_undecryptable_credit_card_data_for_remote_replacement(&db)?;
 
         // Here we reset the local sync data so that the credit card engine syncs as if
         // it were the first sync. This will potentially allow a previous sync of the
@@ -492,8 +511,8 @@ pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::test::new_mem_db;
-    use crate::encryption::EncryptorDecryptor;
+    use crate::db::test::{new_mem_db, test_encdec};
+    use crate::sync::credit_card::encrypt_str;
     use nss_as::ensure_initialized;
 
     #[test]
@@ -532,8 +551,42 @@ mod tests {
     }
 
     #[test]
+    fn test_store_owned_string_crypto() {
+        let store = Store::new_shared_memory("store-crypto", test_encdec()).unwrap();
+
+        // Roundtrip through the store's own key.
+        let ciphertext = store
+            .encrypt_string("4111111111117629".to_string())
+            .unwrap();
+        assert_ne!(ciphertext, "4111111111117629");
+        assert_eq!(
+            store.decrypt_string(ciphertext.clone()).unwrap(),
+            "4111111111117629"
+        );
+
+        // The Desktop adapter's path: encrypt via the store, hand the
+        // ciphertext into the record API, read it back decrypted.
+        let cc = store
+            .add_credit_card(UpdatableCreditCardFields {
+                cc_name: "jane doe".to_string(),
+                cc_number_enc: ciphertext,
+                cc_number_last_4: "7629".to_string(),
+                cc_exp_month: 9,
+                cc_exp_year: 2027,
+                cc_type: "visa".to_string(),
+            })
+            .unwrap();
+        assert_eq!(
+            store
+                .decrypt_string(store.get_credit_card(cc.guid).unwrap().cc_number_enc)
+                .unwrap(),
+            "4111111111117629"
+        );
+    }
+
+    #[test]
     fn test_sync_manager_registration() {
-        let store = Arc::new(Store::new_shared_memory("sync-mgr-test").unwrap());
+        let store = Arc::new(Store::new_shared_memory("sync-mgr-test", test_encdec()).unwrap());
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);
         Arc::clone(&store).register_with_sync_manager();
@@ -556,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_shutdown_closes_the_store() {
-        let store = Store::new_shared_memory("shutdown-test").expect("create store");
+        let store = Store::new_shared_memory("shutdown-test", test_encdec()).expect("create store");
         // Operations succeed before shutdown.
         assert_eq!(store.count_all_passports().expect("count"), 0);
 
@@ -573,15 +626,15 @@ mod tests {
     #[test]
     fn test_scrub_undecryptable_credit_card_data_for_remote_replacement() {
         ensure_initialized();
-        let store = Arc::new(Store::new_shared_memory("sync-mgr-test").expect("create store"));
-        let key = EncryptorDecryptor::create_key().expect("create key");
-        let encdec = EncryptorDecryptor::new(&key).expect("create EncryptorDecryptor");
+        let store =
+            Arc::new(Store::new_shared_memory("scrub-test", test_encdec()).expect("create store"));
+        // The guard has to go out of scope before we touch the store again.
+        let encdec = store.lock_db().expect("db").encdec.clone();
 
         store
             .add_credit_card(UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encdec
-                    .encrypt("567812345678123456781")
+                cc_number_enc: encrypt_str(encdec.as_ref(), "567812345678123456781")
                     .expect("encrypt cc number"),
                 cc_number_last_4: "6781".to_string(),
                 cc_exp_month: 10,
@@ -591,7 +644,7 @@ mod tests {
             .expect("add credit card to database");
 
         store
-            .scrub_undecryptable_credit_card_data_for_remote_replacement(key)
+            .scrub_undecryptable_credit_card_data_for_remote_replacement()
             .expect("scrub credit card record");
     }
 }
