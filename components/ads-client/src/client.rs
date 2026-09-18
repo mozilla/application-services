@@ -45,7 +45,6 @@ where
     T: Clone + Telemetry,
 {
     pub fn new(client_config: AdsClientConfig<T>) -> Self {
-        panic!();
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
             0,
