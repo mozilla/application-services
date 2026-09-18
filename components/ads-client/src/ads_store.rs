@@ -7,9 +7,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     common::bytesize::ByteSize,
-    mars::ad_response::{AdImage, AdSpoc, AdTile},
+    mars::{
+        ad_response::{AdImage, AdSpoc, AdTile},
+        error::FetchAdsError,
+    },
 };
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 /// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -19,9 +22,6 @@ impl PlacementId {
     pub fn new(s: &str) -> PlacementId {
         PlacementId(s.to_string())
     }
-    pub fn into_inner(self) -> String {
-        self.0
-    }
 }
 
 impl AsRef<str> for PlacementId {
@@ -30,11 +30,49 @@ impl AsRef<str> for PlacementId {
     }
 }
 
+impl From<String> for PlacementId {
+    fn from(value: String) -> Self {
+        PlacementId(value)
+    }
+}
+
+impl From<PlacementId> for String {
+    fn from(value: PlacementId) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StorableAd {
     Image(AdImage),
-    Spoc(AdSpoc),
+    Spoc(Vec<AdSpoc>),
     Tile(AdTile),
+}
+
+impl StorableAd {
+    pub fn into_image(self) -> Option<AdImage> {
+        if let StorableAd::Image(image) = self {
+            Some(image)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_spocs(self) -> Option<Vec<AdSpoc>> {
+        if let StorableAd::Spoc(spocs) = self {
+            Some(spocs)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_tile(self) -> Option<AdTile> {
+        if let StorableAd::Tile(tile) = self {
+            Some(tile)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct AdsStore {
@@ -59,6 +97,17 @@ impl AdsStore {
 
     pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
+        Ok(())
+    }
+
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
+        self.holder.lookup(placement_id)
+    }
+
+    pub fn store_ads(&self, ads: HashMap<PlacementId, StorableAd>) -> Result<(), FetchAdsError> {
+        for (placement_id, ad) in ads {
+            self.holder.store_ad(&placement_id, ad)?;
+        }
         Ok(())
     }
 }

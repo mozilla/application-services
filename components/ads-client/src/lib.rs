@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -23,9 +23,13 @@ pub mod http_cache;
 mod mars;
 pub mod shutdown;
 pub mod telemetry;
+#[cfg(feature = "stateful")]
+pub mod worker;
 
 pub use ffi::*;
 
+#[cfg(feature = "stateful")]
+use crate::worker::BackgroundWorker;
 use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
@@ -39,10 +43,13 @@ uniffi::custom_type!(AdsClientUrl, String, {
     lower: |obj| obj.as_str().to_string(),
 });
 
+pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: MozAdsClientInner,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
+    #[cfg(feature = "stateful")]
+    _worker: BackgroundWorker,
 }
 
 #[uniffi::export]

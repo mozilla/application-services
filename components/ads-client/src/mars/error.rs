@@ -46,6 +46,9 @@ pub enum FetchAdsError {
     #[error("Internal database error: {0}")]
     Sqlite(#[from] rusqlite::Error),
 
+    #[error("Internal database error: database shut down or uninitialized")]
+    SqliteShutdown,
+
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
 
