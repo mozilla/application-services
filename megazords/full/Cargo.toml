@@ -35,6 +35,7 @@ merino = { path = "../../components/merino" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }
+glean-sym = { version = "70", features = ["active"] }
 
 # Direct dep so this crate can forward the mozbuild-rustlib feature down the
 # NSS link chain. The megazord cdylib produces a self-contained Rust artifact
