@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Attachment","ChangesetResponse","CollectionMetadata","CollectionSignature","RemoteSettingsClient","RemoteSettingsRecord","ViaductApiClient"],"trait":["ApiClient"],"type":["RsJsonObject"]};

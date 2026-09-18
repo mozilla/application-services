@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ValidatedTag"],"fn":["get_tags_for_url","get_urls_with_tag","remove_all_tags_from_url","remove_tag","tag_url","untag_url","validate_tag"]};

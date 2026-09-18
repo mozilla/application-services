@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>shouldShowRelay</title>
+    <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "../../../";</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async="async"></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/jetbrains-mono.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+</head>
+<body>
+<div class="navigation-wrapper" id="navigation-wrapper">
+    <div id="leftToggler"><span class="icon-toggler"></span></div>
+    <div class="library-name">
+            <a href="../../../index.html">
+                    <span>kotlin-components-docs</span>
+            </a>
+    </div>
+    <div>
+    </div>
+    <div class="pull-right d-flex">
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":dokkaHtml/main">jvm</button>
+        </div>
+        <button id="theme-toggle-button"><span id="theme-toggle"></span></button>
+        <div id="searchBar"></div>
+    </div>
+</div>
+<div id="container">
+    <div id="leftColumn">
+        <div id="sideMenu"></div>
+    </div>
+    <div id="main">
+<div class="main-content" data-page-type="member" id="content" pageIds="kotlin-components-docs::mozilla.appservices.relay/RelayRemoteSettingsClientInterface/shouldShowRelay/#kotlin.String#kotlin.String#kotlin.Boolean/PointingToDeclaration//769193423">
+  <div class="breadcrumbs"><a href="../../../index.html">kotlin-components-docs</a><span class="delimiter">/</span><a href="../index.html">mozilla.appservices.relay</a><span class="delimiter">/</span><a href="index.html">RelayRemoteSettingsClientInterface</a><span class="delimiter">/</span><span class="current">shouldShowRelay</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>should</span><wbr></wbr><span>Show</span><wbr></wbr><span><span>Relay</span></span></h1>
+  </div>
+  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":dokkaHtml/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="should-show-relay.html"><span class="token function">shouldShowRelay</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">host<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">domain<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">isRelayUser<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><p class="paragraph">Determines whether Firefox Relay should be offered for a given site.</p><p class="paragraph">This function implements the Relay visibility decision logic based on three factors:</p><ol><li><p class="paragraph">Whether the site is on the denylist</p></li><li><p class="paragraph">Whether the user is an existing Relay user</p></li><li><p class="paragraph">Whether the site is on the allowlist</p></li></ol><h1 class=""> Decision Logic (in order)</h1><ol><li><p class="paragraph">If the site is on the <strong>denylist</strong>, don't show Relay (regardless of user status)</p></li><li><p class="paragraph">If the site is NOT on the denylist and the user <strong>is</strong> a Relay user, show Relay</p></li><li><p class="paragraph">If the site is NOT on the denylist and the user is <strong>not</strong> a Relay user, check the allowlist:</p></li></ol><ul><li><p class="paragraph">If the site is on the <strong>allowlist</strong>, show Relay (to promote Relay to new users)</p></li><li><p class="paragraph">Otherwise, don't show Relay</p></li></ul><h1 class=""> Fail-Safe Behavior</h1><p class="paragraph">If Remote Settings is unavailable:</p><ul><li><p class="paragraph">If denylist fetch fails: don't show Relay (conservative: avoid showing on potentially blocked sites)</p></li><li><p class="paragraph">If allowlist fetch fails for non-Relay users: assume empty (conservative: don't promote without data)</p></li></ul><h1 class=""> Arguments</h1><ul><li><p class="paragraph"><code class="lang-kotlin">host</code> - The full hostname (e.g., &quot;mail.google.com&quot;, &quot;www.example.com&quot;)</p></li><li><p class="paragraph"><code class="lang-kotlin">domain</code> - The registrable domain from PSL (e.g., &quot;google.com&quot;, &quot;example.co.uk&quot;)</p></li><li><p class="paragraph"><code class="lang-kotlin">is_relay_user</code> - Whether the user already has a Relay account</p></li></ul><h1 class=""> Public Suffix List (PSL)</h1><p class="paragraph">Mobile clients should use PSL to extract the domain:</p><ul><li><p class="paragraph"><strong>Host</strong>: Full hostname like &quot;mail.google.com&quot;</p></li><li><p class="paragraph"><strong>Domain</strong>: Registrable domain (eTLD+1) like &quot;google.com&quot;</p></li><li><p class="paragraph">Swift: Use <code class="lang-kotlin">URL.host</code> and extract domain via PSL library</p></li><li><p class="paragraph">Kotlin: Use <code class="lang-kotlin">URL.host</code> and extract domain via PSL library</p></li></ul><h1 class=""> Returns</h1><p class="paragraph"><code class="lang-kotlin">true</code> if Relay should be shown for this site, <code class="lang-kotlin">false</code> otherwise</p><h1 class=""> Determining if User is a Relay User</h1><p class="paragraph">Mobile clients should check if the user is a Relay user by calling <code class="lang-kotlin">FirefoxAccount.getAttachedClients()</code> and checking if Relay is in the list of attached clients.</p><h1 class=""> Example</h1><div class="sample-container"><pre><code class="block lang-kotlin" theme="idea">val url = URL(&quot;https://mail.google.com/inbox&quot;)<br>val host = url.host // &quot;mail.google.com&quot;<br>val domain = PublicSuffixList.getRegistrableDomain(host) // &quot;google.com&quot;<br><br>val rsClient = RelayRemoteSettingsClient(remoteSettingsService)<br>val attachedClients = fxAccount.getAttachedClients()<br>val isRelayUser = attachedClients.any { it.clientId == RELAY_CLIENT_ID }<br><br>if (rsClient.shouldShowRelay(host, domain, isRelayUser)) {<br>// Show Relay UI<br>}</code></pre><span class="top-right-position"><span class="copy-icon"></span><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div></span></div></div></div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+    </div>
+</div>
+</body>
+</html>
