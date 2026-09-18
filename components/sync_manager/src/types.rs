@@ -15,7 +15,7 @@ pub struct SyncParams {
     // Which engines should be enabled in the "account global" list (for
     // example, if the UI was used to change an engine's state since the last
     // sync).
-    pub enabled_changes: HashMap<String, bool>,
+    pub enabled_changes: Option<HashMap<String, bool>>,
     // Keys to encrypt/decrypt data from local database files.  These are
     // separate from the key we use to encrypt the sync payload as a whole.
     pub local_encryption_keys: HashMap<String, String>,

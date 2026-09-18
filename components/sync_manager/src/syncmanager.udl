@@ -29,7 +29,7 @@ dictionary SyncParams {
     /// Which engines should be enabled in the "account global" list (for
     /// example, if the UI was used to change an engine's state since the last
     /// sync).
-    record<DOMString, boolean> enabled_changes;
+    record<DOMString, boolean>? enabled_changes;
     /// Keys to encrypt/decrypt data from local database files.  These are
     /// separate from the key we use to encrypt the sync payload as a whole.
     record<DOMString, string> local_encryption_keys;

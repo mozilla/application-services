@@ -142,11 +142,11 @@ impl SyncManager {
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,
         };
-        let engines_to_change = if params.enabled_changes.is_empty() {
-            None
-        } else {
-            Some(&params.enabled_changes)
-        };
+        let engines_to_change =
+            params
+                .enabled_changes
+                .as_ref()
+                .and_then(|e| if e.is_empty() { None } else { Some(e) });
 
         let settings = Settings {
             fxa_device_id: params.device_settings.fxa_device_id,
@@ -253,7 +253,8 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
                     p.reason
                 );
                 false
-            } else if !p.enabled_changes.is_empty() {
+            } else if p.enabled_changes.is_some() && !p.enabled_changes.as_ref().unwrap().is_empty()
+            {
                 info!("Still under backoff, but syncing because we have enabled state changes.");
                 false
             } else {
@@ -330,7 +331,7 @@ mod test {
         SyncParams {
             reason: SyncReason::Scheduled,
             engines: SyncEngineSelection::All,
-            enabled_changes: HashMap::new(),
+            enabled_changes: Some(HashMap::new()),
             local_encryption_keys: HashMap::new(),
             auth_info: SyncAuthInfo {
                 kid: "kid".to_string(),
