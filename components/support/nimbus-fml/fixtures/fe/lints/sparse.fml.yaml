@@ -1,0 +1,57 @@
+---
+# Trips the lints that `needs-work.fml.yaml` can't: a feature with nothing to
+# configure, one with far too much, an unwritten description, and a contact that
+# isn't an address.
+about:
+  description: Fixture for the lint tests.
+channels:
+  - release
+features:
+  nothing-to-change:
+    description: A feature an experiment can enrol users in but not configure.
+    meta-bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2053531
+    contacts:
+      - the-toolbar-team
+    documentation:
+      - name: User documentation
+        url: https://example.com/nothing-to-change
+    variables: {}
+  everything-at-once:
+    description: ""
+    meta-bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2053531
+    contacts:
+      - jdoe@example.com
+    documentation:
+      - name: User documentation
+        url: https://example.com/everything-at-once
+    variables:
+      enabled:
+        description: Whether any of the rest of this feature is used.
+        type: Boolean
+        default: false
+      alpha: { description: The first of the many knobs this feature has., type: Int, default: 1 }
+      bravo: { description: The second of the many knobs this feature has., type: Int, default: 2 }
+      charlie: { description: The third of the many knobs this feature has., type: Int, default: 3 }
+      delta: { description: The fourth of the many knobs this feature has., type: Int, default: 4 }
+      echo: { description: The fifth of the many knobs this feature has., type: Int, default: 5 }
+      foxtrot: { description: The sixth of the many knobs this feature has., type: Int, default: 6 }
+      golf: { description: The seventh of the many knobs this feature has., type: Int, default: 7 }
+      hotel: { description: The eighth of the many knobs this feature has., type: Int, default: 8 }
+      india: { description: The ninth of the many knobs this feature has., type: Int, default: 9 }
+      juliett: { description: The tenth of the many knobs this feature has., type: Int, default: 10 }
+      kilo: { description: The eleventh of the many knobs this feature has., type: Int, default: 11 }
+      lima: { description: The twelfth of the many knobs this feature has., type: Int, default: 12 }
+      mike: { description: The thirteenth of the many knobs this feature has., type: Int, default: 13 }
+      november: { description: The fourteenth of the many knobs this feature has., type: Int, default: 14 }
+      oscar: { description: The fifteenth of the many knobs this feature has., type: Int, default: 15 }
+      papa: { description: The sixteenth of the many knobs this feature has., type: Int, default: 16 }
+      quebec: { description: The seventeenth of the many knobs this feature has., type: Int, default: 17 }
+      romeo: { description: The eighteenth of the many knobs this feature has., type: Int, default: 18 }
+      sierra: { description: The nineteenth of the many knobs this feature has., type: Int, default: 19 }
+      tango: { description: The twentieth of the many knobs this feature has., type: Int, default: 20 }
+      uniform: { description: The twenty-first of the many knobs this feature has., type: Int, default: 21 }
+      victor: { description: The twenty-second of the many knobs this feature has., type: Int, default: 22 }
+      whiskey: { description: The twenty-third of the many knobs this feature has., type: Int, default: 23 }
+      xray: { description: The twenty-fourth of the many knobs this feature has., type: Int, default: 24 }
+      yankee: { description: The twenty-fifth of the many knobs this feature has., type: Int, default: 25 }
+      zulu: { description: The twenty-sixth of the many knobs this feature has., type: Int, default: 26 }

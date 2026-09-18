@@ -261,6 +261,10 @@ pub(crate) struct FeatureMetadata {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) configurator: Option<Url>,
+    /// Lints this feature is excused from, by name.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) no_lint: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -291,6 +295,12 @@ pub struct ManifestFrontEnd {
     #[serde(alias = "import")]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) imports: Vec<ImportBlock>,
+
+    /// Lints everything in this file is excused from, by name.
+    #[serde(default)]
+    #[serde(rename = "no-lint")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) no_lint: Vec<String>,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
@@ -722,6 +732,7 @@ mod feature_metadata {
                 events: vec![Url::from_str(
                     "https://example.com/glean/dictionary/button-pressed"
                 )?,],
+                no_lint: Default::default(),
             }
         );
 

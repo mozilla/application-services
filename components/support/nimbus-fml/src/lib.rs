@@ -9,6 +9,7 @@ mod editing;
 pub mod error;
 pub(crate) mod frontend;
 pub mod intermediate_representation;
+pub mod lints;
 pub mod parser;
 pub(crate) mod schema;
 pub mod util;
