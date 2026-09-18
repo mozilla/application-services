@@ -18,10 +18,8 @@ use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
-#[cfg(feature = "stateful")]
 use parking_lot::Mutex;
 use std::collections::HashMap;
-#[cfg(feature = "stateful")]
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -39,8 +37,8 @@ where
     T: Clone + Telemetry,
 {
     #[cfg(feature = "stateful")]
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
-    client: MARSClient<T>,
+    pub ads_store: Arc<Mutex<Option<AdsStore>>>,
+    client: Arc<Mutex<MARSClient<T>>>,
     context_id_component: ContextIDComponent,
     telemetry: T,
 }
@@ -98,7 +96,7 @@ where
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
         Self {
-            client,
+            client: Arc::new(Mutex::new(client)),
             context_id_component,
             telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
@@ -107,7 +105,8 @@ where
     }
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
-        self.client.clear_cache()
+        let client = self.client.lock();
+        client.clear_cache()
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -121,7 +120,8 @@ where
         // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
-        self.client
+        let client = self.client.lock();
+        client
             .record_click(click_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -165,7 +165,8 @@ where
             impression_url
         };
 
-        self.client
+        let client = self.client.lock();
+        client
             .record_impression(impression_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -182,7 +183,8 @@ where
         reason: ReportReason,
         ohttp: bool,
     ) -> Result<(), ReportAdError> {
-        self.client
+        let client = self.client.lock();
+        client
             .report_ad(report_url, reason, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -262,7 +264,8 @@ where
     {
         let context_id = self.get_context_id()?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+        let client = self.client.lock();
+        let (mut response, request_hash) = client.fetch_ads::<A>(
             context_id,
             flags,
             placements,
@@ -295,7 +298,11 @@ pub enum ClientOperationEvent {
 #[cfg(test)]
 mod tests {
 
-    #[cfg(feature = "stateful")]
+    use std::sync::Arc;
+
+use parking_lot::lock_api::Mutex;
+
+#[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
         ffi::telemetry::MozAdsTelemetryWrapper,
@@ -313,7 +320,7 @@ mod tests {
     ) -> AdsClient<MozAdsTelemetryWrapper> {
         let telemetry = client.get_telemetry();
         AdsClient {
-            client,
+            client: Arc::new(Mutex::new(client)),
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
