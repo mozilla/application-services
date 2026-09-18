@@ -5,13 +5,14 @@ use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
 use autofill::{
+    create_autofill_key,
     db::{
         credit_cards::CreditCardsDeletionMetrics,
         models::address::{Address, UpdatableAddressFields},
         models::credit_card::{CreditCard, UpdatableCreditCardFields},
         store::Store as AutofillStore,
     },
-    encryption::{create_autofill_key, decrypt_string, encrypt_string},
+    decrypt_string, encrypt_string,
     error::ApiResult as AutofillResult,
 };
 use std::{
@@ -95,14 +96,10 @@ pub fn scrub_credit_card(s: Arc<AutofillStore>) -> AutofillResult<()> {
 
 pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
     s: Arc<AutofillStore>,
-    local_enc_key: String,
 ) -> AutofillResult<CreditCardsDeletionMetrics> {
     Ok(
-        AutofillStore::scrub_undecryptable_credit_card_data_for_remote_replacement(
-            s,
-            local_enc_key,
-        )
-        .expect("scrub_undecryptable_credit_card_data_for_remote_replacement() to succeed"),
+        AutofillStore::scrub_undecryptable_credit_card_data_for_remote_replacement(s)
+            .expect("scrub_undecryptable_credit_card_data_for_remote_replacement() to succeed"),
     )
 }
 
@@ -160,7 +157,9 @@ pub fn assert_credit_cards_equiv(a: &CreditCard, b: &CreditCard, key_a: String, 
 fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add some credit cards to client0");
 
-    let key = create_autofill_key().expect("encryption key created");
+    // The stores own their keys now; give both clients the same one.
+    let key = c0.key.clone();
+    c1.set_autofill_key(key.clone()).expect("c1 key set");
 
     let cc1 = add_credit_card(
         &c0.autofill_store,
@@ -210,7 +209,7 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
 }
 
 fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut TestClient) {
-    let key = create_autofill_key().expect("encryption key created");
+    let key = c0.key.clone();
 
     log::info!("Add a credit card to client0");
     let cc3 = add_credit_card(
@@ -325,7 +324,7 @@ fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut Test
         .expect("sync to complete with failures");
     let credit_card_failures = failures.get("creditcards");
     assert!(credit_card_failures.is_some());
-    assert!(credit_card_failures.unwrap().contains("Crypto Error"));
+    assert!(credit_card_failures.unwrap().contains("crypt"));
 
     // clear records
     delete_credit_card(&c0.autofill_store, credit_card0)
@@ -339,7 +338,8 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     c1: &mut TestClient,
 ) {
     log::info!("Adding a credit card to client0");
-    let key = create_autofill_key().expect("encryption key created");
+    let key = c0.key.clone();
+    c1.set_autofill_key(key.clone()).expect("c1 key set");
     let cc_number = "88888888888888".to_string();
 
     // Add a credit card
@@ -381,12 +381,14 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     verify_credit_card(&c1.autofill_store, &credit_card0, key.clone());
 
     log::info!("Scrubbing the credit card on c0");
+    // Simulate a lost key: reopen c0's store with a fresh one, under which the
+    // existing record is undecryptable.
     let new_key = create_autofill_key().expect("encryption key created");
-    let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(
-        c0.autofill_store.clone(),
-        new_key.clone(),
-    )
-    .expect("c0 credit card to be scrubbed");
+    c0.set_autofill_key(new_key.clone())
+        .expect("c0 key changed");
+    let metrics =
+        scrub_undecryptable_credit_card_data_for_remote_replacement(c0.autofill_store.clone())
+            .expect("c0 credit card to be scrubbed");
     assert_eq!(metrics.total_scrubbed_records, 1);
 
     log::info!("Verifying that the record on c0 has been scrubbed");

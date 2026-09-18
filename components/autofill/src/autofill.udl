@@ -13,6 +13,20 @@ namespace autofill {
     /// and `ciphertext` must have come from `encrypt_string()`
     [Throws=AutofillApiError]
     string decrypt_string(string key, string ciphertext);
+
+    /// Utility function to create a StaticKeyManager to be used for the time
+    /// being until support lands for [trait implementation of an UniFFI
+    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+    /// in UniFFI.
+    KeyManager create_static_key_manager(string key);
+
+    /// Similar to create_static_key_manager above, create a
+    /// ManagedEncryptorDecryptor by passing in a KeyManager
+    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
+
+    /// Create a Store with StaticKeyManager by passing in a db path and a
+    /// static key
+    Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
 /// What you pass to create or update a credit-card.
@@ -206,9 +220,15 @@ interface AutofillApiError {
     UnexpectedAutofillApiError(string reason);
 };
 
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
+
+[External = "db_crypto"]
+typedef trait_with_foreign KeyManager;
+
 interface Store {
     [Throws=AutofillApiError]
-    constructor(string dbpath);
+    constructor(string dbpath, EncryptorDecryptor encdec);
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
@@ -325,7 +345,7 @@ interface Store {
     /// NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
     /// outside of this use case.
     [Throws=AutofillApiError, Self=ByArc]
-    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement(string local_encryption_key);
+    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement();
 
     /// Run maintenance on the DB
     ///

@@ -8,10 +8,17 @@ exclude = ["/android", "/ios"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+# Enables `NSSKeyManager`, which stores the autofill encryption key in NSS's
+# `key4.db` (wrapped with a key derived from the primary password, if set).
+keydb = ["db-crypto/keydb"]
+
 [dependencies]
 anyhow = "1.0"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
+db-crypto = { path = "../support/db-crypto" }
 jwcrypto = { path = "../support/jwcrypto" }
 lazy_static = "1.4"
 parking_lot = ">=0.11,<=0.12"
