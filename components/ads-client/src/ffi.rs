@@ -133,7 +133,7 @@ impl MozAdsClientBuilder {
             worker::BackgroundWorker::new_empty()
         };
         MozAdsClient {
-            inner,
+            inner: client,
             shutdown_references,
             #[cfg(feature = "stateful")]
             _worker: worker,
