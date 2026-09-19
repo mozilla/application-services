@@ -1,10 +1,18 @@
+use parking_lot::Mutex;
+
 use crate::{
+    ads_store::AdsStore,
     client::error::{BackgroundWorkerError, ComponentError},
+    ffi::telemetry::MozAdsTelemetryWrapper,
+    mars::MARSClient,
     worker::command::DispatchCommand,
     MozAdsClientInner,
 };
 use std::{
-    sync::mpsc::{self, Receiver, SyncSender},
+    sync::{
+        mpsc::{self, Receiver, SyncSender},
+        Arc,
+    },
     thread::JoinHandle,
 };
 

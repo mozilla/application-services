@@ -49,11 +49,10 @@ impl DispatchCommand {
                 ohttp,
                 blocks,
             } => {
-                let mut inner = ads_client_inner.lock();
                 if !image_ad_requests.is_empty() {
                     let image_ad_requests: Vec<AdPlacementRequest> =
                         image_ad_requests.iter().map(|r| r.into()).collect();
-                    let image_response = inner
+                    let image_response = ads_client_inner
                         .request_image_ads(
                             image_ad_requests,
                             flags,
@@ -62,7 +61,7 @@ impl DispatchCommand {
                             blocks,
                         )
                         .map_err(ComponentError::RequestAds)?;
-                    inner
+                    ads_client_inner
                         .store_ads(
                             image_response
                                 .into_iter()
@@ -80,11 +79,10 @@ impl DispatchCommand {
                 ohttp,
                 blocks,
             } => {
-                let mut inner = ads_client_inner.lock();
                 if !spoc_ad_requests.is_empty() {
                     let spoc_ad_requests: Vec<AdPlacementRequest> =
                         spoc_ad_requests.iter().map(|r| r.into()).collect();
-                    let spoc_response = inner
+                    let spoc_response = ads_client_inner
                         .request_spoc_ads(
                             spoc_ad_requests,
                             flags,
@@ -93,7 +91,7 @@ impl DispatchCommand {
                             blocks,
                         )
                         .map_err(ComponentError::RequestAds)?;
-                    inner
+                    ads_client_inner
                         .store_ads(
                             spoc_response
                                 .into_iter()
@@ -111,11 +109,10 @@ impl DispatchCommand {
                 ohttp,
                 blocks,
             } => {
-                let mut inner = ads_client_inner.lock();
                 if !tile_ad_requests.is_empty() {
                     let tile_ad_requests: Vec<AdPlacementRequest> =
                         tile_ad_requests.iter().map(|r| r.into()).collect();
-                    let tile_response = inner
+                    let tile_response = ads_client_inner
                         .request_tile_ads(
                             tile_ad_requests,
                             flags,
@@ -124,7 +121,7 @@ impl DispatchCommand {
                             blocks,
                         )
                         .map_err(ComponentError::RequestAds)?;
-                    inner
+                    ads_client_inner
                         .store_ads(
                             tile_response
                                 .into_iter()

@@ -125,10 +125,9 @@ impl MozAdsClientBuilder {
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
-        let inner = Arc::new(Mutex::new(client));
         #[cfg(feature = "stateful")]
         let worker = if store_set {
-            worker::BackgroundWorker::new(inner.clone(), worker_buffer_size)
+            worker::BackgroundWorker::new(client.clone(), worker_buffer_size)
         } else {
             worker::BackgroundWorker::new_empty()
         };

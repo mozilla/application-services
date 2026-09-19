@@ -88,14 +88,14 @@ mod tests {
         }
     }
 
-    // Shutdown procedure must not require a lock to be held on the inner AdsClient.
+    // Shutdown procedure must not require any locks to be held on the inner MARS adsclient.
     // This is because sync functions like `request_tile_ads` require (at worst) to wait on a hanging non-cancellable network request to resolve,
     // and they hold the lock for the entirety of that time. Shutdown should only require the minimal amount of waiting/locking possible.
     #[test]
     fn shutdown_does_not_require_ads_client_lock() {
         test_timeout(Duration::from_secs(5), || {
             let builder = MozAdsClientBuilder::new().build();
-            let lock = builder.inner.lock();
+            let lock = builder.inner.client.lock();
 
             // Holding a inner lock, we try to run shutdown.
             builder.shutdown().unwrap();
