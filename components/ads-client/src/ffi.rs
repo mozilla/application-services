@@ -115,6 +115,12 @@ impl MozAdsClientBuilder {
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
+        #[cfg(feature = "stateful")]
+        let worker = if store_set {
+            worker::BackgroundWorker::new(client.clone(), worker_buffer_size)
+        } else {
+            worker::BackgroundWorker::new_empty()
+        };
         MozAdsClient {
             inner: client,
             shutdown_references,

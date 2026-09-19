@@ -32,14 +32,15 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
+#[derive(Clone)]
 pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
     #[cfg(feature = "stateful")]
     pub ads_store: Arc<Mutex<Option<AdsStore>>>,
-    client: Arc<Mutex<MARSClient<T>>>,
-    context_id_component: ContextIDComponent,
+    pub client: Arc<Mutex<MARSClient<T>>>,
+    context_id_component: Arc<Mutex<ContextIDComponent>>,
     telemetry: T,
 }
 
@@ -97,7 +98,7 @@ where
         telemetry.record(&ClientOperationEvent::New);
         Self {
             client: Arc::new(Mutex::new(client)),
-            context_id_component,
+            context_id_component: Arc::new(Mutex::new(context_id_component)),
             telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(ads_store)),
@@ -109,8 +110,74 @@ where
         client.clear_cache()
     }
 
+    #[cfg(feature = "stateful")]
+    pub fn store_ads(
+        &mut self,
+        ads: HashMap<PlacementId, StorableAd>,
+    ) -> Result<(), FetchAdsError> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            ads_store.store_ads(ads)?;
+            Ok(())
+        } else {
+            Err(FetchAdsError::SqliteShutdown)
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn get_stored_ad_images(&self, placement_id: &PlacementId) -> Option<AdImage> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            match ads_store.lookup(placement_id) {
+                Ok(ad) => ad.and_then(|ad| ad.into_image()),
+                Err(_) => {
+                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
+                    None
+                }
+            }
+        } else {
+            // TODO: Telemetry should be added here for the database being shut down.
+            None
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            match ads_store.lookup(placement_id) {
+                Ok(ad) => ad.and_then(|ad| ad.into_spocs()),
+                Err(_) => {
+                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
+                    None
+                }
+            }
+        } else {
+            // TODO: Telemetry should be added here for the database being shut down.
+            None
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn get_stored_ad_tile(&self, placement_id: &PlacementId) -> Option<AdTile> {
+        let ads_store = self.ads_store.lock();
+        if let Some(ads_store) = ads_store.as_ref() {
+            match ads_store.lookup(placement_id) {
+                Ok(ad) => ad.and_then(|ad| ad.into_tile()),
+                Err(_) => {
+                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
+                    None
+                }
+            }
+        } else {
+            // TODO: Telemetry should be added here for the database being shut down.
+            None
+        }
+    }
+
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(DEFAULT_ROTATION_DAYS)
+        let context_id_component = self.context_id_component.lock();
+        context_id_component.request(DEFAULT_ROTATION_DAYS)
     }
 
     pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
@@ -265,14 +332,8 @@ where
         let context_id = self.get_context_id()?;
         let cache_policy = options.unwrap_or_default();
         let client = self.client.lock();
-        let (mut response, request_hash) = client.fetch_ads::<A>(
-            context_id,
-            flags,
-            placements,
-            cache_policy,
-            ohttp,
-            blocks,
-        )?;
+        let (mut response, request_hash) =
+            client.fetch_ads::<A>(context_id, flags, placements, cache_policy, ohttp, blocks)?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -300,9 +361,9 @@ mod tests {
 
     use std::sync::Arc;
 
-use parking_lot::lock_api::Mutex;
+    use parking_lot::lock_api::Mutex;
 
-#[cfg(feature = "stateful")]
+    #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
         ffi::telemetry::MozAdsTelemetryWrapper,
@@ -321,12 +382,12 @@ use parking_lot::lock_api::Mutex;
         let telemetry = client.get_telemetry();
         AdsClient {
             client: Arc::new(Mutex::new(client)),
-            context_id_component: ContextIDComponent::new(
+            context_id_component: Arc::new(Mutex::new(ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
                 false,
                 Box::new(DefaultContextIdCallback),
-            ),
+            ))),
             telemetry,
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(

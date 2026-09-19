@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use client::error::ComponentError;
 use error_support::handle_error;
 use mars::error::CallbackRequestError;
-use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
 use client::AdsClient;
@@ -130,7 +129,8 @@ impl MozAdsClient {
         let ohttp = options.ohttp;
         let cache_policy = options.cache_policy.map(CachePolicy::from);
         let blocks = options.blocks;
-        let response = self.inner
+        let response = self
+            .inner
             .request_image_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
@@ -149,7 +149,8 @@ impl MozAdsClient {
         let ohttp = options.ohttp;
         let cache_policy = options.cache_policy.map(CachePolicy::from);
         let blocks = options.blocks;
-        let response = self.inner
+        let response = self
+            .inner
             .request_spoc_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
@@ -171,7 +172,8 @@ impl MozAdsClient {
         let ohttp = options.ohttp;
         let cache_policy = options.cache_policy.map(CachePolicy::from);
         let blocks = options.blocks;
-        let response = self.inner
+        let response = self
+            .inner
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
