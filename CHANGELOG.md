@@ -25,6 +25,10 @@
 
 ## ✨ What's Changed ✨
 
+### Autofill
+
+- Add `Store::credit_cards_bridged_engine()`, exposing the existing credit card sync engine as a bridged engine so Firefox Desktop can drive credit card sync. ([bug 2074008](https://bugzilla.mozilla.org/show_bug.cgi?id=2074008))
+
 ### Search
 
 - Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
