@@ -358,12 +358,56 @@ interface Store {
     /// DB, so it cannot fail.
     [Self=ByArc]
     AddressesBridgedEngine addresses_bridged_engine();
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing it only assembles structs and never touches
+    /// the DB, so it cannot fail.
+    [Self=ByArc]
+    CreditCardsBridgedEngine credit_cards_bridged_engine();
 };
 
 /// The bridged sync engine for addresses. The canonical docs are in
 /// services/interfaces/mozIBridgedSyncEngine.idl.
 /// NOTE: all timestamps here are milliseconds.
 interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply(i64 server_modified_millis);
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
+};
+
+/// The bridged sync engine for credit cards. The canonical docs are in
+/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// NOTE: all timestamps here are milliseconds.
+interface CreditCardsBridgedEngine {
     [Throws=AutofillApiError]
     i64 last_sync();
 

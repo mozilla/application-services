@@ -5,7 +5,7 @@
 
 pub mod address;
 mod bridge;
-pub use bridge::AddressesBridgedEngine;
+pub use bridge::{AddressesBridgedEngine, CreditCardsBridgedEngine};
 mod common;
 pub mod credit_card;
 pub mod engine;
