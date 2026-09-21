@@ -1,10 +1,13 @@
 # v159.0 (In progress)
 
+## ✨ What's New ✨
+
+### Error support
+* Wired up the error ping on iOS using glean-sym.
+
 [Full Changelog](In progress)
 
 # v158.0 (_2026-09-24_)
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v158.0)
 
 ### Ads-Client
 
@@ -18,6 +21,8 @@
 ### Nimbus
 
 - `nimbus-cli`'s `start-server` now runs on `axum` 0.8 (and so `hyper` 1.x) instead of `axum` 0.6 / `hyper` 0.14, which removes the `h2` 0.3 flagged by RUSTSEC-2026-0258 from its own dependencies. No change to the server's behaviour or its URLs. ([bug 2071060](https://bugzilla.mozilla.org/show_bug.cgi?id=2071060))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v158.0)
 
 # v157.0 (_2026-09-10_)
 
