@@ -34,7 +34,7 @@
 
 ### Containers
 
-- Created a new component, `containers`, holding the list of Firefox containers and the format they are stored in.
+- Created a new component, `fxcontainers`, holding the list of Firefox containers and the format they are stored in.
 - The component also stores the containers an enterprise policy owns: `create_for_policy()`, `policy_identities()`, `policy_identity()` and `remove_policy_identity()`. Which URLs load in one of them stays with the embedder.
 
 ### Autofill

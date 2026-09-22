@@ -12,7 +12,7 @@
 //! the serialized bytes to its callback, and where they end up and how durably
 //! is the embedder's decision.
 
-uniffi::setup_scaffolding!("containers");
+uniffi::setup_scaffolding!("fxcontainers");
 
 mod container;
 mod data;

@@ -758,19 +758,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
-name = "containers"
-version = "0.1.0"
-dependencies = [
- "error-support",
- "idna",
- "parking_lot",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "uniffi",
-]
-
-[[package]]
 name = "context_id"
 version = "0.1.0"
 dependencies = [
@@ -1825,6 +1812,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fxcontainers"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "idna",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "uniffi",
+]
+
+[[package]]
 name = "generate-rust-dashboards"
 version = "0.1.0"
 dependencies = [
@@ -2856,11 +2856,11 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "autofill",
- "containers",
  "crashtest",
  "db-crypto",
  "error-support",
  "fxa-client",
+ "fxcontainers",
  "glean-sym",
  "init_rust_components",
  "lazy_static",

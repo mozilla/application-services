@@ -1,3 +1,0 @@
-[bindings.kotlin]
-package_name = "mozilla.appservices.containers"
-omit_checksums = true
