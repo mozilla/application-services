@@ -44,8 +44,12 @@ pub struct AdsStore {
 }
 
 impl AdsStore {
-    pub fn builder<P: AsRef<Path>>(db_path: P) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(db_path.as_ref())
+    pub fn builder<P: AsRef<Path>>(db_path: Option<P>) -> AdsStoreBuilder {
+        if let Some(db_path) = db_path {
+            AdsStoreBuilder::new(Some(db_path.as_ref()))
+        } else {
+            AdsStoreBuilder::new::<&Path>(None)
+        }
     }
 
     pub fn clear(&self) -> Result<(), rusqlite::Error> {
@@ -72,13 +76,13 @@ mod tests {
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> = AdsStore::builder("test_store.db").build();
+        let store: Result<AdsStore, _> = AdsStore::builder(Some("test_store.db")).build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
-        let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(Some("test_clear.db")).build().unwrap();
 
         let base_url = mockito::server_url();
         let ad = StorableAd::Image(AdImage {
@@ -110,7 +114,9 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(Some("test_invalidate.db"))
+            .build()
+            .unwrap();
 
         let base_url = mockito::server_url();
         let ad = StorableAd::Image(AdImage {

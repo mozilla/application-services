@@ -31,14 +31,14 @@ pub enum AdsStoreBuilderError {
 }
 
 pub struct AdsStoreBuilder {
-    db_path: PathBuf,
+    db_path: Option<PathBuf>,
     max_size: Option<ByteSize>,
 }
 
 impl AdsStoreBuilder {
-    pub fn new(db_path: impl Into<PathBuf>) -> Self {
+    pub fn new<P: Into<PathBuf>>(db_path: Option<P>) -> Self {
         Self {
-            db_path: db_path.into(),
+            db_path: db_path.map(|x| x.into()),
             max_size: None,
         }
     }
@@ -50,17 +50,19 @@ impl AdsStoreBuilder {
 
     fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
         let initializer = AdsStoreConnectionInitializer {};
-        let conn = if cfg!(test) {
-            open_database::open_memory_database(&initializer)?
-        } else {
-            open_database::open_database(&self.db_path, &initializer)?
-        };
-        Ok(conn)
+        if let Some(db_path) = &self.db_path {
+            if !cfg!(test) {
+                return Ok(open_database::open_database(&db_path, &initializer)?);
+            }
+        }
+        Ok(open_database::open_memory_database(&initializer)?)
     }
 
     fn validate(&self) -> Result<(), AdsStoreBuilderError> {
-        if self.db_path.to_string_lossy().trim().is_empty() {
-            return Err(AdsStoreBuilderError::EmptyDbPath);
+        if let Some(db_path) = &self.db_path {
+            if db_path.to_string_lossy().trim().is_empty() {
+                return Err(AdsStoreBuilderError::EmptyDbPath);
+            }
         }
 
         if let Some(max_size) = self.max_size {
@@ -91,13 +93,13 @@ mod tests {
     use super::*;
 
     fn make_test_builder(path: &str) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(path)
+        AdsStoreBuilder::new(Some(path))
     }
 
     #[test]
     fn test_store_builder_with_defaults() {
         let builder = make_test_builder("test.db");
-        assert_eq!(builder.db_path, PathBuf::from("test.db"));
+        assert_eq!(builder.db_path, Some(PathBuf::from("test.db")));
         assert_eq!(builder.max_size, None);
         assert!(builder.build().is_ok());
     }
@@ -106,7 +108,7 @@ mod tests {
     fn test_cache_builder_valid_custom() {
         let builder = make_test_builder("custom.db").max_size(ByteSize::b(1024));
 
-        assert_eq!(builder.db_path, PathBuf::from("custom.db"));
+        assert_eq!(builder.db_path, Some(PathBuf::from("custom.db")));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
         assert!(builder.build().is_ok());
     }

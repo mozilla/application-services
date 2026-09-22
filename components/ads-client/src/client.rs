@@ -324,7 +324,7 @@ mod tests {
             telemetry,
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(
-                AdsStoreBuilder::new("test_store.db")
+                AdsStoreBuilder::new(Some("test_store.db"))
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             ))),
