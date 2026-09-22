@@ -5,7 +5,7 @@
 
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
-use crate::common::bytesize::ByteSize;
+use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
@@ -119,7 +119,7 @@ where
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
         // The mobile team has requested this be temporarily disabled.
         // let mut click_url = click_url.clone();
-        // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
+        // if let Some(request_hash) = RequestHash::pop_from_url(&mut click_url) {
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
         self.client
@@ -140,7 +140,7 @@ where
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
         // The mobile team has requested this be temporarily disabled.
         // let mut impression_url = impression_url.clone();
-        // if let Some(request_hash) = pop_request_hash_from_url(&mut impression_url) {
+        // if let Some(request_hash) = RequestHash::pop_from_url(&mut impression_url) {
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
 

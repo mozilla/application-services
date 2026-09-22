@@ -5,6 +5,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use url::Url;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RequestHash(String);
 
@@ -13,6 +15,31 @@ impl RequestHash {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
         RequestHash(format!("{:x}", hasher.finish()))
+    }
+
+    /// Takes the `request_hash` query parameter out of `url`, leaving the other
+    /// parameters in place.
+    // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
+    #[allow(dead_code)]
+    pub fn pop_from_url(url: &mut Url) -> Option<Self> {
+        let mut request_hash = None;
+        let mut query = url::form_urlencoded::Serializer::new(String::new());
+
+        for (key, value) in url.query_pairs() {
+            if key == "request_hash" {
+                request_hash = Some(RequestHash::from(value.as_ref()));
+            } else {
+                query.append_pair(&key, &value);
+            }
+        }
+
+        let query_string = query.finish();
+        if query_string.is_empty() {
+            url.set_query(None);
+        } else {
+            url.set_query(Some(&query_string));
+        }
+        request_hash
     }
 }
 
@@ -61,5 +88,25 @@ mod tests {
         let hash_string = String::from("xyz789");
         let hash2 = RequestHash::from(hash_string);
         assert_eq!(hash2.to_string(), "xyz789");
+    }
+
+    #[test]
+    fn pop_from_url_takes_the_hash_and_keeps_other_params() {
+        let mut url_with_hash =
+            Url::parse("https://example.com/callback?request_hash=abc123def456&other=param")
+                .unwrap();
+        let extracted = RequestHash::pop_from_url(&mut url_with_hash);
+        assert_eq!(extracted, Some(RequestHash::from("abc123def456")));
+        assert_eq!(url_with_hash.query(), Some("other=param"));
+
+        let mut url_without_hash = Url::parse("https://example.com/callback?other=param").unwrap();
+        let extracted_none = RequestHash::pop_from_url(&mut url_without_hash);
+        assert_eq!(extracted_none, None);
+        assert_eq!(url_without_hash.query(), Some("other=param"));
+
+        let mut url_no_query = Url::parse("https://example.com/callback").unwrap();
+        let extracted_empty = RequestHash::pop_from_url(&mut url_no_query);
+        assert_eq!(extracted_empty, None);
+        assert_eq!(url_no_query.query(), None);
     }
 }

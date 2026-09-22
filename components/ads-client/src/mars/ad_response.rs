@@ -82,29 +82,6 @@ impl<A: AdResponseValue> AdResponse<A> {
     }
 }
 
-// TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
-#[allow(dead_code)]
-pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
-    let mut request_hash = None;
-    let mut query = url::form_urlencoded::Serializer::new(String::new());
-
-    for (key, value) in url.query_pairs() {
-        if key == "request_hash" {
-            request_hash = Some(RequestHash::from(value.as_ref()));
-        } else {
-            query.append_pair(&key, &value);
-        }
-    }
-
-    let query_string = query.finish();
-    if query_string.is_empty() {
-        url.set_query(None);
-    } else {
-        url.set_query(Some(&query_string));
-    }
-    request_hash
-}
-
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdImage {
     pub alt_text: Option<String>,
@@ -642,25 +619,5 @@ mod tests {
             .query()
             .unwrap_or("")
             .contains("request_hash=abc123def456"));
-    }
-
-    #[test]
-    fn test_pop_request_hash_from_url() {
-        let mut url_with_hash =
-            Url::parse("https://example.com/callback?request_hash=abc123def456&other=param")
-                .unwrap();
-        let extracted = pop_request_hash_from_url(&mut url_with_hash);
-        assert_eq!(extracted, Some(RequestHash::from("abc123def456")));
-        assert_eq!(url_with_hash.query(), Some("other=param"));
-
-        let mut url_without_hash = Url::parse("https://example.com/callback?other=param").unwrap();
-        let extracted_none = pop_request_hash_from_url(&mut url_without_hash);
-        assert_eq!(extracted_none, None);
-        assert_eq!(url_without_hash.query(), Some("other=param"));
-
-        let mut url_no_query = Url::parse("https://example.com/callback").unwrap();
-        let extracted_empty = pop_request_hash_from_url(&mut url_no_query);
-        assert_eq!(extracted_empty, None);
-        assert_eq!(url_no_query.query(), None);
     }
 }
