@@ -6,8 +6,6 @@
 pub mod error;
 pub mod telemetry;
 #[cfg(feature = "stateful")]
-use crate::ads_store::PlacementId;
-#[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
@@ -68,24 +66,6 @@ pub struct MozAdsPlacementRequestWithCount {
     #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
     pub placement_id: String,
-}
-
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacementRequestGeneric {
-    // This is passed as a count to MARS, but does not always apply. Currently, this only applies to spoc, in which case it defaults to `1`.
-    pub count: Option<u32>,
-    #[uniffi(default = None)]
-    pub iab_content: Option<MozAdsIABContent>,
-    pub placement_id: PlacementId,
-    pub ad_type: MozAdType,
-}
-
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum MozAdType {
-    Image,
-    Spoc,
-    Tile,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
