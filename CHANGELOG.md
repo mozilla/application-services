@@ -6,6 +6,7 @@
 
 - Removed the `MozAdsContextIdProvider` callback interface and the `context_id_provider()` builder method. Wiring it up from Firefox Desktop crashed off the main thread ([Bug 2062806](https://bugzilla.mozilla.org/show_bug.cgi?id=2062806)) and nothing else used it, so the ads client now always uses its embedded `ContextIDComponent`. ([AC-99](https://mozilla-hub.atlassian.net/browse/AC-99))
 - Fixed a panic on the OHTTP request path when the MARS `/v1/ads-preflight` response carries a non-ASCII or CRLF geo location or user agent. The request now fails instead. No binding API change.
+- `url` and `image_url` on the image, spoc and tile ad types are now parsed URLs rather than strings. A malformed URL in a MARS response now fails the request instead of being passed through to the caller. The binding types are unchanged.
 
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))

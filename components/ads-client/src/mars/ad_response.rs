@@ -111,8 +111,8 @@ pub struct AdImage {
     pub block_key: String,
     pub callbacks: AdCallbacks,
     pub format: String,
-    pub image_url: String,
-    pub url: String,
+    pub image_url: Url,
+    pub url: Url,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -123,12 +123,12 @@ pub struct AdSpoc {
     pub domain: String,
     pub excerpt: String,
     pub format: String,
-    pub image_url: String,
+    pub image_url: Url,
     pub ranking: SpocRanking,
     pub sponsor: String,
     pub sponsored_by_override: Option<String>,
     pub title: String,
-    pub url: String,
+    pub url: Url,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -136,9 +136,9 @@ pub struct AdTile {
     pub block_key: String,
     pub callbacks: AdCallbacks,
     pub format: String,
-    pub image_url: String,
+    pub image_url: Url,
     pub name: String,
-    pub url: String,
+    pub url: Url,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -196,6 +196,26 @@ mod tests {
 
     use super::*;
     use serde_json::{from_str, json};
+    use url_macro::url;
+
+    #[test]
+    fn a_malformed_url_is_a_deserialization_error() {
+        let response = json!({
+            "block_key": "abc123",
+            "callbacks": {
+                "click": "https://buyanvilseveryday.test/click",
+                "impression": "https://buyanvilseveryday.test/impression"
+            },
+            "format": "Leaderboard",
+            "image_url": "not a url",
+            "url": "https://buyanvilseveryday.test"
+        })
+        .to_string();
+
+        // Before these fields were typed as `Url`, this parsed and handed
+        // "not a url" straight to the caller.
+        assert!(from_str::<AdImage>(&response).is_err());
+    }
 
     #[test]
     fn test_moz_ad_full() {
@@ -225,8 +245,8 @@ mod tests {
                     report: Some(Url::parse("https://buyanvilseveryday.test/report").unwrap()),
                 },
                 format: "Leaderboard".into(),
-                image_url: "https://buyanvilseveryday.test/img.png".into(),
-                url: "https://buyanvilseveryday.test".into(),
+                image_url: url!("https://buyanvilseveryday.test/img.png"),
+                url: url!("https://buyanvilseveryday.test"),
             }
         );
     }
@@ -259,8 +279,8 @@ mod tests {
                     report: None,
                 },
                 format: "Leaderboard".into(),
-                image_url: "https://example.test/image.png".into(),
-                url: "https://example.test/item".into(),
+                image_url: url!("https://example.test/image.png"),
+                url: url!("https://example.test/item"),
             }
         );
     }
@@ -341,8 +361,8 @@ mod tests {
             data: HashMap::from([(
                 "valid_ad".to_string(),
                 vec![AdImage {
-                    url: "https://ads.fakeexample.org/example_ad_3".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_image_3".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_ad_3"),
+                    image_url: url!("https://ads.fakeexample.org/example_image_3"),
                     format: "skyscraper".to_string(),
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
@@ -398,8 +418,8 @@ mod tests {
                         report: None,
                     },
                     format: "billboard".to_string(),
-                    image_url: "https://example.com/image1.png".to_string(),
-                    url: "https://example.com/ad1".to_string(),
+                    image_url: url!("https://example.com/image1.png"),
+                    url: url!("https://example.com/ad1"),
                 },
                 AdImage {
                     alt_text: Some("Second ad".to_string()),
@@ -410,8 +430,8 @@ mod tests {
                         report: None,
                     },
                     format: "billboard".to_string(),
-                    image_url: "https://example.com/image2.png".to_string(),
-                    url: "https://example.com/ad2".to_string(),
+                    image_url: url!("https://example.com/image2.png"),
+                    url: url!("https://example.com/ad2"),
                 },
             ],
         );
@@ -426,8 +446,8 @@ mod tests {
                     report: None,
                 },
                 format: "skyscraper".to_string(),
-                image_url: "https://example.com/image3.png".to_string(),
-                url: "https://example.com/ad3".to_string(),
+                image_url: url!("https://example.com/image3.png"),
+                url: url!("https://example.com/ad3"),
             }],
         );
         response.data.insert("placement_3".to_string(), vec![]);
@@ -463,8 +483,8 @@ mod tests {
                             report: Some(Url::parse("https://example.com/report").unwrap()),
                         },
                         format: "billboard".to_string(),
-                        image_url: "https://example.com/image1.png".to_string(),
-                        url: "https://example.com/ad1".to_string(),
+                        image_url: url!("https://example.com/image1.png"),
+                        url: url!("https://example.com/ad1"),
                     },
                     AdImage {
                         alt_text: None,
@@ -475,8 +495,8 @@ mod tests {
                             report: Some(Url::parse("https://example.com/report").unwrap()),
                         },
                         format: "billboard".to_string(),
-                        image_url: "https://example.com/image2.png".to_string(),
-                        url: "https://example.com/ad2".to_string(),
+                        image_url: url!("https://example.com/image2.png"),
+                        url: url!("https://example.com/ad2"),
                     },
                 ],
             )]),
@@ -543,8 +563,8 @@ mod tests {
                         domain: "1.example.com".into(),
                         excerpt: "excerpt1".into(),
                         format: "format1".into(),
-                        image_url: "https://example.com/image1.png".into(),
-                        url: "https://example.com/ad1".into(),
+                        image_url: url!("https://example.com/image1.png"),
+                        url: url!("https://example.com/ad1"),
                         ranking: SpocRanking {
                             priority: 1,
                             personalization_models: None,
@@ -568,8 +588,8 @@ mod tests {
                         domain: "2.example.com".into(),
                         excerpt: "excerpt2".into(),
                         format: "format2".into(),
-                        image_url: "https://example.com/image2.png".into(),
-                        url: "https://example.com/ad2".into(),
+                        image_url: url!("https://example.com/image2.png"),
+                        url: url!("https://example.com/ad2"),
                         ranking: SpocRanking {
                             priority: 2,
                             personalization_models: None,
@@ -617,8 +637,8 @@ mod tests {
                         report: None,
                     },
                     format: "billboard".to_string(),
-                    image_url: "https://example.com/image.png".to_string(),
-                    url: "https://example.com/ad".to_string(),
+                    image_url: url!("https://example.com/image.png"),
+                    url: url!("https://example.com/ad"),
                 }],
             )]),
         };

@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use url::Url;
+use url_macro::url;
 
 use crate::mars::{
     ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
@@ -44,8 +45,8 @@ pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
             (
                 "example_placement_1".to_string(),
                 vec![AdImage {
-                    url: "https://ads.fakeexample.org/example_ad_1".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_ad_1"),
+                    image_url: url!("https://ads.fakeexample.org/example_image_1"),
                     format: "billboard".to_string(),
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a puppy".to_string()),
@@ -62,8 +63,8 @@ pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
             (
                 "example_placement_2".to_string(),
                 vec![AdImage {
-                    url: "https://ads.fakeexample.org/example_ad_2".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_ad_2"),
+                    image_url: url!("https://ads.fakeexample.org/example_image_2"),
                     format: "skyscraper".to_string(),
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
@@ -87,8 +88,8 @@ pub fn get_example_happy_spoc_response() -> AdResponse<AdSpoc> {
             (
                 "example_placement_1".to_string(),
                 vec![AdSpoc {
-                    url: "https://ads.fakeexample.org/example_spoc_1".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_spoc_image_1".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_spoc_1"),
+                    image_url: url!("https://ads.fakeexample.org/example_spoc_image_1"),
                     format: "spoc".to_string(),
                     block_key: "spoc123".into(),
                     title: "Example Spoc Title".to_string(),
@@ -122,8 +123,8 @@ pub fn get_example_happy_spoc_response() -> AdResponse<AdSpoc> {
             (
                 "example_placement_2".to_string(),
                 vec![AdSpoc {
-                    url: "https://ads.fakeexample.org/example_spoc_2".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_spoc_image_2".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_spoc_2"),
+                    image_url: url!("https://ads.fakeexample.org/example_spoc_image_2"),
                     format: "spoc".to_string(),
                     block_key: "spoc456".into(),
                     title: "Another Spoc Title".to_string(),
@@ -164,8 +165,8 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
             (
                 "example_placement_1".to_string(),
                 vec![AdTile {
-                    url: "https://ads.fakeexample.org/example_uatile_1".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_uatile_image_1".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_uatile_1"),
+                    image_url: url!("https://ads.fakeexample.org/example_uatile_image_1"),
                     format: "uatile".to_string(),
                     block_key: "uatile123".into(),
                     name: "Example UA Tile".to_string(),
@@ -186,8 +187,8 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
             (
                 "example_placement_2".to_string(),
                 vec![AdTile {
-                    url: "https://ads.fakeexample.org/example_uatile_2".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_uatile_image_2".to_string(),
+                    url: url!("https://ads.fakeexample.org/example_uatile_2"),
+                    image_url: url!("https://ads.fakeexample.org/example_uatile_image_2"),
                     format: "uatile".to_string(),
                     block_key: "uatile456".into(),
                     name: "Another UA Tile".to_string(),

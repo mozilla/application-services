@@ -185,13 +185,14 @@ mod tests {
     };
     use sql_support::open_database;
     use url::Url;
+    use url_macro::url;
 
     // Create a sample ad for tests. The body defaults to an example serialized AdImage (if body is None).
     fn create_test_raw_ad(placement_id: &str) -> (PlacementId, StorableAd) {
         let base_url = mockito::server_url();
         let ad = AdImage {
-            url: "https://ads.fakeexample.org/example_ad_1".to_string(),
-            image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+            url: url!("https://ads.fakeexample.org/example_ad_1"),
+            image_url: url!("https://ads.fakeexample.org/example_image_1"),
             format: "billboard".to_string(),
             block_key: "abc123".into(),
             alt_text: Some("An ad for a puppy".to_string()),
