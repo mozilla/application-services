@@ -127,13 +127,13 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
-        self.0.lock().store_config = Some(store_config);
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
         self
     }
 
-    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
-        self.0.lock().environment = Some(environment);
+    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
+        self.0.lock().store_config = Some(store_config);
         self
     }
 
@@ -150,7 +150,7 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, uniffi::Enum, PartialEq, Eq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,

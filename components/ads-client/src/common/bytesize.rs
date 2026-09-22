@@ -5,7 +5,7 @@
 use std::fmt;
 use std::ops;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteSize(u64);
 
 impl ByteSize {

@@ -9,14 +9,8 @@ use std::time::Duration;
 pub struct AdsStoreConnectionInitializer {}
 
 impl open_database::ConnectionInitializer for AdsStoreConnectionInitializer {
-    const NAME: &'static str = "ads_cache";
     const END_VERSION: u32 = 1;
-
-    fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
-        conn.execute_batch("PRAGMA journal_mode=wal;")?;
-        conn.busy_timeout(Duration::from_secs(5))?;
-        Ok(())
-    }
+    const NAME: &'static str = "ads_cache";
 
     fn init(&self, tx: &rusqlite::Transaction<'_>) -> open_database::Result<()> {
         const SCHEMA: &str = "
@@ -35,6 +29,12 @@ impl open_database::ConnectionInitializer for AdsStoreConnectionInitializer {
             tx.execute_batch("DROP TABLE IF EXISTS ads")?;
             tx.execute_batch(SCHEMA)?;
         }
+        Ok(())
+    }
+
+    fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
+        conn.execute_batch("PRAGMA journal_mode=wal;")?;
+        conn.busy_timeout(Duration::from_secs(5))?;
         Ok(())
     }
 

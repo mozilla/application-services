@@ -56,18 +56,6 @@ impl MozAdsClient {
             })
     }
 
-    // Allows the ads-client to unload some references and prepare for a safe shutdown.
-    // Other methods should not be called after this one.
-    // Currently, we attempt to shutdown and log any errors instead of returning them.
-    // However, we may yet want to do so, so we keep the Result.
-    #[uniffi::method()]
-    pub fn shutdown(&self) -> AdsClientApiResult<()> {
-        if let Err(e) = self.shutdown_references.shutdown() {
-            error_support::error!("Could not successfully shutdown ads-client: {e}");
-        }
-        Ok(())
-    }
-
     #[handle_error(ComponentError)]
     #[uniffi::method(default(options = None))]
     pub fn record_click(
@@ -179,5 +167,17 @@ impl MozAdsClient {
             .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+
+    // Allows the ads-client to unload some references and prepare for a safe shutdown.
+    // Other methods should not be called after this one.
+    // Currently, we attempt to shutdown and log any errors instead of returning them.
+    // However, we may yet want to do so, so we keep the Result.
+    #[uniffi::method()]
+    pub fn shutdown(&self) -> AdsClientApiResult<()> {
+        if let Err(e) = self.shutdown_references.shutdown() {
+            error_support::error!("Could not successfully shutdown ads-client: {e}");
+        }
+        Ok(())
     }
 }

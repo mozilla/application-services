@@ -250,6 +250,14 @@ where
             })
     }
 
+    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
+        ShutdownReferences::new(
+            self.telemetry.clone(),
+            #[cfg(feature = "stateful")]
+            AdsStoreShutdown::new(self.ads_store.clone()),
+        )
+    }
+
     fn request_ads<A>(
         &self,
         placements: Vec<AdPlacementRequest>,
@@ -273,14 +281,6 @@ where
         )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
-    }
-
-    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
-        ShutdownReferences::new(
-            self.telemetry.clone(),
-            #[cfg(feature = "stateful")]
-            AdsStoreShutdown::new(self.ads_store.clone()),
-        )
     }
 }
 

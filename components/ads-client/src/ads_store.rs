@@ -12,7 +12,7 @@ use crate::{
 use std::path::Path;
 
 /// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PlacementId(String);
 
 impl PlacementId {
@@ -30,7 +30,7 @@ impl AsRef<str> for PlacementId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum StorableAd {
     Image(AdImage),
     Spoc(AdSpoc),
@@ -53,13 +53,13 @@ impl AdsStore {
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.holder.close()
-    }
-
     pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
         Ok(())
+    }
+
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
+        self.holder.close()
     }
 }
 

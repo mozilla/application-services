@@ -12,7 +12,7 @@ use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use std::sync::Arc;
 
 #[cfg(test)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FaultKind {
     Lookup,
     None,
@@ -37,11 +37,6 @@ impl AdsStoreHolder {
         }
     }
 
-    pub fn close(self) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.into_inner();
-        conn.close().map_err(|(_, err)| err)
-    }
-
     #[cfg(test)]
     pub fn new_with_test_clock(conn: Connection) -> Self {
         use crate::common::clock::TestClock;
@@ -54,17 +49,17 @@ impl AdsStoreHolder {
         }
     }
 
-    #[cfg(test)]
-    pub fn get_clock(&self) -> &dyn Clock {
-        &*self.clock
-    }
-
     /// Removes all entries from cache.
     pub fn clear_all(&self) -> SqliteResult<usize> {
         let conn = self.conn.lock();
         let mut total = 0;
         total += conn.execute("DELETE FROM ads", [])?;
         Ok(total)
+    }
+
+    pub fn close(self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.into_inner();
+        conn.close().map_err(|(_, err)| err)
     }
 
     /// Returns total size of the cache in bytes.
@@ -75,6 +70,19 @@ impl AdsStoreHolder {
                 row.get(0)
             })?;
         Ok(ByteSize::b(size_bytes_ads))
+    }
+
+    #[cfg(test)]
+    pub fn get_clock(&self) -> &dyn Clock {
+        &*self.clock
+    }
+
+    pub fn invalidate_ad_by_id(&self, placement_id: &PlacementId) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM ads WHERE placement_id = ?1",
+            params![&placement_id.as_ref()],
+        )
     }
 
     pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
@@ -95,6 +103,11 @@ impl AdsStoreHolder {
             )
             .optional()?;
         Ok(res.map(|x| serde_json::from_slice(&x)).transpose()?)
+    }
+
+    #[cfg(test)]
+    pub fn set_fault(&self, kind: FaultKind) {
+        *self.fault.lock() = kind;
     }
 
     /// Upsert an object into the store.
@@ -130,14 +143,6 @@ impl AdsStoreHolder {
         Ok(())
     }
 
-    pub fn invalidate_ad_by_id(&self, placement_id: &PlacementId) -> SqliteResult<usize> {
-        let conn = self.conn.lock();
-        conn.execute(
-            "DELETE FROM ads WHERE placement_id = ?1",
-            params![&placement_id.as_ref()],
-        )
-    }
-
     pub fn trim_to_max_size(&self, max_size: &ByteSize) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
@@ -157,11 +162,6 @@ impl AdsStoreHolder {
             )?;
         }
         Ok(())
-    }
-
-    #[cfg(test)]
-    pub fn set_fault(&self, kind: FaultKind) {
-        *self.fault.lock() = kind;
     }
 
     #[cfg(test)]
