@@ -107,9 +107,9 @@ impl MozAdsClientBuilder {
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
-            telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
@@ -124,13 +124,13 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
-        self.0.lock().store_config = Some(store_config);
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
         self
     }
 
-    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
-        self.0.lock().environment = Some(environment);
+    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
+        self.0.lock().store_config = Some(store_config);
         self
     }
 
@@ -147,7 +147,9 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+// Deliberately unsorted: uniffi encodes variants by index, and this mirrors
+// `Environment`.
+#[derive(Clone, Debug, Default, uniffi::Enum, PartialEq, Eq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,

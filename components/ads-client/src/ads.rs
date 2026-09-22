@@ -18,7 +18,7 @@ pub enum Ads {
 
 /// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
 #[cfg(feature = "stateful")]
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PlacementId(String);
 
 #[cfg(feature = "stateful")]
@@ -96,9 +96,9 @@ pub struct SpocFrequencyCaps {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SpocRanking {
-    pub priority: u32,
-    pub personalization_models: Option<HashMap<String, u32>>,
     pub item_score: f64,
+    pub personalization_models: Option<HashMap<String, u32>>,
+    pub priority: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

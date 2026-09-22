@@ -11,9 +11,9 @@ use std::path::Path;
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
+    is_memory: bool,
     #[allow(dead_code)]
     max_size: ByteSize,
-    is_memory: bool,
 }
 
 impl AdsStore {
@@ -26,10 +26,6 @@ impl AdsStore {
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.holder.close()
-    }
-
     pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
         Ok(())
@@ -37,6 +33,10 @@ impl AdsStore {
 
     pub fn is_memory(&self) -> bool {
         self.is_memory
+    }
+
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
+        self.holder.close()
     }
 }
 

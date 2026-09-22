@@ -58,10 +58,6 @@ impl HttpCache {
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.store.close()
-    }
-
     pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
         self.store.invalidate_by_hash(request_hash)?;
         Ok(())
@@ -85,17 +81,17 @@ impl HttpCache {
         // Apply the cache policy and collect outcomes
         let (response, mut strategy_outcomes) = match policy {
             CachePolicy::CacheFirst { ttl } => CacheFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
             CachePolicy::NetworkFirst { ttl } => NetworkFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
         }?;
@@ -112,6 +108,10 @@ impl HttpCache {
         }
 
         Ok((response, outcomes))
+    }
+
+    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
+        self.store.close()
     }
 }
 
@@ -190,11 +190,11 @@ mod tests {
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Get,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Get,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache
@@ -494,11 +494,11 @@ mod tests {
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Post,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Post,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache

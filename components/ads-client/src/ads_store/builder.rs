@@ -33,20 +33,32 @@ pub enum AdsStoreBuilderError {
 
 pub struct AdsStoreBuilder {
     db_path: PathBuf,
-    max_size: Option<ByteSize>,
-
     // Flag for whether this db is built in-memory
     // This is only set by an error in `open_connection`, not manually.
     is_memory: bool,
+    max_size: Option<ByteSize>,
 }
 
 impl AdsStoreBuilder {
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
-            max_size: None,
             is_memory: false,
+            max_size: None,
         }
+    }
+
+    pub fn build(&mut self, telemetry: impl Telemetry) -> Result<AdsStore, AdsStoreBuilderError> {
+        self.validate()?;
+
+        let conn = self.open_connection(telemetry)?;
+        let holder = AdsStoreHolder::new(conn);
+        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
+        Ok(AdsStore {
+            holder,
+            is_memory: self.is_memory,
+            max_size,
+        })
     }
 
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
@@ -78,27 +90,14 @@ impl AdsStoreBuilder {
         if let Some(max_size) = self.max_size {
             if max_size < MIN_STORE_SIZE || max_size > MAX_STORE_SIZE {
                 return Err(AdsStoreBuilderError::InvalidMaxSize {
-                    size_bytes: max_size.as_u64(),
-                    min_size: MIN_STORE_SIZE.to_string(),
                     max_size: MAX_STORE_SIZE.to_string(),
+                    min_size: MIN_STORE_SIZE.to_string(),
+                    size_bytes: max_size.as_u64(),
                 });
             }
         }
 
         Ok(())
-    }
-
-    pub fn build(&mut self, telemetry: impl Telemetry) -> Result<AdsStore, AdsStoreBuilderError> {
-        self.validate()?;
-
-        let conn = self.open_connection(telemetry)?;
-        let holder = AdsStoreHolder::new(conn);
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore {
-            max_size,
-            holder,
-            is_memory: self.is_memory,
-        })
     }
 }
 
