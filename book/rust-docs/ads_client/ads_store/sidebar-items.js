@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StorableAd"],"mod":["builder","connection_initializer","store"],"struct":["AdsStore","PlacementId"]};

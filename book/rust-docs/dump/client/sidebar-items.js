@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AttachmentMetadata","CollectionData","CollectionDownloader","CollectionUpdate","UpdateResult"]};

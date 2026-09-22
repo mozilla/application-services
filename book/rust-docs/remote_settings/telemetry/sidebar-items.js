@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SyncStatus"],"fn":["uniffi_remote_settings_fn_init_callback_vtable_remotesettingstelemetry"],"struct":["RemoteSettingsTelemetryWrapper","UniFfiTraitVtableRemoteSettingsTelemetry","UptakeEventExtras"],"trait":["RemoteSettingsTelemetry"]};

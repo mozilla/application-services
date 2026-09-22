@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CREDENTIALS_FILENAME","MONITOR_SCOPE","PROFILE_SCOPE","RELAY_SCOPE","SESSION_SCOPE","SUBSCRIPTIONS_SCOPE","SYNC_SCOPE","VPN_SCOPE","WELL_KNOWN_SCOPES"],"fn":["get_default_fxa_config"],"struct":["CliFxa","CliSyncInfo"]};

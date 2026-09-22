@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CacheClock"],"trait":["Clock"]};

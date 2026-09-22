@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","RelayApiError"],"struct":["BounceStatus","RelayAddress","RelayClient","RelayProfile","RelayRemoteSettingsClient"],"type":["ApiResult","Result"]};

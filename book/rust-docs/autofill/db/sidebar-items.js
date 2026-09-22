@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["addresses","credit_cards","models","passports","schema","store"],"struct":["AutofillDb"]};

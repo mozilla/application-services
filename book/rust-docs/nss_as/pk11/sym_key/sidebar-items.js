@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["authenticate_with_primary_password","authentication_with_primary_password_is_needed","get_aes256_key","get_or_create_aes256_key","hkdf_expand"]};
