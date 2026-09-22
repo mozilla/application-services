@@ -87,7 +87,7 @@ where
         if ohttp {
             ad_request
                 .headers
-                .extend(Headers::from(self.fetch_preflight()?));
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
@@ -146,7 +146,7 @@ where
         if ohttp {
             request
                 .headers
-                .extend(Headers::from(self.fetch_preflight()?));
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
     }
