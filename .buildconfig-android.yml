@@ -173,3 +173,10 @@ projects:
       type: aar
     description: Client for Firefox Relay.
 
+  db-crypto:
+    path: components/support/db-crypto/android
+    artifactId: db-crypto
+    publications:
+    - name: db-crypto
+      type: aar
+    description: Database encryption support
