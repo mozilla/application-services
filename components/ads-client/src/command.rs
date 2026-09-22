@@ -141,7 +141,7 @@ mod tests {
         ads_store::PlacementId,
         command::{CommandQueue, DispatchCommand, MAXIMUM_ADS_BATCH_COUNT},
         http_cache::CachePolicy,
-        MozAdType, MozAdsPlacementRequestGeneric,
+        MozAdsPlacementRequestGeneric,
     };
 
     fn example_request_ads() -> DispatchCommand {
@@ -150,7 +150,6 @@ mod tests {
                 count: Some(4),
                 placement_id: PlacementId::new("test_placement"),
                 iab_content: None,
-                ad_type: MozAdType::Spoc,
             }],
             cache_policy: CachePolicy::CacheFirst { ttl: None },
             ohttp: false,

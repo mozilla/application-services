@@ -78,14 +78,6 @@ pub struct MozAdsPlacementRequestGeneric {
     #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
     pub placement_id: PlacementId,
-    pub ad_type: MozAdType,
-}
-
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum MozAdType {
-    Image,
-    Spoc,
-    Tile,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
