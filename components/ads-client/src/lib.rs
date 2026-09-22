@@ -23,9 +23,13 @@ pub mod http_cache;
 mod mars;
 pub mod shutdown;
 pub mod telemetry;
+#[cfg(feature = "stateful")]
+pub mod command;
 
 pub use ffi::*;
 
+#[cfg(feature = "stateful")]
+use crate::ads_store::PlacementId;
 use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
@@ -38,6 +42,9 @@ uniffi::custom_type!(AdsClientUrl, String, {
     try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
     lower: |obj| obj.as_str().to_string(),
 });
+
+#[cfg(feature = "stateful")]
+uniffi::custom_type!(PlacementId, String);
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
