@@ -68,11 +68,9 @@ impl CommandQueue {
                 flags,
                 blocks,
             } => {
-                // TODO: Some upper limit on the amount we can send at once?
                 if let Some(mut ad_requests) = self.ads_arena.remove(&identifier) {
                     // Handling for a great number of ads- we split off the first `MAXIMUM_ADS_BATCH_COUNT` and return those.
                     // We push the remaining ad requests back to the front of the queue.
-                    // TODO: maybe not >=
                     if ad_requests.len() > MAXIMUM_ADS_BATCH_COUNT {
                         let remaining_ads = ad_requests.split_off(MAXIMUM_ADS_BATCH_COUNT);
                         self.push_inner(
@@ -95,7 +93,7 @@ impl CommandQueue {
                         blocks,
                     })
                 } else {
-                    // TODO: Telemetry, internal error (arena didn't line up)
+                    // TODO: Telemetry should log an internal error (arena didn't line up)
                     self.next()
                 }
             }
