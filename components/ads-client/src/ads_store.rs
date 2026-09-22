@@ -24,6 +24,18 @@ impl PlacementId {
     }
 }
 
+impl From<String> for PlacementId {
+    fn from(value: String) -> Self {
+        PlacementId(value)
+    }
+}
+
+impl From<PlacementId> for String {
+    fn from(value: PlacementId) -> Self {
+        value.0
+    }
+}
+
 impl AsRef<str> for PlacementId {
     fn as_ref(&self) -> &str {
         &self.0
