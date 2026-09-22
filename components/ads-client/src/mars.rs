@@ -23,11 +23,15 @@ use self::{
     preflight::PreflightRequest,
     transport::MARSTransport,
 };
+#[cfg(feature = "stateful")]
+use self::ad_response::Ads;
 use crate::{
     http_cache::{HttpCache, RequestHash},
     telemetry::Telemetry,
     CachePolicy,
 };
+#[cfg(feature = "stateful")]
+use std::collections::HashMap;
 use url::Url;
 use viaduct::{Headers, Request};
 
@@ -60,6 +64,51 @@ where
     #[allow(dead_code)]
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         self.transport.shutdown_db()
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn fetch_ads_mixed(
+        &self,
+        context_id: String,
+        flags: AdRequestFlags,
+        placements: Vec<AdPlacementRequest>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Ads>, FetchAdsError> {
+        let mut ad_request = AdRequest::try_new(
+            blocks,
+            context_id,
+            self.environment.clone(),
+            flags,
+            ohttp,
+            placements,
+        )?;
+
+        if ohttp {
+            ad_request
+                .headers
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
+        }
+
+        let response = self.transport.send(ad_request, &CachePolicy::NetworkFirst { ttl: None }, ohttp)?;
+        let raw: HashMap<String, serde_json::Value> = response.json()?;
+
+        let mut result = HashMap::new();
+        for (placement_id, value) in raw {
+            if matches!(&value, serde_json::Value::Array(arr) if arr.is_empty()) {
+                continue;
+            }
+            match serde_json::from_value::<Ads>(value) {
+                Ok(ads) => {
+                    result.insert(placement_id, ads);
+                }
+                Err(e) => {
+                    self.telemetry.record(&e);
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     pub fn fetch_ads<A>(

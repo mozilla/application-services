@@ -166,7 +166,7 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
                 vec![AdTile {
                     url: "https://ads.fakeexample.org/example_uatile_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_1".to_string(),
-                    format: "uatile".to_string(),
+                    format: "tile".to_string(),
                     block_key: "uatile123".into(),
                     name: "Example UA Tile".to_string(),
                     callbacks: AdCallbacks {
@@ -188,7 +188,7 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
                 vec![AdTile {
                     url: "https://ads.fakeexample.org/example_uatile_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_2".to_string(),
-                    format: "uatile".to_string(),
+                    format: "tile".to_string(),
                     block_key: "uatile456".into(),
                     name: "Another UA Tile".to_string(),
                     callbacks: AdCallbacks {
