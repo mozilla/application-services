@@ -1,7 +1,10 @@
+#[cfg(feature = "stateful")]
 use std::path::Path;
+#[cfg(feature = "stateful")]
 use ads_client::{MozAdsTelemetryWrapper, ads_store::builder::AdsStoreBuilder};
 
 // Deletes existing temporary dbs passed to `clear_test_dbs` to reset tests that require making them.
+#[cfg(feature = "stateful")]
 fn clear_test_dbs(test_db_locations : &[&'static str]) {
     for test_db_location in test_db_locations {
         let test_db_location_path = Path::new(test_db_location);
