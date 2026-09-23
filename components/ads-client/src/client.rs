@@ -14,7 +14,8 @@ use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError}
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 use config::AdsClientConfig;
-use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use context_id::ContextIDComponent;
+use context_id_deletion::ContextIdDeletionQueue;
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
@@ -25,26 +26,34 @@ use url::Url;
 use uuid::Uuid;
 
 pub mod config;
+mod context_id_deletion;
 pub mod error;
 
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
+/// Passed as `running_in_test_automation` so `ContextIDComponent` never sends
+/// its own `DELETE /delete_user`; `AdsClient` sends it instead. Firefox's
+/// `ContextId.sys.mjs` does the same.
+const DISABLE_CONTEXT_ID_COMPONENT_DELETION: bool = true;
+
 pub struct AdsClient {
     #[cfg(feature = "stateful")]
     ads_store: Arc<Option<AdsStore>>,
     client: MARSClient,
     context_id_component: ContextIDComponent,
+    context_id_deletion_queue: ContextIdDeletionQueue,
 }
 
 impl AdsClient {
     pub fn new(client_config: AdsClientConfig) -> Self {
+        let context_id_deletion_queue = ContextIdDeletionQueue::default();
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
             0,
-            cfg!(test),
-            Box::new(DefaultContextIdCallback),
+            DISABLE_CONTEXT_ID_COMPONENT_DELETION,
+            Box::new(context_id_deletion_queue.clone()),
         );
 
         let environment = client_config.environment;
@@ -92,6 +101,7 @@ impl AdsClient {
             ads_store: Arc::new(ads_store),
             client,
             context_id_component,
+            context_id_deletion_queue,
         }
     }
 
@@ -300,6 +310,22 @@ impl AdsClient {
         self.client.shutdown_db();
     }
 
+    /// Best-effort: sends each retired id's deletion over OHTTP, or skips it when
+    /// the ad request did not use OHTTP. Failures are logged and not retried.
+    fn flush_context_id_deletions(&self, retired_context_ids: Vec<String>, ohttp: bool) {
+        for old_context_id in retired_context_ids {
+            if !ohttp {
+                error_support::info!(
+                    "Skipping context id deletion request: the ad request did not use OHTTP"
+                );
+                continue;
+            }
+            if let Err(e) = self.client.delete_user(&old_context_id, true) {
+                error_support::warn!("Context id deletion request failed: {e}");
+            }
+        }
+    }
+
     fn request_ads<A>(
         &self,
         placements: Vec<AdPlacementRequest>,
@@ -317,9 +343,12 @@ impl AdsClient {
         } else {
             None
         };
+        // Take the retired ids now so they are flushed with this call's OHTTP flag.
+        // A concurrent call may take them first; nothing is ever sent outside OHTTP.
+        let retired_context_ids = self.context_id_deletion_queue.take_all();
 
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+        let result = self.client.fetch_ads::<A>(
             context_id,
             flags,
             placements,
@@ -327,7 +356,10 @@ impl AdsClient {
             ohttp,
             blocks,
             relevance,
-        )?;
+        );
+        // Flush even if the fetch failed: the ids have already left the queue.
+        self.flush_context_id_deletions(retired_context_ids, ohttp);
+        let (mut response, request_hash) = result?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -339,7 +371,7 @@ mod tests {
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
-        mars::Environment,
+        mars::{error::FetchAdsError, Environment},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,
@@ -349,7 +381,17 @@ mod tests {
     use super::*;
 
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
-        AdsClient {
+        new_with_mars_client_at(client, 0).0
+    }
+
+    /// Builds a client whose context id was created at `creation_timestamp_s`
+    /// (0 = now) and hands back the deletion queue shared with it.
+    fn new_with_mars_client_at(
+        client: MARSClient,
+        creation_timestamp_s: i64,
+    ) -> (AdsClient, ContextIdDeletionQueue) {
+        let context_id_deletion_queue = ContextIdDeletionQueue::default();
+        let ads_client = AdsClient {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
                 AdsStoreBuilder::new("test_store.db")
@@ -359,11 +401,90 @@ mod tests {
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
+                creation_timestamp_s,
+                DISABLE_CONTEXT_ID_COMPONENT_DELETION,
+                Box::new(context_id_deletion_queue.clone()),
             ),
-        }
+            context_id_deletion_queue: context_id_deletion_queue.clone(),
+        };
+        (ads_client, context_id_deletion_queue)
+    }
+
+    fn thirty_days_ago_s() -> i64 {
+        (chrono::Utc::now() - chrono::Duration::days(30)).timestamp()
+    }
+
+    #[test]
+    fn test_rotation_without_ohttp_skips_delete() {
+        viaduct_dev::init_backend_dev();
+
+        let expected_response = get_example_happy_uatile_response();
+        let ads_mock = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .expect(1)
+            .create();
+        let delete_mock = mockito::mock("DELETE", "/delete_user").expect(0).create();
+
+        let mars_client = MARSClient::new(Environment::Test, None);
+        let (ads_client, queue) = new_with_mars_client_at(mars_client, thirty_days_ago_s());
+
+        // A 30-day-old id rotates on first use and queues the old id.
+        ads_client.get_context_id().unwrap();
+        assert!(!queue.is_empty());
+
+        // Without OHTTP the queue is drained and no deletion is sent.
+        let result = ads_client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            false,
+            Default::default(),
+            AdRequestRelevance::default(),
+        );
+        assert!(result.is_ok());
+        ads_mock.assert();
+        delete_mock.assert();
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn test_rotation_flush_runs_even_when_fetch_fails() {
+        viaduct_dev::init_backend_dev();
+
+        // OHTTP without a configured channel: preflight succeeds, the ad fetch fails,
+        // and the queue is still drained without sending a deletion.
+        let preflight_mock = mockito::mock("GET", "/ads-preflight")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"geo_location":"US-CA","normalized_ua":"Firefox/140.0"}"#)
+            .expect(1)
+            .create();
+        let delete_mock = mockito::mock("DELETE", "/delete_user").expect(0).create();
+
+        let mars_client = MARSClient::new(Environment::Test, None);
+        let (ads_client, queue) = new_with_mars_client_at(mars_client, thirty_days_ago_s());
+        ads_client.get_context_id().unwrap();
+        assert!(!queue.is_empty());
+
+        let result = ads_client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            true,
+            Default::default(),
+            AdRequestRelevance::default(),
+        );
+        assert!(matches!(
+            result,
+            Err(RequestAdsError::FetchAds(FetchAdsError::Request(
+                viaduct::ViaductError::OhttpChannelNotConfigured(_)
+            )))
+        ));
+        preflight_mock.assert();
+        delete_mock.assert();
+        assert!(queue.is_empty());
     }
 
     #[test]

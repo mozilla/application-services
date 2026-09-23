@@ -230,7 +230,7 @@ data class MozAdsRequestOptions(
 | ------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `cachePolicy` | `MozAdsRequestCachePolicy?`  | Per-request caching policy. If `null`, uses the client's default TTL with a `CacheFirst` mode.                                             |
 | `flags`       | `Map<String, Boolean>`       | Request-level flags forwarded verbatim as the `flags` object on the wire. An empty map omits it. e.g. `mapOf("contextual_placement" to true)`. Defaults to `emptyMap()`. |
-| `ohttp`       | `Boolean`                    | Whether to route this request through OHTTP. Defaults to `false`.                                                                          |
+| `ohttp`       | `Boolean`                    | Whether to route this request through OHTTP. The context id deletion request that may follow it uses the same setting and is skipped without OHTTP. Defaults to `false`. |
 | `relevance`   | `Map<String, Double>`       | Per client calculated relevance scores. An empty object omits it. Defaults to `emptyMap()``.                                                 |
 
 ---
