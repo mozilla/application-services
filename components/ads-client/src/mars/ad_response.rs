@@ -7,8 +7,6 @@ use crate::http_cache::RequestHash;
 use crate::telemetry::Telemetry;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "stateful")]
-use serde::Deserializer;
 use std::collections::HashMap;
 use url::Url;
 
@@ -198,40 +196,6 @@ pub enum Ads {
     Images(Vec<AdImage>),
     Spocs(Vec<AdSpoc>),
     Tiles(Vec<AdTile>),
-}
-
-#[cfg(feature = "stateful")]
-impl<'de> Deserialize<'de> for Ads {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let items: Vec<serde_json::Value> = Vec::deserialize(d)?;
-        let format = items
-            .first()
-            .and_then(|v| v.get("format"))
-            .and_then(|f| f.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        match format.as_str() {
-            "spoc" => Ok(Ads::Spocs(
-                items
-                    .into_iter()
-                    .filter_map(|v| serde_json::from_value(v).ok())
-                    .collect(),
-            )),
-            "tile" => Ok(Ads::Tiles(
-                items
-                    .into_iter()
-                    .filter_map(|v| serde_json::from_value(v).ok())
-                    .collect(),
-            )),
-            _ => Ok(Ads::Images(
-                items
-                    .into_iter()
-                    .filter_map(|v| serde_json::from_value(v).ok())
-                    .collect(),
-            )),
-        }
-    }
 }
 
 #[cfg(test)]

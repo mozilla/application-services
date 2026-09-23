@@ -14,6 +14,8 @@ mod transport;
 pub use environment::Environment;
 pub use report_reason::ReportReason;
 
+#[cfg(feature = "stateful")]
+use self::ad_response::Ads;
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
     ad_response::{AdResponse, AdResponseValue},
@@ -23,8 +25,6 @@ use self::{
     preflight::PreflightRequest,
     transport::MARSTransport,
 };
-#[cfg(feature = "stateful")]
-use self::ad_response::Ads;
 use crate::{
     http_cache::{HttpCache, RequestHash},
     telemetry::Telemetry,
@@ -90,22 +90,61 @@ where
                 .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
 
-        let response = self.transport.send(ad_request, &CachePolicy::NetworkFirst { ttl: None }, ohttp)?;
-        let raw: HashMap<String, serde_json::Value> = response.json()?;
+        let response =
+            self.transport
+                .send(ad_request, &CachePolicy::NetworkFirst { ttl: None }, ohttp)?;
+        let raw: HashMap<String, Vec<serde_json::Value>> = response.json()?;
 
         let mut result = HashMap::new();
-        for (placement_id, value) in raw {
-            if matches!(&value, serde_json::Value::Array(arr) if arr.is_empty()) {
+        for (placement_id, items) in raw {
+            if items.is_empty() {
                 continue;
             }
-            match serde_json::from_value::<Ads>(value) {
-                Ok(ads) => {
-                    result.insert(placement_id, ads);
-                }
-                Err(e) => {
-                    self.telemetry.record(&e);
-                }
-            }
+            let format = items
+                .first()
+                .and_then(|v| v.get("format"))
+                .and_then(|f| f.as_str())
+                .unwrap_or("")
+                .to_string();
+            let ads = match format.as_str() {
+                "spoc" => Ads::Spocs(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+                "tile" => Ads::Tiles(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+                _ => Ads::Images(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+            };
+            result.insert(placement_id, ads);
         }
 
         Ok(result)
