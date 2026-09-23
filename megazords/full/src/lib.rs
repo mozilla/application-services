@@ -76,15 +76,17 @@ unsafe impl Send for StaticCStringPtr {}
 unsafe impl Sync for StaticCStringPtr {}
 
 // The namespace glean-sym FFI items are placed in.
-// These are not defined since we don't set the `active` feature
+// These are not defined when we don't set the `active` feature
 // Add this hack to prevent uniffi_bindgen failures
 
+#[cfg(not(target_os = "android"))]
 #[allow(clippy::large_const_arrays)]
 const UNIFFI_META_CONST_NAMESPACE_GLEAN_SYM: ::uniffi::MetadataBuffer =
     ::uniffi::MetadataBuffer::from_code(::uniffi::metadata::codes::NAMESPACE)
         .concat_str("glean_sym")
         .concat_str("glean_sym");
 
+#[cfg(not(target_os = "android"))]
 #[doc(hidden)]
 #[unsafe(no_mangle)]
 pub static UNIFFI_META_NAMESPACE_GLEAN_SYM: [::std::primitive::u8;
