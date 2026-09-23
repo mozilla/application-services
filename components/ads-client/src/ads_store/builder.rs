@@ -43,6 +43,15 @@ impl AdsStoreBuilder {
         }
     }
 
+    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
+        self.validate()?;
+
+        let conn = self.open_connection()?;
+        let holder = AdsStoreHolder::new(conn);
+        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
+        Ok(AdsStore { holder, max_size })
+    }
+
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
         self.max_size = Some(max_size);
         self
@@ -74,15 +83,6 @@ impl AdsStoreBuilder {
         }
 
         Ok(())
-    }
-
-    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
-        self.validate()?;
-
-        let conn = self.open_connection()?;
-        let holder = AdsStoreHolder::new(conn);
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore { max_size, holder })
     }
 }
 

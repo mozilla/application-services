@@ -11,7 +11,9 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> = Lazy::new(|| url!("https://ads.mozill
 
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> = Lazy::new(|| url!("https://ads.allizom.org/v1/"));
 
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+// Ordered by importance rather than alphabetically: the deployed environments
+// first, then the test one, then the custom escape hatch.
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
 pub enum Environment {
     #[default]
     Prod,

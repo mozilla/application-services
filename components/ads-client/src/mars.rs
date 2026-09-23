@@ -57,11 +57,6 @@ where
         self.transport.clear_cache()
     }
 
-    #[allow(dead_code)]
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
-        self.transport.shutdown_db()
-    }
-
     pub fn fetch_ads<A>(
         &self,
         context_id: String,
@@ -93,6 +88,11 @@ where
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
         let ads = AdResponse::<A>::parse(response.json()?, &self.telemetry)?;
         Ok((ads, request_hash))
+    }
+
+    #[cfg(test)]
+    pub fn get_telemetry(&self) -> T {
+        self.telemetry.clone()
     }
 
     // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
@@ -128,6 +128,11 @@ where
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
+    #[allow(dead_code)]
+    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+        self.transport.shutdown_db()
+    }
+
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
         let response = self.transport.send(
             PreflightRequest(self.environment.clone().into_url("ads-preflight")),
@@ -149,11 +154,6 @@ where
                 .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
-    }
-
-    #[cfg(test)]
-    pub fn get_telemetry(&self) -> T {
-        self.telemetry.clone()
     }
 }
 

@@ -216,8 +216,8 @@ fn test_contract_tile_ohttp_prod() {
     viaduct::ohttp::configure_ohttp_channel(
         "ads-client".to_string(),
         viaduct::ohttp::OhttpConfig {
-            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
             gateway_host: "prod.ohttp-gateway.prod.webservices.mozgcp.net".to_string(),
+            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
         },
     )
     .expect("OHTTP channel configuration should succeed");

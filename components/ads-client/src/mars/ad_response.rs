@@ -149,9 +149,9 @@ pub struct SpocFrequencyCaps {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SpocRanking {
-    pub priority: u32,
-    pub personalization_models: Option<HashMap<String, u32>>,
     pub item_score: f64,
+    pub personalization_models: Option<HashMap<String, u32>>,
+    pub priority: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

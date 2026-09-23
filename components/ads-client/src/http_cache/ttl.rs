@@ -16,6 +16,8 @@ pub const MAX_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// `explicit` comes from the caller, `server_max_age` from the response's
 /// `Cache-Control` header, and `default` from the cache's configuration.
 pub struct EffectiveTtl {
+    // Listed in resolution priority order to match `resolve()` below, not
+    // alphabetically.
     /// Per-request override provided by the caller, if any.
     pub explicit: Option<Duration>,
     /// `Cache-Control: max-age` from the server response, if present.

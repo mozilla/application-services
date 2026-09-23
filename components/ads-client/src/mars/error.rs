@@ -19,11 +19,11 @@ pub enum CallbackRequestError {
     #[error("Could not fetch ads, MARS responded with: {0}")]
     HTTPError(#[from] HTTPError),
 
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
     #[error("Invalid callback URL: {0}")]
     InvalidUrl(#[from] url::ParseError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
@@ -43,11 +43,11 @@ pub enum FetchAdsError {
     #[error("OHTTP preflight failed: {0}")]
     Preflight(#[from] CallbackRequestError),
 
-    #[error("Internal database error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
+
+    #[error("Internal database error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
 
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
