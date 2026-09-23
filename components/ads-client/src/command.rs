@@ -135,7 +135,7 @@ mod tests {
         assert!(queue.queued_ads.is_empty());
         assert!(queue.command_queue.is_empty());
 
-        // Modify `request` so it has more than one request inside.
+        // Modify `command` so it has more than one request inside.
         #[allow(irrefutable_let_patterns)]
         if let DispatchCommand::RequestAds {
             ref mut ad_requests,
