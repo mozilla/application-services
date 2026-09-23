@@ -1,185 +1,154 @@
-use crate::{http_cache::CachePolicy, MozAdsPlacementRequestGeneric};
+use url::Url;
+
+use crate::{ads_store::PlacementId, mars::ReportReason, MozAdsIABContent};
 use std::collections::{HashMap, VecDeque};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
 // Structure for storing and queuing and storing `DispatchCommand`s sent to background worker.
-// Commands that can be merged together will be, allowing fewer network requests to be sent.
-// (eg: multiple `RequestAd`s that have the same flags, ohttp values, etc.)
-// `push(command)` and `next()` are the primary mechanisms of its use. Commands are merged together on `push`.
-// TODO: This CommandQueue may have a hard sqlite backing for certain commands (eg: `ReportAd`) to ensure commands are not dropped.
+// AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 pub struct CommandQueue {
-    // The ordered queue of commands to iterate through.
-    command_queue: VecDeque<CommandIdentifier>,
+    queued_ads: Vec<AdPlacementRequest>,
 
-    // For `RequestAd` commands specifically, the arena tying the command identifier to a list of ad placements.
-    ads_arena: HashMap<CommandIdentifier, Vec<MozAdsPlacementRequestGeneric>>,
+    // The ordered queue of non-AdPlacementRequest commands to iterate through.
+    command_queue: VecDeque<QueuedCommand>,
 }
 
 impl CommandQueue {
     pub fn new() -> CommandQueue {
         CommandQueue {
+            queued_ads: Vec::new(),
             command_queue: VecDeque::new(),
-            ads_arena: HashMap::new(),
         }
     }
-    pub fn push(&mut self, command: DispatchCommand) {
-        self.push_inner(command, false)
+    pub fn push_ad_request(&mut self, ad_request: AdPlacementRequest) {
+        self.queued_ads.push(ad_request);
     }
 
-    fn push_inner(&mut self, command: DispatchCommand, front: bool) {
-        match command {
-            // Primary RequestAds command.
-            // We split this into `CommandIdentifier` and `MozAdsPlacementRequestGeneric` and store them in the queue.
-            DispatchCommand::RequestAds {
-                ad_requests,
-                cache_policy,
-                ohttp,
-                flags,
-                blocks,
-            } => {
-                let identifier = CommandIdentifier::RequestAds {
-                    cache_policy,
-                    ohttp,
-                    flags: flags.into_iter().collect(),
-                    blocks,
-                };
-                if let Some(entry) = self.ads_arena.get_mut(&identifier) {
-                    entry.extend_from_slice(&ad_requests);
-                } else {
-                    self.ads_arena.insert(identifier.clone(), ad_requests);
-                    if front {
-                        self.command_queue.push_front(identifier);
-                    } else {
-                        self.command_queue.push_back(identifier);
-                    }
-                }
-            }
-        }
+    pub fn push_queued_command(&mut self, queued_command: QueuedCommand) {
+        self.command_queue.push_back(queued_command);
     }
 
     pub fn next(&mut self) -> Option<DispatchCommand> {
-        let identifier = self.command_queue.pop_front()?;
-        match identifier.clone() {
-            // Stitch back together a `CommandIdentifier` and multiple `MozAdsPlacementRequestGeneric` into a `RequestAds`
-            CommandIdentifier::RequestAds {
-                cache_policy,
-                ohttp,
-                flags,
-                blocks,
-            } => {
-                if let Some(mut ad_requests) = self.ads_arena.remove(&identifier) {
-                    // Handling for a great number of ads- we split off the first `MAXIMUM_ADS_BATCH_COUNT` and return those.
-                    // We push the remaining ad requests back to the front of the queue.
-                    if ad_requests.len() > MAXIMUM_ADS_BATCH_COUNT {
-                        let remaining_ads = ad_requests.split_off(MAXIMUM_ADS_BATCH_COUNT);
-                        self.push_inner(
-                            DispatchCommand::RequestAds {
-                                ad_requests: remaining_ads,
-                                cache_policy,
-                                ohttp,
-                                flags: flags.clone().into_iter().collect(),
-                                blocks: blocks.clone(),
-                            },
-                            true,
-                        )
-                    }
-
-                    Some(DispatchCommand::RequestAds {
-                        ad_requests,
-                        cache_policy,
-                        ohttp,
-                        flags: flags.into_iter().collect(),
-                        blocks,
-                    })
-                } else {
-                    // TODO: Telemetry should log an internal error (arena didn't line up)
-                    self.next()
-                }
-            }
+        // First, if any ad requests are queued, batch the first `MAXIMUM_ADS_BATCH_COUNT` and resolve those.
+        let num_ads = self.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
+        let ad_requests: Vec<_> = self.queued_ads.drain(..num_ads).collect();
+        if ad_requests.len() > 0 {
+            return Some(DispatchCommand::RequestAds { ad_requests });
         }
+
+        // Otherwise, pop the next queue-able command.
+        self.command_queue.pop_front().map(|c| c.into())
     }
 
     pub fn clear(&mut self) {
         self.command_queue = VecDeque::new();
-        self.ads_arena = HashMap::new();
+        self.queued_ads = Vec::new();
     }
 }
 
-// Identifier of a command to allow separation of command metadata from the raw quantity of the command itself,
-// allowing batching along common CommonIdentifier. For internal use in the CommandQueue.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-enum CommandIdentifier {
-    RequestAds {
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        flags: Vec<(String, bool)>,
-        blocks: Vec<String>,
-    },
+// TODO: move this
+pub struct HttpRequestOptions {
+    pub blocks: Vec<String>,
+    pub flags: HashMap<String, bool>,
+    pub ohttp: bool,
+}
+
+// Queue-able command (ReportAd, etc.)
+#[derive(Debug, Clone, PartialEq)]
+pub enum QueuedCommand {
+    RecordClick { url: Url },
+    RecordImpression { url: Url },
+    ReportAd { url: Url, reason: ReportReason },
 }
 
 // Command dispatch enum for passing different instructions to the background worker thread.
 // `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DispatchCommand {
     RequestAds {
-        ad_requests: Vec<MozAdsPlacementRequestGeneric>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        flags: HashMap<String, bool>,
-        blocks: Vec<String>,
+        ad_requests: Vec<AdPlacementRequest>,
     },
+    RecordClick {
+        url: Url,
+    },
+    RecordImpression {
+        url: Url,
+    },
+    ReportAd {
+        url: Url,
+        reason: ReportReason,
+    },
+}
+
+impl From<QueuedCommand> for DispatchCommand {
+    fn from(value: QueuedCommand) -> Self {
+        match value {
+            QueuedCommand::ReportAd { url, reason } => DispatchCommand::ReportAd { url, reason },
+            QueuedCommand::RecordClick { url } => DispatchCommand::RecordClick { url },
+            QueuedCommand::RecordImpression { url } => DispatchCommand::RecordImpression { url },
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AdPlacementRequest {
+    pub count: Option<u32>,
+    pub iab_content: Option<MozAdsIABContent>,
+    pub placement_id: PlacementId,
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::{
         ads_store::PlacementId,
-        command::{CommandQueue, DispatchCommand, MAXIMUM_ADS_BATCH_COUNT},
-        http_cache::CachePolicy,
-        MozAdsPlacementRequestGeneric,
+        command::{AdPlacementRequest, CommandQueue, DispatchCommand, MAXIMUM_ADS_BATCH_COUNT},
     };
 
-    fn example_request_ads() -> DispatchCommand {
+    fn example_request_ads() -> AdPlacementRequest {
+        AdPlacementRequest {
+            count: Some(4),
+            placement_id: PlacementId::new("test_placement"),
+            iab_content: None,
+        }
+    }
+
+    fn example_request_ads_command() -> DispatchCommand {
         DispatchCommand::RequestAds {
-            ad_requests: vec![MozAdsPlacementRequestGeneric {
+            ad_requests: vec![AdPlacementRequest {
                 count: Some(4),
                 placement_id: PlacementId::new("test_placement"),
                 iab_content: None,
             }],
-            cache_policy: CachePolicy::CacheFirst { ttl: None },
-            ohttp: false,
-            flags: HashMap::from([("example_flag".to_string(), true)]),
-            blocks: vec![],
         }
     }
 
     #[test]
     fn identical_command_comes_out() {
-        let command = example_request_ads();
+        let request = example_request_ads();
+        let command = example_request_ads_command();
         let mut queue = CommandQueue::new();
 
-        queue.push(command.clone());
+        queue.push_ad_request(request.clone());
         let retrieved_command = queue.next().expect("Command should exist in queue");
         assert_eq!(command, retrieved_command);
     }
 
     #[test]
     fn batch_similar_requests() {
-        let mut command = example_request_ads();
+        let request = example_request_ads();
+        let mut command = example_request_ads_command();
         let mut queue = CommandQueue::new();
 
-        queue.push(command.clone());
-        queue.push(command.clone());
+        queue.push_ad_request(request.clone());
+        queue.push_ad_request(request.clone());
 
         let retrieved_command = queue.next().expect("Command should exist in queue");
         assert!(queue.next().is_none());
-        assert!(queue.ads_arena.is_empty());
+        assert!(queue.queued_ads.is_empty());
         assert!(queue.command_queue.is_empty());
 
-        // Modify `command` so it has more than one request inside.
+        // Modify `request` so it has more than one request inside.
         #[allow(irrefutable_let_patterns)]
         if let DispatchCommand::RequestAds {
             ref mut ad_requests,
@@ -194,62 +163,22 @@ mod tests {
     }
 
     #[test]
-    fn do_not_batch_different_requests() {
-        let command = example_request_ads();
-        let mut command_different = example_request_ads();
-        let mut queue = CommandQueue::new();
-
-        // Modify `command_different` so it doesn't batch.
-        #[allow(irrefutable_let_patterns)]
-        if let DispatchCommand::RequestAds { ref mut ohttp, .. } = command_different {
-            *ohttp = true;
-        } else {
-            panic!("Example DispatchCommand should be RequestAds variant");
-        };
-
-        queue.push(command.clone());
-        queue.push(command_different.clone());
-
-        let retrieved_command = queue.next().expect("First command should exist in queue");
-        let retrieved_command_different =
-            queue.next().expect("Second command should exist in queue");
-        assert!(queue.next().is_none());
-        assert!(queue.ads_arena.is_empty());
-        assert!(queue.command_queue.is_empty());
-
-        assert_eq!(command, retrieved_command);
-        assert_eq!(command_different, retrieved_command_different);
-    }
-
-    #[test]
     fn split_off_too_many_ads() {
-        let command = example_request_ads();
-        let mut command_different = example_request_ads();
-
+        let request = example_request_ads();
+        let command = example_request_ads_command();
         let mut queue = CommandQueue::new();
 
         // Queue enough of this command to go one-over the limit.
         for _ in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
-            queue.push(command.clone());
+            queue.push_ad_request(request.clone());
         }
-
-        // Modify `command_different` so it doesn't batch.
-        #[allow(irrefutable_let_patterns)]
-        if let DispatchCommand::RequestAds { ref mut ohttp, .. } = command_different {
-            *ohttp = true;
-        } else {
-            panic!("Example DispatchCommand should be RequestAds variant");
-        };
-        queue.push(command_different.clone());
 
         let retrieved_command = queue.next().expect("First command should exist in queue");
         let retrieved_command_overflow =
             queue.next().expect("Second command should exist in queue");
-        let retrieved_command_different =
-            queue.next().expect("Third command should exist in queue");
 
         assert!(queue.next().is_none());
-        assert!(queue.ads_arena.is_empty());
+        assert!(queue.queued_ads.is_empty());
         assert!(queue.command_queue.is_empty());
 
         assert_eq!(command, retrieved_command_overflow);
@@ -275,6 +204,5 @@ mod tests {
         } else {
             panic!("Example DispatchCommand should be RequestAds variant");
         };
-        assert_eq!(command_different, retrieved_command_different);
     }
 }
