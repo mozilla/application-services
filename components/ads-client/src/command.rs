@@ -29,6 +29,8 @@ impl CommandQueue {
         self.command_queue.push_back(queued_command);
     }
 
+    // Pops the next available DispatchCommand to be run by the worker.
+    // This will prioritize any ad_requests, batched, followed by any queued QueuedCommands (eg: RecordClick, etc)
     pub fn next(&mut self) -> Option<DispatchCommand> {
         // First, if any ad requests are queued, batch the first `MAXIMUM_ADS_BATCH_COUNT` and resolve those.
         let num_ads = self.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
