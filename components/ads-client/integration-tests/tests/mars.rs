@@ -292,3 +292,54 @@ fn test_contract_tile_ohttp_prod() {
         "OHTTP response should contain mock_tile_1"
     );
 }
+
+/// Sends the ads client's rotation-time `DELETE /v1/delete_user` through the
+/// production OHTTP relay and gateway and expects a 200. Built with viaduct
+/// directly because the MARS module is private. CI runs `--ignored`, so it only
+/// writes to production when `ADS_CLIENT_PROD_DELETE_USER_CONTRACT` is set.
+#[test]
+#[ignore = "writes to production MARS: run manually with ADS_CLIENT_PROD_DELETE_USER_CONTRACT=1 -- --ignored --nocapture"]
+fn test_contract_delete_user_ohttp_prod() {
+    if std::env::var_os("ADS_CLIENT_PROD_DELETE_USER_CONTRACT").is_none() {
+        eprintln!(
+            "skipping: set ADS_CLIENT_PROD_DELETE_USER_CONTRACT=1 to send a DELETE to production"
+        );
+        return;
+    }
+    init_backend();
+    viaduct::ohttp::configure_ohttp_channel(
+        "ads-client".to_string(),
+        viaduct::ohttp::OhttpConfig {
+            gateway_host: "prod.ohttp-gateway.prod.webservices.mozgcp.net".to_string(),
+            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
+        },
+    )
+    .expect("OHTTP channel configuration should succeed");
+
+    let settings = viaduct::ClientSettings {
+        timeout: 5_000,
+        ..viaduct::ClientSettings::default()
+    };
+    let client = viaduct::Client::with_ohttp_channel("ads-client", settings)
+        .expect("ads-client OHTTP channel should be configured");
+    let request = viaduct::Request::delete(
+        url::Url::parse("https://ads.mozilla.org/v1/delete_user").unwrap(),
+    )
+    .json(&serde_json::json!({
+        // Synthetic id never issued to a client, so this write touches no real data.
+        "context_id": "00000000-0000-4000-8000-0000000000ac"
+    }));
+
+    let response = client
+        .send_sync(request)
+        .expect("delete_user over OHTTP should get an HTTP response");
+    eprintln!(
+        "DELETE /v1/delete_user over OHTTP -> {} {}",
+        response.status,
+        response.text()
+    );
+    assert_eq!(
+        response.status, 200,
+        "delete_user over OHTTP should reach MARS and succeed"
+    );
+}
