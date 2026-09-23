@@ -16,7 +16,8 @@ use crate::shutdown::AdsStoreShutdown;
 use crate::shutdown::ShutdownReferences;
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
-use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use context_id::ContextIDComponent;
+use context_id_deletion::ContextIdDeletionQueue;
 use error::RequestAdsError;
 #[cfg(feature = "stateful")]
 use parking_lot::Mutex;
@@ -28,11 +29,20 @@ use url::Url;
 use uuid::Uuid;
 
 pub mod config;
+mod context_id_deletion;
 pub mod error;
 
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
+
+/// `ContextIDComponent` sends its own plaintext `DELETE /delete_user` on
+/// rotation unless `running_in_test_automation` is set. The ads client sends
+/// that deletion itself, over OHTTP when the ad request used it (see
+/// `ContextIdDeletionQueue`), so the component's request is always disabled.
+/// Firefox does the same for its JS-side component in
+/// `browser/modules/ContextId.sys.mjs`. See AC-179.
+const DISABLE_CONTEXT_ID_COMPONENT_DELETION: bool = true;
 
 pub struct AdsClient<T>
 where
@@ -42,6 +52,7 @@ where
     ads_store: Arc<Mutex<Option<AdsStore>>>,
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
+    context_id_deletion_queue: ContextIdDeletionQueue,
     telemetry: T,
 }
 
@@ -50,11 +61,12 @@ where
     T: Clone + Telemetry,
 {
     pub fn new(client_config: AdsClientConfig<T>) -> Self {
+        let context_id_deletion_queue = ContextIdDeletionQueue::default();
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
             0,
-            cfg!(test),
-            Box::new(DefaultContextIdCallback),
+            DISABLE_CONTEXT_ID_COMPONENT_DELETION,
+            Box::new(context_id_deletion_queue.clone()),
         );
 
         let telemetry = client_config.telemetry;
@@ -101,6 +113,7 @@ where
         Self {
             client,
             context_id_component,
+            context_id_deletion_queue,
             telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(ads_store)),
@@ -263,16 +276,33 @@ where
     {
         let context_id = self.get_context_id()?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(
-            context_id,
-            flags,
-            placements,
-            cache_policy,
-            ohttp,
-            blocks,
-        )?;
+        let result =
+            self.client
+                .fetch_ads::<A>(context_id, flags, placements, cache_policy, ohttp, blocks);
+        // Flush regardless of the outcome so a failed fetch never strands a
+        // retired id; the ad result is returned untouched.
+        self.flush_context_id_deletions(ohttp);
+        let (mut response, request_hash) = result?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
+    }
+
+    /// Sends the deletion request for every context id retired since the
+    /// last flush. Best-effort: failures are logged and the ids dropped, and
+    /// nothing is sent unless the triggering ad request used OHTTP, so a
+    /// retired id is never tied to the client IP in the clear.
+    fn flush_context_id_deletions(&self, ohttp: bool) {
+        for old_context_id in self.context_id_deletion_queue.take_all() {
+            if !ohttp {
+                error_support::info!(
+                    "Skipping context id deletion request: the ad request did not use OHTTP"
+                );
+                continue;
+            }
+            if let Err(e) = self.client.delete_user(&old_context_id, true) {
+                error_support::warn!("Context id deletion request failed: {e}");
+            }
+        }
     }
 
     pub fn shutdown_references(&self) -> ShutdownReferences<T> {
@@ -312,15 +342,26 @@ mod tests {
     fn new_with_mars_client(
         client: MARSClient<MozAdsTelemetryWrapper>,
     ) -> AdsClient<MozAdsTelemetryWrapper> {
+        new_with_mars_client_at(client, 0).0
+    }
+
+    /// Builds a client whose context id was created at `creation_timestamp_s`
+    /// (0 = now) and hands back the deletion queue shared with it.
+    fn new_with_mars_client_at(
+        client: MARSClient<MozAdsTelemetryWrapper>,
+        creation_timestamp_s: i64,
+    ) -> (AdsClient<MozAdsTelemetryWrapper>, ContextIdDeletionQueue) {
         let telemetry = client.get_telemetry();
-        AdsClient {
+        let context_id_deletion_queue = ContextIdDeletionQueue::default();
+        let ads_client = AdsClient {
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
+                creation_timestamp_s,
+                DISABLE_CONTEXT_ID_COMPONENT_DELETION,
+                Box::new(context_id_deletion_queue.clone()),
             ),
+            context_id_deletion_queue: context_id_deletion_queue.clone(),
             telemetry,
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(
@@ -328,7 +369,73 @@ mod tests {
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             ))),
-        }
+        };
+        (ads_client, context_id_deletion_queue)
+    }
+
+    fn thirty_days_ago_s() -> i64 {
+        (chrono::Utc::now() - chrono::Duration::days(30)).timestamp()
+    }
+
+    #[test]
+    fn test_rotation_with_plaintext_request_skips_delete() {
+        viaduct_dev::init_backend_dev();
+
+        let expected_response = get_example_happy_uatile_response();
+        let ads_mock = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .expect(1)
+            .create();
+        let delete_mock = mockito::mock("DELETE", "/delete_user").expect(0).create();
+
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let (ads_client, queue) = new_with_mars_client_at(mars_client, thirty_days_ago_s());
+
+        // The id is 30 days old, so the first request rotates it and the old
+        // id lands in the queue...
+        ads_client.get_context_id().unwrap();
+        assert!(!queue.is_empty());
+
+        // ...and a plaintext ad request flushes the queue WITHOUT sending
+        // the deletion in the clear.
+        let result = ads_client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            false,
+            Default::default(),
+        );
+        assert!(result.is_ok());
+        ads_mock.assert();
+        delete_mock.assert();
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn test_rotation_flush_runs_even_when_fetch_fails() {
+        viaduct_dev::init_backend_dev();
+
+        // OHTTP requested but no channel configured: the ad fetch fails, the
+        // queue is still drained, and nothing is sent in the clear.
+        let delete_mock = mockito::mock("DELETE", "/delete_user").expect(0).create();
+
+        let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let (ads_client, queue) = new_with_mars_client_at(mars_client, thirty_days_ago_s());
+        ads_client.get_context_id().unwrap();
+        assert!(!queue.is_empty());
+
+        let result = ads_client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            true,
+            Default::default(),
+        );
+        assert!(result.is_err());
+        delete_mock.assert();
+        assert!(queue.is_empty());
     }
 
     #[test]
