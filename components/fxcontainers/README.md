@@ -20,7 +20,7 @@ meaning stays outside:
 Tests are run with
 
 ```shell
-cargo test -p containers
+cargo test -p fxcontainers
 ```
 
 ## Bugs
