@@ -1,7 +1,7 @@
 use url::Url;
 
-use crate::{ads_store::PlacementId, mars::ReportReason, MozAdsIABContent};
-use std::collections::{HashMap, VecDeque};
+use crate::mars::{ad_request::AdPlacementRequest, ReportReason};
+use std::collections::VecDeque;
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
@@ -47,13 +47,6 @@ impl CommandQueue {
     }
 }
 
-// TODO: move this
-pub struct HttpRequestOptions {
-    pub blocks: Vec<String>,
-    pub flags: HashMap<String, bool>,
-    pub ohttp: bool,
-}
-
 // Queue-able command (ReportAd, etc.)
 #[derive(Debug, Clone, PartialEq)]
 pub enum QueuedCommand {
@@ -63,7 +56,7 @@ pub enum QueuedCommand {
 }
 
 // Command dispatch enum for passing different instructions to the background worker thread.
-// `RequestImageAds`, `RequestSpocAds`, `RequestTileAds` are prefetch mechanisms that query and load data into the local cache.
+// `RequestAds` are prefetch mechanisms that query and load data into the local cache.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DispatchCommand {
     RequestAds {
@@ -91,34 +84,26 @@ impl From<QueuedCommand> for DispatchCommand {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct AdPlacementRequest {
-    pub count: Option<u32>,
-    pub iab_content: Option<MozAdsIABContent>,
-    pub placement_id: PlacementId,
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ads_store::PlacementId,
-        command::{AdPlacementRequest, CommandQueue, DispatchCommand, MAXIMUM_ADS_BATCH_COUNT},
+    use crate::command::{
+        AdPlacementRequest, CommandQueue, DispatchCommand, MAXIMUM_ADS_BATCH_COUNT,
     };
 
     fn example_request_ads() -> AdPlacementRequest {
         AdPlacementRequest {
-            count: Some(4),
-            placement_id: PlacementId::new("test_placement"),
-            iab_content: None,
+            count: 4,
+            placement: "test_placement".to_string(),
+            content: None,
         }
     }
 
     fn example_request_ads_command() -> DispatchCommand {
         DispatchCommand::RequestAds {
             ad_requests: vec![AdPlacementRequest {
-                count: Some(4),
-                placement_id: PlacementId::new("test_placement"),
-                iab_content: None,
+                count: 4,
+                placement: "test_placement".to_string(),
+                content: None,
             }],
         }
     }

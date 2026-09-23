@@ -70,16 +70,6 @@ pub struct MozAdsPlacementRequestWithCount {
     pub placement_id: String,
 }
 
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacementRequestGeneric {
-    // This is passed as a count to MARS, but does not always apply. Currently, this only applies to spoc, in which case it defaults to `1`.
-    pub count: Option<u32>,
-    #[uniffi(default = None)]
-    pub iab_content: Option<MozAdsIABContent>,
-    pub placement_id: PlacementId,
-}
-
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsCallbacks {
     pub click: AdsClientUrl,

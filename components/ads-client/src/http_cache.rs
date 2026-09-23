@@ -30,7 +30,7 @@ use std::time::Duration;
 pub type HttpCacheSendResult =
     std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub enum CachePolicy {
     CacheFirst { ttl: Option<Duration> },
     NetworkFirst { ttl: Option<Duration> },

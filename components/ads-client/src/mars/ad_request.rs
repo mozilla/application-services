@@ -116,20 +116,20 @@ impl AdRequest {
 
 pub type AdRequestFlags = HashMap<String, bool>;
 
-#[derive(Debug, Hash, PartialEq, Serialize)]
+#[derive(Debug, Hash, PartialEq, Serialize, Clone)]
 pub struct AdPlacementRequest {
     pub content: Option<AdContentCategory>,
     pub count: u32,
     pub placement: String,
 }
 
-#[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Hash, PartialEq, Serialize, Clone)]
 pub struct AdContentCategory {
     pub categories: Vec<String>,
     pub taxonomy: IABContentTaxonomy,
 }
 
-#[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Hash, PartialEq, Serialize, Clone)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
