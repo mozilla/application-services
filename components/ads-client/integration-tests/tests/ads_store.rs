@@ -9,7 +9,7 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
     for test_db_location in test_db_locations {
         let test_db_location_path = Path::new(test_db_location);
 
-        // A small  sanity check to ensure the passed db test is a subfile of the current directory.
+        // A small sanity check to ensure the passed db test is a subfile of the current directory.
         if test_db_location_path.components().count() != 1 || !test_db_location_path.is_relative() {
             panic!("Tests provided to `clear_test_dbs` must single-component and in the current directory: {test_db_location}");
         }
@@ -31,7 +31,7 @@ fn test_bad_path_opens_memory_db() {
         .expect("Should be able to build a bad path");
     assert!(
         !good_path.is_memory(),
-        "A valid path should result in a file sqlite database"
+        "A valid path should result in a file-based sqlite database"
     );
 
     let bad_path = AdsStoreBuilder::new("this/is/a/test/bad/path")
@@ -39,7 +39,7 @@ fn test_bad_path_opens_memory_db() {
         .expect("Should be able to build a bad path");
     assert!(
         bad_path.is_memory(),
-        "Invalid path should result in a memory sqlite database"
+        "Invalid path should result in a memory-based sqlite database"
     );
 
     let empty_path = AdsStoreBuilder::new("").build(MozAdsTelemetryWrapper::noop());
