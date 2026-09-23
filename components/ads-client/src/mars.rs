@@ -5,6 +5,7 @@
 
 pub mod ad_request;
 pub mod ad_response;
+mod delete_user;
 pub mod environment;
 pub mod error;
 mod preflight;
@@ -19,8 +20,10 @@ use self::ad_response::Ads;
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
     ad_response::{AdResponse, AdResponseValue},
+    delete_user::DeleteUserRequest,
     error::{
-        CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError,
+        CallbackRequestError, DeleteUserError, FetchAdsError, RecordClickError,
+        RecordImpressionError, ReportAdError,
     },
     preflight::PreflightRequest,
     transport::MARSTransport,
@@ -34,6 +37,10 @@ use crate::{
 use std::collections::HashMap;
 use url::Url;
 use viaduct::{Headers, Request};
+
+/// Timeout for the context id deletion request. It is best-effort cleanup
+/// sent from inside an ad request, so it must not hold the caller for long.
+const DELETE_USER_TIMEOUT_MS: u32 = 5_000;
 
 pub struct MARSClient<T>
 where
@@ -64,6 +71,16 @@ where
     #[allow(dead_code)]
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         self.transport.shutdown_db()
+    }
+
+    /// Asks MARS to forget everything associated with `context_id`. Sent when
+    /// the embedded context id rotates; over OHTTP when `ohttp` is set.
+    pub fn delete_user(&self, context_id: &str, ohttp: bool) -> Result<(), DeleteUserError> {
+        let request = Request::delete(self.environment.clone().into_url("delete_user"))
+            .json(&DeleteUserRequest { context_id });
+        self.transport
+            .fire_with_timeout(request, ohttp, DELETE_USER_TIMEOUT_MS)
+            .map_err(Into::into)
     }
 
     #[cfg(feature = "stateful")]
@@ -424,6 +441,44 @@ mod tests {
 
         let result = client.record_impression(callback_url, false);
         assert!(result.is_ok());
+        m.assert();
+    }
+
+    #[test]
+    fn test_delete_user_sends_json_delete() {
+        viaduct_dev::init_backend_dev();
+        let m = mock("DELETE", "/delete_user")
+            .match_header("content-type", "application/json")
+            .match_body(mockito::Matcher::Json(
+                serde_json::json!({ "context_id": TEST_CONTEXT_ID }),
+            ))
+            .with_status(200)
+            .expect(1)
+            .create();
+
+        let client = make_test_client(None);
+        let result = client.delete_user(TEST_CONTEXT_ID, false);
+
+        assert!(result.is_ok(), "unexpected error: {result:?}");
+        m.assert();
+    }
+
+    #[test]
+    fn test_delete_user_without_ohttp_channel_fails_closed() {
+        viaduct_dev::init_backend_dev();
+        // OHTTP was requested but no channel is configured: the request must
+        // fail closed, never fall back to a plaintext DELETE.
+        let m = mock("DELETE", "/delete_user").expect(0).create();
+
+        let client = make_test_client(None);
+        let result = client.delete_user(TEST_CONTEXT_ID, true);
+
+        assert!(matches!(
+            result,
+            Err(DeleteUserError::Request(
+                viaduct::ViaductError::OhttpChannelNotConfigured(ref channel)
+            )) if channel == "ads-client"
+        ));
         m.assert();
     }
 }

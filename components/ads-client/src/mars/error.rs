@@ -30,6 +30,18 @@ pub enum CallbackRequestError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum DeleteUserError {
+    #[error("Could not delete user data, MARS responded with: {0}")]
+    HTTPError(#[from] HTTPError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("Error sending request: {0}")]
+    Request(#[from] viaduct::ViaductError),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum FetchAdsError {
     #[error("Error building ad request: {0}")]
     BuildRequest(#[from] BuildRequestError),
@@ -122,6 +134,16 @@ pub enum TransportError {
 }
 
 impl From<TransportError> for FetchAdsError {
+    fn from(err: TransportError) -> Self {
+        match err {
+            TransportError::Http(e) => Self::HTTPError(e),
+            TransportError::Json(e) => Self::Json(e),
+            TransportError::Request(e) => Self::Request(e),
+        }
+    }
+}
+
+impl From<TransportError> for DeleteUserError {
     fn from(err: TransportError) -> Self {
         match err {
             TransportError::Http(e) => Self::HTTPError(e),

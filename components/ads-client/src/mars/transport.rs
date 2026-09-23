@@ -44,7 +44,31 @@ impl<T: Telemetry> MARSTransport<T> {
     }
 
     pub fn fire(&self, request: Request, ohttp: bool) -> Result<(), TransportError> {
-        let client = Self::client_for(ohttp)?;
+        self.fire_with_settings(request, ohttp, ClientSettings::default())
+    }
+
+    /// Like `fire`, but with a request timeout in milliseconds instead of
+    /// viaduct's default.
+    pub fn fire_with_timeout(
+        &self,
+        request: Request,
+        ohttp: bool,
+        timeout_ms: u32,
+    ) -> Result<(), TransportError> {
+        let settings = ClientSettings {
+            timeout: timeout_ms,
+            ..ClientSettings::default()
+        };
+        self.fire_with_settings(request, ohttp, settings)
+    }
+
+    fn fire_with_settings(
+        &self,
+        request: Request,
+        ohttp: bool,
+        settings: ClientSettings,
+    ) -> Result<(), TransportError> {
+        let client = Self::client_for(ohttp, settings)?;
         let response = client.send_sync(request)?;
         HTTPError::check(&response)?;
         Ok(())
@@ -67,7 +91,7 @@ impl<T: Telemetry> MARSTransport<T> {
         policy: &CachePolicy,
         ohttp: bool,
     ) -> Result<Response, TransportError> {
-        let client = Self::client_for(ohttp)?;
+        let client = Self::client_for(ohttp, ClientSettings::default())?;
         if let Some(cache) = &self.http_cache {
             let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
             for outcome in &outcomes {
@@ -82,11 +106,11 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {
+    fn client_for(ohttp: bool, settings: ClientSettings) -> Result<Client, viaduct::ViaductError> {
         if ohttp {
-            Client::with_ohttp_channel(OHTTP_CHANNEL_ID, ClientSettings::default())
+            Client::with_ohttp_channel(OHTTP_CHANNEL_ID, settings)
         } else {
-            Ok(Client::new(ClientSettings::default()))
+            Ok(Client::new(settings))
         }
     }
 }
