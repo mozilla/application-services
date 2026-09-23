@@ -241,3 +241,64 @@ fn test_contract_tile_ohttp_prod() {
         "OHTTP response should contain mock_tile_1"
     );
 }
+
+/// Sends the context id deletion request the way `AdsClient` does after a
+/// rotation (viaduct OHTTP channel, `DELETE` with a JSON body) and reports
+/// how the production edge answers it. `ads_client` keeps its MARS module
+/// private, so the request is built here directly.
+///
+/// This is a write against production, so unlike the read-only contract
+/// tests above it does nothing unless `ADS_CLIENT_PROD_DELETE_USER_CONTRACT`
+/// is set. CI runs this crate with `--ignored` and must not send it.
+///
+/// 200 means the request reached MARS; 403 means the edge WAF rejected it.
+/// Both are acceptable answers for this contract (the point is that the
+/// outcome is known and nothing went out in the clear); anything else means
+/// the route or the OHTTP path is broken and must be looked at.
+#[test]
+#[ignore = "writes to production MARS: run manually with ADS_CLIENT_PROD_DELETE_USER_CONTRACT=1 -- --ignored --nocapture"]
+fn test_contract_delete_user_ohttp_prod() {
+    if std::env::var_os("ADS_CLIENT_PROD_DELETE_USER_CONTRACT").is_none() {
+        eprintln!(
+            "skipping: set ADS_CLIENT_PROD_DELETE_USER_CONTRACT=1 to send a DELETE to production"
+        );
+        return;
+    }
+    init_backend();
+    viaduct::ohttp::configure_ohttp_channel(
+        "ads-client".to_string(),
+        viaduct::ohttp::OhttpConfig {
+            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
+            gateway_host: "prod.ohttp-gateway.prod.webservices.mozgcp.net".to_string(),
+        },
+    )
+    .expect("OHTTP channel configuration should succeed");
+
+    let settings = viaduct::ClientSettings {
+        timeout: 5_000,
+        ..viaduct::ClientSettings::default()
+    };
+    let client = viaduct::Client::with_ohttp_channel("ads-client", settings)
+        .expect("ads-client OHTTP channel should be configured");
+    let request = viaduct::Request::delete(
+        url::Url::parse("https://ads.mozilla.org/v1/delete_user").unwrap(),
+    )
+    .json(&serde_json::json!({
+        // A fixed, never-issued id: MARS treats unknown ids as a no-op.
+        "context_id": "00000000-0000-4000-8000-0000000000ac"
+    }));
+
+    let response = client
+        .send_sync(request)
+        .expect("delete_user over OHTTP should get an HTTP response");
+    eprintln!(
+        "DELETE /v1/delete_user over OHTTP -> {} {}",
+        response.status,
+        response.text()
+    );
+    assert!(
+        matches!(response.status, 200 | 403),
+        "unexpected status {} for delete_user over OHTTP",
+        response.status
+    );
+}
