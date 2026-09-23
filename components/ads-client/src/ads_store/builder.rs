@@ -41,7 +41,7 @@ pub struct AdsStoreBuilder {
 }
 
 impl AdsStoreBuilder {
-    pub fn new<P: Into<PathBuf>>(db_path: P) -> Self {
+    pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
             max_size: None,
@@ -104,9 +104,8 @@ impl AdsStoreBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::ffi::telemetry::MozAdsTelemetryWrapper;
-
     use super::*;
+    use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
     fn make_test_builder(path: &str) -> AdsStoreBuilder {
         AdsStoreBuilder::new(path)
