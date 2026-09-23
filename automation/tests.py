@@ -117,6 +117,11 @@ def should_run_rust_tests(package, min_version):
     # trybuild output files pinned to the latest rust version.
     if min_version and package.name == "error-support-tests":
         return False
+    # megazords don't have any tests and they enable features only intended for the final build,
+    # like `error_support/glean-sym`.  Also, skip `swift_components_docs` since it brings in
+    # megazord_ios
+    if package.name.startswith("megazord") or package.name == "swift_components_docs":
+        return False
     return True
 
 
