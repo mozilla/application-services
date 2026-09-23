@@ -27,5 +27,5 @@ pub struct AdsCacheConfig {
 #[cfg(feature = "stateful")]
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
-    pub db_path: Option<String>,
+    pub db_path: String,
 }

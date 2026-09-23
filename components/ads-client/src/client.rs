@@ -85,16 +85,15 @@ where
         });
 
         #[cfg(feature = "stateful")]
-        let ads_store =
-            client_config
-                .store_config
-                .and_then(|x| match AdsStore::builder(x.db_path).build() {
-                    Ok(store) => Some(store),
-                    Err(e) => {
-                        telemetry.record(&e);
-                        None
-                    }
-                });
+        let ads_store = client_config.store_config.and_then(|x| {
+            match AdsStore::builder(x.db_path).build(telemetry.clone()) {
+                Ok(store) => Some(store),
+                Err(e) => {
+                    telemetry.record(&e);
+                    None
+                }
+            }
+        });
 
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
@@ -324,8 +323,8 @@ mod tests {
             telemetry,
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(
-                AdsStoreBuilder::new(Some("test_store.db"))
-                    .build()
+                AdsStoreBuilder::new("test_store.db")
+                    .build(MozAdsTelemetryWrapper::noop())
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             ))),
         }

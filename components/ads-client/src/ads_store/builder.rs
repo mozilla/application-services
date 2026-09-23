@@ -6,6 +6,7 @@ use super::connection_initializer::AdsStoreConnectionInitializer;
 use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
 use crate::common::bytesize::ByteSize;
+use crate::telemetry::Telemetry;
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
@@ -31,15 +32,20 @@ pub enum AdsStoreBuilderError {
 }
 
 pub struct AdsStoreBuilder {
-    db_path: Option<PathBuf>,
+    db_path: PathBuf,
     max_size: Option<ByteSize>,
+
+    // Flag for whether this db is built in-memory
+    // This is only set by an error in `open_connection`, not manually.
+    is_memory: bool,
 }
 
 impl AdsStoreBuilder {
-    pub fn new<P: Into<PathBuf>>(db_path: Option<P>) -> Self {
+    pub fn new<P: Into<PathBuf>>(db_path: P) -> Self {
         Self {
-            db_path: db_path.map(|x| x.into()),
+            db_path: db_path.into(),
             max_size: None,
+            is_memory: false,
         }
     }
 
@@ -48,21 +54,25 @@ impl AdsStoreBuilder {
         self
     }
 
-    fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
+    fn open_connection(
+        &mut self,
+        telemetry: impl Telemetry,
+    ) -> Result<Connection, AdsStoreBuilderError> {
         let initializer = AdsStoreConnectionInitializer {};
-        if let Some(db_path) = &self.db_path {
-            if !cfg!(test) {
-                return Ok(open_database::open_database(&db_path, &initializer)?);
+        if !cfg!(test) {
+            match open_database::open_database(&self.db_path, &initializer) {
+                Ok(conn) => return Ok(conn),
+                Err(e) => telemetry.record(&AdsStoreBuilderError::from(e)),
             }
         }
+
+        self.is_memory = true;
         Ok(open_database::open_memory_database(&initializer)?)
     }
 
     fn validate(&self) -> Result<(), AdsStoreBuilderError> {
-        if let Some(db_path) = &self.db_path {
-            if db_path.to_string_lossy().trim().is_empty() {
-                return Err(AdsStoreBuilderError::EmptyDbPath);
-            }
+        if self.db_path.to_string_lossy().trim().is_empty() {
+            return Err(AdsStoreBuilderError::EmptyDbPath);
         }
 
         if let Some(max_size) = self.max_size {
@@ -78,44 +88,50 @@ impl AdsStoreBuilder {
         Ok(())
     }
 
-    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
+    pub fn build(&mut self, telemetry: impl Telemetry) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 
-        let conn = self.open_connection()?;
+        let conn = self.open_connection(telemetry)?;
         let holder = AdsStoreHolder::new(conn);
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore { max_size, holder })
+        Ok(AdsStore {
+            max_size,
+            holder,
+            is_memory: self.is_memory,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+
     use super::*;
 
     fn make_test_builder(path: &str) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(Some(path))
+        AdsStoreBuilder::new(path)
     }
 
     #[test]
     fn test_store_builder_with_defaults() {
-        let builder = make_test_builder("test.db");
-        assert_eq!(builder.db_path, Some(PathBuf::from("test.db")));
+        let mut builder = make_test_builder("test.db");
+        assert_eq!(builder.db_path, PathBuf::from("test.db"));
         assert_eq!(builder.max_size, None);
-        assert!(builder.build().is_ok());
+        assert!(builder.build(MozAdsTelemetryWrapper::noop()).is_ok());
     }
 
     #[test]
     fn test_cache_builder_valid_custom() {
-        let builder = make_test_builder("custom.db").max_size(ByteSize::b(1024));
+        let mut builder = make_test_builder("custom.db").max_size(ByteSize::b(1024));
 
-        assert_eq!(builder.db_path, Some(PathBuf::from("custom.db")));
+        assert_eq!(builder.db_path, PathBuf::from("custom.db"));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
-        assert!(builder.build().is_ok());
+        assert!(builder.build(MozAdsTelemetryWrapper::noop()).is_ok());
     }
 
     #[test]
     fn test_validation_empty_db_path() {
-        let result = make_test_builder("   ").build();
+        let result = make_test_builder("   ").build(MozAdsTelemetryWrapper::noop());
         assert!(matches!(result, Err(AdsStoreBuilderError::EmptyDbPath)));
     }
 
@@ -123,7 +139,7 @@ mod tests {
     fn test_validation_max_size_too_small() {
         let result = make_test_builder("test.db")
             .max_size(ByteSize::b(512))
-            .build();
+            .build(MozAdsTelemetryWrapper::noop());
         assert!(matches!(
             result,
             Err(AdsStoreBuilderError::InvalidMaxSize {
@@ -138,7 +154,7 @@ mod tests {
     fn test_validation_max_size_too_large() {
         let result = make_test_builder("test.db")
             .max_size(ByteSize::b(2 * 1024 * 1024 * 1024))
-            .build();
+            .build(MozAdsTelemetryWrapper::noop());
         assert!(matches!(
             result,
             Err(AdsStoreBuilderError::InvalidMaxSize {
@@ -151,10 +167,10 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_boundaries() {
-        let builder_min = make_test_builder("test.db").max_size(MIN_STORE_SIZE);
-        assert!(builder_min.build().is_ok());
+        let mut builder_min = make_test_builder("test.db").max_size(MIN_STORE_SIZE);
+        assert!(builder_min.build(MozAdsTelemetryWrapper::noop()).is_ok());
 
-        let builder_max = make_test_builder("test.db").max_size(MAX_STORE_SIZE);
-        assert!(builder_max.build().is_ok());
+        let mut builder_max = make_test_builder("test.db").max_size(MAX_STORE_SIZE);
+        assert!(builder_max.build(MozAdsTelemetryWrapper::noop()).is_ok());
     }
 }

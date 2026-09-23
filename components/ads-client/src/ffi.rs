@@ -171,7 +171,7 @@ pub struct MozAdsCacheConfig {
 
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
-    pub db_path: Option<String>,
+    pub db_path: String,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
