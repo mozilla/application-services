@@ -1,14 +1,17 @@
 use url::Url;
 
-use crate::mars::{ad_request::AdPlacementRequest, ReportReason};
-use std::collections::VecDeque;
+use crate::{
+    ads_store::PlacementId,
+    mars::{ad_request::AdPlacementRequest, ReportReason},
+};
+use std::collections::{HashMap, VecDeque};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
 // Structure for storing and queuing and storing `DispatchRequest`s sent to background worker.
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 pub struct RequestQueue {
-    queued_ads: Vec<AdPlacementRequest>,
+    queued_ads: HashMap<PlacementId, AdPlacementRequest>,
 
     // The ordered queue of non-AdPlacementRequest commands to iterate through.
     request_queue: VecDeque<QueuedRequest>,
@@ -17,12 +20,14 @@ pub struct RequestQueue {
 impl RequestQueue {
     pub fn new() -> RequestQueue {
         RequestQueue {
-            queued_ads: Vec::new(),
+            queued_ads: HashMap::new(),
             request_queue: VecDeque::new(),
         }
     }
+
     pub fn push_ad_request(&mut self, ad_request: AdPlacementRequest) {
-        self.queued_ads.push(ad_request);
+        self.queued_ads
+            .insert(ad_request.placement.clone().into(), ad_request);
     }
 
     pub fn push_queued_request(&mut self, queued_command: QueuedRequest) {
@@ -34,9 +39,13 @@ impl RequestQueue {
     pub fn next(&mut self) -> Option<DispatchRequest> {
         // First, if any ad requests are queued, batch the first `MAXIMUM_ADS_BATCH_COUNT` and resolve those.
         let num_ads = self.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
-        let ad_requests: Vec<_> = self.queued_ads.drain(..num_ads).collect();
+        let mut ad_requests: Vec<_> = self.queued_ads.drain().collect();
         if ad_requests.len() > 0 {
-            return Some(DispatchRequest::RequestAds { ad_requests });
+            let requeue_requests = ad_requests.split_off(num_ads);
+            self.queued_ads = requeue_requests.into_iter().collect();
+            return Some(DispatchRequest::RequestAds {
+                ad_requests: ad_requests.into_iter().map(|(_, v)| v).collect(),
+            });
         }
 
         // Otherwise, pop the next queue-able command.
@@ -45,7 +54,7 @@ impl RequestQueue {
 
     pub fn clear(&mut self) {
         self.request_queue = VecDeque::new();
-        self.queued_ads = Vec::new();
+        self.queued_ads = HashMap::new();
     }
 }
 
@@ -92,104 +101,100 @@ mod tests {
         AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT,
     };
 
-    fn example_request_ads() -> AdPlacementRequest {
-        AdPlacementRequest {
-            count: 4,
-            placement: "test_placement".to_string(),
-            content: None,
-        }
-    }
-
-    fn example_request_ads_command() -> DispatchRequest {
-        DispatchRequest::RequestAds {
-            ad_requests: vec![AdPlacementRequest {
-                count: 4,
-                placement: "test_placement".to_string(),
-                content: None,
-            }],
-        }
-    }
-
-    #[test]
-    fn identical_command_comes_out() {
-        let request = example_request_ads();
-        let command = example_request_ads_command();
-        let mut queue = RequestQueue::new();
-
-        queue.push_ad_request(request.clone());
-        let retrieved_command = queue.next().expect("Request should exist in queue");
-        assert_eq!(command, retrieved_command);
-    }
-
-    #[test]
-    fn batch_similar_requests() {
-        let request = example_request_ads();
-        let mut command = example_request_ads_command();
-        let mut queue = RequestQueue::new();
-
-        queue.push_ad_request(request.clone());
-        queue.push_ad_request(request.clone());
-
-        let retrieved_command = queue.next().expect("Request should exist in queue");
-        assert!(queue.next().is_none());
-        assert!(queue.queued_ads.is_empty());
-        assert!(queue.request_queue.is_empty());
-
-        // Modify `command` so it has more than one request inside.
+    fn extract_request_ads(req: &mut DispatchRequest) -> Option<&mut Vec<AdPlacementRequest>> {
         #[allow(irrefutable_let_patterns)]
         if let DispatchRequest::RequestAds {
             ref mut ad_requests,
             ..
-        } = command
+        } = req
         {
-            ad_requests.push(ad_requests[0].clone());
+            Some(ad_requests)
         } else {
-            panic!("Example DispatchRequest should be RequestAds variant");
-        };
-        assert_eq!(command, retrieved_command);
+            None
+        }
+    }
+
+    fn example_request_ads(identifier: usize) -> AdPlacementRequest {
+        AdPlacementRequest {
+            count: 4,
+            placement: format!("test_placement_{identifier}"),
+            content: None,
+        }
+    }
+
+    fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
+        let mut ad_requests = vec![];
+        for id in identifiers {
+            ad_requests.push(AdPlacementRequest {
+                count: 4,
+                placement: format!("test_placement_{id}"),
+                content: None,
+            });
+        }
+        DispatchRequest::RequestAds { ad_requests }
+    }
+
+    #[test]
+    fn identical_command_comes_out() {
+        let request = example_request_ads(0);
+        let command = example_request_ads_dispatch(&[0]);
+        let mut queue = RequestQueue::new();
+
+        queue.push_ad_request(request.clone());
+        let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+        assert_eq!(command, retrieved_dispatch);
+    }
+
+    #[test]
+    fn batch_similar_requests() {
+        let request_0 = example_request_ads(0);
+        let request_1 = example_request_ads(1);
+        let dispatch = example_request_ads_dispatch(&[0, 1]);
+        let mut queue = RequestQueue::new();
+
+        // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
+        queue.push_ad_request(request_0.clone());
+        queue.push_ad_request(request_0.clone());
+        queue.push_ad_request(request_1.clone());
+
+        let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+        assert!(queue.next().is_none());
+        assert!(queue.queued_ads.is_empty());
+        assert!(queue.request_queue.is_empty());
+
+        assert_eq!(dispatch, retrieved_dispatch);
     }
 
     #[test]
     fn split_off_too_many_ads() {
-        let request = example_request_ads();
-        let command = example_request_ads_command();
         let mut queue = RequestQueue::new();
 
         // Queue enough of this command to go one-over the limit.
-        for _ in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
+        for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
+            let request = example_request_ads(i);
             queue.push_ad_request(request.clone());
         }
 
-        let retrieved_command = queue.next().expect("First command should exist in queue");
-        let retrieved_command_overflow =
+        let mut retrieved_dispatch_many =
+            queue.next().expect("First command should exist in queue");
+        let mut retrieved_dispatch_overflow =
             queue.next().expect("Second command should exist in queue");
 
         assert!(queue.next().is_none());
         assert!(queue.queued_ads.is_empty());
         assert!(queue.request_queue.is_empty());
 
-        assert_eq!(command, retrieved_command_overflow);
-
+        // We do not check for a precise match with sample data, because HashMap<..>s are unsorted. It is also irrelevant to the MARS request.
+        // (So for example, if we have 101 requests, and a batch size of 100, the one excluded may be placement 1, placement 37, etc.)
+        // Here, we specifically only check for the number of requests provided.
         // Retrieved command should have `MAXIMUM_ADS_BATCH_COUNT` requests.
-        #[allow(irrefutable_let_patterns)]
-        if let DispatchRequest::RequestAds {
-            ref ad_requests, ..
-        } = retrieved_command
-        {
-            assert_eq!(ad_requests.len(), MAXIMUM_ADS_BATCH_COUNT)
-        } else {
-            panic!("Example DispatchRequest should be RequestAds variant");
-        };
+        let retrieved_dispatch_many_ads = extract_request_ads(&mut retrieved_dispatch_many)
+            .expect("Example DispatchRequest should be RequestAds variant");
+        assert_eq!(retrieved_dispatch_many_ads.len(), MAXIMUM_ADS_BATCH_COUNT);
 
         // Retrieved overflow should have 1 request, matching the original command.
-        #[allow(irrefutable_let_patterns)]
-        if let DispatchRequest::RequestAds {
-            ref ad_requests, ..
-        } = retrieved_command_overflow
-        {
-            assert_eq!(ad_requests.len(), 1)
-        } else {
-            panic!("Example DispatchRequest should be RequestAds variant");
-        };
+        let retrieved_dispatch_overflow_ads = extract_request_ads(&mut retrieved_dispatch_overflow)
+            .expect("Example DispatchRequest should be RequestAds variant");
+        assert_eq!(retrieved_dispatch_overflow_ads.len(), 1);
     }
 }
