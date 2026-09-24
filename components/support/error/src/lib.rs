@@ -174,9 +174,4 @@ macro_rules! define_error {
     };
 }
 
-#[cfg(feature = "glean-sym")]
-pub mod glean_metrics {
-    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
-}
-
 uniffi::setup_scaffolding!("errorsupport");
