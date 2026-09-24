@@ -40,10 +40,9 @@ uniffi::custom_type!(AdsClientUrl, String, {
     lower: |obj| obj.as_str().to_string(),
 });
 
-pub type MozAdsClientInner = AdsClient<MozAdsTelemetryWrapper>;
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: AdsClient<MozAdsTelemetryWrapper>,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
 }
 

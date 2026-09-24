@@ -88,7 +88,7 @@ mod tests {
         }
     }
 
-    // Shutdown procedure must not require any locks to be held on the inner MARS adsclient.
+    // Shutdown procedure must not require any locks to be held on the inner MARS client (but may need to require locks on some things by necessity).
     // This is because sync functions like `request_tile_ads` require (at worst) to wait on a hanging non-cancellable network request to resolve,
     // and they hold the lock for the entirety of that time. Shutdown should only require the minimal amount of waiting/locking possible.
     #[test]
