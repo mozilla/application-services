@@ -30,6 +30,8 @@ pub struct SyncParams {
     // Information about the current device, such as its name, formfactor and
     // FxA device ID.
     pub device_settings: DeviceSettings,
+    // 
+    pub per_device_sync_enabled: Option<bool>,
 }
 
 #[derive(Debug)]

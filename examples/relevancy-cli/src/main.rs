@@ -89,6 +89,7 @@ fn sync_places(places_api: &Arc<PlacesApi>) -> Result<()> {
         &sync.key_bundle,
         &NeverInterrupts,
         None,
+        false,
     );
 
     if result.engine_results.len() != 1 {

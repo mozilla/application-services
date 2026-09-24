@@ -44,6 +44,8 @@ dictionary SyncParams {
     /// Information about the current device, such as its name, formfactor and
     /// FxA device ID.
     DeviceSettings device_settings;
+    /// Indicates whether per-device sync is enabled
+    boolean? per_device_sync_enabled;
 };
 
 [Enum]

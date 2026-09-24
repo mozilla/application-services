@@ -98,6 +98,7 @@ pub fn sync_multiple(
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
+    per_device_sync_enabled: bool,
 ) -> SyncResult {
     sync_multiple_with_command_processor(
         None,
@@ -108,6 +109,7 @@ pub fn sync_multiple(
         root_sync_key,
         interruptee,
         req_info,
+        per_device_sync_enabled,
     )
 }
 
@@ -124,6 +126,7 @@ pub fn sync_multiple_with_command_processor(
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
+    per_device_sync_enabled: bool,
 ) -> SyncResult {
     info!("Syncing {} engines", engines.len());
     let mut sync_result = SyncResult {
@@ -150,7 +153,7 @@ pub fn sync_multiple_with_command_processor(
         saw_auth_error: false,
         ignore_soft_backoff: req_info.is_user_action,
     };
-    match driver.sync() {
+    match driver.sync(per_device_sync_enabled) {
         Ok(()) => {
             debug!(
                 "sync was successful, final status={:?}",
@@ -200,7 +203,7 @@ struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
 impl SyncMultipleDriver<'_, '_, '_, '_> {
     /// The actual worker for sync_multiple.
-    fn sync(mut self) -> result::Result<(), Error> {
+    fn sync(mut self, per_device_sync_enabled: bool) -> result::Result<(), Error> {
         info!("Loading/initializing persisted state");
         let mut pgs = self.prepare_persisted_state();
 
@@ -214,7 +217,7 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
         info!("Entering sync state machine");
         // Advance the state machine to the point where it can perform a full
         // sync. This may involve uploading meta/global, crypto/keys etc.
-        let mut global_state = self.run_state_machine(&client_info, &mut pgs)?;
+        let mut global_state = self.run_state_machine(&client_info, &mut pgs, per_device_sync_enabled)?;
 
         if self.was_interrupted() {
             return Ok(());
@@ -352,6 +355,7 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
         &mut self,
         client_info: &ClientInfo,
         pgs: &mut PersistedGlobalState,
+        per_device_sync_enabled: bool,
     ) -> result::Result<GlobalState, Error> {
         let last_state = self.mem_cached_state.last_global_state.take();
 
@@ -380,7 +384,7 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
             self.result.declined,
         );
 
-        if let Some(c) = changes {
+        if per_device_sync_enabled && let Some(c) = changes {
             self.wipe_or_reset_engines(c, &client_info.client)?;
         }
         let state = match res {

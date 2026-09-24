@@ -127,6 +127,7 @@ impl SyncManager {
         let interruptee = interrupt_support::ShutdownInterruptee;
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
+        let per_device_sync_enabled = params.per_device_sync_enabled.unwrap_or(false);
 
         // tell engines about the local encryption key.
         for engine in engines.iter_mut() {
@@ -166,6 +167,7 @@ impl SyncManager {
                 engines_to_state_change: engines_to_change,
                 is_user_action: matches!(params.reason, SyncReason::User),
             }),
+            per_device_sync_enabled,
         );
         *state = Some(mem_cached_state);
 
@@ -344,6 +346,7 @@ mod test {
                 name: "Test Device".to_string(),
                 kind: sync15::DeviceType::Mobile,
             },
+            per_device_sync_enabled: Some(false),
         }
     }
 
