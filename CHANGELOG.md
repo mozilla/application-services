@@ -1,6 +1,10 @@
-# v158.0 (In progress)
+# v159.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v158.0 (_2026-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v158.0)
 
 ### Ads-Client
 
