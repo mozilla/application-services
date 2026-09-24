@@ -4,7 +4,7 @@ use crate::{
     ads_store::PlacementId,
     mars::{ad_request::AdPlacementRequest, ReportReason},
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
@@ -71,7 +71,7 @@ pub enum QueuedRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DispatchRequest {
     RequestAds {
-        ad_requests: Vec<AdPlacementRequest>,
+        ad_requests: HashSet<AdPlacementRequest>,
     },
     RecordClick {
         url: Url,
@@ -97,11 +97,13 @@ impl From<QueuedRequest> for DispatchRequest {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::request::{
         AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT,
     };
 
-    fn extract_request_ads(req: &mut DispatchRequest) -> Option<&mut Vec<AdPlacementRequest>> {
+    fn extract_request_ads(req: &mut DispatchRequest) -> Option<&mut HashSet<AdPlacementRequest>> {
         #[allow(irrefutable_let_patterns)]
         if let DispatchRequest::RequestAds {
             ref mut ad_requests,
@@ -123,9 +125,9 @@ mod tests {
     }
 
     fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
-        let mut ad_requests = vec![];
+        let mut ad_requests = HashSet::new();
         for id in identifiers {
-            ad_requests.push(AdPlacementRequest {
+            ad_requests.insert(AdPlacementRequest {
                 count: 4,
                 placement: format!("test_placement_{id}"),
                 content: None,
@@ -184,7 +186,8 @@ mod tests {
         assert!(queue.queued_ads.is_empty());
         assert!(queue.request_queue.is_empty());
 
-        // We do not check for a precise match with sample data, because HashMap<..>s are unsorted. It is also irrelevant to the MARS request.
+        // We do not check for a precise match with sample data here, because HashMap<..>s are unsorted, so which placement gets pushed to the next one is random.
+        // It is also irrelevant to the MARS request.
         // (So for example, if we have 101 requests, and a batch size of 100, the one excluded may be placement 1, placement 37, etc.)
         // Here, we specifically only check for the number of requests provided.
         // Retrieved command should have `MAXIMUM_ADS_BATCH_COUNT` requests.
