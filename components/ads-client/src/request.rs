@@ -89,7 +89,7 @@ impl From<QueuedRequest> for DispatchRequest {
 #[cfg(test)]
 mod tests {
     use crate::request::{
-        AdPlacementRequest, RequestQueue, DispatchRequest, MAXIMUM_ADS_BATCH_COUNT,
+        AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT,
     };
 
     fn example_request_ads() -> AdPlacementRequest {
