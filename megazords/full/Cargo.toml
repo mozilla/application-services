@@ -45,5 +45,12 @@ uniffi = { version = "0.32" }
 rc_crypto = { path = "../../components/support/rc_crypto" }
 db-crypto = { path = "../../components/support/db-crypto" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# Only activate glean-sym when we're building for Android
+#
+# Other targets are used for unit tests where we don't have access to libxul.
+# Metrics reporting will fail with a linker error.
+glean-sym = { version = "70", features = ["active"] }
+
 [features]
 mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]
