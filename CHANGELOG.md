@@ -10,6 +10,10 @@
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
 
+### Logins
+
+- Add `LoginStore::list_candidates_by_origin(origins, domains)`, a narrower `list_candidates()` returning only the logins whose origin is one of `origins`, or whose host is one of `domains` or a subdomain of one. Consumers with their own origin matching rules can use it as a pre-filter instead of reading every login; the caller works out the base domains, since this component has no copy of the Public Suffix List. ([bug 2069438](https://bugzilla.mozilla.org/show_bug.cgi?id=2069438))
+
 ### Nimbus
 
 - `nimbus-cli`'s `start-server` now runs on `axum` 0.8 (and so `hyper` 1.x) instead of `axum` 0.6 / `hyper` 0.14, which removes the `h2` 0.3 flagged by RUSTSEC-2026-0258 from its own dependencies. No change to the server's behaviour or its URLs. ([bug 2071060](https://bugzilla.mozilla.org/show_bug.cgi?id=2071060))

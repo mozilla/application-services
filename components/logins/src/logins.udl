@@ -288,6 +288,14 @@ interface LoginStore {
     [Throws=LoginsApiError]
     sequence<LoginCandidate> list_candidates();
 
+    /// Like `list_candidates()`, but only the logins whose origin is one of `origins`, or whose
+    /// host is one of `domains` or a subdomain of one. Meant as a pre-filter for consumers with
+    /// their own origin matching: the result is a superset of what they match, as long as
+    /// `domains` holds the base domain (eTLD+1, which the caller computes) of every host they
+    /// accept subdomains of.
+    [Throws=LoginsApiError]
+    sequence<LoginCandidate> list_candidates_by_origin(sequence<string> origins, sequence<string> domains);
+
     [Throws=LoginsApiError]
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
