@@ -5,7 +5,6 @@
 
 pub mod error;
 pub mod telemetry;
-
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};

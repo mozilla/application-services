@@ -30,10 +30,22 @@ impl AsRef<str> for PlacementId {
     }
 }
 
+impl From<String> for PlacementId {
+    fn from(value: String) -> Self {
+        PlacementId(value)
+    }
+}
+
+impl From<PlacementId> for String {
+    fn from(value: PlacementId) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StorableAd {
     Image(AdImage),
-    Spoc(AdSpoc),
+    Spoc(Vec<AdSpoc>),
     Tile(AdTile),
 }
 

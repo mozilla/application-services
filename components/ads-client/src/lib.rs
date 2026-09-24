@@ -21,6 +21,8 @@ pub mod common;
 mod ffi;
 pub mod http_cache;
 mod mars;
+#[cfg(feature = "stateful")]
+pub mod request;
 pub mod shutdown;
 pub mod telemetry;
 
