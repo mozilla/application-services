@@ -68,6 +68,7 @@ mod tests {
     use super::*;
     use crate::mars::ad_response::{AdCallbacks, AdImage};
     use url::Url;
+    use url_macro::url;
 
     #[test]
     fn test_ads_store_creation() {
@@ -82,8 +83,8 @@ mod tests {
 
         let base_url = mockito::server_url();
         let ad = StorableAd::Image(AdImage {
-            url: "https://ads.fakeexample.org/example_ad_1".to_string(),
-            image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+            url: url!("https://ads.fakeexample.org/example_ad_1"),
+            image_url: url!("https://ads.fakeexample.org/example_image_1"),
             format: "billboard".to_string(),
             block_key: "abc123".into(),
             alt_text: Some("An ad for a puppy".to_string()),
@@ -114,8 +115,8 @@ mod tests {
 
         let base_url = mockito::server_url();
         let ad = StorableAd::Image(AdImage {
-            url: "https://ads.fakeexample.org/example_ad_1".to_string(),
-            image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+            url: url!("https://ads.fakeexample.org/example_ad_1"),
+            image_url: url!("https://ads.fakeexample.org/example_image_1"),
             format: "billboard".to_string(),
             block_key: "abc123".into(),
             alt_text: Some("An ad for a puppy".to_string()),

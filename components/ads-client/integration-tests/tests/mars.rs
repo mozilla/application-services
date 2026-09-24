@@ -73,8 +73,8 @@ fn test_contract_image_with_categories_prod() {
     let ad = placements
         .get("mock_billboard_1")
         .expect("mock_billboard_1 should be present in the response");
-    assert!(!ad.url.is_empty(), "destination url should be populated");
-    assert!(!ad.image_url.is_empty(), "image url should be populated");
+    assert!(ad.url.has_host(), "destination url should be populated");
+    assert!(ad.image_url.has_host(), "image url should be populated");
 }
 
 #[test]
