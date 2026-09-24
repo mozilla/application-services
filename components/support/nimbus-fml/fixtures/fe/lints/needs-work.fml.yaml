@@ -1,0 +1,61 @@
+---
+# Trips as many lints as fit into one file.
+about:
+  description: Fixture for the lint tests.
+channels:
+  - release
+features:
+  myBadFeature:
+    description: Bad
+    variables:
+      hide-toolbar:
+        description: TODO
+        type: Boolean
+        default: false
+      myBadFeature-mode:
+        description: Which of the layouts the feature uses.
+        type: String
+        default: compact
+      section-list:
+        description: The sections shown to the user, in the order they appear.
+        type: List<String>
+        default: []
+      deep:
+        description: A value that has to be written out four levels deep.
+        type: Outer
+        default: {}
+objects:
+  Outer:
+    description: The outermost object.
+    fields:
+      middle:
+        description: The object in the middle.
+        type: Middle
+        default: {}
+  Middle:
+    description: The object in the middle.
+    fields:
+      inner:
+        description: The innermost object.
+        type: Inner
+        default: {}
+  Inner:
+    description: The innermost object.
+    fields:
+      label:
+        description: The label shown to the user.
+        type: String
+        default: ""
+  unusedObject:
+    description: An object that no feature refers to.
+    fields:
+      label:
+        description: The label shown to the user.
+        type: String
+        default: ""
+enums:
+  OnlyOne:
+    description: An enum that doesn't offer a choice.
+    variants:
+      onlyVariant:
+        description: The only variant there is.

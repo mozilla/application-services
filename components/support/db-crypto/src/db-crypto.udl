@@ -1,0 +1,81 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace db_crypto {
+    /// We expose the crypto primitives on the namespace
+
+    /// Create a new, random, encryption key.
+    [Throws=DbCryptoApiError]
+    string create_key();
+
+    /// Create a "canary" string, which can be used to test if the encryption
+    //key is still valid for the logins data
+    [Throws=DbCryptoApiError]
+    string create_canary([ByRef]string text, [ByRef]string encryption_key);
+
+    /// Check that key is still valid using the output of `create_canary`.
+    //`text` much match the text you initially passed to `create_canary()`
+    [Throws=DbCryptoApiError]
+    boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
+};
+
+/// These are the errors returned by our public API.
+[Error]
+interface DbCryptoApiError {
+    /// NSS not initialized.
+    NSSUninitialized();
+
+    /// NSS error during authentication
+    NSSAuthenticationError(string reason);
+
+    /// error during authentication (in PrimaryPasswordAuthenticator)
+    AuthenticationError(string reason);
+
+    /// authentication has been cancelled.
+    AuthenticationCanceled();
+
+    /// Encryption key is missing.
+    MissingKey();
+
+    /// Encryption key is not valid.
+    InvalidKey();
+
+    /// encryption failed
+    EncryptionFailed(string reason);
+
+    /// decryption failed
+    DecryptionFailed(string reason);
+
+    /// An operation was interrupted at the request of the consuming app.
+    Interrupted(string reason);
+
+    /// something internal went wrong which doesn't have a public error value
+    /// because the consuming app can not reasonably take any action to resolve it.
+    /// The underlying error will have been logged and reported.
+    /// (ideally would just be `Unexpected`, but that would be a breaking change)
+    UnexpectedDbCryptoApiError(string reason);
+};
+
+[Trait, WithForeign]
+interface EncryptorDecryptor {
+    [Throws=DbCryptoApiError]
+    bytes encrypt(bytes cleartext);
+
+    [Throws=DbCryptoApiError]
+    bytes decrypt(bytes ciphertext);
+};
+
+[Trait, WithForeign]
+interface KeyManager {
+    [Throws=DbCryptoApiError]
+    bytes get_key();
+};
+
+interface StaticKeyManager {
+    constructor(string key);
+};
+
+interface ManagedEncryptorDecryptor {
+    constructor(KeyManager key_manager);
+};

@@ -5,7 +5,6 @@
 
 pub mod error;
 pub mod telemetry;
-
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
@@ -245,8 +244,8 @@ pub struct MozAdsImage {
     pub block_key: String,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
-    pub image_url: String,
-    pub url: String,
+    pub image_url: AdsClientUrl,
+    pub url: AdsClientUrl,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -257,12 +256,12 @@ pub struct MozAdsSpoc {
     pub domain: String,
     pub excerpt: String,
     pub format: String,
-    pub image_url: String,
+    pub image_url: AdsClientUrl,
     pub ranking: MozAdsSpocRanking,
     pub sponsor: String,
     pub sponsored_by_override: Option<String>,
     pub title: String,
-    pub url: String,
+    pub url: AdsClientUrl,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -283,9 +282,9 @@ pub struct MozAdsTile {
     pub block_key: String,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
-    pub image_url: String,
+    pub image_url: AdsClientUrl,
     pub name: String,
-    pub url: String,
+    pub url: AdsClientUrl,
 }
 
 impl From<AdCallbacks> for MozAdsCallbacks {

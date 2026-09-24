@@ -1,13 +1,23 @@
-# v158.0 (In progress)
+# v159.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v158.0 (_2026-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v158.0)
 
 ### Ads-Client
 
 - Removed the `MozAdsContextIdProvider` callback interface and the `context_id_provider()` builder method. Wiring it up from Firefox Desktop crashed off the main thread ([Bug 2062806](https://bugzilla.mozilla.org/show_bug.cgi?id=2062806)) and nothing else used it, so the ads client now always uses its embedded `ContextIDComponent`. ([AC-99](https://mozilla-hub.atlassian.net/browse/AC-99))
+- Fixed a panic on the OHTTP request path when the MARS `/v1/ads-preflight` response carries a non-ASCII or CRLF geo location or user agent. The request now fails instead. No binding API change.
+- `url` and `image_url` on the image, spoc and tile ad types are now parsed URLs rather than strings. A malformed URL in a MARS response now fails the request instead of being passed through to the caller. The binding types are unchanged.
 
 ### Glean
 - Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
+
+### Nimbus
+
+- `nimbus-cli`'s `start-server` now runs on `axum` 0.8 (and so `hyper` 1.x) instead of `axum` 0.6 / `hyper` 0.14, which removes the `h2` 0.3 flagged by RUSTSEC-2026-0258 from its own dependencies. No change to the server's behaviour or its URLs. ([bug 2071060](https://bugzilla.mozilla.org/show_bug.cgi?id=2071060))
 
 # v157.0 (_2026-09-10_)
 
@@ -21,10 +31,16 @@
 ### Logins
 
 - Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter or leave the store: on the metadata an application supplies to `add_with_meta()`, on every read out of the local database, and on incoming sync payloads, similar to what Desktop does. ([bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257))
+- Refactor the database encryption support into a new support crate `db-crypto`, which provides all the same functions and traits as were previously available in `logins::encryption` module. However, this leads to two breaking changes: the functionality has been moved into a new `db_crypto` UniFFI namespace, and the error type has changed from `LoginsApiError` to `DbCryptoApiError`. ([#7542](https://github.com/mozilla/application-services/pull/7542))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v156.0...v157.0)
 
 ## ✨ What's Changed ✨
+
+### Containers
+
+- Created a new component, `fxcontainers`, holding the list of Firefox containers and the format they are stored in.
+- The component also stores the containers an enterprise policy owns: `create_for_policy()`, `policy_identities()`, `policy_identity()` and `remove_policy_identity()`. Which URLs load in one of them stays with the embedder.
 
 ### Autofill
 
@@ -43,6 +59,10 @@
 - All databases are initialized with `PRAGMA auto_vacuum=incremental`.
   This avoids having to do a full vacuum on the first `sql_support::run_maintenance` call.
   (https://bugzilla.mozilla.org/show_bug.cgi?id=2064759)
+
+### Nimbus
+
+- Add `nimbus-fml lint`, which checks a manifest against feature design lints covering metadata, descriptions, naming, and feature shape. Findings are warnings and don't affect code generation; `--error-on-warning` fails the run, for CI. A `no-lint` list on a feature or at the top of a manifest excuses it from the lints it names, so older versions of `nimbus-fml` will reject a manifest that uses one. `nimbus-fml validate` no longer reports feature metadata warnings; run `nimbus-fml lint` for those. ([Bug 2053531](https://bugzilla.mozilla.org/show_bug.cgi?id=2053531))
 
 # v156.0 (_2026-08-27_)
 

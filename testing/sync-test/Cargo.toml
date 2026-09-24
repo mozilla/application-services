@@ -30,3 +30,4 @@ serde_json = "1.0"
 base64 = "0.21"
 cli-support = { path = "../../examples/cli-support" }
 nss-as = { path = "../../components/support/rc_crypto/nss" }
+db-crypto = { path = "../../components/support/db-crypto" }
