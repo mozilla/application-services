@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::json;
 
-use containers::{
+use fxcontainers::{
     max_user_context_id, ContainerColor, ContainerIcon, ContainerLabel, ContainersCallback,
     ContainersStore, DefaultIdentity, StoreError,
 };

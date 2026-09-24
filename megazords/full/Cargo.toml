@@ -23,7 +23,7 @@ rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
-containers = { path = "../../components/containers" }
+fxcontainers = { path = "../../components/fxcontainers" }
 crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
 suggest = { path = "../../components/suggest" }
@@ -36,12 +36,21 @@ merino = { path = "../../components/merino" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
 mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }
+glean-sym = { version = "70" }
+uniffi = { version = "0.32" }
 
 # Direct dep so this crate can forward the mozbuild-rustlib feature down the
 # NSS link chain. The megazord cdylib produces a self-contained Rust artifact
 # and needs static mozpkix + pure_virtual on top of the NSS dylibs.
 rc_crypto = { path = "../../components/support/rc_crypto" }
 db-crypto = { path = "../../components/support/db-crypto" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# Only activate glean-sym when we're building for Android
+#
+# Other targets are used for unit tests where we don't have access to libxul.
+# Metrics reporting will fail with a linker error.
+glean-sym = { version = "70", features = ["active"] }
 
 [features]
 mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]

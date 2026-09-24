@@ -14,6 +14,8 @@ mod transport;
 pub use environment::Environment;
 pub use report_reason::ReportReason;
 
+#[cfg(feature = "stateful")]
+use self::ad_response::Ads;
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
     ad_response::{AdResponse, AdResponseValue},
@@ -28,6 +30,8 @@ use crate::{
     telemetry::Telemetry,
     CachePolicy,
 };
+#[cfg(feature = "stateful")]
+use std::collections::HashMap;
 use url::Url;
 use viaduct::{Headers, Request};
 
@@ -60,6 +64,90 @@ where
     #[allow(dead_code)]
     pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
         self.transport.shutdown_db()
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn fetch_ads_mixed(
+        &self,
+        context_id: String,
+        flags: AdRequestFlags,
+        placements: Vec<AdPlacementRequest>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Ads>, FetchAdsError> {
+        let mut ad_request = AdRequest::try_new(
+            blocks,
+            context_id,
+            self.environment.clone(),
+            flags,
+            ohttp,
+            placements,
+        )?;
+
+        if ohttp {
+            ad_request
+                .headers
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
+        }
+
+        let response =
+            self.transport
+                .send(ad_request, &CachePolicy::NetworkFirst { ttl: None }, ohttp)?;
+        let raw: HashMap<String, Vec<serde_json::Value>> = response.json()?;
+
+        let mut result = HashMap::new();
+        for (placement_id, items) in raw {
+            if items.is_empty() {
+                continue;
+            }
+            let format = items
+                .first()
+                .and_then(|v| v.get("format"))
+                .and_then(|f| f.as_str())
+                .unwrap_or("")
+                .to_string();
+            let ads = match format.as_str() {
+                "spoc" => Ads::Spocs(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+                "tile" => Ads::Tiles(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+                _ => Ads::Images(
+                    items
+                        .into_iter()
+                        .filter_map(|v| match serde_json::from_value(v) {
+                            Ok(ad) => Some(ad),
+                            Err(e) => {
+                                self.telemetry.record(&e);
+                                None
+                            }
+                        })
+                        .collect(),
+                ),
+            };
+            result.insert(placement_id, ads);
+        }
+
+        Ok(result)
     }
 
     pub fn fetch_ads<A>(
