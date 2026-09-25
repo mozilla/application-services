@@ -294,9 +294,7 @@ pub enum ClientOperationEvent {
 
 #[cfg(test)]
 mod tests {
-
     use std::sync::Arc;
-
     use parking_lot::lock_api::Mutex;
 
     #[cfg(feature = "stateful")]
