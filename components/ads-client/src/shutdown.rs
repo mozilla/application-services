@@ -95,7 +95,8 @@ mod tests {
     fn shutdown_does_not_require_ads_client_lock() {
         test_timeout(Duration::from_secs(5), || {
             let builder = MozAdsClientBuilder::new().build();
-            let lock = builder.inner.client.lock();
+            let http_cache = builder.inner.client.get_http_cache_lock();
+            let lock = http_cache.lock();
 
             // Holding a inner lock, we try to run shutdown.
             builder.shutdown().unwrap();

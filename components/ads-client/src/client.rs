@@ -39,7 +39,7 @@ where
 {
     #[cfg(feature = "stateful")]
     pub ads_store: Arc<Mutex<Option<AdsStore>>>,
-    pub client: Arc<Mutex<MARSClient<T>>>,
+    pub client: Arc<MARSClient<T>>,
     context_id_component: Arc<Mutex<ContextIDComponent>>,
     telemetry: T,
 }
@@ -97,7 +97,7 @@ where
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
         Self {
-            client: Arc::new(Mutex::new(client)),
+            client: client.into(),
             context_id_component: Arc::new(Mutex::new(context_id_component)),
             telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
@@ -106,8 +106,7 @@ where
     }
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
-        let client = self.client.lock();
-        client.clear_cache()
+        self.client.clear_cache()
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -122,8 +121,7 @@ where
         // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
         //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
         // }
-        let client = self.client.lock();
-        client
+        self.client
             .record_click(click_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -167,8 +165,7 @@ where
             impression_url
         };
 
-        let client = self.client.lock();
-        client
+        self.client
             .record_impression(impression_url, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -185,8 +182,7 @@ where
         reason: ReportReason,
         ohttp: bool,
     ) -> Result<(), ReportAdError> {
-        let client = self.client.lock();
-        client
+        self.client
             .report_ad(report_url, reason, ohttp)
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -266,9 +262,14 @@ where
     {
         let context_id = self.get_context_id()?;
         let cache_policy = options.unwrap_or_default();
-        let client = self.client.lock();
-        let (mut response, request_hash) =
-            client.fetch_ads::<A>(context_id, flags, placements, cache_policy, ohttp, blocks)?;
+        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+            context_id,
+            flags,
+            placements,
+            cache_policy,
+            ohttp,
+            blocks,
+        )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -316,7 +317,7 @@ mod tests {
     ) -> AdsClient<MozAdsTelemetryWrapper> {
         let telemetry = client.get_telemetry();
         AdsClient {
-            client: Arc::new(Mutex::new(client)),
+            client: client.into(),
             context_id_component: Arc::new(Mutex::new(ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
