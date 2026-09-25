@@ -3,12 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::ads::{AdImage, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
-use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
+use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 #[cfg(feature = "stateful")]

@@ -14,8 +14,6 @@ mod transport;
 pub use environment::Environment;
 pub use report_reason::ReportReason;
 
-#[cfg(feature = "stateful")]
-use self::ad_response::Ads;
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
     ad_response::{AdResponse, AdResponseValue},
@@ -25,6 +23,8 @@ use self::{
     preflight::PreflightRequest,
     transport::MARSTransport,
 };
+#[cfg(feature = "stateful")]
+use crate::ads::{Ads, PlacementId};
 use crate::{
     http_cache::{HttpCache, RequestHash},
     telemetry::Telemetry,
@@ -74,7 +74,7 @@ where
         placements: Vec<AdPlacementRequest>,
         ohttp: bool,
         blocks: Vec<String>,
-    ) -> Result<HashMap<String, Ads>, FetchAdsError> {
+    ) -> Result<HashMap<PlacementId, Ads>, FetchAdsError> {
         let mut ad_request = AdRequest::try_new(
             blocks,
             context_id,
@@ -144,7 +144,7 @@ where
                         .collect(),
                 ),
             };
-            result.insert(placement_id, ads);
+            result.insert(placement_id.into(), ads);
         }
 
         Ok(result)
@@ -248,8 +248,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use super::ad_response::AdImage;
     use super::*;
+    use crate::ads::AdImage;
     use crate::ffi::telemetry::MozAdsTelemetryWrapper;
     use crate::test_utils::{
         get_example_happy_image_response, make_happy_placement_requests, TEST_CONTEXT_ID,

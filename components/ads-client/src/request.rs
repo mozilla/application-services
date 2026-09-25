@@ -1,7 +1,7 @@
 use url::Url;
 
 use crate::{
-    ads_store::PlacementId,
+    ads::PlacementId,
     mars::{ad_request::AdPlacementRequest, ReportReason},
 };
 use std::collections::{HashMap, HashSet, VecDeque};
