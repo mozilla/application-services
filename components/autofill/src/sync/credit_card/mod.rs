@@ -245,7 +245,8 @@ fn test_to_from_payload() {
     nss_as::ensure_initialized();
     let key = crate::create_autofill_key().unwrap();
     let cc_number = "1234567812345678";
-    let cc_number_enc = crate::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
+    let encdec = static_key_encryptor(&key).unwrap();
+    let cc_number_enc = encrypt_str(&encdec, cc_number).unwrap();
     let cc = InternalCreditCard {
         cc_name: "Shaggy".to_string(),
         cc_number_enc,
@@ -255,7 +256,6 @@ fn test_to_from_payload() {
         cc_type: "foo".to_string(),
         ..Default::default()
     };
-    let encdec = static_key_encryptor(&key).unwrap();
     let payload: CreditCardPayload = cc.clone().into_payload(&encdec).unwrap();
 
     assert_eq!(payload.id, cc.guid);
@@ -276,10 +276,7 @@ fn test_to_from_payload() {
     assert_eq!(cc2.cc_exp_year, cc.cc_exp_year);
     assert_eq!(cc2.cc_type, cc.cc_type);
     // The decrypted number should be the same.
-    assert_eq!(
-        crate::decrypt_string(key, cc2.cc_number_enc.clone()).unwrap(),
-        cc_number
-    );
+    assert_eq!(decrypt_str(&encdec, &cc2.cc_number_enc).unwrap(), cc_number);
     // But the encrypted value should not.
     assert_ne!(cc2.cc_number_enc, cc.cc_number_enc);
 }
@@ -293,7 +290,7 @@ fn test_from_payload_sanitizes_out_of_range_timestamps() {
     let key = crate::create_autofill_key().unwrap();
     let encdec = static_key_encryptor(&key).unwrap();
     let cc = InternalCreditCard {
-        cc_number_enc: crate::encrypt_string(key, "1234567812345678".to_string()).unwrap(),
+        cc_number_enc: encrypt_str(&encdec, "1234567812345678").unwrap(),
         ..Default::default()
     };
 
