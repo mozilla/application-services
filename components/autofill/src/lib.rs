@@ -78,8 +78,7 @@ pub fn create_autofill_store_with_nss_keymanager(
     Ok(Arc::new(store))
 }
 
-// TODO(Bug 2075560): only `encrypt_string` and `decrypt_string` still build an
-// encryptor from a key. When those go, so does this.
+#[cfg(test)]
 pub(crate) fn static_key_encryptor(key: &str) -> Result<ManagedEncryptorDecryptor> {
     // Validate eagerly so an invalid key isn't treated as undecryptable card data.
     jwcrypto::EncryptorDecryptor::new(key)?;
@@ -87,24 +86,6 @@ pub(crate) fn static_key_encryptor(key: &str) -> Result<ManagedEncryptorDecrypto
     Ok(ManagedEncryptorDecryptor::new(Arc::new(
         StaticKeyManager::new(key.to_string()),
     )))
-}
-
-// public functions we expose over the FFI (which is why they take `String`
-// rather than the `&str` you'd otherwise expect)
-#[handle_error(Error)]
-pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
-    // It would be nice to have more detailed error messages, but that would require the consumer
-    // to pass them in.  Let's not change the API yet.
-    let ciphertext = static_key_encryptor(&key)?.encrypt(cleartext.into_bytes())?;
-    String::from_utf8(ciphertext).map_err(|e| Error::CryptoNotUtf8(format!("encrypting: {e}")))
-}
-
-#[handle_error(Error)]
-pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
-    // It would be nice to have more detailed error messages, but that would require the consumer
-    // to pass them in.  Let's not change the API yet.
-    let cleartext = static_key_encryptor(&key)?.decrypt(ciphertext.into_bytes())?;
-    String::from_utf8(cleartext).map_err(|e| Error::CryptoNotUtf8(format!("decrypting: {e}")))
 }
 
 #[handle_error(Error)]
