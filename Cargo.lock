@@ -1284,11 +1284,14 @@ name = "example-autofill-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "autofill",
  "clap",
  "cli-support",
+ "db-crypto",
  "error-support",
  "fxa-client",
+ "init_rust_components",
  "interrupt-support",
  "log",
  "nss-as",
