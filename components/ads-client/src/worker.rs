@@ -8,9 +8,13 @@ use crate::{
     request::{QueuedRequest, RequestQueue},
     AdsClientApiResult, MozAdsClientInner,
 };
-use std::{collections::HashSet, sync::Arc, thread::JoinHandle};
+use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
+
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH: Duration = Duration::from_millis(2);
 
 pub struct BackgroundWorker {
     _worker_thread: Option<JoinHandle<()>>,
@@ -22,6 +26,8 @@ impl BackgroundWorker {
         let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
         let worker_request_queue = request_queue.clone();
 
+        // Attempt to spawn a background worker thread to handle requests.
+        // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
             .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone())).inspect_err(|err| {
@@ -44,6 +50,8 @@ impl BackgroundWorker {
         }
     }
 
+    // Add to the background worker's queue an ads request.
+    // These are prioritized and will be batched before sending.
     pub fn dispatch_ads_request(
         &self,
         ads_requests: Vec<AdPlacementRequest>,
@@ -59,6 +67,9 @@ impl BackgroundWorker {
         }
     }
 
+    // Add to the background worker's queue a QueuedRequest (a non-ads request).
+    // (eg: RecordClick, RecordImpression)
+    // These are queued to send after any ads requests.
     pub fn dispatch_queued_request(
         &self,
         queued_request: QueuedRequest,
@@ -86,7 +97,8 @@ fn worker(inner_client: MozAdsClientInner, request_queue: Arc<Mutex<RequestQueue
             // Error is already logged through `handle_error` conversion macro.
             let _ = request.handle_request(&inner_client);
         } else {
-            // TODO: delay here?
+            // If the queue is empty, we have a very short pause with no locks to allow it to be written to.
+            std::thread::sleep(ADS_CLIENT_WORKER_SLEEP_LENGTH);
         }
     }
 }
