@@ -115,7 +115,7 @@ pub fn create_autofill_key() -> ApiResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sync::credit_card::{decrypt_str, encrypt_str};
+    use crate::db::models::credit_card::{decrypt_str, encrypt_str};
     use nss_as::ensure_initialized;
 
     #[test]

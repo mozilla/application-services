@@ -27,6 +27,9 @@ pub enum AutofillApiError {
     #[error("No record with guid exists: {guid}")]
     NoSuchRecord { guid: String },
 
+    #[error("Empty credit card number: {reason}")]
+    EmptyCardNumber { reason: String },
+
     #[error("Unexpected Error: {reason}")]
     UnexpectedAutofillApiError { reason: String },
 }
@@ -79,6 +82,9 @@ pub enum Error {
 
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
+
+    #[error("Empty credit card number: {0}")]
+    EmptyCardNumber(String),
 
     #[error("The store is closed")]
     DatabaseClosed,
@@ -156,6 +162,13 @@ impl GetErrorHandling for Error {
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })
                     .log_warning()
+            }
+
+            Self::EmptyCardNumber(reason) => {
+                ErrorHandling::convert(AutofillApiError::EmptyCardNumber {
+                    reason: reason.clone(),
+                })
+                .log_warning()
             }
 
             Self::DatabaseClosed => {

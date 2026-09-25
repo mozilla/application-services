@@ -30,21 +30,23 @@ namespace autofill {
     Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. The number is given in
+/// cleartext; the store encrypts it and derives the last-4 digits itself.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number_enc;
-    string cc_number_last_4;
+    string cc_number;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
 };
 
-/// What you get back as a credit-card.
+/// What you get back as a credit-card. The number comes back decrypted;
+/// it is empty for a scrubbed card. A number the key cannot read fails
+/// the read.
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number_enc;
+    string cc_number;
     string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
@@ -218,6 +220,10 @@ interface AutofillApiError {
     InterruptedError();
     CryptoError(string reason);
     NoSuchRecord(string guid);
+    /// `add`/`update` refuse an empty `cc_number` - clearing a number is what
+    /// `scrub_encrypted_data` is for, so an empty value in a write is a caller
+    /// bug (e.g. writing back a record whose number could not be read).
+    EmptyCardNumber(string reason);
     UnexpectedAutofillApiError(string reason);
 };
 
