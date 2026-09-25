@@ -5,7 +5,10 @@
 
 use std::{hash::Hash, sync::Arc};
 
-use parking_lot::Mutex;
+use parking_lot::{
+    lock_api::{MappedMutexGuard, MutexGuard},
+    Mutex,
+};
 use viaduct::{Client, ClientSettings, Request, Response};
 
 use super::error::{HTTPError, TransportError};
@@ -117,20 +120,10 @@ impl WrappedHttpCache {
         }
     }
 
-    pub fn lock(
-        &self,
-    ) -> Option<parking_lot::lock_api::MappedMutexGuard<'_, parking_lot::RawMutex, HttpCache>> {
+    pub fn lock(&self) -> Option<MappedMutexGuard<'_, parking_lot::RawMutex, HttpCache>> {
         if let Some(locked) = &self.0 {
-            let lock: parking_lot::lock_api::MutexGuard<
-                '_,
-                parking_lot::RawMutex,
-                Option<HttpCache>,
-            > = locked.lock();
-            let inner =
-                parking_lot::lock_api::MutexGuard::try_map(lock, |x: &mut Option<HttpCache>| {
-                    x.as_mut()
-                })
-                .ok()?;
+            let lock = locked.lock();
+            let inner = MutexGuard::try_map(lock, |x: &mut Option<HttpCache>| x.as_mut()).ok()?;
             Some(inner)
         } else {
             None
