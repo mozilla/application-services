@@ -4,9 +4,9 @@
 */
 
 use super::CreditCardPayload;
-use super::{decrypt_str, encrypt_str};
 use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
 use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::models::credit_card::{decrypt_str, encrypt_str};
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::db::CounterUpdate;
 use crate::error::*;

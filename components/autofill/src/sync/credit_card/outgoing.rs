@@ -3,8 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use super::{decrypt_str, encrypt_str};
 use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::models::credit_card::{decrypt_str, encrypt_str};
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
