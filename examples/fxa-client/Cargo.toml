@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dev-dependencies]
 nss-as = { path = "../../components/support/rc_crypto/nss" }
 viaduct = { path = "../../components/viaduct"}
-viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 log = "0.4"
 clap = {version = "4.2", default-features = false, features = ["std", "derive", "help"]}
 cli-support = { path = "../cli-support" }
