@@ -8,17 +8,8 @@ use crate::{
     request::{QueuedRequest, RequestQueue},
     AdsClientApiResult, MozAdsClientInner,
 };
-use std::{
-    collections::HashSet,
-    sync::{
-        mpsc::{self, SyncSender},
-        Arc,
-    },
-    thread::JoinHandle,
-};
+use std::{collections::HashSet, sync::Arc, thread::JoinHandle};
 
-// This is a somewhat arbitrary default value that is overridable.
-pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT: usize = 10000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
 pub struct BackgroundWorker {

@@ -7,12 +7,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     common::bytesize::ByteSize,
-    mars::{
-        ad_response::{AdImage, AdSpoc, AdTile},
-        error::FetchAdsError,
-    },
+    mars::ad_response::{AdImage, AdSpoc, AdTile},
 };
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 /// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -103,17 +100,6 @@ impl AdsStore {
 
     pub fn is_memory(&self) -> bool {
         self.is_memory
-    }
-
-    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
-        self.holder.lookup(placement_id)
-    }
-
-    pub fn store_ads(&self, ads: HashMap<PlacementId, StorableAd>) -> Result<(), FetchAdsError> {
-        for (placement_id, ad) in ads {
-            self.holder.store_ad(&placement_id, ad)?;
-        }
-        Ok(())
     }
 }
 

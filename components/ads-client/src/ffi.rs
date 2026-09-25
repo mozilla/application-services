@@ -184,7 +184,6 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
-    pub worker_buffer_size: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]

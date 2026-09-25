@@ -36,6 +36,6 @@ pub enum RequestAdsError {
 #[cfg(feature = "stateful")]
 #[derive(Debug, thiserror::Error)]
 pub enum BackgroundWorkerError {
-    #[error("Error requesting new ads from the background worker: worker closed")]
+    #[error("Background worker is closed")]
     Closed,
 }

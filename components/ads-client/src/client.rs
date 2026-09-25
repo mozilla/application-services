@@ -4,13 +4,11 @@
 */
 
 #[cfg(feature = "stateful")]
-use crate::ads_store::{AdsStore, PlacementId, StorableAd};
+use crate::ads_store::AdsStore;
 use crate::common::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-#[cfg(feature = "stateful")]
-use crate::mars::error::FetchAdsError;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 #[cfg(feature = "stateful")]
@@ -110,71 +108,6 @@ where
 
     pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
         self.client.clear_cache()
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn store_ads(
-        &mut self,
-        ads: HashMap<PlacementId, StorableAd>,
-    ) -> Result<(), FetchAdsError> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            ads_store.store_ads(ads)?;
-            Ok(())
-        } else {
-            Err(FetchAdsError::SqliteShutdown)
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_images(&self, placement_id: &PlacementId) -> Option<AdImage> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_image()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_spocs()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_tile(&self, placement_id: &PlacementId) -> Option<AdTile> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_tile()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
