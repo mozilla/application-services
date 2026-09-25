@@ -15,6 +15,7 @@ use super::{
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
 use crate::sync_merge_field_check;
+use db_crypto::EncryptorDecryptor;
 use incoming::IncomingAddressesImpl;
 use name_utils::{split_name, NameParts};
 use outgoing::OutgoingAddressesImpl;
@@ -41,9 +42,8 @@ pub(super) struct AddressesEngineStorageImpl {}
 impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     fn get_incoming_impl(
         &self,
-        enc_key: &Option<String>,
+        _encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>>> {
-        assert!(enc_key.is_none());
         Ok(Box::new(IncomingAddressesImpl {}))
     }
 
@@ -57,9 +57,8 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
 
     fn get_outgoing_impl(
         &self,
-        enc_key: &Option<String>,
+        _encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalAddress>>> {
-        assert!(enc_key.is_none());
         Ok(Box::new(OutgoingAddressesImpl {}))
     }
 }

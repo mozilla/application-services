@@ -12,10 +12,14 @@ use super::{
     UnknownFields,
 };
 use crate::db::models::credit_card::InternalCreditCard;
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
+#[cfg(test)]
+use crate::static_key_encryptor;
 use crate::sync_merge_field_check;
+use db_crypto::EncryptorDecryptor;
 use incoming::IncomingCreditCardsImpl;
+
+pub(crate) use crate::db::models::credit_card::{decrypt_str, encrypt_str, get_last_4};
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -40,14 +44,11 @@ pub(super) struct CreditCardsEngineStorageImpl {}
 impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl {
     fn get_incoming_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalCreditCard>>> {
-        let enc_key = match enc_key {
-            None => return Err(Error::MissingEncryptionKey),
-            Some(enc_key) => enc_key,
-        };
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(Box::new(IncomingCreditCardsImpl { encdec }))
+        Ok(Box::new(IncomingCreditCardsImpl {
+            encdec: Arc::clone(encdec),
+        }))
     }
 
     fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
@@ -60,14 +61,11 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
 
     fn get_outgoing_impl(
         &self,
-        enc_key: &Option<String>,
+        encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalCreditCard>>> {
-        let enc_key = match enc_key {
-            None => return Err(Error::MissingEncryptionKey),
-            Some(enc_key) => enc_key,
-        };
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        Ok(Box::new(OutgoingCreditCardsImpl { encdec }))
+        Ok(Box::new(OutgoingCreditCardsImpl {
+            encdec: Arc::clone(encdec),
+        }))
     }
 }
 
@@ -113,7 +111,7 @@ pub(super) struct PayloadEntry {
 }
 
 impl InternalCreditCard {
-    fn from_payload(p: CreditCardPayload, encdec: &EncryptorDecryptor) -> Result<Self> {
+    fn from_payload(p: CreditCardPayload, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
         if p.entry.version != 3 {
             // when new versions are introduced we will start accepting and
             // converting old ones - but 3 is the lowest we support.
@@ -123,7 +121,7 @@ impl InternalCreditCard {
             )));
         }
         // need to encrypt the cleartext in the sync record.
-        let cc_number_enc = encdec.encrypt(&p.entry.cc_number)?;
+        let cc_number_enc = encrypt_str(encdec, &p.entry.cc_number)?;
         let cc_number_last_4 = get_last_4(&p.entry.cc_number);
 
         Ok(InternalCreditCard {
@@ -144,8 +142,8 @@ impl InternalCreditCard {
         })
     }
 
-    pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<CreditCardPayload> {
-        let cc_number = encdec.decrypt(&self.cc_number_enc)?;
+    pub(crate) fn into_payload(self, encdec: &dyn EncryptorDecryptor) -> Result<CreditCardPayload> {
+        let cc_number = decrypt_str(encdec, &self.cc_number_enc)?;
         Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
@@ -235,17 +233,6 @@ fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
     local_record_data
 }
 
-// Wow - strings are hard! credit-card sync is the only thing that needs to
-// get the last 4 chars of a string.
-fn get_last_4(v: &str) -> String {
-    v.chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>()
-}
 #[test]
 fn test_last_4() {
     assert_eq!(get_last_4("testing"), "ting".to_string());
@@ -256,10 +243,9 @@ fn test_last_4() {
 #[test]
 fn test_to_from_payload() {
     nss_as::ensure_initialized();
-    let key = crate::encryption::create_autofill_key().unwrap();
+    let key = crate::create_autofill_key().unwrap();
     let cc_number = "1234567812345678";
-    let cc_number_enc =
-        crate::encryption::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
+    let cc_number_enc = crate::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
     let cc = InternalCreditCard {
         cc_name: "Shaggy".to_string(),
         cc_number_enc,
@@ -269,7 +255,7 @@ fn test_to_from_payload() {
         cc_type: "foo".to_string(),
         ..Default::default()
     };
-    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let encdec = static_key_encryptor(&key).unwrap();
     let payload: CreditCardPayload = cc.clone().into_payload(&encdec).unwrap();
 
     assert_eq!(payload.id, cc.guid);
@@ -291,7 +277,7 @@ fn test_to_from_payload() {
     assert_eq!(cc2.cc_type, cc.cc_type);
     // The decrypted number should be the same.
     assert_eq!(
-        crate::encryption::decrypt_string(key, cc2.cc_number_enc.clone()).unwrap(),
+        crate::decrypt_string(key, cc2.cc_number_enc.clone()).unwrap(),
         cc_number
     );
     // But the encrypted value should not.
@@ -304,11 +290,10 @@ fn test_to_from_payload() {
 #[test]
 fn test_from_payload_sanitizes_out_of_range_timestamps() {
     nss_as::ensure_initialized();
-    let key = crate::encryption::create_autofill_key().unwrap();
-    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let key = crate::create_autofill_key().unwrap();
+    let encdec = static_key_encryptor(&key).unwrap();
     let cc = InternalCreditCard {
-        cc_number_enc: crate::encryption::encrypt_string(key, "1234567812345678".to_string())
-            .unwrap(),
+        cc_number_enc: crate::encrypt_string(key, "1234567812345678".to_string()).unwrap(),
         ..Default::default()
     };
 

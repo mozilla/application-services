@@ -13,23 +13,40 @@ namespace autofill {
     /// and `ciphertext` must have come from `encrypt_string()`
     [Throws=AutofillApiError]
     string decrypt_string(string key, string ciphertext);
+
+    /// Utility function to create a StaticKeyManager to be used for the time
+    /// being until support lands for [trait implementation of an UniFFI
+    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+    /// in UniFFI.
+    KeyManager create_static_key_manager(string key);
+
+    /// Similar to create_static_key_manager above, create a
+    /// ManagedEncryptorDecryptor by passing in a KeyManager
+    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
+
+    /// Create a Store with StaticKeyManager by passing in a db path and a
+    /// static key
+    [Throws=AutofillApiError]
+    Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. The number is given in
+/// cleartext; the store encrypts it and derives the last-4 digits itself.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number_enc;
-    string cc_number_last_4;
+    string cc_number;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
 };
 
-/// What you get back as a credit-card.
+/// What you get back as a credit-card. The number comes back decrypted;
+/// it is empty for a scrubbed card (and for one the key cannot read, which
+/// the scrub-and-resync flow replaces).
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number_enc;
+    string cc_number;
     string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
@@ -206,9 +223,15 @@ interface AutofillApiError {
     UnexpectedAutofillApiError(string reason);
 };
 
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
+
+[External = "db_crypto"]
+typedef trait_with_foreign KeyManager;
+
 interface Store {
     [Throws=AutofillApiError]
-    constructor(string dbpath);
+    constructor(string dbpath, EncryptorDecryptor encdec);
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
@@ -325,7 +348,7 @@ interface Store {
     /// NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
     /// outside of this use case.
     [Throws=AutofillApiError, Self=ByArc]
-    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement(string local_encryption_key);
+    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement();
 
     /// Run maintenance on the DB
     ///

@@ -39,6 +39,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v156.0...v157.0)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Autofill
+
+- **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, or for one the key cannot read (which the scrub-and-resync flow replaces). `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext.
+- **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged. The key passed to the sync manager via `local_encryption_keys` is accepted but ignored.
+
 ## ✨ What's Changed ✨
 
 ### Containers

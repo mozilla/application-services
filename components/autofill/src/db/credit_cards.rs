@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::db::models::credit_card::{encrypt_str, get_last_4};
 use crate::db::{
     models::{
         credit_card::{
@@ -12,11 +13,11 @@ use crate::db::{
         Metadata,
     },
     schema::{CREDIT_CARD_COMMON_COLS, CREDIT_CARD_COMMON_VALS},
-    timestamp_from_millis, with_savepoint, CounterUpdate,
+    timestamp_from_millis, with_savepoint, AutofillDb, CounterUpdate,
 };
 use crate::error::*;
+use db_crypto::EncryptorDecryptor;
 
-use jwcrypto::EncryptorDecryptor;
 use rusqlite::{Connection, Transaction};
 use sync_guid::Guid;
 use types::Timestamp;
@@ -27,6 +28,7 @@ pub struct CreditCardsDeletionMetrics {
 
 pub(crate) fn add_credit_card(
     conn: &Connection,
+    encdec: &dyn EncryptorDecryptor,
     new_credit_card_fields: UpdatableCreditCardFields,
 ) -> Result<InternalCreditCard> {
     let now = Timestamp::now();
@@ -36,8 +38,8 @@ pub(crate) fn add_credit_card(
     let credit_card = InternalCreditCard {
         guid: Guid::random(),
         cc_name: new_credit_card_fields.cc_name,
-        cc_number_enc: new_credit_card_fields.cc_number_enc,
-        cc_number_last_4: new_credit_card_fields.cc_number_last_4,
+        cc_number_enc: encrypt_str(encdec, &new_credit_card_fields.cc_number)?,
+        cc_number_last_4: get_last_4(&new_credit_card_fields.cc_number),
         cc_exp_month: new_credit_card_fields.cc_exp_month,
         cc_exp_year: new_credit_card_fields.cc_exp_year,
         // Credit card types are a fixed set of strings as defined in the link below
@@ -61,16 +63,16 @@ pub(crate) fn add_credit_card(
 /// will use `add_credit_card` instead; this is for importing records from
 /// another store that already have metadata.
 ///
-/// `cc_number_enc` is stored exactly as given and is not checked against the
-/// store's key, matching `add_credit_card`. An importing application owns the
-/// ciphertext it supplies.
+/// The number is supplied in cleartext and encrypted here, matching
+/// `add_credit_card`.
 pub(crate) fn add_credit_card_with_meta(
     conn: &Connection,
+    encdec: &dyn EncryptorDecryptor,
     fields: UpdatableCreditCardFields,
     meta: CreditCardMeta,
 ) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
-    let card = internal_credit_card_from_meta(fields, &meta);
+    let card = internal_credit_card_from_meta(encdec, fields, &meta)?;
     add_internal_credit_card(&tx, &card)?;
     tx.commit()?;
     Ok(card)
@@ -81,12 +83,19 @@ pub(crate) fn add_credit_card_with_meta(
 /// insert is reported as `Err(message)` without aborting the rest of the batch.
 pub(crate) fn add_many_credit_cards_with_meta(
     conn: &Connection,
+    encdec: &dyn EncryptorDecryptor,
     entries: Vec<UpdatableCreditCardFieldsWithMeta>,
 ) -> Result<Vec<std::result::Result<InternalCreditCard, String>>> {
     let tx = conn.unchecked_transaction()?;
     let mut results = Vec::with_capacity(entries.len());
     for entry in entries {
-        let card = internal_credit_card_from_meta(entry.fields, &entry.meta);
+        let card = match internal_credit_card_from_meta(encdec, entry.fields, &entry.meta) {
+            Ok(card) => card,
+            Err(e) => {
+                results.push(Err(e.to_string()));
+                continue;
+            }
+        };
         match with_savepoint(&tx, || add_internal_credit_card(&tx, &card))? {
             Ok(()) => results.push(Ok(card)),
             Err(e) => results.push(Err(e.to_string())),
@@ -145,14 +154,15 @@ pub(crate) fn add_many_credit_card_tombstones(
 }
 
 fn internal_credit_card_from_meta(
+    encdec: &dyn EncryptorDecryptor,
     fields: UpdatableCreditCardFields,
     meta: &CreditCardMeta,
-) -> InternalCreditCard {
-    InternalCreditCard {
+) -> Result<InternalCreditCard> {
+    Ok(InternalCreditCard {
         guid: Guid::new(&meta.guid),
         cc_name: fields.cc_name,
-        cc_number_enc: fields.cc_number_enc,
-        cc_number_last_4: fields.cc_number_last_4,
+        cc_number_enc: encrypt_str(encdec, &fields.cc_number)?,
+        cc_number_last_4: get_last_4(&fields.cc_number),
         cc_exp_month: fields.cc_exp_month,
         cc_exp_year: fields.cc_exp_year,
         cc_type: fields.cc_type,
@@ -163,7 +173,7 @@ fn internal_credit_card_from_meta(
             times_used: meta.times_used,
             sync_change_counter: meta.sync_change_counter,
         },
-    }
+    })
 }
 
 /// Updates a credit card **including metadata**, setting both its fields and its
@@ -173,12 +183,13 @@ fn internal_credit_card_from_meta(
 /// `NoSuchRecord` if the guid is absent.
 pub(crate) fn update_credit_card_with_meta(
     conn: &Connection,
+    encdec: &dyn EncryptorDecryptor,
     fields: UpdatableCreditCardFields,
     meta: CreditCardMeta,
 ) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
 
-    let card = internal_credit_card_from_meta(fields, &meta);
+    let card = internal_credit_card_from_meta(encdec, fields, &meta)?;
     // Checked up front because `update_internal_credit_card` does not report
     // how many rows it changed.
     let exists: bool = tx.query_row(
@@ -276,9 +287,11 @@ pub(crate) fn count_all_credit_cards(conn: &Connection) -> Result<i64> {
 
 pub fn update_credit_card(
     conn: &Connection,
+    encdec: &dyn EncryptorDecryptor,
     guid: &Guid,
     credit_card: &UpdatableCreditCardFields,
 ) -> Result<()> {
+    let cc_number_enc = encrypt_str(encdec, &credit_card.cc_number)?;
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "UPDATE credit_cards_data
@@ -293,8 +306,8 @@ pub fn update_credit_card(
         WHERE guid                      = :guid",
         rusqlite::named_params! {
             ":cc_name": credit_card.cc_name,
-            ":cc_number_enc": credit_card.cc_number_enc,
-            ":cc_number_last_4": credit_card.cc_number_last_4,
+            ":cc_number_enc": cc_number_enc,
+            ":cc_number_last_4": get_last_4(&credit_card.cc_number),
             ":cc_exp_month": credit_card.cc_exp_month,
             ":cc_exp_year": credit_card.cc_exp_year,
             ":cc_type": credit_card.cc_type,
@@ -372,17 +385,25 @@ pub fn scrub_encrypted_credit_card_data(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Scrub cards the store's encryptor cannot decrypt, so Sync replaces them
+/// from the server. This deletes on *any* decryption failure, permanent or
+/// not - with an NSS-backed key, a cancelled primary-password prompt fails
+/// decryption too and would scrub every card. Only call this where the key
+/// is known usable; today's only caller is iOS, whose key is static.
 pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
-    conn: &Connection,
-    local_encryption_key: String,
+    db: &AutofillDb,
 ) -> Result<CreditCardsDeletionMetrics> {
+    let conn = &db.writer;
     let tx = conn.unchecked_transaction()?;
     let mut scrubbed_records = 0;
-    let encdec = EncryptorDecryptor::new(local_encryption_key.as_str()).unwrap();
 
     let undecryptable_record_ids = get_all_credit_cards(conn)?
         .into_iter()
-        .filter(|credit_card| encdec.decrypt(&credit_card.cc_number_enc).is_err())
+        .filter(|credit_card| {
+            db.encdec
+                .decrypt(credit_card.cc_number_enc.as_bytes().to_vec())
+                .is_err()
+        })
         .map(|credit_card| credit_card.guid)
         .collect::<Vec<_>>();
 
@@ -437,7 +458,8 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
 pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
-    use crate::encryption::EncryptorDecryptor;
+    use crate::db::test::random_key_encryptor;
+    use crate::sync::credit_card::encrypt_str;
     use nss_as::ensure_initialized;
     use sync15::bso::IncomingBso;
 
@@ -446,8 +468,7 @@ pub(crate) mod tests {
             cc_name: cc_name.to_string(),
             // The `credit_cards_data` CHECK constraint requires either an empty
             // string or more than 20 characters, real ciphertext being long.
-            cc_number_enc: "0123456789012345678901234567890".to_string(),
-            cc_number_last_4: "1234".to_string(),
+            cc_number: "0123456789012345678901234567890".to_string(),
             cc_exp_month: 4,
             cc_exp_year: 2030,
             cc_type: "visa".to_string(),
@@ -477,8 +498,12 @@ pub(crate) mod tests {
     fn test_credit_card_add_with_meta() -> Result<()> {
         let db = new_mem_db();
 
-        let saved =
-            add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta_test_meta("abc", 2))?;
+        let saved = add_credit_card_with_meta(
+            &db,
+            db.encdec.as_ref(),
+            meta_test_fields("Jane Doe"),
+            meta_test_meta("abc", 2),
+        )?;
 
         // the supplied guid is used rather than a fresh one being generated.
         assert_eq!(saved.guid.as_str(), "abc");
@@ -511,7 +536,7 @@ pub(crate) mod tests {
                 times_used: 0,
                 sync_change_counter: 0,
             };
-            add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta)?;
+            add_credit_card_with_meta(&db, db.encdec.as_ref(), meta_test_fields("Jane Doe"), meta)?;
 
             let retrieved = get_credit_card(&db, &Guid::new(guid))?;
             assert_eq!(
@@ -532,7 +557,7 @@ pub(crate) mod tests {
     fn test_credit_card_from_row_sanitizes_corrupt_timestamps() -> Result<()> {
         let db = new_mem_db();
 
-        let card = add_credit_card(&db, meta_test_fields("Jane Doe"))?;
+        let card = add_credit_card(&db, db.encdec.as_ref(), meta_test_fields("Jane Doe"))?;
         db.execute(
             // Three shapes that are not representable dates: the u64-reinterpreted
             // value from bug 2066257, a raw negative, and MAX_DATE_MS + 1.
@@ -556,11 +581,17 @@ pub(crate) mod tests {
     fn test_credit_card_update_with_meta_keeps_supplied_counter() -> Result<()> {
         let db = new_mem_db();
 
-        add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta_test_meta("abc", 0))?;
+        add_credit_card_with_meta(
+            &db,
+            db.encdec.as_ref(),
+            meta_test_fields("Jane Doe"),
+            meta_test_meta("abc", 0),
+        )?;
 
         // the supplied counter must be applied, not the one already in the row.
         update_credit_card_with_meta(
             &db,
+            db.encdec.as_ref(),
             meta_test_fields("Jane Q. Doe"),
             meta_test_meta("abc", 1),
         )?;
@@ -572,6 +603,7 @@ pub(crate) mod tests {
         // and back down again.
         update_credit_card_with_meta(
             &db,
+            db.encdec.as_ref(),
             meta_test_fields("Jane Q. Doe"),
             meta_test_meta("abc", 0),
         )?;
@@ -591,6 +623,7 @@ pub(crate) mod tests {
 
         let result = update_credit_card_with_meta(
             &db,
+            db.encdec.as_ref(),
             meta_test_fields("Jane Doe"),
             meta_test_meta("abc", 3),
         );
@@ -608,6 +641,7 @@ pub(crate) mod tests {
         // CHECK constraint rejects. The others must still be inserted.
         let results = add_many_credit_cards_with_meta(
             &db,
+            db.encdec.as_ref(),
             vec![
                 UpdatableCreditCardFieldsWithMeta {
                     fields: meta_test_fields("One"),
@@ -640,7 +674,7 @@ pub(crate) mod tests {
         // A tombstone left by an earlier import, and a record sharing no guid
         // with it.
         add_many_credit_card_tombstones(&db, vec![("gone".to_string(), 1234)])?;
-        let card = add_credit_card(&db, meta_test_fields("Jane Doe"))?;
+        let card = add_credit_card(&db, db.encdec.as_ref(), meta_test_fields("Jane Doe"))?;
 
         delete_all_credit_cards(&db)?;
         assert_eq!(get_all_credit_cards(&db)?.len(), 0);
@@ -654,6 +688,7 @@ pub(crate) mod tests {
         // where the insert trigger would reject a guid still tombstoned.
         let results = add_many_credit_cards_with_meta(
             &db,
+            db.encdec.as_ref(),
             vec![
                 UpdatableCreditCardFieldsWithMeta {
                     fields: meta_test_fields("Jane Doe"),
@@ -702,7 +737,12 @@ pub(crate) mod tests {
     fn test_credit_card_add_many_tombstones_rejects_live_guid() -> Result<()> {
         let db = new_mem_db();
 
-        add_credit_card_with_meta(&db, meta_test_fields("Jane Doe"), meta_test_meta("abc", 0))?;
+        add_credit_card_with_meta(
+            &db,
+            db.encdec.as_ref(),
+            meta_test_fields("Jane Doe"),
+            meta_test_meta("abc", 0),
+        )?;
 
         // a guid cannot be in both `credit_cards_data` and
         // `credit_cards_tombstones`; the trigger enforcing that must not take
@@ -736,6 +776,7 @@ pub(crate) mod tests {
         // `credit_cards_data`.
         let results = add_many_credit_cards_with_meta(
             &db,
+            db.encdec.as_ref(),
             vec![
                 UpdatableCreditCardFieldsWithMeta {
                     fields: meta_test_fields("One"),
@@ -818,10 +859,10 @@ pub(crate) mod tests {
 
         let saved_credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "jane doe".to_string(),
-                cc_number_enc: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".to_string(),
-                cc_number_last_4: "1234".to_string(),
+                cc_number: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".to_string(),
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
@@ -891,10 +932,10 @@ pub(crate) mod tests {
 
         let saved_credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "jane doe".to_string(),
-                cc_number_enc: "YYYYYYYYYYYYYYYYYYYYYYYYYYYYY".to_string(),
-                cc_number_last_4: "4321".to_string(),
+                cc_number: "YYYYYYYYYYYYYYYYYYYYYYYYYYYYY".to_string(),
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
@@ -903,10 +944,10 @@ pub(crate) mod tests {
 
         let saved_credit_card2 = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".to_string(),
-                cc_number_last_4: "6543".to_string(),
+                cc_number: "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -916,10 +957,10 @@ pub(crate) mod tests {
         // creating a third credit card with a tombstone to ensure it's not returned
         let saved_credit_card3 = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "abraham lincoln".to_string(),
-                cc_number_enc: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
-                cc_number_last_4: "9876".to_string(),
+                cc_number: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
                 cc_exp_month: 1,
                 cc_exp_year: 2024,
                 cc_type: "amex".to_string(),
@@ -959,10 +1000,10 @@ pub(crate) mod tests {
 
         let saved_credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
-                cc_number_last_4: "4321".to_string(),
+                cc_number: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -972,11 +1013,11 @@ pub(crate) mod tests {
         let expected_cc_name = "john doe".to_string();
         let update_result = update_credit_card(
             &db,
+            db.encdec.as_ref(),
             &saved_credit_card.guid,
             &UpdatableCreditCardFields {
                 cc_name: expected_cc_name.clone(),
-                cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
-                cc_number_last_4: "1234".to_string(),
+                cc_number: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
                 cc_type: "mastercard".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
@@ -1008,7 +1049,7 @@ pub(crate) mod tests {
                 guid: guid.clone(),
                 cc_name: "john deer".to_string(),
                 cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
-                cc_number_last_4: "1234".to_string(),
+                cc_number_last_4: "BBBB".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -1023,7 +1064,7 @@ pub(crate) mod tests {
                 guid: guid.clone(),
                 cc_name: "john deer".to_string(),
                 cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
-                cc_number_last_4: "1234".to_string(),
+                cc_number_last_4: "BBBB".to_string(),
                 cc_exp_month: expected_cc_exp_month,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -1052,14 +1093,14 @@ pub(crate) mod tests {
     fn test_credit_card_delete() -> Result<()> {
         ensure_initialized();
         let db = new_mem_db();
-        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
+        let encdec = db.encdec.clone();
 
         let saved_credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encdec.encrypt("1234567812345678")?,
-                cc_number_last_4: "5678".to_string(),
+                cc_number: "1234567812345678".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -1072,10 +1113,10 @@ pub(crate) mod tests {
 
         let saved_credit_card2 = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number_enc: encdec.encrypt("1234123412341234")?,
-                cc_number_last_4: "1234".to_string(),
+                cc_number: "1234123412341234".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),
@@ -1084,7 +1125,8 @@ pub(crate) mod tests {
 
         // create a mirror record to check that a tombstone record is created upon deletion
         let cc2_guid = saved_credit_card2.guid.clone();
-        let payload = saved_credit_card2.into_test_incoming_bso(&encdec, Default::default());
+        let payload =
+            saved_credit_card2.into_test_incoming_bso(encdec.as_ref(), Default::default());
 
         test_insert_mirror_record(&db, payload);
 
@@ -1120,15 +1162,14 @@ pub(crate) mod tests {
     fn test_scrub_encrypted_credit_card_data() -> Result<()> {
         ensure_initialized();
         let db = new_mem_db();
-        let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
         let mut saved_credit_cards = Vec::with_capacity(10);
         for _ in 0..5 {
             saved_credit_cards.push(add_credit_card(
                 &db,
+                db.encdec.as_ref(),
                 UpdatableCreditCardFields {
                     cc_name: "john deer".to_string(),
-                    cc_number_enc: encdec.encrypt("1234567812345678")?,
-                    cc_number_last_4: "5678".to_string(),
+                    cc_number: "1234567812345678".to_string(),
                     cc_exp_month: 10,
                     cc_exp_year: 2025,
                     cc_type: "mastercard".to_string(),
@@ -1146,40 +1187,44 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_scrub_undecryptable_credit_card_date_for_remote_replacement() -> Result<()> {
+    fn test_scrub_undecryptable_credit_card_data_for_remote_replacement() -> Result<()> {
         ensure_initialized();
         let db = new_mem_db();
-        let old_key = EncryptorDecryptor::create_key()?;
-        let old_encdec = EncryptorDecryptor::new(&old_key)?;
-        let key = EncryptorDecryptor::create_key()?;
-        let encdec = EncryptorDecryptor::new(&key)?;
+        let foreign_encdec = random_key_encryptor()?;
 
-        let undecryptable_credit_card = add_credit_card(
-            &db,
-            UpdatableCreditCardFields {
-                cc_name: "jane doe".to_string(),
-                cc_number_enc: old_encdec.encrypt("2345678923456789")?,
-                cc_number_last_4: "6789".to_string(),
-                cc_exp_month: 9,
-                cc_exp_year: 2027,
-                cc_type: "visa".to_string(),
-            },
-        )?;
+        // The transparent API cannot produce an undecryptable row, so plant
+        // one underneath it: a number encrypted under a key this store does
+        // not hold.
+        let undecryptable_credit_card = InternalCreditCard {
+            guid: Guid::random(),
+            cc_name: "jane doe".to_string(),
+            cc_number_enc: encrypt_str(&foreign_encdec, "2345678923456789")?,
+            cc_number_last_4: "6789".to_string(),
+            cc_exp_month: 9,
+            cc_exp_year: 2027,
+            cc_type: "visa".to_string(),
+            ..Default::default()
+        };
+        {
+            let tx = db.unchecked_transaction()?;
+            add_internal_credit_card(&tx, &undecryptable_credit_card)?;
+            tx.commit()?;
+        }
 
-        let encrypted_cc_number = encdec.encrypt("567812345678123456781")?;
         let credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encrypted_cc_number.clone(),
-                cc_number_last_4: "6781".to_string(),
+                cc_number: "567812345678123456781".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
             },
         )?;
+        let encrypted_cc_number = credit_card.cc_number_enc.clone();
 
-        let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(&db.writer, key)?;
+        let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(&db)?;
         assert_eq!(metrics.total_scrubbed_records, 1);
 
         let credit_cards = get_all_credit_cards(&db)?;
@@ -1209,7 +1254,7 @@ pub(crate) mod tests {
             guid,
             cc_name: "john deer".to_string(),
             cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
-            cc_number_last_4: "6543".to_string(),
+            cc_number_last_4: "WWWW".to_string(),
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -1241,7 +1286,7 @@ pub(crate) mod tests {
             guid,
             cc_name: "jane doe".to_string(),
             cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
-            cc_number_last_4: "6543".to_string(),
+            cc_number_last_4: "WWWW".to_string(),
             cc_exp_month: 3,
             cc_exp_year: 2022,
             cc_type: "visa".to_string(),
@@ -1267,10 +1312,10 @@ pub(crate) mod tests {
         let db = new_mem_db();
         let saved_credit_card = add_credit_card(
             &db,
+            db.encdec.as_ref(),
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
-                cc_number_last_4: "6543".to_string(),
+                cc_number: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),
