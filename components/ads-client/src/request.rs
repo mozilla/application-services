@@ -3,8 +3,9 @@ use url::Url;
 use crate::{
     ads_store::PlacementId,
     mars::{ad_request::AdPlacementRequest, ReportReason},
+    worker::DispatchRequest,
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
@@ -64,25 +65,6 @@ pub enum QueuedRequest {
     RecordClick { url: Url },
     RecordImpression { url: Url },
     ReportAd { url: Url, reason: ReportReason },
-}
-
-// Request dispatch enum for passing different instructions to the background worker thread.
-// `RequestAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(Clone, Debug, PartialEq)]
-pub enum DispatchRequest {
-    RequestAds {
-        ad_requests: HashSet<AdPlacementRequest>,
-    },
-    RecordClick {
-        url: Url,
-    },
-    RecordImpression {
-        url: Url,
-    },
-    ReportAd {
-        url: Url,
-        reason: ReportReason,
-    },
 }
 
 impl From<QueuedRequest> for DispatchRequest {

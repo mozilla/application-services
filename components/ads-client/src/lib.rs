@@ -34,7 +34,6 @@ pub use ffi::*;
 
 #[cfg(feature = "stateful")]
 use crate::worker::BackgroundWorker;
-use crate::{ffi::telemetry::MozAdsTelemetryWrapper, shutdown::ShutdownReferences};
 
 #[cfg(test)]
 mod test_utils;

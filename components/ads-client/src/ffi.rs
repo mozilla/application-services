@@ -110,11 +110,6 @@ impl MozAdsClientBuilder {
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
         #[cfg(feature = "stateful")]
         let store_set = inner.store_config.is_some();
-        #[cfg(feature = "stateful")]
-        let worker_buffer_size = inner
-            .store_config
-            .as_ref()
-            .and_then(|x| x.worker_buffer_size);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
@@ -127,7 +122,7 @@ impl MozAdsClientBuilder {
         let inner = Arc::new(Mutex::new(client));
         #[cfg(feature = "stateful")]
         let worker = if store_set {
-            worker::BackgroundWorker::new(inner.clone(), worker_buffer_size)
+            worker::BackgroundWorker::new(inner.clone())
         } else {
             worker::BackgroundWorker::new_empty()
         };
