@@ -137,6 +137,28 @@ impl LoginStore {
             .collect())
     }
 
+    /// Like `list_candidates()`, but only the logins whose origin is one of `origins`, or whose
+    /// host is one of `domains` or a subdomain of one.
+    ///
+    /// This is meant as a pre-filter for consumers who have their own origin matching rules:
+    /// pass every origin you would accept (eg, the `http://` variant too if you allow scheme
+    /// upgrades) and the base domain of each host you would accept subdomains of, then run your
+    /// own matching over the result.  Working out the base domain is up to the caller, since
+    /// this component has no copy of the Public Suffix List.
+    #[handle_error(Error)]
+    pub fn list_candidates_by_origin(
+        &self,
+        origins: Vec<String>,
+        domains: Vec<String>,
+    ) -> ApiResult<Vec<LoginCandidate>> {
+        Ok(self
+            .lock_db()?
+            .get_by_origins_or_domains(&origins, &domains)?
+            .into_iter()
+            .map(LoginCandidate::from)
+            .collect())
+    }
+
     #[handle_error(Error)]
     pub fn count(&self) -> ApiResult<i64> {
         self.lock_db()?.count_all()
@@ -679,6 +701,50 @@ mod tests {
                 login.time_last_breach_alert_dismissed
             );
         }
+    }
+
+    #[test]
+    fn test_list_candidates_by_origin() {
+        ensure_initialized();
+
+        let key_manager = Arc::new(CountingKeyManager {
+            key: create_key().unwrap(),
+            calls: AtomicUsize::new(0),
+        });
+        let store = store_with_encdec(Arc::new(ManagedEncryptorDecryptor::new(
+            key_manager.clone(),
+        )));
+
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let sub_a = store
+            .add(test_entry("https://login.sub.a.com", "sub-a-user"))
+            .unwrap();
+        let b = store.add(test_entry("http://b.com", "b-user")).unwrap();
+        store
+            .add(test_entry("https://www.c.com", "c-user"))
+            .unwrap();
+        key_manager.calls.store(0, Ordering::SeqCst);
+
+        let mut ids: Vec<String> = store
+            .list_candidates_by_origin(vec!["http://b.com".into()], vec!["a.com".into()])
+            .unwrap()
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
+        ids.sort_unstable();
+        let mut expected = vec![a.id, sub_a.id, b.id];
+        expected.sort_unstable();
+        assert_eq!(ids, expected);
+
+        // Like `list_candidates()`, this must not need the key.
+        assert_eq!(key_manager.calls.load(Ordering::SeqCst), 0);
+
+        assert!(store
+            .list_candidates_by_origin(vec![], vec![])
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

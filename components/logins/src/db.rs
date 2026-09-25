@@ -234,35 +234,106 @@ impl LoginDb {
         let rows = stmt
             .query_and_then([], EncryptedLogin::from_row)?
             .filter(|r| {
-                let login = r
-                    .as_ref()
-                    .ok()
-                    .and_then(|login| Url::parse(&login.fields.origin).ok());
-                let this_host = login.as_ref().and_then(|url| url.host());
-                match (&base_host, this_host) {
-                    (Host::Domain(base), Some(Host::Domain(look))) => {
-                        // a fairly long-winded way of saying
-                        // `login.fields.origin == base_domain ||
-                        //  login.fields.origin.ends_with('.' + base_domain);`
-                        let mut rev_input = base.chars().rev();
-                        let mut rev_host = look.chars().rev();
-                        loop {
-                            match (rev_input.next(), rev_host.next()) {
-                                (Some(ref a), Some(ref b)) if a == b => continue,
-                                (None, None) => return true, // exactly equal
-                                (None, Some(ref h)) => return *h == '.',
-                                _ => return false,
-                            }
-                        }
-                    }
-                    // ip addresses must match exactly.
-                    (Host::Ipv4(base), Some(Host::Ipv4(look))) => *base == look,
-                    (Host::Ipv6(base), Some(Host::Ipv6(look))) => *base == look,
-                    // all "mismatches" in domain types are false.
-                    _ => false,
-                }
+                r.as_ref()
+                    .is_ok_and(|login| origin_is_on_host(&login.fields.origin, &base_host))
             });
         rows.collect::<Result<_>>()
+    }
+
+    /// The logins whose origin is one of `origins`, or whose host is one of `domains` or a
+    /// subdomain of one.
+    ///
+    /// This is a cheap pre-filter for consumers doing their own origin matching (eg, Desktop's
+    /// `LoginHelper.isOriginMatching()`): as long as the consumer passes every origin it would
+    /// accept, plus the base domain of each host it would accept a subdomain of, the result is a
+    /// superset of what it's looking for, and it only needs to run its own matching over those.
+    ///
+    /// `origins` are compared exactly, after the same normalization `add()` does.  `domains` are
+    /// parsed as a host, and IP addresses only ever match exactly.  Unparseable entries in either
+    /// list are skipped.  As with `get_all()`, the order of the rows is whatever the query gives us.
+    pub fn get_by_origins_or_domains(
+        &self,
+        origins: &[String],
+        domains: &[String],
+    ) -> Result<Vec<EncryptedLogin>> {
+        let mut origin_params = Vec::with_capacity(origins.len());
+        for origin in origins {
+            match LoginEntry::validate_and_fixup_origin(origin) {
+                Ok(fixed) => {
+                    // Rows written before a fixup was introduced may still hold the raw string,
+                    // so look for that too.
+                    if let Some(fixed) = fixed {
+                        origin_params.push(fixed);
+                    }
+                    origin_params.push(origin.clone());
+                }
+                // don't log the input string as it's PII.
+                Err(e) => warn!(
+                    "get_by_origins_or_domains was passed an invalid origin: {}",
+                    e
+                ),
+            }
+        }
+        let mut hosts = Vec::with_capacity(domains.len());
+        for domain in domains {
+            match Host::parse(domain) {
+                Ok(host) => hosts.push(host),
+                Err(e) => warn!(
+                    "get_by_origins_or_domains was passed an invalid domain: {}",
+                    e
+                ),
+            }
+        }
+        if origin_params.is_empty() && hosts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Narrow things down in SQL, so we never read, let alone decode, the rows which obviously
+        // don't match.  The `LIKE`s only look at the tail of the origin, both with and without a
+        // port, so they also let through eg `https://notexample.com` for `example.com`; and `LIKE`
+        // ignores case and treats `_` as a wildcard.  We weed all that out below by matching the
+        // parsed host exactly.
+        let mut params: Vec<String> = Vec::with_capacity(origin_params.len() + 2 * hosts.len());
+        let mut conditions = Vec::with_capacity(1 + 2 * hosts.len());
+        if !origin_params.is_empty() {
+            conditions.push(format!(
+                "origin IN ({})",
+                (1..=origin_params.len())
+                    .map(|i| format!("?{i}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+            params.extend(origin_params.iter().cloned());
+        }
+        for host in &hosts {
+            for pattern in [format!("%{host}"), format!("%{host}:%")] {
+                params.push(pattern);
+                conditions.push(format!("origin LIKE ?{}", params.len()));
+            }
+        }
+        let conditions = conditions.join(" OR ");
+        let sql = format!(
+            "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0 AND ({conditions})
+             UNION ALL
+             SELECT {common_cols} FROM loginsM WHERE is_overridden = 0 AND ({conditions})",
+            common_cols = schema::COMMON_COLS,
+        );
+        let rows = self
+            .db
+            .query_rows_and_then(
+                &sql,
+                rusqlite::params_from_iter(&params),
+                EncryptedLogin::from_row,
+            )?
+            .into_iter()
+            .filter(|login| {
+                origin_params.contains(&login.fields.origin)
+                    || hosts
+                        .iter()
+                        .any(|host| origin_is_on_host(&login.fields.origin, host))
+            })
+            .collect();
+        Ok(rows)
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<EncryptedLogin>> {
@@ -1145,6 +1216,34 @@ impl LoginDb {
     }
 }
 
+/// Whether the host of `origin` is `base`, or - for domains - a subdomain of it.
+fn origin_is_on_host(origin: &str, base: &Host) -> bool {
+    let url = Url::parse(origin).ok();
+    let this_host = url.as_ref().and_then(|url| url.host());
+    match (base, this_host) {
+        (Host::Domain(base), Some(Host::Domain(look))) => {
+            // a fairly long-winded way of saying
+            // `login.fields.origin == base_domain ||
+            //  login.fields.origin.ends_with('.' + base_domain);`
+            let mut rev_input = base.chars().rev();
+            let mut rev_host = look.chars().rev();
+            loop {
+                match (rev_input.next(), rev_host.next()) {
+                    (Some(ref a), Some(ref b)) if a == b => continue,
+                    (None, None) => return true, // exactly equal
+                    (None, Some(ref h)) => return *h == '.',
+                    _ => return false,
+                }
+            }
+        }
+        // ip addresses must match exactly.
+        (Host::Ipv4(base), Some(Host::Ipv4(look))) => *base == look,
+        (Host::Ipv6(base), Some(Host::Ipv6(look))) => *base == look,
+        // all "mismatches" in domain types are false.
+        _ => false,
+    }
+}
+
 lazy_static! {
     static ref GET_ALL_SQL: String = format!(
         "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0
@@ -2009,6 +2108,15 @@ mod tests {
         let mut sorted = expected.to_owned();
         sorted.sort_unstable();
         assert_eq!(sorted, results);
+
+        // Passing it as a domain to `get_by_origins_or_domains()` must give the same answer.
+        let mut results = origins_of(db.get_by_origins_or_domains(&[], &[query.into()]).unwrap());
+        results.sort_unstable();
+        assert_eq!(sorted, results);
+    }
+
+    fn origins_of(logins: Vec<EncryptedLogin>) -> Vec<String> {
+        logins.into_iter().map(|l| l.fields.origin).collect()
     }
 
     fn check_good_bad(
@@ -2104,6 +2212,157 @@ mod tests {
             vec!["https://[0:0:0:0:0:0:1:1]", "https://example.com"],
             vec!["[::1]", "[0:0:0:0:0:0:0:1]"],
             vec!["[0:0:0:0:0:0:1:2]"],
+        );
+    }
+
+    fn db_with_origins(origins: &[&str]) -> LoginDb {
+        let db = LoginDb::open_in_memory();
+        for origin in origins {
+            db.add(LoginEntry {
+                origin: (*origin).into(),
+                http_realm: Some("realm".into()),
+                password: "test".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        }
+        db
+    }
+
+    fn check_origins_or_domains(
+        db: &LoginDb,
+        origins: &[&str],
+        domains: &[&str],
+        expected: &[&str],
+    ) {
+        let origins: Vec<String> = origins.iter().map(|s| (*s).into()).collect();
+        let domains: Vec<String> = domains.iter().map(|s| (*s).into()).collect();
+        let mut results = origins_of(db.get_by_origins_or_domains(&origins, &domains).unwrap());
+        results.sort_unstable();
+        let mut expected = expected.to_owned();
+        expected.sort_unstable();
+        assert_eq!(expected, results);
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains() {
+        ensure_initialized();
+        let db = db_with_origins(&[
+            "https://example.com",
+            "http://example.com",
+            "https://example.com:8443",
+            "https://www.example.com",
+            "https://notexample.com",
+            "https://example_com",
+            "https://other.org",
+            "https://www.other.org",
+        ]);
+        // Nothing asked for, nothing found.
+        check_origins_or_domains(&db, &[], &[], &[]);
+        // Origins match exactly: no other schemes, ports or subdomains.
+        check_origins_or_domains(&db, &["https://example.com"], &[], &["https://example.com"]);
+        check_origins_or_domains(
+            &db,
+            &["https://example.com", "http://example.com"],
+            &[],
+            &["https://example.com", "http://example.com"],
+        );
+        // Domains match the host and its subdomains, with any scheme or port - but not a host
+        // which merely ends with the same characters, nor one `LIKE` would take `_` for a `.`.
+        check_origins_or_domains(
+            &db,
+            &[],
+            &["example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+            ],
+        );
+        // Both at once, and a login matching both is only returned once.
+        check_origins_or_domains(
+            &db,
+            &["https://www.other.org", "https://example.com"],
+            &["example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+                "https://www.other.org",
+            ],
+        );
+        check_origins_or_domains(
+            &db,
+            &[],
+            &["other.org", "example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+                "https://other.org",
+                "https://www.other.org",
+            ],
+        );
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_normalizes() {
+        ensure_initialized();
+        let db = db_with_origins(&["https://example.com", "https://www.example.com"]);
+        // The origins are normalized like `add()` does, and the domains like a host.
+        check_origins_or_domains(
+            &db,
+            &["https://EXAMPLE.com/some/path"],
+            &[],
+            &["https://example.com"],
+        );
+        check_origins_or_domains(&db, &[], &["WWW.Example.COM"], &["https://www.example.com"]);
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_invalid() {
+        ensure_initialized();
+        let db = db_with_origins(&["https://example.com"]);
+        check_origins_or_domains(&db, &["invalid origin"], &["invalid domain"], &[]);
+        // Invalid entries are skipped, not fatal.
+        check_origins_or_domains(
+            &db,
+            &["invalid origin", "https://example.com"],
+            &["invalid domain"],
+            &["https://example.com"],
+        );
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_local_and_mirror() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        // Only local, only in the mirror, and a local change overriding the mirror.
+        test_utils::insert_login(&db, "local", Some("pw"), None);
+        test_utils::insert_login(&db, "mirror", None, Some("pw"));
+        test_utils::insert_login(&db, "both", Some("new-pw"), Some("old-pw"));
+        test_utils::insert_login(&db, "deleted", Some("pw"), None);
+        db.delete("deleted").unwrap();
+
+        let mut ids: Vec<String> = db
+            .get_by_origins_or_domains(&[], &["example.com".into()])
+            .unwrap()
+            .into_iter()
+            .map(|l| l.meta.id)
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, ["both", "local", "mirror"]);
+
+        let both = db
+            .get_by_origins_or_domains(&["https://both.example.com".into()], &[])
+            .unwrap();
+        assert_eq!(both.len(), 1);
+        assert_eq!(
+            both[0].decrypt_fields(&*TEST_ENCDEC).unwrap().password,
+            "new-pw"
         );
     }
 
