@@ -68,6 +68,10 @@
 
 - Add `nimbus-fml lint`, which checks a manifest against feature design lints covering metadata, descriptions, naming, and feature shape. Findings are warnings and don't affect code generation; `--error-on-warning` fails the run, for CI. A `no-lint` list on a feature or at the top of a manifest excuses it from the lints it names, so older versions of `nimbus-fml` will reject a manifest that uses one. `nimbus-fml validate` no longer reports feature metadata warnings; run `nimbus-fml lint` for those. ([Bug 2053531](https://bugzilla.mozilla.org/show_bug.cgi?id=2053531))
 
+### Remote Settings
+
+- Added an optional `distribution` field to `RemoteSettingsContext`, exposed as `env.distribution` in JEXL `filter_expression`s so records can be targeted at specific distributions (e.g. partner repacks). ([Bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+
 # v156.0 (_2026-08-27_)
 
 ## ✨ What's Changed ✨
