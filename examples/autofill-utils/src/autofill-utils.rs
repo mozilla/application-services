@@ -9,10 +9,7 @@ use autofill::db::{
     models::{address, credit_card},
     store::Store,
 };
-use autofill::{
-    create_autofill_key, create_managed_encdec, create_static_key_manager, decrypt_string,
-    encrypt_string,
-};
+use autofill::{create_autofill_key, create_managed_encdec, create_static_key_manager};
 use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_string, prompt_usize};
