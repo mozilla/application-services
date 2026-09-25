@@ -5,6 +5,7 @@
 
 pub mod error;
 pub mod telemetry;
+use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
@@ -13,9 +14,6 @@ use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
-};
-use crate::mars::ad_response::{
-    AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
