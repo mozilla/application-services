@@ -160,7 +160,11 @@ pub fn authenticate_with_primary_password(primary_password: &str) -> Result<bool
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
-    let sym_key = match get_aes256_key(name)? {
+    // The lookup and the key creation it can lead to must see one token state.
+    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap();
+
+    let sym_key = match lookup_aes256_key(name)? {
         Some(sym_key) => sym_key,
         None => create_aes256_key(name)?,
     };
@@ -178,11 +182,6 @@ pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
 /// authenticated and holds no such key; a token that could not be searched fails with
 /// `TokenNotAuthenticated`.
 ///
-/// PK11_ListFixedKeysInSlot reports an unauthenticated token the same way as an empty key
-/// store: softoken skips the key database, so the search succeeds with no results. The
-/// authentication checks around the search are what make `Ok(None)` mean "the token was
-/// searched and holds no such key".
-///
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
@@ -190,6 +189,17 @@ pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
     let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
     let _guard = lock.lock().unwrap();
 
+    lookup_aes256_key(name)
+}
+
+/// Look up the key named `name`. The caller must hold GLOBAL_TOKEN_LOCK.
+///
+/// PK11_ListFixedKeysInSlot reports an unauthenticated token the same way as an empty key
+/// store: softoken skips the key database, so the search succeeds with no results. The
+/// authentication checks around the search are what make `Ok(None)` mean "the token was
+/// searched and holds no such key".
+#[cfg(feature = "keydb")]
+fn lookup_aes256_key(name: &str) -> Result<Option<SymKey>> {
     let slot = slot::get_internal_key_slot()?;
     if !token_is_authenticated(&slot) {
         return Err(ErrorKind::TokenNotAuthenticated.into());
@@ -280,6 +290,8 @@ fn extract_aes256_key_value(slot: Slot, sym_key: SymKey) -> Result<SymKey> {
     Ok(sym_key)
 }
 
+/// Generate a key named `name` and persist it in key4.db. The caller must hold
+/// GLOBAL_TOKEN_LOCK.
 #[cfg(feature = "keydb")]
 fn create_aes256_key(name: &str) -> Result<SymKey> {
     let mut key_bytes: [u8; nss_sys::AES_256_KEY_LENGTH as usize] =
@@ -305,6 +317,8 @@ fn create_aes256_key(name: &str) -> Result<SymKey> {
 /// Safe wrapper around PK11_ImportSymKey that
 /// de-allocates memory when the key goes out of
 /// scope, and persists key in key4.db.
+///
+/// The caller must hold GLOBAL_TOKEN_LOCK.
 #[cfg(feature = "keydb")]
 fn import_and_persist_sym_key(
     mechanism: nss_sys::CK_MECHANISM_TYPE,
@@ -312,17 +326,18 @@ fn import_and_persist_sym_key(
     operation: nss_sys::CK_ATTRIBUTE_TYPE,
     buf: &[u8],
 ) -> Result<SymKey> {
+    let slot = slot::get_internal_key_slot()?;
     // PK11_ImportSymKeyWithFlags depends on the token to be unlocked in order
     // to encrypt the key
-    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
-    let _guard = lock.lock().unwrap();
+    if !token_is_authenticated(&slot) {
+        return Err(ErrorKind::TokenNotAuthenticated.into());
+    }
 
     let mut item = nss_sys::SECItem {
         type_: nss_sys::SECItemType::siBuffer as u32,
         data: buf.as_ptr() as *mut c_uchar,
         len: c_uint::try_from(buf.len())?,
     };
-    let slot = slot::get_internal_key_slot()?;
     unsafe {
         SymKey::from_ptr(nss_sys::PK11_ImportSymKeyWithFlags(
             slot.as_mut_ptr(),
