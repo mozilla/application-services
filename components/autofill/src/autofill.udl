@@ -5,15 +5,6 @@ namespace autofill {
     [Throws=AutofillApiError]
     string create_autofill_key();
 
-    /// Encrypt an arbitrary string - `key` must have come from `create_key()`
-    [Throws=AutofillApiError]
-    string encrypt_string(string key, string cleartext);
-
-    /// Decrypt an arbitrary string - `key` must have come from `create_key()`
-    /// and `ciphertext` must have come from `encrypt_string()`
-    [Throws=AutofillApiError]
-    string decrypt_string(string key, string ciphertext);
-
     /// Utility function to create a StaticKeyManager to be used for the time
     /// being until support lands for [trait implementation of an UniFFI
     /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)

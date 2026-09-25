@@ -5,17 +5,19 @@
 #![warn(rust_2018_idioms)]
 
 use anyhow::Result;
+use async_trait::async_trait;
 use autofill::db::{
     models::{address, credit_card},
     store::Store,
 };
 use autofill::{
-    create_autofill_key, create_managed_encdec, create_static_key_manager, decrypt_string,
-    encrypt_string,
+    create_autofill_key, create_autofill_store_with_nss_keymanager, create_managed_encdec,
+    create_static_key_manager,
 };
 use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
-use cli_support::prompt::{prompt_string, prompt_usize};
+use cli_support::prompt::{prompt_password, prompt_string, prompt_usize};
+use db_crypto::{DbCryptoApiError, PrimaryPasswordAuthenticator};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
@@ -52,6 +54,13 @@ pub struct Opts {
     /// Sets the path to the database
     #[arg(name = "database_path", long, short = 'd')]
     pub database_path: Option<String>,
+
+    /// Use a Firefox profile directory: NSS is initialized against its
+    /// key4.db and the store opens <profile>/autofill.db with the
+    /// NSS-managed key, prompting for the primary password if one is set.
+    /// Overrides --key.
+    #[arg(name = "profile_path", long = "profile", short = 'p')]
+    pub profile_path: Option<String>,
 
     /// Disables all logging (useful for performance evaluation)
     #[arg(name = "no-logging", long)]
@@ -391,6 +400,24 @@ fn run_sync(
     }
 }
 
+struct TerminalPrimaryPasswordAuthenticator {}
+#[async_trait]
+impl PrimaryPasswordAuthenticator for TerminalPrimaryPasswordAuthenticator {
+    async fn get_primary_password(&self) -> Result<String, DbCryptoApiError> {
+        Ok(prompt_password("primary password").unwrap_or_default())
+    }
+
+    async fn on_authentication_success(&self) -> Result<(), DbCryptoApiError> {
+        println!("success");
+        Ok(())
+    }
+
+    async fn on_authentication_failure(&self) -> Result<(), DbCryptoApiError> {
+        println!("this did not work, please try again:");
+        Ok(())
+    }
+}
+
 fn get_encryption_key(db_path: &str, opts: &Opts) -> Result<String> {
     // See the docstring for --key above for more context.
     // if key was specified we use ut.
@@ -452,7 +479,6 @@ fn get_encryption_key(db_path: &str, opts: &Opts) -> Result<String> {
 }
 
 fn main() -> Result<()> {
-    nss_as::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper();
 
     let opts = Opts::parse();
@@ -460,16 +486,33 @@ fn main() -> Result<()> {
         cli_support::init_trace_logging();
     }
 
-    let db_path = opts
-        .database_path
-        .clone()
-        .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
-    let key = get_encryption_key(&db_path, &opts)?;
-    log::trace!("Using encryption key {}", key);
-    let store = Store::new(
-        &db_path,
-        create_managed_encdec(create_static_key_manager(key.clone())),
-    )?;
+    let store = if let Some(profile_path) = &opts.profile_path {
+        // The profile's key4.db holds the encryption key; NSS reads it
+        // itself and prompts for the primary password when needed.
+        init_rust_components::initialize(profile_path.clone());
+        let db_path = opts.database_path.clone().unwrap_or_else(|| {
+            std::path::Path::new(profile_path)
+                .join("autofill.db")
+                .display()
+                .to_string()
+        });
+        create_autofill_store_with_nss_keymanager(
+            db_path,
+            Arc::new(TerminalPrimaryPasswordAuthenticator {}),
+        )?
+    } else {
+        nss_as::ensure_initialized();
+        let db_path = opts
+            .database_path
+            .clone()
+            .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
+        let key = get_encryption_key(&db_path, &opts)?;
+        log::trace!("Using encryption key {}", key);
+        Arc::new(Store::new(
+            &db_path,
+            create_managed_encdec(create_static_key_manager(key.clone())),
+        )?)
+    };
 
     match opts.cmd {
         Command::AddAddress {} => run_add_address(&store),
@@ -490,14 +533,6 @@ fn main() -> Result<()> {
             reset,
             nsyncs,
             wait,
-        } => run_sync(
-            &Arc::new(store),
-            credential_file,
-            wipe_all,
-            wipe,
-            reset,
-            nsyncs,
-            wait,
-        ),
+        } => run_sync(&store, credential_file, wipe_all, wipe, reset, nsyncs, wait),
     }
 }
