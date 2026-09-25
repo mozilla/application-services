@@ -3,10 +3,11 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile};
 use crate::http_cache::RequestHash;
 use crate::telemetry::Telemetry;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use url::Url;
 
@@ -105,62 +106,6 @@ pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
     request_hash
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdImage {
-    pub alt_text: Option<String>,
-    pub block_key: String,
-    pub callbacks: AdCallbacks,
-    pub format: String,
-    pub image_url: Url,
-    pub url: Url,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdSpoc {
-    pub block_key: String,
-    pub callbacks: AdCallbacks,
-    pub caps: SpocFrequencyCaps,
-    pub domain: String,
-    pub excerpt: String,
-    pub format: String,
-    pub image_url: Url,
-    pub ranking: SpocRanking,
-    pub sponsor: String,
-    pub sponsored_by_override: Option<String>,
-    pub title: String,
-    pub url: Url,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdTile {
-    pub block_key: String,
-    pub callbacks: AdCallbacks,
-    pub format: String,
-    pub image_url: Url,
-    pub name: String,
-    pub url: Url,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct SpocFrequencyCaps {
-    pub cap_key: String,
-    pub day: u32,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct SpocRanking {
-    pub priority: u32,
-    pub personalization_models: Option<HashMap<String, u32>>,
-    pub item_score: f64,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdCallbacks {
-    pub click: Url,
-    pub impression: Url,
-    pub report: Option<Url>,
-}
-
 pub trait AdResponseValue: DeserializeOwned {
     fn callbacks_mut(&mut self) -> &mut AdCallbacks;
     fn cap_key(&self) -> Option<String> {
@@ -190,16 +135,9 @@ impl AdResponseValue for AdTile {
     }
 }
 
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub enum Ads {
-    Images(Vec<AdImage>),
-    Spocs(Vec<AdSpoc>),
-    Tiles(Vec<AdTile>),
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::ads::{SpocFrequencyCaps, SpocRanking};
     use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
     use super::*;

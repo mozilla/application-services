@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::ads_store::StorableAd;
+use crate::ads::Ads;
 use crate::common::bytesize::ByteSize;
 use crate::common::clock::Clock;
 use crate::mars::error::FetchAdsError;
-use crate::{ads_store::PlacementId, common::clock::CacheClock};
+use crate::{ads::PlacementId, common::clock::CacheClock};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use std::sync::Arc;
@@ -77,7 +77,7 @@ impl AdsStoreHolder {
         Ok(ByteSize::b(size_bytes_ads))
     }
 
-    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Ads>, FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
             return Err(Self::forced_fault_error("forced lookup failure").into());
@@ -97,12 +97,8 @@ impl AdsStoreHolder {
         Ok(res.map(|x| serde_json::from_slice(&x)).transpose()?)
     }
 
-    /// Upsert an object into the store.
-    pub fn store_ad(
-        &self,
-        placement_id: &PlacementId,
-        ad: StorableAd,
-    ) -> Result<(), FetchAdsError> {
+    /// Upsert the ads for a placement, replacing any ads already stored for it.
+    pub fn store_ad(&self, placement_id: &PlacementId, ad: Ads) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(Self::forced_fault_error("forced store failure").into());
@@ -180,30 +176,11 @@ impl AdsStoreHolder {
 mod tests {
     use super::*;
     use crate::{
+        ads::AdSpoc,
         ads_store::connection_initializer::AdsStoreConnectionInitializer,
-        mars::ad_response::{AdCallbacks, AdImage},
+        test_utils::{get_example_happy_image_ads, get_example_happy_spoc_response},
     };
     use sql_support::open_database;
-    use url::Url;
-    use url_macro::url;
-
-    // Create a sample ad for tests. The body defaults to an example serialized AdImage (if body is None).
-    fn create_test_raw_ad(placement_id: &str) -> (PlacementId, StorableAd) {
-        let base_url = mockito::server_url();
-        let ad = AdImage {
-            url: url!("https://ads.fakeexample.org/example_ad_1"),
-            image_url: url!("https://ads.fakeexample.org/example_image_1"),
-            format: "billboard".to_string(),
-            block_key: "abc123".into(),
-            alt_text: Some("An ad for a puppy".to_string()),
-            callbacks: AdCallbacks {
-                click: Url::parse(&format!("{}/click/example_ad_1", base_url)).unwrap(),
-                impression: Url::parse(&format!("{}/impression/example_ad_1", base_url)).unwrap(),
-                report: Some(Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap()),
-            },
-        };
-        (PlacementId::new(placement_id), StorableAd::Image(ad))
-    }
 
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
@@ -217,7 +194,7 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Lookup);
 
-        let (placement, _) = create_test_raw_ad("mock_billboard_1");
+        let (placement, _) = get_example_happy_image_ads("mock_billboard_1");
         let err = store.lookup(&placement).unwrap_err();
 
         match err {
@@ -233,7 +210,7 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Store);
 
-        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
+        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
         let err = store.store_ad(&placement, ad).unwrap_err();
         match err {
@@ -249,7 +226,7 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Trim);
 
-        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
+        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
         store.store_ad(&placement, ad).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
@@ -264,12 +241,48 @@ mod tests {
     #[test]
     fn test_store_and_retrieve_ads() {
         let store = create_test_store();
-        let (placement, ad) = create_test_raw_ad("mock_billboard_1");
+        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
         store.store_ad(&placement, ad.clone()).unwrap();
 
         let retrieved = store.lookup(&placement).unwrap().unwrap();
         assert_eq!(retrieved, ad);
+    }
+
+    #[test]
+    fn test_store_keeps_every_ad_for_a_placement() {
+        let store = create_test_store();
+        let placement = PlacementId::new("mock_spoc_1");
+        let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
+            .data
+            .into_values()
+            .flatten()
+            .collect();
+        assert!(spocs.len() > 1);
+        let ads = Ads::Spocs(spocs);
+
+        store.store_ad(&placement, ads.clone()).unwrap();
+
+        assert_eq!(store.lookup(&placement).unwrap(), Some(ads));
+    }
+
+    #[test]
+    fn test_store_replaces_ads_for_a_placement() {
+        let store = create_test_store();
+        let placement = PlacementId::new("mock_spoc_1");
+        let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
+            .data
+            .into_values()
+            .flatten()
+            .collect();
+        store
+            .store_ad(&placement, Ads::Spocs(spocs.clone()))
+            .unwrap();
+
+        let refreshed = Ads::Spocs(spocs[..1].to_vec());
+        store.store_ad(&placement, refreshed.clone()).unwrap();
+
+        assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));
     }
 
     #[test]
@@ -280,7 +293,7 @@ mod tests {
         let store = AdsStoreHolder::new(conn);
 
         for i in 0..10 {
-            let (placement_id, ad) = create_test_raw_ad(&format!("mock_billboard_{i}"));
+            let (placement_id, ad) = get_example_happy_image_ads(&format!("mock_billboard_{i}"));
             store.store_ad(&placement_id, ad.clone()).unwrap();
         }
 
@@ -300,11 +313,11 @@ mod tests {
     #[test]
     fn test_clear_all_ads() {
         let store = create_test_store();
-        let (placement_1, ad_1) = create_test_raw_ad("mock_billboard_1");
+        let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
 
         store.store_ad(&placement_1, ad_1.clone()).unwrap();
 
-        let (placement_2, ad_2) = create_test_raw_ad("mock_billboard_2");
+        let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
         store.store_ad(&placement_2, ad_2.clone()).unwrap();
 
         assert!(store.lookup(&placement_1).unwrap().is_some());
@@ -321,8 +334,8 @@ mod tests {
     fn test_invalidate_ad_by_placement_id() {
         let store = create_test_store();
 
-        let (placement_1, ad_1) = create_test_raw_ad("mock_billboard_1");
-        let (placement_2, ad_2) = create_test_raw_ad("mock_billboard_2");
+        let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
+        let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
 
         store.store_ad(&placement_1, ad_1.clone()).unwrap();
         store.store_ad(&placement_2, ad_2.clone()).unwrap();

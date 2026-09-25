@@ -8,14 +8,24 @@ use std::collections::HashMap;
 use url::Url;
 use url_macro::url;
 
+use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
+#[cfg(feature = "stateful")]
+use crate::ads::{Ads, PlacementId};
 use crate::mars::{
     ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
-    ad_response::{
-        AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
-    },
+    ad_response::AdResponse,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
+
+#[cfg(feature = "stateful")]
+pub fn get_example_happy_image_ads(placement_id: &str) -> (PlacementId, Ads) {
+    let images = get_example_happy_image_response()
+        .data
+        .remove("example_placement_1")
+        .expect("example image response has example_placement_1");
+    (PlacementId::new(placement_id), Ads::Images(images))
+}
 
 pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
     vec![
