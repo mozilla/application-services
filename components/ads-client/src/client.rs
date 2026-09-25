@@ -294,8 +294,8 @@ pub enum ClientOperationEvent {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use parking_lot::lock_api::Mutex;
+    use std::sync::Arc;
 
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
