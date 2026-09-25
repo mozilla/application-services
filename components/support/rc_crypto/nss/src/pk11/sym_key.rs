@@ -113,11 +113,22 @@ pub fn authentication_with_primary_password_is_needed() -> Result<bool> {
 
     let slot = slot::get_internal_key_slot()?;
 
+    Ok(!token_is_authenticated(&slot))
+}
+
+/// Whether `slot` can currently be used for operations on private token objects. A token that
+/// needs no login counts as authenticated.
+///
+/// Must match the condition softoken applies before it touches the key database: `isLoggedIn`
+/// in sftk_searchTokenList, security/nss/lib/softoken/pkcs11.c.
+///
+/// The answer can be stale as soon as it is returned: logouts are not serialized by
+/// GLOBAL_TOKEN_LOCK.
+#[cfg(feature = "keydb")]
+fn token_is_authenticated(slot: &Slot) -> bool {
     unsafe {
-        Ok(
-            nss_sys::PK11_NeedLogin(slot.as_mut_ptr()) == nss_sys::PR_TRUE
-                && nss_sys::PK11_IsLoggedIn(slot.as_mut_ptr(), ptr::null_mut()) != nss_sys::PR_TRUE,
-        )
+        nss_sys::PK11_NeedLogin(slot.as_mut_ptr()) != nss_sys::PR_TRUE
+            || nss_sys::PK11_IsLoggedIn(slot.as_mut_ptr(), ptr::null_mut()) == nss_sys::PR_TRUE
     }
 }
 
@@ -142,6 +153,10 @@ pub fn authenticate_with_primary_password(primary_password: &str) -> Result<bool
 
 /// Retrieve a key, identified by `name`, from the internal NSS key store. If none exists, create
 /// one, persist, and return.
+///
+/// Fails with `TokenNotAuthenticated` when the token is not authenticated, so a key database
+/// that could not be searched never leads to the key being replaced.
+///
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
@@ -159,6 +174,16 @@ pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
     Ok(buf.to_vec())
 }
 
+/// Look up the key named `name` in the internal NSS key store. `Ok(None)` means the token was
+/// authenticated and holds no such key; a token that could not be searched fails with
+/// `TokenNotAuthenticated`.
+///
+/// PK11_ListFixedKeysInSlot reports an unauthenticated token the same way as an empty key
+/// store: softoken skips the key database, so the search succeeds with no results. The
+/// authentication checks around the search are what make `Ok(None)` mean "the token was
+/// searched and holds no such key".
+///
+/// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
     // PK11_ListFixedKeysInSlot depends on the token to be unlocked
@@ -166,6 +191,9 @@ pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
     let _guard = lock.lock().unwrap();
 
     let slot = slot::get_internal_key_slot()?;
+    if !token_is_authenticated(&slot) {
+        return Err(ErrorKind::TokenNotAuthenticated.into());
+    }
     let c_name = CString::new(name).map_err(|_| ErrorKind::NulError)?;
     let sym_key = unsafe {
         // PK11_ListFixedKeysInSlot returns either a key or null.
@@ -176,11 +204,14 @@ pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
         ))
     };
     match sym_key {
-        Ok(sym_key) => match extract_aes256_key_value(slot, sym_key) {
-            Ok(key) => Ok(Some(key)),
-            Err(e) => Err(e),
-        },
-        Err(_) => Ok(None),
+        Ok(sym_key) => Ok(Some(extract_aes256_key_value(slot, sym_key)?)),
+        Err(_) => {
+            if token_is_authenticated(&slot) {
+                Ok(None)
+            } else {
+                Err(ErrorKind::TokenNotAuthenticated.into())
+            }
+        }
     }
 }
 
@@ -312,31 +343,49 @@ mod keydb_test {
     use super::*;
     use crate::ensure_initialized_with_profile_dir;
     use std::path::PathBuf;
+    use std::sync::MutexGuard;
     use std::thread;
+
+    // Whether the token is authenticated is process wide, so tests that leave it unauthenticated
+    // cannot run alongside tests that need the key.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn profile_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
     }
 
+    // Leaves the token authenticated with `password`, the primary password of the profile
+    // fixture, so a test that leaves it logged out cannot decide what the next one starts from.
+    fn setup() -> MutexGuard<'static, ()> {
+        let guard = TEST_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        ensure_initialized_with_profile_dir(profile_path());
+        assert!(authenticate_with_primary_password("password").unwrap());
+        guard
+    }
+
+    // PK11_CheckUserPassword logs the token out before it authenticates, so a rejected password
+    // leaves it logged out.
+    fn unauthenticate_token() {
+        assert!(!authenticate_with_primary_password("not the password").unwrap());
+    }
+
     #[test]
     fn test_get_aes256_key_not_found() {
-        ensure_initialized_with_profile_dir(profile_path());
-        authenticate_with_primary_password("password").unwrap();
+        let _guard = setup();
         let result = get_aes256_key("unknown-key").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn test_get_aes256_key() {
-        ensure_initialized_with_profile_dir(profile_path());
-        authenticate_with_primary_password("password").unwrap();
+        let _guard = setup();
         let result = get_aes256_key("as-logins-key").unwrap();
         assert!(result.is_some());
     }
 
     #[test]
     fn test_get_aes256_key_parallel() {
-        ensure_initialized_with_profile_dir(profile_path());
+        let _guard = setup();
 
         let threads: Vec<_> = (0..100)
             .map(|_| {
@@ -352,5 +401,35 @@ mod keydb_test {
         for handle in threads {
             handle.join().unwrap();
         }
+    }
+
+    #[test]
+    fn test_get_aes256_key_unauthenticated() {
+        let _guard = setup();
+        unauthenticate_token();
+
+        // A key database that was never searched must not be reported as an empty one.
+        let error = match get_aes256_key("as-logins-key") {
+            Ok(_) => panic!("an unauthenticated token answered a key lookup"),
+            Err(error) => error,
+        };
+        assert!(matches!(error.kind(), ErrorKind::TokenNotAuthenticated));
+    }
+
+    #[test]
+    fn test_get_or_create_aes256_key_unauthenticated_keeps_key() {
+        let _guard = setup();
+        let key = get_or_create_aes256_key("as-logins-key").unwrap();
+
+        unauthenticate_token();
+        assert!(matches!(
+            get_or_create_aes256_key("as-logins-key")
+                .unwrap_err()
+                .kind(),
+            ErrorKind::TokenNotAuthenticated
+        ));
+
+        authenticate_with_primary_password("password").unwrap();
+        assert_eq!(key, get_or_create_aes256_key("as-logins-key").unwrap());
     }
 }

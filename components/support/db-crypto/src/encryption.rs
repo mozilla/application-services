@@ -105,14 +105,25 @@ impl ManagedEncryptorDecryptor {
     pub fn new(key_manager: Arc<dyn KeyManager>) -> Self {
         Self { key_manager }
     }
+
+    /// The key to encrypt and decrypt with.
+    ///
+    /// `MissingKey` means the key store answered and holds no key. A key manager that never got
+    /// as far as an answer reports its own failure instead.
+    fn key(&self) -> ApiResult<Vec<u8>> {
+        self.key_manager.get_key().map_err(|e| match e {
+            DbCryptoApiError::NSSUninitialized
+            | DbCryptoApiError::NSSAuthenticationError { .. }
+            | DbCryptoApiError::AuthenticationError { .. }
+            | DbCryptoApiError::AuthenticationCanceled => e,
+            _ => DbCryptoApiError::MissingKey,
+        })
+    }
 }
 
 impl EncryptorDecryptor for ManagedEncryptorDecryptor {
     fn encrypt(&self, clearbytes: Vec<u8>) -> ApiResult<Vec<u8>> {
-        let keybytes = self
-            .key_manager
-            .get_key()
-            .map_err(|_| DbCryptoApiError::MissingKey)?;
+        let keybytes = self.key()?;
         let key = std::str::from_utf8(&keybytes).map_err(|_| DbCryptoApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
@@ -133,10 +144,7 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
     }
 
     fn decrypt(&self, cipherbytes: Vec<u8>) -> ApiResult<Vec<u8>> {
-        let keybytes = self
-            .key_manager
-            .get_key()
-            .map_err(|_| DbCryptoApiError::MissingKey)?;
+        let keybytes = self.key()?;
         let key = std::str::from_utf8(&keybytes).map_err(|_| DbCryptoApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
@@ -271,7 +279,7 @@ impl NSSKeyManager {
     }
 }
 
-// wrapp `authentication_with_primary_password_is_needed` into an ApiResult
+// wrap `authentication_with_primary_password_is_needed` into an ApiResult
 #[cfg(feature = "keydb")]
 fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
     authentication_with_primary_password_is_needed().map_err(|e: nss_as::Error| {
@@ -281,13 +289,26 @@ fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
     })
 }
 
-// wrapp `authenticate_with_primary_password` into an ApiResult
+// wrap `authenticate_with_primary_password` into an ApiResult
 #[cfg(feature = "keydb")]
 fn api_authenticate_with_primary_password(primary_password: &str) -> ApiResult<bool> {
     authenticate_with_primary_password(primary_password).map_err(|e: nss_as::Error| {
         DbCryptoApiError::NSSAuthenticationError {
             reason: e.to_string(),
         }
+    })
+}
+
+// wrap `get_or_create_aes256_key` into an ApiResult
+#[cfg(feature = "keydb")]
+fn api_get_or_create_aes256_key(name: &str) -> ApiResult<Vec<u8>> {
+    get_or_create_aes256_key(name).map_err(|e: nss_as::Error| match e.kind() {
+        // A key database that could not be searched says nothing about whether the key is
+        // there, so this is retryable after authenticating rather than a missing key.
+        nss_as::ErrorKind::TokenNotAuthenticated => DbCryptoApiError::NSSAuthenticationError {
+            reason: e.to_string(),
+        },
+        _ => DbCryptoApiError::MissingKey,
     })
 }
 
@@ -330,8 +351,7 @@ impl KeyManager for NSSKeyManager {
             return Ok(bytes);
         }
 
-        let key = get_or_create_aes256_key(self.key_name.as_str())
-            .map_err(|_| DbCryptoApiError::MissingKey)?;
+        let key = api_get_or_create_aes256_key(self.key_name.as_str())?;
         let mut bytes: Vec<u8> = Vec::new();
         serde_json::to_writer(
             &mut bytes,
@@ -450,6 +470,46 @@ mod tests {
             check_canary(&canary, CANARY_TEXT, &bad_key).err().unwrap(),
             DbCryptoApiError::InvalidKey
         ));
+    }
+
+    struct FailingKeyStore(fn() -> DbCryptoApiError);
+
+    impl KeyManager for FailingKeyStore {
+        fn get_key(&self) -> ApiResult<Vec<u8>> {
+            Err((self.0)())
+        }
+    }
+
+    // A key store that never got as far as an answer says nothing about whether the key is
+    // there, so reporting it as a missing key would send the application looking for a key that
+    // is gone.
+    #[test]
+    fn test_unanswered_key_store_is_not_a_missing_key() {
+        let failures: [fn() -> DbCryptoApiError; 4] = [
+            || DbCryptoApiError::NSSUninitialized,
+            || DbCryptoApiError::NSSAuthenticationError {
+                reason: "token is not authenticated".to_string(),
+            },
+            || DbCryptoApiError::AuthenticationError {
+                reason: "no primary password".to_string(),
+            },
+            || DbCryptoApiError::AuthenticationCanceled,
+        ];
+
+        for failure in failures {
+            let encdec = ManagedEncryptorDecryptor::new(Arc::new(FailingKeyStore(failure)));
+
+            for error in [
+                encdec.encrypt(b"clearbytes".to_vec()).unwrap_err(),
+                encdec.decrypt(b"cipherbytes".to_vec()).unwrap_err(),
+            ] {
+                assert_eq!(
+                    std::mem::discriminant(&error),
+                    std::mem::discriminant(&failure()),
+                    "{error} was not passed on"
+                );
+            }
+        }
     }
 }
 
