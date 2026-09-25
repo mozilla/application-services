@@ -235,14 +235,10 @@ fn run_delete_address(store: &Store, guid: String) -> Result<()> {
     Ok(())
 }
 
-fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
-    let cc_number = prompt_string("cc_number").unwrap_or_default();
-    let cc_number_enc = encrypt_string(key.to_string(), cc_number)?;
-    let cc_number_last_4 = cc_number_enc.chars().rev().take(4).collect();
+fn run_add_credit_card(store: &Store) -> Result<()> {
     let cc_fields = credit_card::UpdatableCreditCardFields {
         cc_name: prompt_string("cc_name").unwrap_or_default(),
-        cc_number_enc,
-        cc_number_last_4,
+        cc_number: prompt_string("cc_number").unwrap_or_default(),
         cc_exp_month: prompt_usize("cc_exp_month").unwrap_or_default() as i64,
         cc_exp_year: prompt_usize("cc_exp_year").unwrap_or_default() as i64,
         cc_type: prompt_string("cc_type").unwrap_or_default(),
@@ -254,32 +250,16 @@ fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
     Ok(())
 }
 
-// copied from the impl.
-fn get_last_4(v: &str) -> String {
-    v.chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>()
-}
-
-fn run_get_credit_card(store: &Store, guid: String, key: &str) -> Result<()> {
+fn run_get_credit_card(store: &Store, guid: String) -> Result<()> {
     println!("Getting credit card for guid `{}`", guid);
 
     let credit_card = Store::get_credit_card(store, guid)?;
 
     println!("Retrieved credit card: {:#?}", credit_card);
-    let card_number = decrypt_string(key.to_string(), credit_card.cc_number_enc.clone())?;
-    println!("credit-card number decrypts as: {}", card_number);
-    if get_last_4(&card_number) != credit_card.cc_number_last_4 {
-        println!("***** - last 4 digits are wrong!!!");
-    }
     Ok(())
 }
 
-fn run_get_all_credit_cards(store: &Store, key: &str) -> Result<()> {
+fn run_get_all_credit_cards(store: &Store) -> Result<()> {
     println!("Getting all credit cards");
 
     let credit_cards = Store::get_all_credit_cards(store)?;
@@ -287,11 +267,6 @@ fn run_get_all_credit_cards(store: &Store, key: &str) -> Result<()> {
     println!("Retrieved credit cards:");
     for card in credit_cards {
         println!("{:#?}", card);
-        let card_number = decrypt_string(key.to_string(), card.cc_number_enc.clone())?;
-        println!("credit-card number decrypts as: {}", card_number);
-        if get_last_4(&card_number) != card.cc_number_last_4 {
-            println!("***** - last 4 digits are wrong!!!");
-        }
     }
     Ok(())
 }
@@ -300,9 +275,7 @@ fn run_update_credit_card(store: &Store, guid: String) -> Result<()> {
     let cc = Store::get_credit_card(store, guid.clone())?;
     let updatable = credit_card::UpdatableCreditCardFields {
         cc_name: update_string("cc_name", cc.cc_name),
-        // TODO: EncryptorDecryptor dance
-        cc_number_enc: update_string("cc_number_enc", cc.cc_number_enc),
-        cc_number_last_4: update_string("cc_number_last_4", cc.cc_number_last_4),
+        cc_number: update_string("cc_number", cc.cc_number),
         cc_exp_month: update_i64("cc_exp_month", cc.cc_exp_month),
         cc_exp_year: update_i64("cc_exp_year", cc.cc_exp_year),
         cc_type: update_string("cc_type", cc.cc_type),
@@ -505,9 +478,9 @@ fn main() -> Result<()> {
         Command::UpdateAddress { guid } => run_update_address(&store, guid),
         Command::DeleteAddress { guid } => run_delete_address(&store, guid),
 
-        Command::AddCreditCard {} => run_add_credit_card(&store, &key),
-        Command::GetCreditCard { guid } => run_get_credit_card(&store, guid, &key),
-        Command::GetAllCreditCards => run_get_all_credit_cards(&store, &key),
+        Command::AddCreditCard {} => run_add_credit_card(&store),
+        Command::GetCreditCard { guid } => run_get_credit_card(&store, guid),
+        Command::GetAllCreditCards => run_get_all_credit_cards(&store),
         Command::UpdateCreditCard { guid } => run_update_credit_card(&store, guid),
         Command::DeleteCreditCard { guid } => run_delete_credit_card(&store, guid),
         Command::Sync {

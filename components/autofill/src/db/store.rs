@@ -93,8 +93,9 @@ impl Store {
 
     #[handle_error(Error)]
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> ApiResult<CreditCard> {
-        let credit_card = credit_cards::add_credit_card(&self.lock_db()?.writer, fields)?;
-        Ok(credit_card.into())
+        let db = self.lock_db()?;
+        let credit_card = credit_cards::add_credit_card(&db.writer, db.encdec.as_ref(), fields)?;
+        Ok(credit_card.into_external(db.encdec.as_ref()))
     }
 
     /// Adds a credit card **including metadata**. Normally the metadata (guid,
@@ -106,12 +107,14 @@ impl Store {
         &self,
         entry_with_meta: UpdatableCreditCardFieldsWithMeta,
     ) -> ApiResult<CreditCard> {
+        let db = self.lock_db()?;
         Ok(credit_cards::add_credit_card_with_meta(
-            &self.lock_db()?.writer,
+            &db.writer,
+            db.encdec.as_ref(),
             entry_with_meta.fields,
             entry_with_meta.meta,
         )?
-        .into())
+        .into_external(db.encdec.as_ref()))
     }
 
     /// Adds multiple credit cards **including metadata**, with a result per
@@ -121,15 +124,17 @@ impl Store {
         &self,
         entries_with_meta: Vec<UpdatableCreditCardFieldsWithMeta>,
     ) -> ApiResult<Vec<CreditCardBulkResultEntry>> {
+        let db = self.lock_db()?;
         let results = credit_cards::add_many_credit_cards_with_meta(
-            &self.lock_db()?.writer,
+            &db.writer,
+            db.encdec.as_ref(),
             entries_with_meta,
         )?;
         Ok(results
             .into_iter()
             .map(|result| match result {
                 Ok(credit_card) => CreditCardBulkResultEntry::Success {
-                    credit_card: credit_card.into(),
+                    credit_card: credit_card.into_external(db.encdec.as_ref()),
                 },
                 Err(message) => CreditCardBulkResultEntry::Error { message },
             })
@@ -181,8 +186,10 @@ impl Store {
         &self,
         entry_with_meta: UpdatableCreditCardFieldsWithMeta,
     ) -> ApiResult<()> {
+        let db = self.lock_db()?;
         credit_cards::update_credit_card_with_meta(
-            &self.lock_db()?.writer,
+            &db.writer,
+            db.encdec.as_ref(),
             entry_with_meta.fields,
             entry_with_meta.meta,
         )
@@ -190,16 +197,17 @@ impl Store {
 
     #[handle_error(Error)]
     pub fn get_credit_card(&self, guid: String) -> ApiResult<CreditCard> {
-        let credit_card =
-            credit_cards::get_credit_card(&self.lock_db()?.writer, &Guid::new(&guid))?;
-        Ok(credit_card.into())
+        let db = self.lock_db()?;
+        let credit_card = credit_cards::get_credit_card(&db.writer, &Guid::new(&guid))?;
+        Ok(credit_card.into_external(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn get_all_credit_cards(&self) -> ApiResult<Vec<CreditCard>> {
-        let credit_cards = credit_cards::get_all_credit_cards(&self.lock_db()?.writer)?
+        let db = self.lock_db()?;
+        let credit_cards = credit_cards::get_all_credit_cards(&db.writer)?
             .into_iter()
-            .map(|x| x.into())
+            .map(|x| x.into_external(db.encdec.as_ref()))
             .collect();
         Ok(credit_cards)
     }
@@ -216,7 +224,13 @@ impl Store {
         guid: String,
         credit_card: UpdatableCreditCardFields,
     ) -> ApiResult<()> {
-        credit_cards::update_credit_card(&self.lock_db()?.writer, &Guid::new(&guid), &credit_card)
+        let db = self.lock_db()?;
+        credit_cards::update_credit_card(
+            &db.writer,
+            db.encdec.as_ref(),
+            &Guid::new(&guid),
+            &credit_card,
+        )
     }
 
     #[handle_error(Error)]
@@ -493,7 +507,6 @@ pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::{new_mem_db, test_encdec};
-    use crate::sync::credit_card::encrypt_str;
     use nss_as::ensure_initialized;
 
     #[test]
@@ -570,20 +583,54 @@ mod tests {
         store.shutdown();
     }
 
+    // Data written before the store owned its encryptor was encrypted the
+    // same way - a bare jwcrypto JWE of the number under the consumer's key.
+    // It has to stay readable through the transparent API, with no migration.
+    #[test]
+    fn test_reads_pre_transparency_ciphertext() {
+        ensure_initialized();
+        let key = db_crypto::create_key().unwrap();
+        let store = Store::new_shared_memory(
+            "old-format",
+            Arc::new(crate::static_key_encryptor(&key).unwrap()),
+        )
+        .unwrap();
+
+        let old_style = jwcrypto::EncryptorDecryptor::new(&key)
+            .unwrap()
+            .encrypt("4111111111117629")
+            .unwrap();
+        let internal = crate::db::models::credit_card::InternalCreditCard {
+            guid: sync_guid::Guid::random(),
+            cc_name: "jane doe".to_string(),
+            cc_number_enc: old_style,
+            cc_number_last_4: "7629".to_string(),
+            cc_exp_month: 1,
+            cc_exp_year: 2030,
+            cc_type: "visa".to_string(),
+            ..Default::default()
+        };
+        {
+            let db = store.lock_db().unwrap();
+            let tx = db.unchecked_transaction().unwrap();
+            crate::db::credit_cards::add_internal_credit_card(&tx, &internal).unwrap();
+            tx.commit().unwrap();
+        }
+
+        let card = store.get_credit_card(internal.guid.to_string()).unwrap();
+        assert_eq!(card.cc_number, "4111111111117629");
+    }
+
     #[test]
     fn test_scrub_undecryptable_credit_card_data_for_remote_replacement() {
         ensure_initialized();
         let store =
             Arc::new(Store::new_shared_memory("scrub-test", test_encdec()).expect("create store"));
-        // The guard has to go out of scope before we touch the store again.
-        let encdec = store.lock_db().expect("db").encdec.clone();
 
         store
             .add_credit_card(UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encrypt_str(encdec.as_ref(), "567812345678123456781")
-                    .expect("encrypt cc number"),
-                cc_number_last_4: "6781".to_string(),
+                cc_number: "567812345678123456781".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),

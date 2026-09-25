@@ -30,21 +30,23 @@ namespace autofill {
     Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. The number is given in
+/// cleartext; the store encrypts it and derives the last-4 digits itself.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number_enc;
-    string cc_number_last_4;
+    string cc_number;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
 };
 
-/// What you get back as a credit-card.
+/// What you get back as a credit-card. The number comes back decrypted;
+/// it is empty for a scrubbed card (and for one the key cannot read, which
+/// the scrub-and-resync flow replaces).
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number_enc;
+    string cc_number;
     string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;

@@ -19,15 +19,7 @@ use crate::sync_merge_field_check;
 use db_crypto::EncryptorDecryptor;
 use incoming::IncomingCreditCardsImpl;
 
-pub(crate) fn encrypt_str(encdec: &dyn EncryptorDecryptor, cleartext: &str) -> Result<String> {
-    let ciphertext = encdec.encrypt(cleartext.as_bytes().to_vec())?;
-    String::from_utf8(ciphertext).map_err(|e| Error::CryptoNotUtf8(format!("encrypting: {e}")))
-}
-
-pub(crate) fn decrypt_str(encdec: &dyn EncryptorDecryptor, ciphertext: &str) -> Result<String> {
-    let cleartext = encdec.decrypt(ciphertext.as_bytes().to_vec())?;
-    String::from_utf8(cleartext).map_err(|e| Error::CryptoNotUtf8(format!("decrypting: {e}")))
-}
+pub(crate) use crate::db::models::credit_card::{decrypt_str, encrypt_str, get_last_4};
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -241,17 +233,6 @@ fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
     local_record_data
 }
 
-// Wow - strings are hard! credit-card sync is the only thing that needs to
-// get the last 4 chars of a string.
-fn get_last_4(v: &str) -> String {
-    v.chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>()
-}
 #[test]
 fn test_last_4() {
     assert_eq!(get_last_4("testing"), "ting".to_string());
