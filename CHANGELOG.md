@@ -6,6 +6,7 @@
 
 - `NSSKeyManager::get_key()` fails with `NSSAuthenticationError` rather than `MissingKey` when the token is not authenticated, and `ManagedEncryptorDecryptor` no longer reports a missing key for a key manager that never got as far as an answer: `NSSUninitialized`, `NSSAuthenticationError`, `AuthenticationError` and `AuthenticationCanceled` are passed on as they are. A key store that could not be reached says nothing about whether the key is there, so the application can authenticate again and retry, or honour the cancelled prompt, instead of treating the key as gone. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
 - A locked NSS token is no longer reported as an empty key store. `get_aes256_key()` fails with `TokenNotAuthenticated` instead of returning `None` when the key database could not be searched. A logout racing `NSSKeyManager::get_key()` can no longer make an existing key look absent and have a replacement generated in its place. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
+- `get_or_create_aes256_key()` holds the token lock across the lookup and the key creation it can lead to, so two callers can no longer both find no key and both create one under the same name. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
 
 # v158.0 (_2026-09-24_)
 
