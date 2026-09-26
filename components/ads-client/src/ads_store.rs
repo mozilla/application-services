@@ -3,9 +3,10 @@ pub mod connection_initializer;
 pub mod store;
 
 use crate::{
-    ads::PlacementId,
+    ads::{Ads, PlacementId},
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     common::bytesize::ByteSize,
+    mars::error::FetchAdsError,
 };
 use std::path::Path;
 
@@ -28,6 +29,10 @@ impl AdsStore {
 
     pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
         self.holder.close()
+    }
+
+    pub fn store_ad(&self, placement_id: &PlacementId, ad: Ads) -> Result<(), FetchAdsError> {
+        self.holder.store_ad(placement_id, ad)
     }
 
     pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {

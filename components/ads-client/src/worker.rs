@@ -3,7 +3,7 @@ use parking_lot::Mutex;
 use url::Url;
 
 use crate::{
-    client::error::{BackgroundWorkerError, ComponentError},
+    client::error::{BackgroundWorkerError, ComponentError, RequestAdsError},
     mars::{ad_request::AdPlacementRequest, ReportReason},
     request::{QueuedRequest, RequestQueue},
     AdsClientApiResult, MozAdsClientInner,
@@ -95,6 +95,7 @@ fn worker(inner_client: MozAdsClientInner, request_queue: Arc<Mutex<RequestQueue
 
         if let Some(request) = next_request {
             // Error is already logged through `handle_error` conversion macro.
+            // TODO: add telemetry here.
             let _ = request.handle_request(&inner_client);
         } else {
             // If the queue is empty, we have a very short pause with no locks to allow it to be written to.
@@ -126,9 +127,50 @@ impl DispatchRequest {
     // Runs a dispatched command synchronously in it's thread.
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
     #[handle_error(ComponentError)]
-    pub fn handle_request(self, _ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
-        // TODO: Add 'running a request' logic to here.
+    // TODO: I think we should change this to pass a MARSClient and an AdsStore separately after the lock stuff is fixed.
+    pub fn handle_request(self, ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
         error_support::error!("Running a request is currently not set up yet: {self:?}");
+
+        match self {
+            DispatchRequest::RequestAds { ad_requests } => {
+                let ads;
+                let ads_store;
+                {
+                    // TODO: When locks refactors are in, refactor this.
+                    let locked_inner = ads_client_inner.lock();
+                    let ad_requests = ad_requests.into_iter().collect();
+                    ads = locked_inner.request_mixed_ads(ad_requests)?;
+                    ads_store = locked_inner.ads_store.clone();
+                }
+
+                let ads_store = ads_store.lock();
+                if let Some(ads_store) = ads_store.as_ref() {
+                    for (placement_id, ad) in ads {
+                        ads_store
+                            .store_ad(&placement_id, ad)
+                            .map_err(RequestAdsError::from)?;
+                    }
+                }
+            }
+            DispatchRequest::RecordClick { url } => {
+                // TODO: When locks refactors are in, refactor this- use MARSClient directly, no locks needed until httpcache is used!
+                // TODO: This just directly uses 'false' for ohttp- wrong.
+                let locked_inner = ads_client_inner.lock();
+                locked_inner.record_click(url, false)?;
+            }
+            DispatchRequest::RecordImpression { url } => {
+                // TODO: When locks refactors are in, refactor this- use MARSClient directly, no locks needed until httpcache is used!
+                // TODO: This just directly uses 'false' for ohttp- wrong.
+                let locked_inner = ads_client_inner.lock();
+                locked_inner.record_impression(url, false)?;
+            }
+            DispatchRequest::ReportAd { url, reason } => {
+                // TODO: When locks refactors are in, refactor this- use MARSClient directly, no locks needed until httpcache is used!
+                // TODO: This just directly uses 'false' for ohttp- wrong.
+                let locked_inner = ads_client_inner.lock();
+                locked_inner.report_ad(url, reason, false)?;
+            }
+        }
 
         Ok(())
     }

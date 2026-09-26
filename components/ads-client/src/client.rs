@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::ads::{AdImage, AdSpoc, AdTile};
+use crate::ads::{AdImage, AdSpoc, AdTile, Ads, PlacementId};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::common::bytesize::ByteSize;
@@ -39,8 +39,9 @@ pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
+    // TODO: Remove pub
     #[cfg(feature = "stateful")]
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
+    pub ads_store: Arc<Mutex<Option<AdsStore>>>,
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
     telemetry: T,
@@ -273,6 +274,21 @@ where
         )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
+    }
+
+    // TODO: Remove this maybe- and pass an Arc to the underlying MARSClient when the lock update is in.
+    // TODO: Create structure in MARSClient (or AdsClient? Not sure) that allows one-time setting of flags, etc. (maybe on init in MARSclient)
+    #[cfg(feature = "stateful")]
+    pub fn request_mixed_ads(
+        &self,
+        placements: Vec<AdPlacementRequest>,
+    ) -> Result<HashMap<PlacementId, Ads>, RequestAdsError> {
+        let context_id = self.get_context_id()?;
+        // TODO: you are passing default/empty things here.
+        let ads =
+            self.client
+                .fetch_ads_mixed(context_id, HashMap::new(), placements, false, vec![])?;
+        Ok(ads)
     }
 
     pub fn shutdown_references(&self) -> ShutdownReferences<T> {
