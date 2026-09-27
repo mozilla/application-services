@@ -216,11 +216,15 @@ impl SearchEngineSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{EngineRecord, ExpectedEngine, SubVariant, Variant};
+    use crate::test_helpers::{
+        EngineRecord, EngineRecordV3, ExpectedEngine, ExpectedEngineV3, SubVariant, SubVariantV3,
+        Variant, VariantV3,
+    };
     use crate::{test_helpers, types::*, SearchApiError};
     use mockito::mock;
     use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer};
     use serde_json::json;
+    use std::collections::HashMap;
 
     #[test]
     fn test_set_config_should_allow_basic_config() {
@@ -470,8 +474,8 @@ mod tests {
         let config_result = Arc::clone(&selector).set_search_config_v3(
             json!({
               "data": [
-                EngineRecord::full("test1", "Test 1").build(),
-                EngineRecord::minimal("test2", "Test 2").build(),
+                EngineRecordV3::full("test1", "Test 1").build(),
+                EngineRecordV3::minimal("test2", "Test 2").build(),
                 {
                   "recordType": "defaultEngines",
                   "globalDefault": "test1",
@@ -496,8 +500,8 @@ mod tests {
             result.unwrap(),
             RefinedSearchConfigV3 {
                 engines: vec!(
-                    ExpectedEngine::full("test1", "Test 1").build().into(),
-                    ExpectedEngine::minimal("test2", "Test 2").build().into(),
+                    ExpectedEngineV3::full("test1", "Test 1").build(),
+                    ExpectedEngineV3::minimal("test2", "Test 2").build(),
                 ),
                 app_default_engine_id: Some("test1".to_string()),
                 app_private_default_engine_id: Some("test2".to_string())
@@ -637,6 +641,103 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_engine_configuration_v3_handles_basic_variants() {
+        let selector = Arc::new(SearchEngineSelector::new());
+        println!(
+            "{}",
+            json!(EngineRecordV3::full("test1", "Test 1")
+                .add_variant(VariantV3::new().regions(&["FR"]).urls(json!({
+                    "search": {
+                        "method": "POST",
+                        "params": [{
+                            "name": "mission",
+                            "value": "ongoing"
+                        }]
+                    }
+                })))
+                .build())
+        );
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::full("test1", "Test 1")
+                .add_variant(
+                    VariantV3::new()
+                        .regions(&["FR"])
+                        .urls(json!({
+                            "search": {
+                                "method": "POST",
+                                "params": [{
+                                    "name": "mission",
+                                    "value": "ongoing"
+                                }]
+                            }
+                        }))
+                )
+                .build(),
+                EngineRecordV3::minimal("test2", "Test 2")
+                .add_variant(
+                    VariantV3::new()
+                        .optional(true)
+                          .partner(&HashMap::from([("default".to_string(), SearchEnginePartnerDetails{
+                            partner_code: Some("ship".to_string()), telemetry_suffix: Some("E".to_string())
+                        })]))
+                )
+                .build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                  "globalDefaultPrivate": "test2"
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+            region: "FR".into(),
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        let expected_1 = ExpectedEngineV3::full("test1", "Test 1")
+            .search_method("POST")
+            .search_params(vec![SearchUrlParam {
+                name: "mission".to_string(),
+                value: Some("ongoing".to_string()),
+                enterprise_value: None,
+                experiment_config: None,
+            }])
+            .build();
+
+        let expected_2 = ExpectedEngineV3::minimal("test2", "Test 2")
+            .optional(true)
+            .partner(HashMap::from([(
+                "default".to_string(),
+                SearchEnginePartnerDetails {
+                    partner_code: Some("ship".to_string()),
+                    telemetry_suffix: Some("E".to_string()),
+                },
+            )]))
+            .build();
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(expected_1, expected_2),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: Some("test2".to_string())
+            }
+        );
+    }
+
+    #[test]
     fn test_filter_engine_configuration_handles_basic_subvariants() {
         let selector = Arc::new(SearchEngineSelector::new());
         let config_overrides_result = Arc::clone(&selector).set_config_overrides(
@@ -737,6 +838,118 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             RefinedSearchConfig {
+                engines: vec!(expected_2),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have correctly matched and merged the en-CA locale sub-variant."
+        );
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_v3_handles_basic_subvariants() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::full("test1", "Test 1")
+                  .add_variant(
+                    VariantV3::new()
+                      .regions(&["FR"])
+                      .add_subvariant(
+                        SubVariantV3::new()
+                          .locales(&["fr"])
+                          .partner(&HashMap::from([("default".to_string(), SearchEnginePartnerDetails{
+                            partner_code: Some("fr-partner-code".to_string()), telemetry_suffix: Some("fr-telemetry-suffix".to_string())
+                        })])),
+                      )
+                      .add_subvariant(
+                        SubVariantV3::new()
+                          .locales(&["en-CA"])
+                          .urls(json!({
+                            "search": {
+                              "method": "GET",
+                              "params": [{
+                                "name": "en-ca-param-name",
+                                "enterpriseValue": "en-ca-param-value"
+                              }]
+                            }
+                          })),
+                      )
+                  )
+                  .build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1"
+                },
+                {
+                  "recordType": "availableLocales",
+                  "locales": ["en-CA", "fr"]
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        let mut result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                region: "FR".into(),
+                locale: "fr".into(),
+                ..Default::default()
+            });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        let expected_1 = ExpectedEngineV3::full("test1", "Test 1")
+            .partner(HashMap::from([(
+                "default".to_string(),
+                SearchEnginePartnerDetails {
+                    partner_code: Some("fr-partner-code".to_string()),
+                    telemetry_suffix: Some("fr-telemetry-suffix".to_string()),
+                },
+            )]))
+            .build();
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(expected_1),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have correctly matched and merged the fr locale sub-variant."
+        );
+
+        result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+            region: "FR".into(),
+            locale: "en-CA".into(),
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        let expected_2 = ExpectedEngineV3::full("test1", "Test 1")
+            .search_params(vec![SearchUrlParam {
+                name: "en-ca-param-name".to_string(),
+                value: None,
+                enterprise_value: Some("en-ca-param-value".to_string()),
+                experiment_config: None,
+            }])
+            .build();
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
                 engines: vec!(expected_2),
                 app_default_engine_id: Some("test1".to_string()),
                 app_private_default_engine_id: None
@@ -849,6 +1062,106 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_engine_configuration_v3_handles_environments() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::full("test1", "Test 1").build(),
+                EngineRecordV3::full("test2", "Test 2")
+                .override_variants(
+                    VariantV3::new()
+                      .applications(&["firefox-android", "focus-ios"])
+                )
+                .build(),
+                EngineRecordV3::full("test3", "Test 3")
+                .override_variants(
+                    VariantV3::new()
+                      .distributions(&["starship"])
+                )
+                .build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        let mut result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                distribution_id: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                ..Default::default()
+            });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(ExpectedEngineV3::full("test1", "Test 1").build()),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
+            }, "Should have selected test1 for all matching locales, as the environments do not match for the other two"
+        );
+
+        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: String::new(),
+            app_name: SearchApplicationName::FocusIos,
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        let expected_1 = ExpectedEngineV3::full("test1", "Test 1").build();
+        let expected_2 = ExpectedEngineV3::full("test2", "Test 2").build();
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(expected_1, expected_2),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have selected test1 for all matching locales and test2 for matching Focus IOS"
+        );
+
+        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: "starship".to_string(),
+            app_name: SearchApplicationName::Firefox,
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        let expected_1 = ExpectedEngineV3::full("test1", "Test 1").build();
+        let expected_3 = ExpectedEngineV3::full("test3", "Test 3").build();
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec!(expected_1, expected_3),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
+            }, "Should have selected test1 for all matching locales and test3 for matching the distribution id"
+        );
+    }
+
+    #[test]
     fn test_set_config_should_handle_default_engines() {
         let selector = Arc::new(SearchEngineSelector::new());
         let config_overrides_result = Arc::clone(&selector).set_config_overrides(
@@ -925,6 +1238,87 @@ mod tests {
                     ExpectedEngine::minimal("test", "Test").build(),
                     ExpectedEngine::minimal("private-default-FR", "Private default FR").build(),
                     ExpectedEngine::minimal("distro-default", "Distribution Default").build(),
+                ],
+                app_default_engine_id: Some("test".to_string()),
+                app_private_default_engine_id: Some("private-default-FR".to_string())
+            },
+            "Should have selected the private default engine for the matching specific default"
+        );
+    }
+
+    #[test]
+    fn test_set_config_v3_should_handle_default_engines() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::minimal("test", "Test").build(),
+                EngineRecordV3::minimal("distro-default", "Distribution Default").build(),
+                EngineRecordV3::minimal("private-default-FR", "Private default FR").build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test",
+                  "specificDefaults": [{
+                    "environment": {
+                      "distributions": ["test-distro"],
+                    },
+                    "default": "distro-default"
+                  }, {
+                    "environment": {
+                      "regions": ["fr"]
+                    },
+                    "defaultPrivate": "private-default-FR"
+                  }]
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![
+                    ExpectedEngineV3::minimal("distro-default", "Distribution Default").build(),
+                    ExpectedEngineV3::minimal("private-default-FR", "Private default FR").build(),
+                    ExpectedEngineV3::minimal("test", "Test").build(),
+                ],
+                app_default_engine_id: Some("distro-default".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have selected the distro-default engine for the matching specific default"
+        );
+
+        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            region: "fr".into(),
+            distribution_id: String::new(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfigV3 {
+                engines: vec![
+                    ExpectedEngineV3::minimal("test", "Test").build(),
+                    ExpectedEngineV3::minimal("private-default-FR", "Private default FR").build(),
+                    ExpectedEngineV3::minimal("distro-default", "Distribution Default").build(),
                 ],
                 app_default_engine_id: Some("test".to_string()),
                 app_private_default_engine_id: Some("private-default-FR".to_string())
@@ -1091,6 +1485,160 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_filter_engine_orders_v3() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let engine_order_config = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::minimal("after-defaults", "after-defaults").build(),
+                EngineRecordV3::minimal("b-engine", "first alphabetical").build(),
+                EngineRecordV3::minimal("a-engine", "last alphabetical").build(),
+                EngineRecordV3::minimal("default-engine", "default-engine").build(),
+                EngineRecordV3::minimal("default-private-engine", "default-privite-engine").build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "default-engine",
+                  "globalDefaultPrivate": "default-private-engine",
+                },
+                {
+                  "recordType": "engineOrders",
+                  "orders": [
+                    {
+                      "environment": {
+                        "locales": ["en-CA"],
+                        "regions": ["CA"],
+                      },
+                      "order": ["after-defaults"],
+                    },
+                  ],
+                },
+                {
+                  "recordType": "availableLocales",
+                  "locales": ["en-CA", "fr"]
+                }
+              ]
+            })
+            .to_string(),
+        );
+        engine_order_config.expect("Should have set the configuration successfully");
+
+        fn assert_actual_engines_equals_expected(
+            result: Result<RefinedSearchConfigV3, SearchApiError>,
+            expected_engine_orders: Vec<String>,
+            message: &str,
+        ) {
+            assert!(
+                result.is_ok(),
+                "Should have filtered the configuration without error. {:?}",
+                result
+            );
+
+            let refined_config = result.unwrap();
+            let actual_engine_orders: Vec<String> = refined_config
+                .engines
+                .into_iter()
+                .map(|e| e.identifier)
+                .collect();
+
+            assert_eq!(actual_engine_orders, expected_engine_orders, "{}", message);
+        }
+
+        assert_actual_engines_equals_expected(
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "en-CA".into(),
+                region: "CA".into(),
+                ..Default::default()
+            }),
+            vec![
+                "default-engine".to_string(),
+                "default-private-engine".to_string(),
+                "after-defaults".to_string(),
+                "b-engine".to_string(),
+                "a-engine".to_string(),
+            ],
+            "Should order the default engine first, default private engine second, and the rest of the engines based on order hint then alphabetically by name."
+        );
+
+        let starts_with_wiki_config = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::minimal("wiki-ca", "wiki-ca")
+                .override_variants(
+                    VariantV3::new()
+                      .locales(&["en-CA"])
+                      .regions(&["CA"])
+                )
+                .build(),
+                EngineRecordV3::minimal("wiki-uk", "wiki-uk")
+                .override_variants(
+                    VariantV3::new()
+                      .locales(&["en-GB"])
+                      .regions(&["GB"])
+                )
+                .build(),
+                EngineRecordV3::minimal("engine-1", "engine-1").build(),
+                EngineRecordV3::minimal("engine-2", "engine-2").build(),
+                {
+                  "recordType": "engineOrders",
+                  "orders": [
+                    {
+                      "environment": {
+                        "locales": ["en-CA"],
+                        "regions": ["CA"],
+                      },
+                      "order": ["wiki*", "engine-1", "engine-2"],
+                    },
+                    {
+                      "environment": {
+                        "locales": ["en-GB"],
+                        "regions": ["GB"],
+                      },
+                      "order": ["wiki*", "engine-1", "engine-2"],
+                    },
+                  ],
+                },
+                {
+                  "recordType": "availableLocales",
+                  "locales": ["en-CA", "en-GB", "fr"]
+                }
+
+              ]
+            })
+            .to_string(),
+        );
+        starts_with_wiki_config.expect("Should have set the configuration successfully");
+
+        assert_actual_engines_equals_expected(
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "en-CA".into(),
+                region: "CA".into(),
+                ..Default::default()
+            }),
+            vec![
+                "wiki-ca".to_string(),
+                "engine-1".to_string(),
+                "engine-2".to_string(),
+            ],
+            "Should list the wiki-ca engine and other engines in correct orders with the en-CA and CA locale region environment."
+        );
+
+        assert_actual_engines_equals_expected(
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+                locale: "en-GB".into(),
+                region: "GB".into(),
+                ..Default::default()
+            }),
+            vec![
+                "wiki-uk".to_string(),
+                "engine-1".to_string(),
+                "engine-2".to_string(),
+            ],
+            "Should list the wiki-uk engine and other engines in correct orders with the en-GB and GB locale region environment."
+        );
+    }
+
     const APPLY_OVERRIDES: bool = true;
     const DO_NOT_APPLY_OVERRIDES: bool = false;
     const RECORDS_MISSING: bool = false;
@@ -1223,6 +1771,58 @@ mod tests {
         .to_string()
     }
 
+    fn response_body_v3() -> String {
+        json!({
+          "metadata": {
+            "id": "search-config-v3",
+            "last_modified": 1000,
+            "bucket": "main",
+            "signatures": [{
+              "x5u": "fake",
+              "signature": "fake",
+              "mode": "fake",
+            }],
+          },
+          "timestamp": 1000,
+          "changes": [
+            EngineRecordV3::minimal("test", "Test")
+              .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d7")
+              .schema(1001)
+              .last_modified(1000)
+              .build(),
+            EngineRecordV3::minimal("distro-default", "Distribution Default")
+              .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d8")
+              .schema(1002)
+              .last_modified(1000)
+              .build(),
+            EngineRecordV3::minimal("private-default-FR", "Private default FR")
+              .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d9")
+              .schema(1003)
+              .last_modified(1000)
+              .build(),
+            {
+              "recordType": "defaultEngines",
+              "globalDefault": "test",
+              "specificDefaults": [{
+                "environment": {
+                  "distributions": ["test-distro"],
+                },
+                "default": "distro-default"
+              }, {
+                "environment": {
+                  "regions": ["fr"]
+                },
+                "defaultPrivate": "private-default-FR"
+              }],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0e0",
+              "schema": 1004,
+              "last_modified": 1000,
+            }
+          ]
+        })
+        .to_string()
+    }
+
     fn response_body_changes() -> String {
         json!({
           "timestamp": 1000,
@@ -1263,6 +1863,50 @@ mod tests {
             EngineRecord::minimal("engine-en-us", "English US Engine")
               .override_variants(
                 Variant::new()
+                  .locales(&["en-US"])
+              )
+              .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d8")
+              .schema(1002)
+              .last_modified(1000)
+              .build(),
+            {
+              "recordType": "availableLocales",
+              "locales": ["de", "en-US"],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0e0",
+              "schema": 1004,
+              "last_modified": 1000,
+            }
+          ]
+        })
+        .to_string()
+    }
+
+    fn response_body_locales_v3() -> String {
+        json!({
+          "metadata": {
+            "id": "search-config-v3",
+            "last_modified": 1000,
+            "bucket": "main",
+            "signatures": [{
+              "x5u": "fake",
+              "signature": "fake",
+              "mode": "fake",
+            }],
+          },
+          "timestamp": 1000,
+          "changes": [
+            EngineRecordV3::minimal("engine-de", "German Engine")
+              .override_variants(
+                VariantV3::new()
+                  .locales(&["de"])
+              )
+              .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d7")
+              .schema(1001)
+              .last_modified(1000)
+              .build(),
+            EngineRecordV3::minimal("engine-en-us", "English US Engine")
+              .override_variants(
+                VariantV3::new()
                   .locales(&["en-US"])
               )
               .id("c5dcd1da-7126-4abb-846b-ec85b0d4d0d8")
@@ -1437,7 +2081,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
         )
-        .with_body(response_body("search-config-v3"))
+        .with_body(response_body_v3())
         .with_status(501)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1696,7 +2340,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
         )
-        .with_body(response_body("search-config-v3"))
+        .with_body(response_body_v3())
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1704,11 +2348,11 @@ mod tests {
 
         let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
 
-        let test_engine = ExpectedEngine::minimal("test", "Test").build();
+        let test_engine = ExpectedEngineV3::minimal("test", "Test").build();
         let private_default_fr_engine =
-            ExpectedEngine::minimal("private-default-FR", "Private default FR").build();
+            ExpectedEngineV3::minimal("private-default-FR", "Private default FR").build();
         let distro_default_engine =
-            ExpectedEngine::minimal("distro-default", "Distribution Default").build();
+            ExpectedEngineV3::minimal("distro-default", "Distribution Default").build();
 
         let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
             distribution_id: "test-distro".to_string(),
@@ -1723,9 +2367,9 @@ mod tests {
             result.unwrap(),
             RefinedSearchConfigV3 {
                 engines: vec![
-                    distro_default_engine.clone().into(),
-                    private_default_fr_engine.clone().into(),
-                    test_engine.clone().into(),
+                    distro_default_engine.clone(),
+                    private_default_fr_engine.clone(),
+                    test_engine.clone(),
                 ],
                 app_default_engine_id: Some("distro-default".to_string()),
                 app_private_default_engine_id: None
@@ -1747,9 +2391,9 @@ mod tests {
             result.unwrap(),
             RefinedSearchConfigV3 {
                 engines: vec![
-                    test_engine.into(),
-                    private_default_fr_engine.into(),
-                    distro_default_engine.into(),
+                    test_engine,
+                    private_default_fr_engine,
+                    distro_default_engine,
                 ],
                 app_default_engine_id: Some("test".to_string()),
                 app_private_default_engine_id: Some("private-default-FR".to_string())
@@ -1819,7 +2463,7 @@ mod tests {
             "GET",
             "/v2/buckets/main/collections/search-config-v3/changeset?_expected=0",
         )
-        .with_body(response_body_locales())
+        .with_body(response_body_locales_v3())
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_header("etag", "\"1000\"")
@@ -1841,9 +2485,7 @@ mod tests {
         assert_eq!(
             result_de.unwrap(),
             RefinedSearchConfigV3 {
-                engines: vec![ExpectedEngine::minimal("engine-de", "German Engine")
-                    .build()
-                    .into()],
+                engines: vec![ExpectedEngineV3::minimal("engine-de", "German Engine").build()],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
@@ -1858,7 +2500,7 @@ mod tests {
         assert_eq!(
             result_en.unwrap(),
             RefinedSearchConfigV3 {
-                engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build().into(),],
+                engines: vec![ExpectedEngineV3::minimal("engine-en-us", "English US Engine").build(),],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
@@ -2053,9 +2695,7 @@ mod tests {
         assert_eq!(
             result_de.unwrap(),
             RefinedSearchConfigV3 {
-                engines: vec![ExpectedEngine::minimal("engine-de", "German Engine")
-                    .build()
-                    .into(),],
+                engines: vec![ExpectedEngineV3::minimal("engine-de", "German Engine").build(),],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
@@ -2070,7 +2710,7 @@ mod tests {
         assert_eq!(
             result_en.unwrap(),
             RefinedSearchConfigV3 {
-                engines: vec![ExpectedEngine::minimal("engine-en-us", "English US Engine").build().into(),],
+                engines: vec![ExpectedEngineV3::minimal("engine-en-us", "English US Engine").build(),],
                 app_default_engine_id: None,
                 app_private_default_engine_id: None,
             },
