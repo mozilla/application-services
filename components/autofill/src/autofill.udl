@@ -26,6 +26,7 @@ namespace autofill {
 dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -38,6 +39,7 @@ dictionary CreditCard {
     string guid;
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
