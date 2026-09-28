@@ -19,7 +19,9 @@ use crate::sync_merge_field_check;
 use db_crypto::EncryptorDecryptor;
 use incoming::IncomingCreditCardsImpl;
 
-use crate::db::models::credit_card::{decrypt_str, encrypt_str, get_last_4};
+use crate::db::models::credit_card::{
+    decrypt_optional_str, decrypt_str, encrypt_optional_str, encrypt_str, get_last_4,
+};
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -91,6 +93,8 @@ pub(crate) struct CreditCardPayload {
 pub(super) struct PayloadEntry {
     pub cc_name: String,
     pub cc_number: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cc_cvv: Option<String>,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     pub cc_type: String,
@@ -128,6 +132,7 @@ impl InternalCreditCard {
             guid: p.id,
             cc_name: p.entry.cc_name,
             cc_number_enc,
+            cc_cvv_enc: encrypt_optional_str(encdec, p.entry.cc_cvv.as_deref())?,
             cc_number_last_4,
             cc_exp_month: p.entry.cc_exp_month,
             cc_exp_year: p.entry.cc_exp_year,
@@ -144,11 +149,13 @@ impl InternalCreditCard {
 
     pub(crate) fn into_payload(self, encdec: &dyn EncryptorDecryptor) -> Result<CreditCardPayload> {
         let cc_number = decrypt_str(encdec, &self.cc_number_enc)?;
+        let cc_cvv = decrypt_optional_str(encdec, &self.cc_cvv_enc)?;
         Ok(CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
                 cc_name: self.cc_name,
                 cc_number,
+                cc_cvv,
                 cc_exp_month: self.cc_exp_month,
                 cc_exp_year: self.cc_exp_year,
                 cc_type: self.cc_type,
@@ -250,6 +257,7 @@ fn test_to_from_payload() {
     let cc = InternalCreditCard {
         cc_name: "Shaggy".to_string(),
         cc_number_enc,
+        cc_cvv_enc: encrypt_optional_str(&encdec, Some("123")).unwrap(),
         cc_number_last_4: "5678".to_string(),
         cc_exp_month: 12,
         cc_exp_year: 2021,
@@ -261,6 +269,7 @@ fn test_to_from_payload() {
     assert_eq!(payload.id, cc.guid);
     assert_eq!(payload.entry.cc_name, "Shaggy".to_string());
     assert_eq!(payload.entry.cc_number, cc_number.to_string());
+    assert_eq!(payload.entry.cc_cvv.as_deref(), Some("123"));
     assert_eq!(payload.entry.cc_exp_month, 12);
     assert_eq!(payload.entry.cc_exp_year, 2021);
     assert_eq!(payload.entry.cc_type, "foo".to_string());
@@ -279,6 +288,14 @@ fn test_to_from_payload() {
     assert_eq!(decrypt_str(&encdec, &cc2.cc_number_enc).unwrap(), cc_number);
     // But the encrypted value should not.
     assert_ne!(cc2.cc_number_enc, cc.cc_number_enc);
+    // The CVV came back too.
+    assert_eq!(decrypt_str(&encdec, &cc2.cc_cvv_enc).unwrap(), "123");
+
+    // A payload without the field - written by an older client - stores no CVV.
+    let mut old_payload = cc.into_payload(&encdec).unwrap();
+    old_payload.entry.cc_cvv = None;
+    let cc3 = InternalCreditCard::from_payload(old_payload, &encdec).unwrap();
+    assert_eq!(cc3.cc_cvv_enc, "");
 }
 
 /// Surface 3: the sync server is a source we cannot refuse. A record whose
