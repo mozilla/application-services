@@ -12,7 +12,7 @@ use ads_client::{
 };
 
 fn init_backend() {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 }
 
 fn prod_client() -> ads_client::MozAdsClient {

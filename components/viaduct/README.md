@@ -11,5 +11,5 @@ Here's how it works for different application:
 |-------------|---------|-------|
 | Desktop | `viaduct-necko` | Lives in the moz-central repo and forwards requests to the `necko` libary |
 | Android | Kotlin-implemented | Also handled by `necko`, but there's a longer chain of bridge code. Kotlin code implements a backend by forwarding requests to the `fetch` library, which then forwards to `GeckoView` and the end result is that `necko` handles the request.|
-| iOS | `viaduct-hyper` | Forwards requests to the Rust `hyper` library.  Creates and manages a thread to process the requests |
+| iOS | `viaduct-backend-rust` | Forwards requests to the Rust `reqwest` library.  `reqwest` creates and manages a thread to process the requests |
 | testing | `viaduct-dev` | Forwards requests to `minireq` |
