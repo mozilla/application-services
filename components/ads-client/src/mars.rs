@@ -243,6 +243,11 @@ where
     pub fn get_telemetry(&self) -> T {
         self.telemetry.clone()
     }
+
+    #[cfg(test)]
+    pub fn get_http_cache_lock(&self) -> crate::mars::transport::WrappedHttpCache {
+        self.transport.get_http_cache_lock()
+    }
 }
 
 #[cfg(test)]

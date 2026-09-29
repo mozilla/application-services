@@ -19,10 +19,8 @@ use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
-#[cfg(feature = "stateful")]
 use parking_lot::Mutex;
 use std::collections::HashMap;
-#[cfg(feature = "stateful")]
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -35,14 +33,15 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
+#[derive(Clone)]
 pub struct AdsClient<T>
 where
     T: Clone + Telemetry,
 {
     #[cfg(feature = "stateful")]
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
-    client: MARSClient<T>,
-    context_id_component: ContextIDComponent,
+    pub ads_store: Arc<Mutex<Option<AdsStore>>>,
+    pub client: Arc<MARSClient<T>>,
+    context_id_component: Arc<Mutex<ContextIDComponent>>,
     telemetry: T,
 }
 
@@ -99,8 +98,8 @@ where
         let client = MARSClient::new(environment, http_cache, telemetry.clone());
         telemetry.record(&ClientOperationEvent::New);
         Self {
-            client,
-            context_id_component,
+            client: client.into(),
+            context_id_component: Arc::new(Mutex::new(context_id_component)),
             telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(ads_store)),
@@ -112,7 +111,8 @@ where
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(DEFAULT_ROTATION_DAYS)
+        let context_id_component = self.context_id_component.lock();
+        context_id_component.request(DEFAULT_ROTATION_DAYS)
     }
 
     pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
@@ -295,6 +295,8 @@ pub enum ClientOperationEvent {
 
 #[cfg(test)]
 mod tests {
+    use parking_lot::lock_api::Mutex;
+    use std::sync::Arc;
 
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
@@ -314,13 +316,13 @@ mod tests {
     ) -> AdsClient<MozAdsTelemetryWrapper> {
         let telemetry = client.get_telemetry();
         AdsClient {
-            client,
-            context_id_component: ContextIDComponent::new(
+            client: client.into(),
+            context_id_component: Arc::new(Mutex::new(ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
                 false,
                 Box::new(DefaultContextIdCallback),
-            ),
+            ))),
             telemetry,
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Mutex::new(Some(
