@@ -17,6 +17,8 @@ use crate::mars::ad_request::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
+#[cfg(feature = "stateful")]
+use crate::worker;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -104,6 +106,8 @@ impl MozAdsClientBuilder {
             .take()
             .map(MozAdsTelemetryWrapper::new)
             .unwrap_or_else(MozAdsTelemetryWrapper::noop);
+        #[cfg(feature = "stateful")]
+        let store_set = inner.store_config.is_some();
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
@@ -113,9 +117,18 @@ impl MozAdsClientBuilder {
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
+        let inner = Arc::new(Mutex::new(client));
+        #[cfg(feature = "stateful")]
+        let worker = if store_set {
+            worker::BackgroundWorker::new(inner.clone())
+        } else {
+            worker::BackgroundWorker::new_empty()
+        };
         MozAdsClient {
-            inner: Mutex::new(client),
+            inner,
             shutdown_references,
+            #[cfg(feature = "stateful")]
+            _worker: worker,
         }
     }
 

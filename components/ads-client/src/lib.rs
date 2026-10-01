@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use client::error::ComponentError;
 use error_support::handle_error;
@@ -26,10 +26,15 @@ mod mars;
 pub mod request;
 pub mod shutdown;
 pub mod telemetry;
+#[cfg(feature = "stateful")]
+pub mod worker;
 
 use crate::shutdown::ShutdownReferences;
 pub use ffi::telemetry::MozAdsTelemetryWrapper;
 pub use ffi::*;
+
+#[cfg(feature = "stateful")]
+use crate::worker::BackgroundWorker;
 
 #[cfg(test)]
 mod test_utils;
@@ -41,11 +46,12 @@ uniffi::custom_type!(AdsClientUrl, String, {
     try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
     lower: |obj| obj.as_str().to_string(),
 });
-
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
+    #[cfg(feature = "stateful")]
+    _worker: BackgroundWorker,
 }
 
 #[uniffi::export]
@@ -66,6 +72,7 @@ impl MozAdsClient {
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
         if let Err(e) = self.shutdown_references.shutdown() {
+            // TODO: Replace this log with telemetry.
             error_support::error!("Could not successfully shutdown ads-client: {e}");
         }
         Ok(())
