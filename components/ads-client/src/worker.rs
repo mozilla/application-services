@@ -1,12 +1,10 @@
-use error_support::handle_error;
 use parking_lot::Mutex;
 use url::Url;
 
 use crate::{
-    client::error::{BackgroundWorkerError, ComponentError},
-    mars::{ad_request::AdPlacementRequest, ReportReason},
-    request::{QueuedRequest, RequestQueue},
-    AdsClientApiResult, MozAdsClientInner,
+    client::{
+        AdsClient, error::{BackgroundWorkerError, ComponentError},
+    }, mars::{ReportReason, ad_request::AdPlacementRequest}, request::{QueuedRequest, RequestQueue}, telemetry::Telemetry,
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
@@ -22,7 +20,7 @@ pub struct BackgroundWorker {
 }
 
 impl BackgroundWorker {
-    pub fn new(inner_client: MozAdsClientInner) -> BackgroundWorker {
+    pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(inner_client: Arc<Mutex<AdsClient<T>>>) -> BackgroundWorker {
         let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
         let worker_request_queue = request_queue.clone();
 
@@ -31,6 +29,7 @@ impl BackgroundWorker {
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
             .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone())).inspect_err(|err| {
+                // TODO: Replace this log with telemetry.
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
             }).ok()
         else {
@@ -85,7 +84,10 @@ impl BackgroundWorker {
 }
 
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
-fn worker(inner_client: MozAdsClientInner, request_queue: Arc<Mutex<RequestQueue>>) {
+fn worker<T : Telemetry + Clone>(
+    inner_client: Arc<Mutex<AdsClient<T>>>,
+    request_queue: Arc<Mutex<RequestQueue>>,
+) {
     loop {
         // Get lock and extract next request. Lock is not held over the duration of the request but immediately dropped.
         let next_request = {
@@ -94,8 +96,8 @@ fn worker(inner_client: MozAdsClientInner, request_queue: Arc<Mutex<RequestQueue
         };
 
         if let Some(request) = next_request {
-            // Error is already logged through `handle_error` conversion macro.
-            let _ = request.handle_request(&inner_client);
+            // TODO: Request should be logged via telemetry here.
+            let _ = request.handle_request(inner_client.clone());
         } else {
             // If the queue is empty, we have a very short pause with no locks to allow it to be written to.
             std::thread::sleep(ADS_CLIENT_WORKER_SLEEP_LENGTH);
@@ -125,8 +127,10 @@ pub enum DispatchRequest {
 impl DispatchRequest {
     // Runs a dispatched command synchronously in it's thread.
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
-    #[handle_error(ComponentError)]
-    pub fn handle_request(self, _ads_client_inner: &MozAdsClientInner) -> AdsClientApiResult<()> {
+    pub fn handle_request<T: Telemetry + Clone>(
+        self,
+        _ads_client_inner: Arc<Mutex<AdsClient<T>>>,
+    ) -> Result<(), ComponentError> {
         // TODO: Add 'running a request' logic to here.
         error_support::error!("Running a request is currently not set up yet: {self:?}");
 

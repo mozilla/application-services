@@ -46,11 +46,9 @@ uniffi::custom_type!(AdsClientUrl, String, {
     try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
     lower: |obj| obj.as_str().to_string(),
 });
-
-pub type MozAdsClientInner = Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>;
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: MozAdsClientInner,
+    inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
     shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
     #[cfg(feature = "stateful")]
     _worker: BackgroundWorker,
@@ -74,6 +72,7 @@ impl MozAdsClient {
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
         if let Err(e) = self.shutdown_references.shutdown() {
+            // TODO: Replace this log with telemetry.
             error_support::error!("Could not successfully shutdown ads-client: {e}");
         }
         Ok(())
