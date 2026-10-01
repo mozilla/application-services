@@ -3,8 +3,12 @@ use url::Url;
 
 use crate::{
     client::{
-        AdsClient, error::{BackgroundWorkerError, ComponentError},
-    }, mars::{ReportReason, ad_request::AdPlacementRequest}, request::{QueuedRequest, RequestQueue}, telemetry::Telemetry,
+        error::{BackgroundWorkerError, ComponentError},
+        AdsClient,
+    },
+    mars::{ad_request::AdPlacementRequest, ReportReason},
+    request::{QueuedRequest, RequestQueue},
+    telemetry::Telemetry,
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
@@ -20,7 +24,9 @@ pub struct BackgroundWorker {
 }
 
 impl BackgroundWorker {
-    pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(inner_client: Arc<Mutex<AdsClient<T>>>) -> BackgroundWorker {
+    pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(
+        inner_client: Arc<Mutex<AdsClient<T>>>,
+    ) -> BackgroundWorker {
         let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
         let worker_request_queue = request_queue.clone();
 
@@ -84,7 +90,7 @@ impl BackgroundWorker {
 }
 
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
-fn worker<T : Telemetry + Clone>(
+fn worker<T: Telemetry + Clone>(
     inner_client: Arc<Mutex<AdsClient<T>>>,
     request_queue: Arc<Mutex<RequestQueue>>,
 ) {
