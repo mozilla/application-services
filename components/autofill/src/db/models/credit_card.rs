@@ -14,6 +14,7 @@ use types::Timestamp;
 pub struct UpdatableCreditCardFields {
     pub cc_name: String,
     pub cc_number: String,
+    pub cc_cvv: Option<String>,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     // Credit card types are a fixed set of strings as defined in the link below
@@ -78,6 +79,7 @@ pub struct CreditCard {
     pub guid: String,
     pub cc_name: String,
     pub cc_number: String,
+    pub cc_cvv: Option<String>,
     pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
@@ -103,6 +105,16 @@ pub(crate) fn decrypt_str(encdec: &dyn EncryptorDecryptor, ciphertext: &str) -> 
     String::from_utf8(cleartext).map_err(|e| Error::CryptoNotUtf8(format!("decrypting: {e}")))
 }
 
+pub(crate) fn encrypt_optional_str(
+    encdec: &dyn EncryptorDecryptor,
+    cleartext: Option<&str>,
+) -> Result<String> {
+    match cleartext {
+        Some(value) if !value.is_empty() => encrypt_str(encdec, value),
+        _ => Ok(String::new()),
+    }
+}
+
 // Wow - strings are hard! we need the last 4 chars of a string.
 pub(crate) fn get_last_4(v: &str) -> String {
     v.chars()
@@ -125,10 +137,16 @@ impl InternalCreditCard {
         } else {
             decrypt_str(encdec, &self.cc_number_enc)?
         };
+        let cc_cvv = if self.cc_cvv_enc.is_empty() {
+            None
+        } else {
+            Some(decrypt_str(encdec, &self.cc_cvv_enc)?)
+        };
         Ok(CreditCard {
             guid: self.guid.to_string(),
             cc_name: self.cc_name,
             cc_number,
+            cc_cvv,
             cc_number_last_4: self.cc_number_last_4,
             cc_exp_month: self.cc_exp_month,
             cc_exp_year: self.cc_exp_year,
@@ -153,6 +171,8 @@ pub struct InternalCreditCard {
     pub guid: Guid,
     pub cc_name: String,
     pub cc_number_enc: String,
+    /// Empty when no CVV is stored, like a scrubbed number.
+    pub cc_cvv_enc: String,
     pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
@@ -168,6 +188,7 @@ impl InternalCreditCard {
             guid: Guid::from_string(row.get("guid")?),
             cc_name: row.get("cc_name")?,
             cc_number_enc: row.get("cc_number_enc")?,
+            cc_cvv_enc: row.get("cc_cvv_enc")?,
             cc_number_last_4: row.get("cc_number_last_4")?,
             cc_exp_month: row.get("cc_exp_month")?,
             cc_exp_year: row.get("cc_exp_year")?,
