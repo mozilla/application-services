@@ -36,7 +36,7 @@ impl Default for SearchEngineUrl {
 }
 
 impl SearchEngineUrl {
-    fn merge(&mut self, user_environment: &SearchUserEnvironment, preferred: &JSONEngineUrl) {
+    fn merge(&mut self, user_locale: &String, preferred: &JSONEngineUrl) {
         if let Some(base) = &preferred.base {
             self.base = base.clone();
         }
@@ -51,7 +51,7 @@ impl SearchEngineUrl {
         }
         if let Some(display_name_map) = &preferred.display_name_map {
             self.display_name = display_name_map
-                .get(&user_environment.locale)
+                .get(user_locale)
                 .or_else(|| display_name_map.get("default"))
                 .cloned();
         }
@@ -66,29 +66,29 @@ impl SearchEngineUrl {
 }
 
 impl SearchEngineUrls {
-    fn merge(&mut self, user_environment: &SearchUserEnvironment, preferred: &JSONEngineUrls) {
+    fn merge(&mut self, user_locale: &String, preferred: &JSONEngineUrls) {
         if let Some(search_url) = &preferred.search {
-            self.search.merge(user_environment, search_url);
+            self.search.merge(user_locale, search_url);
         }
         if let Some(suggestions) = &preferred.suggestions {
             self.suggestions
                 .get_or_insert_with(Default::default)
-                .merge(user_environment, suggestions);
+                .merge(user_locale, suggestions);
         }
         if let Some(trending) = &preferred.trending {
             self.trending
                 .get_or_insert_with(Default::default)
-                .merge(user_environment, trending);
+                .merge(user_locale, trending);
         }
         if let Some(search_form) = &preferred.search_form {
             self.search_form
                 .get_or_insert_with(Default::default)
-                .merge(user_environment, search_form);
+                .merge(user_locale, search_form);
         }
         if let Some(visual_search) = &preferred.visual_search {
             self.visual_search
                 .get_or_insert_with(Default::default)
-                .merge(user_environment, visual_search);
+                .merge(user_locale, visual_search);
         }
     }
 }
@@ -137,11 +137,7 @@ impl EngineDefinition for SearchEngineDefinitionV3 {
 }
 
 impl SearchEngineDefinition {
-    fn merge_variant(
-        &mut self,
-        user_environment: &SearchUserEnvironment,
-        variant: &JSONEngineVariant,
-    ) {
+    fn merge_variant(&mut self, user_locale: &String, variant: &JSONEngineVariant) {
         if !self.optional {
             self.optional = variant.optional;
         }
@@ -152,20 +148,16 @@ impl SearchEngineDefinition {
             self.telemetry_suffix = telemetry_suffix.clone();
         }
         if let Some(urls) = &variant.urls {
-            self.urls.merge(user_environment, urls);
+            self.urls.merge(user_locale, urls);
         }
         if let Some(is_new_until) = &variant.is_new_until {
             self.is_new_until = Some(is_new_until.clone());
         }
     }
 
-    fn merge_override(
-        &mut self,
-        user_environment: &SearchUserEnvironment,
-        override_record: &JSONOverridesRecord,
-    ) {
+    fn merge_override(&mut self, user_locale: &String, override_record: &JSONOverridesRecord) {
         self.partner_code = override_record.partner_code.clone();
-        self.urls.merge(user_environment, &override_record.urls);
+        self.urls.merge(user_locale, &override_record.urls);
         self.click_url = Some(override_record.click_url.clone());
 
         if let Some(telemetry_suffix) = &override_record.telemetry_suffix {
@@ -174,7 +166,7 @@ impl SearchEngineDefinition {
     }
 
     pub(crate) fn from_configuration_details(
-        user_environment: &SearchUserEnvironment,
+        user_locale: &String,
         identifier: &str,
         base: JSONEngineBase,
         variant: &JSONEngineVariant,
@@ -195,10 +187,10 @@ impl SearchEngineDefinition {
             is_new_until: None,
         };
 
-        engine_definition.urls.merge(user_environment, &base.urls);
-        engine_definition.merge_variant(user_environment, variant);
+        engine_definition.urls.merge(user_locale, &base.urls);
+        engine_definition.merge_variant(user_locale, variant);
         if let Some(sub_variant) = sub_variant {
-            engine_definition.merge_variant(user_environment, sub_variant);
+            engine_definition.merge_variant(user_locale, sub_variant);
         }
 
         engine_definition
@@ -206,11 +198,7 @@ impl SearchEngineDefinition {
 }
 
 impl SearchEngineDefinitionV3 {
-    fn merge_variant(
-        &mut self,
-        user_environment: &SearchUserEnvironment,
-        variant: &JSONEngineVariantV3,
-    ) {
+    fn merge_variant(&mut self, user_locale: &String, variant: &JSONEngineVariantV3) {
         if !self.optional {
             self.optional = variant.optional;
         }
@@ -218,7 +206,7 @@ impl SearchEngineDefinitionV3 {
             self.partner = Some(partner.clone());
         }
         if let Some(urls) = &variant.urls {
-            self.urls.merge(user_environment, urls);
+            self.urls.merge(user_locale, urls);
         }
         if let Some(is_new_until) = &variant.is_new_until {
             self.is_new_until = Some(is_new_until.clone());
@@ -226,7 +214,7 @@ impl SearchEngineDefinitionV3 {
     }
 
     pub(crate) fn from_configuration_details(
-        user_environment: &SearchUserEnvironment,
+        user_locale: &String,
         identifier: &str,
         base: JSONEngineBaseV3,
         variant: &JSONEngineVariantV3,
@@ -245,10 +233,10 @@ impl SearchEngineDefinitionV3 {
             is_new_until: None,
         };
 
-        engine_definition.urls.merge(user_environment, &base.urls);
-        engine_definition.merge_variant(user_environment, variant);
+        engine_definition.urls.merge(user_locale, &base.urls);
+        engine_definition.merge_variant(user_locale, variant);
         if let Some(sub_variant) = sub_variant {
-            engine_definition.merge_variant(user_environment, sub_variant);
+            engine_definition.merge_variant(user_locale, sub_variant);
         }
 
         engine_definition
@@ -272,14 +260,14 @@ pub(crate) trait Filter {
 }
 
 fn apply_overrides(
-    user_environment: &SearchUserEnvironment,
+    user_locale: &String,
     engines: &mut [SearchEngineDefinition],
     overrides: &[JSONOverridesRecord],
 ) {
     for override_record in overrides {
         for engine in engines.iter_mut() {
             if engine.identifier == override_record.identifier {
-                engine.merge_override(user_environment, override_record);
+                engine.merge_override(user_locale, override_record);
             }
         }
     }
@@ -364,7 +352,7 @@ impl Filter for Vec<RemoteSettingsRecord> {
         }
 
         if let Some(overrides_data) = &overrides {
-            apply_overrides(user_environment, &mut engines, overrides_data);
+            apply_overrides(&user_environment.locale, &mut engines, overrides_data);
         }
 
         Ok(FilterRecordsResult {
@@ -417,7 +405,7 @@ impl Filter for Vec<JSONSearchConfigurationRecords> {
         }
 
         if let Some(overrides_data) = &overrides {
-            apply_overrides(user_environment, &mut engines, overrides_data);
+            apply_overrides(&user_environment.locale, &mut engines, overrides_data);
         }
 
         Ok(FilterRecordsResult {
@@ -612,7 +600,7 @@ fn maybe_extract_engine_config(
     } = *record;
     find_matching_variant(variants, user_environment).map(|(variant, sub_variant)| {
         SearchEngineDefinition::from_configuration_details(
-            user_environment,
+            &user_environment.locale,
             &identifier,
             base,
             &variant,
@@ -632,7 +620,7 @@ fn maybe_extract_engine_config_v3(
     } = *record;
     find_matching_variant(variants, user_environment).map(|(variant, sub_variant)| {
         SearchEngineDefinitionV3::from_configuration_details(
-            user_environment,
+            &user_environment.locale,
             &identifier,
             base,
             &variant,
@@ -797,13 +785,7 @@ mod tests {
             },
         };
 
-        test_engine.merge_override(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
-            &override_record,
-        );
+        test_engine.merge_override(&"fi".to_string(), &override_record);
 
         assert_eq!(
             test_engine.partner_code, "override-partner-code",
@@ -853,14 +835,7 @@ mod tests {
             },
         };
 
-        test_engine.merge_override(
-            &SearchUserEnvironment {
-                // en-GB locale
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
-            &override_record,
-        );
+        test_engine.merge_override(&"en-GB".to_string(), &override_record);
 
         assert_eq!(
             test_engine.urls.search.display_name,
@@ -1269,10 +1244,7 @@ mod from_configuration_details_tests {
         // be explicit about `JSONEngineBase` and handling `None`
         // options/default values.
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             JSONEngineBase {
                 aliases: None,
@@ -1337,10 +1309,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_uses_base_values_only() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSONEngineVariant {
@@ -1366,10 +1335,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_uses_locale_specific_visual_display_name() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSONEngineVariant {
@@ -1398,10 +1364,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_merges_variants() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSON_ENGINE_VARIANT,
@@ -1458,10 +1421,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_merges_variant_and_uses_locale_specific_visual_search_display_name() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSON_ENGINE_VARIANT,
@@ -1519,10 +1479,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_merges_sub_variants() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSON_ENGINE_VARIANT,
@@ -1579,10 +1536,7 @@ mod from_configuration_details_tests {
     #[test]
     fn test_merges_subvariant_and_uses_locale_specific_visual_search_display_name() {
         let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE).clone(),
             &JSON_ENGINE_VARIANT,
@@ -1653,10 +1607,7 @@ mod from_configuration_details_v3_tests {
         // be explicit about `JSONEngineBase` and handling `None`
         // options/default values.
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             JSONEngineBaseV3 {
                 aliases: None,
@@ -1718,10 +1669,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_uses_base_values_only() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSONEngineVariantV3 {
@@ -1749,10 +1697,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_uses_locale_specific_visual_display_name() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSONEngineVariantV3 {
@@ -1783,10 +1728,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_merges_variants() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSON_ENGINE_VARIANT_V3,
@@ -1841,10 +1783,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_merges_variant_and_uses_locale_specific_visual_search_display_name() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSON_ENGINE_VARIANT_V3,
@@ -1900,10 +1839,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_merges_sub_variants() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
+            &"fi".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSON_ENGINE_VARIANT_V3,
@@ -1958,10 +1894,7 @@ mod from_configuration_details_v3_tests {
     #[test]
     fn test_merges_subvariant_and_uses_locale_specific_visual_search_display_name() {
         let result = SearchEngineDefinitionV3::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
+            &"en-GB".to_string(),
             "test",
             Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
             &JSON_ENGINE_VARIANT_V3,
