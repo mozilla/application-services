@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+## FxA-Client
+- When `begin_pairing_flow` or `begin_oauth_flow` is called with an empty list of scopes, the resulting URL will not include the scope URL query parameter.
+
 ### Db-Crypto
 
 - `NSSKeyManager::get_key()` fails with `NSSAuthenticationError` rather than `MissingKey` when the token is not authenticated, and `ManagedEncryptorDecryptor` no longer reports a missing key for a key manager that never got as far as an answer: `NSSUninitialized`, `NSSAuthenticationError`, `AuthenticationError` and `AuthenticationCanceled` are passed on as they are. A key store that could not be reached says nothing about whether the key is there, so the application can authenticate again and retry, or honour the cancelled prompt, instead of treating the key as gone. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
