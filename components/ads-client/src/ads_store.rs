@@ -5,7 +5,7 @@ pub mod store;
 use crate::{
     ads::PlacementId,
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
-    common::bytesize::ByteSize,
+    bytesize::ByteSize,
 };
 use std::path::Path;
 

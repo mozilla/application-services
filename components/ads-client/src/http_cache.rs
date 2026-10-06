@@ -16,7 +16,7 @@ use self::{
     store::HttpCacheStore,
     strategy::{CacheFirst, NetworkFirst},
 };
-use crate::common::bytesize::ByteSize;
+use crate::bytesize::ByteSize;
 
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
