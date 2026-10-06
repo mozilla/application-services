@@ -69,7 +69,11 @@ RUN apt-get update -qq \
         # SQLCipher dependency.
         tclsh \
         # Required by bindgen (used by ohttp crate for C bindings)
+        build-essential \
         libclang-dev \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
+        binutils-aarch64-linux-gnu \
         ##########################
         # CI-specific dependencies
         ##########################
