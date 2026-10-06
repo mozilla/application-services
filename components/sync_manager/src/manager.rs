@@ -17,50 +17,16 @@ use sync15::client::{
 use sync15::clients_engine::{Command, CommandProcessor, CommandStatus, Settings};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
-#[derive(Default)]
+#[derive(Default, uniffi::Object)]
 pub struct SyncManager {
     mem_cached_state: Mutex<Option<MemoryCachedState>>,
 }
 
+#[uniffi::export]
 impl SyncManager {
+    #[uniffi::constructor]
     pub fn new() -> Self {
         Self::default()
-    }
-
-    fn get_engine_id(engine_name: &str) -> Result<SyncEngineId> {
-        SyncEngineId::try_from(engine_name).map_err(SyncManagerError::UnknownEngine)
-    }
-
-    fn get_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
-        match engine_id {
-            SyncEngineId::History => places::get_registered_sync_engine(engine_id),
-            SyncEngineId::Bookmarks => places::get_registered_sync_engine(engine_id),
-            SyncEngineId::Addresses => autofill::get_registered_sync_engine(engine_id),
-            SyncEngineId::CreditCards => autofill::get_registered_sync_engine(engine_id),
-            SyncEngineId::Passwords => logins::get_registered_sync_engine(engine_id),
-            SyncEngineId::Tabs => tabs::get_registered_sync_engine(engine_id),
-        }
-    }
-
-    pub fn wipe(&self, engine_name: &str) -> Result<()> {
-        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
-            engine.wipe()?;
-        }
-        Ok(())
-    }
-
-    pub fn reset(&self, engine_name: &str) -> Result<()> {
-        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
-            engine.reset(&EngineSyncAssociation::Disconnected)?;
-        }
-        Ok(())
-    }
-
-    pub fn reset_all(&self) -> Result<()> {
-        for (_, engine) in self.iter_registered_engines() {
-            engine.reset(&EngineSyncAssociation::Disconnected)?;
-        }
-        Ok(())
     }
 
     /// Disconnect engines from sync, deleting/resetting the sync-related data
@@ -114,6 +80,52 @@ impl SyncManager {
         };
         breadcrumb!("SyncManager sync ended");
         result
+    }
+
+    /// Get a list of engine names available for syncing
+    pub fn get_available_engines(&self) -> Vec<String> {
+        self.iter_registered_engines()
+            .map(|(name, _)| name.to_string())
+            .collect()
+    }
+}
+
+// additional methods used internally but not exposed over the ffi.
+impl SyncManager {
+    fn get_engine_id(engine_name: &str) -> Result<SyncEngineId> {
+        SyncEngineId::try_from(engine_name).map_err(SyncManagerError::UnknownEngine)
+    }
+
+    fn get_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+        match engine_id {
+            SyncEngineId::History => places::get_registered_sync_engine(engine_id),
+            SyncEngineId::Bookmarks => places::get_registered_sync_engine(engine_id),
+            SyncEngineId::Addresses => autofill::get_registered_sync_engine(engine_id),
+            SyncEngineId::CreditCards => autofill::get_registered_sync_engine(engine_id),
+            SyncEngineId::Passwords => logins::get_registered_sync_engine(engine_id),
+            SyncEngineId::Tabs => tabs::get_registered_sync_engine(engine_id),
+        }
+    }
+
+    pub fn wipe(&self, engine_name: &str) -> Result<()> {
+        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+            engine.wipe()?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&self, engine_name: &str) -> Result<()> {
+        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
+        }
+        Ok(())
+    }
+
+    pub fn reset_all(&self) -> Result<()> {
+        for (_, engine) in self.iter_registered_engines() {
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
+        }
+        Ok(())
     }
 
     fn do_sync(
@@ -201,12 +213,6 @@ impl SyncManager {
 
     fn iter_registered_engines(&self) -> impl Iterator<Item = (SyncEngineId, Box<dyn SyncEngine>)> {
         SyncEngineId::iter().filter_map(|id| Self::get_engine(&id).map(|engine| (id, engine)))
-    }
-
-    pub fn get_available_engines(&self) -> Vec<String> {
-        self.iter_registered_engines()
-            .map(|(name, _)| name.to_string())
-            .collect()
     }
 
     fn calc_engines_to_sync(
