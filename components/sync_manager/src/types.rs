@@ -12,10 +12,8 @@ pub struct SyncParams {
     pub reason: SyncReason,
     /// Which engines should we sync?
     pub engines: SyncEngineSelection,
-    /// Which engines should be enabled in the "account global" list (for
-    /// example, if the UI was used to change an engine's state since the last
-    /// sync).
-    pub enabled_changes: HashMap<String, bool>,
+    /// Legacy helper, how we model engine choices
+    pub engine_choices_model: EngineChoicesModel,
     /// Keys to encrypt/decrypt data from local database files.  These are
     /// separate from the key we use to encrypt the sync payload as a whole.
     pub local_encryption_keys: HashMap<String, String>,
@@ -30,6 +28,32 @@ pub struct SyncParams {
     /// Information about the current device, such as its name, formfactor and
     /// FxA device ID.
     pub device_settings: DeviceSettings,
+}
+
+#[derive(Debug, uniffi::Enum)]
+pub enum EngineChoicesModel {
+    /// Legacy model, engine choices are per account
+    Account {
+        /// Which engine states should be *changed* in the "account global" list (for
+        /// example, if the UI was used to change an engine's state since the last
+        /// sync).
+        /// Normally empty - only used for selection changes, does not reflect current actual choices.
+        enabled_changes: HashMap<String, bool>,
+    },
+    /// New mode, engine choices are specific to each device.
+    Device {
+        /// The things we are syncing, published for general info about this device.
+        enabled: Vec<String>,
+    },
+}
+
+// For tests etc as we transition to ::Device
+impl Default for EngineChoicesModel {
+    fn default() -> Self {
+        Self::Account {
+            enabled_changes: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, uniffi::Enum)]

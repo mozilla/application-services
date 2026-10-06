@@ -178,6 +178,7 @@ pub fn sync_multiple_with_command_processor(
 /// fields.
 #[derive(Debug, Default)]
 pub struct SyncRequestInfo<'a> {
+    // only used with legacy per-account sync choices.
     pub engines_to_state_change: Option<&'a HashMap<String, bool>>,
     pub is_user_action: bool,
 }

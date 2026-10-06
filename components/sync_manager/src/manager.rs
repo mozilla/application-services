@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
+use crate::types::{
+    EngineChoicesModel, ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult,
+};
 use crate::{reset, reset_all, wipe};
 use error_support::{breadcrumb, debug, info, warn};
 use parking_lot::Mutex;
@@ -154,10 +156,15 @@ impl SyncManager {
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,
         };
-        let engines_to_change = if params.enabled_changes.is_empty() {
-            None
-        } else {
-            Some(&params.enabled_changes)
+        let engines_to_change = match params.engine_choices_model {
+            EngineChoicesModel::Account { enabled_changes } => {
+                if enabled_changes.is_empty() {
+                    None
+                } else {
+                    Some(enabled_changes)
+                }
+            }
+            EngineChoicesModel::Device { .. } => None,
         };
 
         let settings = Settings {
@@ -175,7 +182,7 @@ impl SyncManager {
             &key_bundle,
             &interruptee,
             Some(SyncRequestInfo {
-                engines_to_state_change: engines_to_change,
+                engines_to_state_change: engines_to_change.as_ref(),
                 is_user_action: matches!(params.reason, SyncReason::User),
             }),
         );
@@ -259,7 +266,8 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
                     p.reason
                 );
                 false
-            } else if !p.enabled_changes.is_empty() {
+            } else if matches!(&p.engine_choices_model, EngineChoicesModel::Account { enabled_changes } if !enabled_changes.is_empty())
+            {
                 info!("Still under backoff, but syncing because we have enabled state changes.");
                 false
             } else {
@@ -323,7 +331,7 @@ impl CommandProcessor for SyncClient {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::types::{DeviceSettings, SyncAuthInfo};
+    use crate::types::{DeviceSettings, EngineChoicesModel, SyncAuthInfo};
 
     #[test]
     fn test_engine_id_sanity() {
@@ -336,7 +344,7 @@ mod test {
         SyncParams {
             reason: SyncReason::Scheduled,
             engines: SyncEngineSelection::All,
-            enabled_changes: HashMap::new(),
+            engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys: HashMap::new(),
             auth_info: SyncAuthInfo {
                 kid: "kid".to_string(),
