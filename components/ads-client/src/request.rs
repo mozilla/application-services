@@ -25,13 +25,9 @@ impl RequestQueue {
         }
     }
 
-    pub fn push_ad_request(&mut self, ad_request: AdPlacementRequest) {
-        self.queued_ads
-            .insert(ad_request.placement.clone().into(), ad_request);
-    }
-
-    pub fn push_queued_request(&mut self, queued_command: QueuedRequest) {
-        self.request_queue.push_back(queued_command);
+    pub fn clear(&mut self) {
+        self.request_queue = VecDeque::new();
+        self.queued_ads = HashMap::new();
     }
 
     // Pops the next available DispatchRequest to be run by the worker.
@@ -52,27 +48,28 @@ impl RequestQueue {
         self.request_queue.pop_front().map(|c| c.into())
     }
 
-    pub fn clear(&mut self) {
-        self.request_queue = VecDeque::new();
-        self.queued_ads = HashMap::new();
+    pub fn push_ad_request(&mut self, ad_request: AdPlacementRequest) {
+        self.queued_ads
+            .insert(ad_request.placement.clone().into(), ad_request);
+    }
+
+    pub fn push_queued_request(&mut self, queued_command: QueuedRequest) {
+        self.request_queue.push_back(queued_command);
     }
 }
 
 // Queue-able command (ReportAd, etc.)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum QueuedRequest {
     RecordClick { url: Url },
     RecordImpression { url: Url },
-    ReportAd { url: Url, reason: ReportReason },
+    ReportAd { reason: ReportReason, url: Url },
 }
 
 // Request dispatch enum for passing different instructions to the background worker thread.
 // `RequestAds` are prefetch mechanisms that query and load data into the local cache.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DispatchRequest {
-    RequestAds {
-        ad_requests: HashSet<AdPlacementRequest>,
-    },
     RecordClick {
         url: Url,
     },
@@ -80,15 +77,18 @@ pub enum DispatchRequest {
         url: Url,
     },
     ReportAd {
-        url: Url,
         reason: ReportReason,
+        url: Url,
+    },
+    RequestAds {
+        ad_requests: HashSet<AdPlacementRequest>,
     },
 }
 
 impl From<QueuedRequest> for DispatchRequest {
     fn from(value: QueuedRequest) -> Self {
         match value {
-            QueuedRequest::ReportAd { url, reason } => DispatchRequest::ReportAd { url, reason },
+            QueuedRequest::ReportAd { reason, url } => DispatchRequest::ReportAd { reason, url },
             QueuedRequest::RecordClick { url } => DispatchRequest::RecordClick { url },
             QueuedRequest::RecordImpression { url } => DispatchRequest::RecordImpression { url },
         }
@@ -118,9 +118,9 @@ mod tests {
 
     fn example_request_ads(identifier: usize) -> AdPlacementRequest {
         AdPlacementRequest {
+            content: None,
             count: 4,
             placement: format!("test_placement_{identifier}"),
-            content: None,
         }
     }
 
@@ -128,9 +128,9 @@ mod tests {
         let mut ad_requests = HashSet::new();
         for id in identifiers {
             ad_requests.insert(AdPlacementRequest {
+                content: None,
                 count: 4,
                 placement: format!("test_placement_{id}"),
-                content: None,
             });
         }
         DispatchRequest::RequestAds { ad_requests }
