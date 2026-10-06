@@ -14,7 +14,8 @@ use sync15::{
     DeviceType,
 };
 use sync_manager::{
-    manager::SyncManager, DeviceSettings, SyncEngineSelection, SyncParams, SyncReason,
+    manager::SyncManager, DeviceSettings, EngineChoicesModel, SyncEngineSelection, SyncParams,
+    SyncReason,
 };
 use tabs::TabsStore;
 
@@ -97,7 +98,7 @@ impl TestClient {
             engines: SyncEngineSelection::Some {
                 engines: engines.to_vec(),
             },
-            enabled_changes: HashMap::new(),
+            engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
@@ -139,7 +140,7 @@ impl TestClient {
             engines: SyncEngineSelection::Some {
                 engines: engines.to_vec(),
             },
-            enabled_changes: HashMap::new(),
+            engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),

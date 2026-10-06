@@ -2,6 +2,16 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Sync Manager
+
+- `SyncParams.enabled_changes` has been replaced by `engine_choices_model`, a new `EngineChoicesModel` enum, used as we transition to per-device sync choices. Callers should pass
+`EngineChoicesModel.Account(enabledChanges)` to keep the current legacy behaviour.
+The `Device` variant reflects the new model and is likely to change.
+
+## ✨ What's Changed ✨
+
 ### Db-Crypto
 
 - `NSSKeyManager::get_key()` fails with `NSSAuthenticationError` rather than `MissingKey` when the token is not authenticated, and `ManagedEncryptorDecryptor` no longer reports a missing key for a key manager that never got as far as an answer: `NSSUninitialized`, `NSSAuthenticationError`, `AuthenticationError` and `AuthenticationCanceled` are passed on as they are. A key store that could not be reached says nothing about whether the key is there, so the application can authenticate again and retry, or honour the cancelled prompt, instead of treating the key as gone. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
