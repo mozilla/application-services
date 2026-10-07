@@ -256,6 +256,7 @@ where
             self.telemetry.clone(),
             #[cfg(feature = "stateful")]
             AdsStoreShutdown::new(self.ads_store.clone()),
+            self.client.get_http_cache_shutdown(),
         )
     }
 

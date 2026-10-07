@@ -1,17 +1,14 @@
-#[cfg(feature = "stateful")]
-use parking_lot::Mutex;
-#[cfg(feature = "stateful")]
-use sql_support::open_database;
-#[cfg(feature = "stateful")]
 use std::sync::Arc;
 
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
-use crate::telemetry::Telemetry;
+use crate::{http_cache::HttpCache, telemetry::Telemetry};
 
+// TODO: We can probably get rid of this whole structure, but it is nice to have it isolated which things need to be shut down.
 pub struct ShutdownReferences<T: Telemetry> {
     #[cfg(feature = "stateful")]
     ads_cache_shutdown: AdsStoreShutdown,
+    http_cache_shutdown: HttpCacheShutdown,
     telemetry: T,
 }
 
@@ -19,10 +16,12 @@ impl<T: Telemetry> ShutdownReferences<T> {
     pub fn new(
         telemetry: T,
         #[cfg(feature = "stateful")] ads_cache_shutdown: AdsStoreShutdown,
+        http_cache_shutdown: HttpCacheShutdown,
     ) -> ShutdownReferences<T> {
         ShutdownReferences {
             #[cfg(feature = "stateful")]
             ads_cache_shutdown,
+            http_cache_shutdown,
             telemetry,
         }
     }
@@ -36,10 +35,7 @@ impl<T: Telemetry> ShutdownReferences<T> {
         #[cfg(feature = "stateful")]
         self.ads_cache_shutdown.shutdown();
 
-        // TODO: It may be prudent to call the MARSClient `shutdown_db` function here as well.
-        // However, this requires a mutable lock to be held over the MARSClient (and/or AdsClient),
-        // which might get held elsewhere over a network request.  We can consider re-adding this after
-        // a refactor or for the new stateful sqlite database.
+        self.http_cache_shutdown.shutdown();
 
         Ok(())
     }
@@ -61,6 +57,22 @@ impl AdsStoreShutdown {
         }
     }
 }
+
+// TODO: Can we remove this?
+// TODO: I think this is removable or at least replacing it with a Arc<AdsStore> (no more lock needed)
+pub struct HttpCacheShutdown(Arc<Option<HttpCache>>);
+impl HttpCacheShutdown {
+    pub fn new(http_cache: Arc<Option<HttpCache>>) -> HttpCacheShutdown {
+        HttpCacheShutdown(http_cache)
+    }
+
+    pub fn shutdown(&self) {
+        if let Some(http_cache) = self.0.as_ref() {
+            http_cache.shutdown_db();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder};

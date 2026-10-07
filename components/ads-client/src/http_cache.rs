@@ -114,7 +114,7 @@ impl HttpCache {
         Ok((response, outcomes))
     }
 
-    pub fn shutdown_db(self) {
+    pub fn shutdown_db(&self) {
         self.store.close();
     }
 }

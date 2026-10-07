@@ -59,7 +59,7 @@ impl HttpCacheStore {
         Ok(conn.execute("DELETE FROM http_cache", [])?)
     }
 
-    pub fn close(self) {
+    pub fn close(&self) {
         // TODO: Confirm this is OK with deadlocks.
         self.db.close(true);
     }

@@ -28,6 +28,7 @@ use self::{
 use crate::ads::{Ads, PlacementId};
 use crate::{
     http_cache::{HttpCache, RequestHash},
+    shutdown::HttpCacheShutdown,
     telemetry::Telemetry,
     CachePolicy,
 };
@@ -243,6 +244,11 @@ where
                 .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
+    }
+
+    // TODO: Possibly remove
+    pub fn get_http_cache_shutdown(&self) -> HttpCacheShutdown {
+        self.transport.get_http_cache_shutdown()
     }
 }
 
