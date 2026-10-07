@@ -5,6 +5,7 @@
 
 use std::hash::Hash;
 
+use sql_support::open_database;
 use viaduct::{Client, ClientSettings, Request, Response};
 
 use super::error::{HTTPError, TransportError};
@@ -29,7 +30,7 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }
@@ -47,7 +48,7 @@ impl<T: Telemetry> MARSTransport<T> {
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> Result<(), open_database::Error> {
         if let Some(cache) = &self.http_cache {
             cache.invalidate_by_hash(request_hash)?;
         }
@@ -75,11 +76,10 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+    pub fn shutdown_db(&mut self) {
         if let Some(cache) = self.http_cache.take() {
-            cache.shutdown_db()?;
+            cache.shutdown_db();
         }
-        Ok(())
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {

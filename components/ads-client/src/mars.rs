@@ -13,6 +13,7 @@ mod transport;
 
 pub use environment::Environment;
 pub use report_reason::ReportReason;
+use sql_support::open_database;
 
 use self::{
     ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
@@ -57,7 +58,7 @@ where
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.transport.clear_cache()
     }
 
@@ -188,7 +189,7 @@ where
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> Result<(), open_database::Error> {
         self.transport.invalidate_cache_by_hash(request_hash)
     }
 
@@ -217,8 +218,8 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
-        self.transport.shutdown_db()
+    pub fn shutdown_db(&mut self) {
+        self.transport.shutdown_db();
     }
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {

@@ -7,6 +7,7 @@ use crate::{
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     bytesize::ByteSize,
 };
+use sql_support::open_database;
 use std::path::Path;
 
 pub struct AdsStore {
@@ -21,12 +22,12 @@ impl AdsStore {
         AdsStoreBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear(&self) -> Result<(), open_database::Error> {
         self.holder.clear_all()?;
         Ok(())
     }
 
-    pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
+    pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), open_database::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
         Ok(())
     }
@@ -35,8 +36,8 @@ impl AdsStore {
         self.is_memory
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.holder.close()
+    pub fn shutdown_db(self) {
+        self.holder.close();
     }
 }
 

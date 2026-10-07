@@ -21,6 +21,7 @@ use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 #[cfg(feature = "stateful")]
 use parking_lot::Mutex;
+use sql_support::open_database;
 use std::collections::HashMap;
 #[cfg(feature = "stateful")]
 use std::sync::Arc;
@@ -107,7 +108,7 @@ where
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.client.clear_cache()
     }
 

@@ -1,6 +1,8 @@
 #[cfg(feature = "stateful")]
 use parking_lot::Mutex;
 #[cfg(feature = "stateful")]
+use sql_support::open_database;
+#[cfg(feature = "stateful")]
 use std::sync::Arc;
 
 #[cfg(feature = "stateful")]
@@ -32,7 +34,7 @@ impl<T: Telemetry> ShutdownReferences<T> {
         self.telemetry.shutdown();
 
         #[cfg(feature = "stateful")]
-        self.ads_cache_shutdown.shutdown()?;
+        self.ads_cache_shutdown.shutdown();
 
         // TODO: It may be prudent to call the MARSClient `shutdown_db` function here as well.
         // However, this requires a mutable lock to be held over the MARSClient (and/or AdsClient),
@@ -43,6 +45,8 @@ impl<T: Telemetry> ShutdownReferences<T> {
     }
 }
 
+// TODO: Can we remove this?
+// TODO: I think this is removable or at least replacing it with a Arc<AdsStore> (no more lock needed)
 #[cfg(feature = "stateful")]
 pub struct AdsStoreShutdown(Arc<Mutex<Option<AdsStore>>>);
 #[cfg(feature = "stateful")]
@@ -51,15 +55,14 @@ impl AdsStoreShutdown {
         AdsStoreShutdown(ads_store)
     }
 
-    pub fn shutdown(&self) -> Result<(), rusqlite::Error> {
+    pub fn shutdown(&self) {
         let ads_store = {
             let mut ads_store_lock = self.0.lock();
             ads_store_lock.take()
         };
         if let Some(ads_store) = ads_store {
-            ads_store.shutdown_db()?;
+            ads_store.shutdown_db();
         }
-        Ok(())
     }
 }
 #[cfg(test)]

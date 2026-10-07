@@ -7,9 +7,9 @@ use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::telemetry::Telemetry;
-use rusqlite::Connection;
-use sql_support::open_database;
-use std::path::PathBuf;
+use rusqlite::OpenFlags;
+use sql_support::{open_database, LazyDb};
+use std::path::{Path, PathBuf};
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
@@ -51,8 +51,8 @@ impl AdsStoreBuilder {
     pub fn build(&mut self, telemetry: impl Telemetry) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 
-        let conn = self.open_connection(telemetry)?;
-        let holder = AdsStoreHolder::new(conn);
+        let db = self.open_connection(telemetry)?;
+        let holder = AdsStoreHolder::new(db);
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         Ok(AdsStore {
             holder,
@@ -69,17 +69,37 @@ impl AdsStoreBuilder {
     fn open_connection(
         &mut self,
         telemetry: impl Telemetry,
-    ) -> Result<Connection, AdsStoreBuilderError> {
-        let initializer = AdsStoreConnectionInitializer {};
+    ) -> Result<LazyDb<AdsStoreConnectionInitializer>, AdsStoreBuilderError> {
+        // TODO: Magic word?
+        let memory_path = Path::new(":memory:").to_path_buf();
         if !cfg!(test) {
-            match open_database::open_database(&self.db_path, &initializer) {
-                Ok(conn) => return Ok(conn),
-                Err(e) => telemetry.record(&AdsStoreBuilderError::from(e)),
+            let db = LazyDb::new(
+                &self.db_path,
+                OpenFlags::default(),
+                AdsStoreConnectionInitializer {},
+            );
+
+            // Attempt to open initial connection, resolving an error if needed.
+            let conn = db.lock();
+            if let Some(e) = conn.err() {
+                telemetry.record(&AdsStoreBuilderError::from(e));
+            } else {
+                return Ok(db);
             }
         }
 
+        // If we cannot instantiate a filesystem db, or cfg!(test) == true, we fall back to a memory db.
+        let memory_db = LazyDb::new(
+            &memory_path,
+            OpenFlags::default(),
+            AdsStoreConnectionInitializer {},
+        );
         self.is_memory = true;
-        Ok(open_database::open_memory_database(&initializer)?)
+
+        // Attempt to open initial connection, resolving an error if needed.
+        let _ = memory_db.lock()?;
+
+        Ok(memory_db)
     }
 
     fn validate(&self) -> Result<(), AdsStoreBuilderError> {
