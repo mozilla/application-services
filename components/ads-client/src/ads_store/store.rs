@@ -59,7 +59,6 @@ impl AdsStoreHolder {
     }
 
     pub fn close(&self) {
-        // TODO: Revisit this- is it safe?
         self.db.close(true);
     }
 
@@ -195,7 +194,6 @@ mod tests {
 
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
-        // TODO: Standardize this?
         let db = LazyDb::new(
             Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH),
             OpenFlags::default(),

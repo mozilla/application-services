@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::{hash::Hash, sync::Arc};
+use std::hash::Hash;
 
 use sql_support::open_database;
 use viaduct::{Client, ClientSettings, Request, Response};
@@ -18,15 +18,14 @@ use crate::{
 const OHTTP_CHANNEL_ID: &str = "ads-client";
 
 pub struct MARSTransport<T: Telemetry> {
-    // TODO: Revert if we get rid of shutdown references.
-    http_cache: Arc<Option<HttpCache>>,
+    http_cache: Option<HttpCache>,
     telemetry: T,
 }
 
 impl<T: Telemetry> MARSTransport<T> {
     pub fn new(http_cache: Option<HttpCache>, telemetry: T) -> Self {
         Self {
-            http_cache: Arc::new(http_cache),
+            http_cache,
             telemetry,
         }
     }

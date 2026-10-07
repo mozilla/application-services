@@ -60,7 +60,6 @@ impl HttpCacheStore {
     }
 
     pub fn close(&self) {
-        // TODO: Confirm this is OK with deadlocks.
         self.db.close(true);
     }
 
@@ -548,7 +547,6 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction() {
-        // TODO: Is there an issue with this just using the test store?
         let store = create_test_store();
 
         for i in 0..5 {
