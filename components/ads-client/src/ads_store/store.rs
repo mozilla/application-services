@@ -196,7 +196,7 @@ mod tests {
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
         // TODO: Standardize this?
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
+        let db = LazyDb::new(Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH), OpenFlags::default(), initializer);
         AdsStoreHolder::new_with_test_clock(db)
     }
 
@@ -302,10 +302,7 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction_ads() {
-        let initializer = AdsStoreConnectionInitializer {};
-        // TODO: Standardize this?
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
-        let store = AdsStoreHolder::new(db);
+        let store = create_test_store();
 
         for i in 0..10 {
             let (placement_id, ad) = get_example_happy_image_ads(&format!("mock_billboard_{i}"));

@@ -322,7 +322,6 @@ mod tests {
 
     fn create_test_store() -> HttpCacheStore {
         let initializer = HttpCacheConnectionInitializer {};
-        // TODO: Standardize this?
         let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
         HttpCacheStore::new_with_test_clock(db)
     }
@@ -549,9 +548,8 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction() {
-        let initializer = HttpCacheConnectionInitializer {};
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
-        let store = HttpCacheStore::new(db);
+        // TODO: Is there an issue with this just using the test store?
+        let store = create_test_store();
 
         for i in 0..5 {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");

@@ -19,6 +19,8 @@ const MAX_CACHE_SIZE: ByteSize = ByteSize::mib(100);
 const MIN_TTL: Duration = Duration::from_secs(1);
 const MAX_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
+const IN_MEMORY_DB_PATH: &str = ":memory:";
+
 #[derive(Debug, thiserror::Error)]
 pub enum HttpCacheBuilderError {
     #[error("Database error: {0}")]
@@ -100,9 +102,7 @@ impl HttpCacheBuilder {
     fn open_connection(
         &self,
     ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
-        // TODO: Magic word?
-        let memory_path = Path::new(":memory:").to_path_buf();
-
+        let memory_path = Path::new(IN_MEMORY_DB_PATH).to_path_buf();
         if !cfg!(test) {
             let db = LazyDb::new(
                 &self.db_path,

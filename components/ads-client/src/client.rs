@@ -19,8 +19,6 @@ use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
-#[cfg(feature = "stateful")]
-use parking_lot::Mutex;
 use sql_support::open_database;
 use std::collections::HashMap;
 #[cfg(feature = "stateful")]

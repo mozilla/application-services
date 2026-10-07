@@ -15,6 +15,8 @@ const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
 
+pub const IN_MEMORY_DB_PATH: &'static str = ":memory:";
+
 #[derive(Debug, thiserror::Error)]
 pub enum AdsStoreBuilderError {
     #[error("Database error: {0}")]
@@ -70,8 +72,7 @@ impl AdsStoreBuilder {
         &mut self,
         telemetry: impl Telemetry,
     ) -> Result<LazyDb<AdsStoreConnectionInitializer>, AdsStoreBuilderError> {
-        // TODO: Magic word?
-        let memory_path = Path::new(":memory:").to_path_buf();
+        let memory_path = Path::new(IN_MEMORY_DB_PATH).to_path_buf();
         if !cfg!(test) {
             let db = LazyDb::new(
                 &self.db_path,
