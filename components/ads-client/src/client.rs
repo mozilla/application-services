@@ -12,9 +12,6 @@ use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
-#[cfg(feature = "stateful")]
-use crate::shutdown::AdsStoreShutdown;
-use crate::shutdown::ShutdownReferences;
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -249,13 +246,16 @@ where
             })
     }
 
-    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
-        ShutdownReferences::new(
-            self.telemetry.clone(),
-            #[cfg(feature = "stateful")]
-            AdsStoreShutdown::new(self.ads_store.clone()),
-            self.client.get_http_cache_shutdown(),
-        )
+    pub fn shutdown(&self) {
+        // Drop telemetry (within the telemetry wrapper)
+        self.telemetry.shutdown();
+
+        #[cfg(feature = "stateful")]
+        if let Some(ads_store) = self.ads_store.as_ref() {
+            ads_store.shutdown_db();
+        }
+
+        self.client.shutdown_db();
     }
 
     fn request_ads<A>(

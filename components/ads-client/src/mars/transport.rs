@@ -11,7 +11,6 @@ use viaduct::{Client, ClientSettings, Request, Response};
 use super::error::{HTTPError, TransportError};
 use crate::{
     http_cache::{HttpCache, RequestHash},
-    shutdown::HttpCacheShutdown,
     telemetry::Telemetry,
     CachePolicy,
 };
@@ -78,15 +77,10 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn shutdown_db(&mut self) {
+    pub fn shutdown_db(&self) {
         if let Some(cache) = self.http_cache.as_ref() {
             cache.shutdown_db();
         }
-    }
-
-    // TODO: Possibly remove
-    pub fn get_http_cache_shutdown(&self) -> HttpCacheShutdown {
-        HttpCacheShutdown::new(self.http_cache.clone())
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {

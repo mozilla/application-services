@@ -196,7 +196,11 @@ mod tests {
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
         // TODO: Standardize this?
-        let db = LazyDb::new(Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH), OpenFlags::default(), initializer);
+        let db = LazyDb::new(
+            Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH),
+            OpenFlags::default(),
+            initializer,
+        );
         AdsStoreHolder::new_with_test_clock(db)
     }
 

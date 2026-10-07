@@ -24,10 +24,8 @@ pub mod http_cache;
 mod mars;
 #[cfg(feature = "stateful")]
 pub mod request;
-pub mod shutdown;
 pub mod telemetry;
 
-use crate::shutdown::ShutdownReferences;
 pub use ffi::telemetry::MozAdsTelemetryWrapper;
 pub use ffi::*;
 
@@ -45,7 +43,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: AdsClient<MozAdsTelemetryWrapper>,
-    shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
 }
 
 #[uniffi::export]
@@ -170,13 +167,11 @@ impl MozAdsClient {
 
     // Allows the ads-client to unload some references and prepare for a safe shutdown.
     // Other methods should not be called after this one.
-    // Currently, we attempt to shutdown and log any errors instead of returning them.
-    // However, we may yet want to do so, so we keep the Result.
+    // Currently, we shutdown (with no expected errors).
+    // However, future shutdowns may require an error to be logged, so we keep the Result.
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
-        if let Err(e) = self.shutdown_references.shutdown() {
-            error_support::error!("Could not successfully shutdown ads-client: {e}");
-        }
+        self.inner.shutdown();
         Ok(())
     }
 }
