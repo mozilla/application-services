@@ -41,7 +41,7 @@ where
     T: Clone + Telemetry,
 {
     #[cfg(feature = "stateful")]
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
+    ads_store: Arc<Option<AdsStore>>,
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
     telemetry: T,
@@ -101,7 +101,7 @@ where
         telemetry.record(&ClientOperationEvent::New);
         Self {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Mutex::new(ads_store)),
+            ads_store: Arc::new(ads_store),
             client,
             context_id_component,
             telemetry: telemetry.clone(),
@@ -316,11 +316,11 @@ mod tests {
         let telemetry = client.get_telemetry();
         AdsClient {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Mutex::new(Some(
+            ads_store: Arc::new(Some(
                 AdsStoreBuilder::new("test_store.db")
                     .build(MozAdsTelemetryWrapper::noop())
                     .expect("Simplest AdsStoreBuilder should be constructable"),
-            ))),
+            )),
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),

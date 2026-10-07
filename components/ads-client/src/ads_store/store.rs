@@ -58,7 +58,7 @@ impl AdsStoreHolder {
         Ok(total)
     }
 
-    pub fn close(self) {
+    pub fn close(&self) {
         // TODO: Revisit this- is it safe?
         self.db.close(true);
     }

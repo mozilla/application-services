@@ -36,7 +36,7 @@ impl AdsStore {
         self.is_memory
     }
 
-    pub fn shutdown_db(self) {
+    pub fn shutdown_db(&self) {
         self.holder.close();
     }
 }

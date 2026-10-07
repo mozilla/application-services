@@ -48,19 +48,15 @@ impl<T: Telemetry> ShutdownReferences<T> {
 // TODO: Can we remove this?
 // TODO: I think this is removable or at least replacing it with a Arc<AdsStore> (no more lock needed)
 #[cfg(feature = "stateful")]
-pub struct AdsStoreShutdown(Arc<Mutex<Option<AdsStore>>>);
+pub struct AdsStoreShutdown(Arc<Option<AdsStore>>);
 #[cfg(feature = "stateful")]
 impl AdsStoreShutdown {
-    pub fn new(ads_store: Arc<Mutex<Option<AdsStore>>>) -> AdsStoreShutdown {
+    pub fn new(ads_store: Arc<Option<AdsStore>>) -> AdsStoreShutdown {
         AdsStoreShutdown(ads_store)
     }
 
     pub fn shutdown(&self) {
-        let ads_store = {
-            let mut ads_store_lock = self.0.lock();
-            ads_store_lock.take()
-        };
-        if let Some(ads_store) = ads_store {
+        if let Some(ads_store) = self.0.as_ref() {
             ads_store.shutdown_db();
         }
     }
@@ -91,22 +87,7 @@ mod tests {
         }
     }
 
-    // Shutdown procedure must not require a lock to be held on the inner AdsClient.
-    // This is because sync functions like `request_tile_ads` require (at worst) to wait on a hanging non-cancellable network request to resolve,
-    // and they hold the lock for the entirety of that time. Shutdown should only require the minimal amount of waiting/locking possible.
-    #[test]
-    fn shutdown_does_not_require_ads_client_lock() {
-        test_timeout(Duration::from_secs(5), || {
-            let builder = MozAdsClientBuilder::new().build();
-            let lock = builder.inner.lock();
-
-            // Holding a inner lock, we try to run shutdown.
-            builder.shutdown().unwrap();
-
-            // We explicitly drop the lock at the end.
-            drop(lock);
-        });
-    }
+    // TODO: Write new tests so that having an open query/etc is interruptable and shutdown can proceed immediately.
 
     #[test]
     fn test_shutdown_telemetry_basic() {
