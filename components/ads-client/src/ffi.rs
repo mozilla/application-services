@@ -38,7 +38,7 @@ pub struct MozAdsRequestOptions {
     #[uniffi(default = false)]
     pub ohttp: bool,
     #[uniffi(default)]
-    pub relevance: Option<HashMap<String, f64>>,
+    pub relevance: Option<HashMap<String, f64>>, // tiles only
 }
 
 #[derive(Default, uniffi::Record)]

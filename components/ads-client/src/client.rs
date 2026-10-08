@@ -193,6 +193,7 @@ where
             })
     }
 
+    // relevance is not implemented for image ads, using an empty HashMap.
     pub fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
@@ -217,6 +218,7 @@ where
         Ok(response.take_first())
     }
 
+    // relevance is not implemented for spocs, using an empty HashMap.
     pub fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,

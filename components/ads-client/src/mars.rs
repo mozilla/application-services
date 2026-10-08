@@ -61,6 +61,7 @@ where
         self.transport.clear_cache()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn fetch_ads<A>(
         &self,
         context_id: String,
@@ -112,7 +113,7 @@ where
             flags,
             ohttp,
             placements,
-            AdRequestRelevance::default()
+            AdRequestRelevance::default(),
         )?;
 
         if ohttp {
