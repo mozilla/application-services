@@ -112,6 +112,7 @@ where
             flags,
             ohttp,
             placements,
+            AdRequestRelevance::default()
         )?;
 
         if ohttp {
