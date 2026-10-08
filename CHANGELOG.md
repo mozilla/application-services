@@ -1,6 +1,10 @@
-# v159.0 (In progress)
+# v160.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v159.0 (_2026-10-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
 
 ## FxA-Client
 - When `begin_pairing_flow` or `begin_oauth_flow` is called with an empty list of scopes, the resulting URL will not include the scope URL query parameter.
