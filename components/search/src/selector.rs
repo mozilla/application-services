@@ -11,7 +11,7 @@ use crate::filter::filter_engine_configuration_v3_impl;
 use crate::filter::parse_v3_record_fields;
 use crate::{
     error::Error, JSONSearchConfiguration, JSONSearchConfigurationV3, RefinedSearchConfig,
-    RefinedSearchConfigV3, SearchApiResult, SearchUserEnvironment,
+    RefinedSearchConfigV3, SearchApiResult, SearchUserEnvironment, SearchUserEnvironmentV3,
 };
 use error_support::handle_error;
 use parking_lot::Mutex;
@@ -182,7 +182,7 @@ impl SearchEngineSelector {
     #[handle_error(Error)]
     pub fn filter_engine_configuration_v3(
         self: Arc<Self>,
-        user_environment: SearchUserEnvironment,
+        user_environment: SearchUserEnvironmentV3,
     ) -> SearchApiResult<RefinedSearchConfigV3> {
         let inner = self.0.lock();
         if let Some(client) = &inner.search_config_v3_client {
@@ -375,7 +375,7 @@ mod tests {
     fn test_filter_engine_configuration_v3_throws_without_config() {
         let selector = Arc::new(SearchEngineSelector::new());
 
-        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             ..Default::default()
         });
 
@@ -482,7 +482,7 @@ mod tests {
         );
         config_result.expect("Should have set the v3 configuration successfully");
 
-        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             ..Default::default()
         });
 
@@ -538,7 +538,7 @@ mod tests {
             .filter_engine_configuration(SearchUserEnvironment::default())
             .expect("Should have filtered the v2 configuration without error");
         let v3_result = selector
-            .filter_engine_configuration_v3(SearchUserEnvironment::default())
+            .filter_engine_configuration_v3(SearchUserEnvironmentV3::default())
             .expect("Should have filtered the v3 configuration without error");
 
         assert_eq!(v2_result.engines[0].identifier, "v2-engine");
@@ -676,7 +676,7 @@ mod tests {
         );
         config_result.expect("Should have set the configuration successfully");
 
-        let result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+        let result = selector.filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             region: "FR".into(),
             ..Default::default()
         });
@@ -875,7 +875,7 @@ mod tests {
         config_result.expect("Should have set the configuration successfully");
 
         let mut result =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 region: "FR".into(),
                 locale: "fr".into(),
                 ..Default::default()
@@ -907,7 +907,7 @@ mod tests {
             "Should have correctly matched and merged the fr locale sub-variant."
         );
 
-        result = selector.filter_engine_configuration_v3(SearchUserEnvironment {
+        result = selector.filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             region: "FR".into(),
             locale: "en-CA".into(),
             ..Default::default()
@@ -1043,6 +1043,64 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_engine_configuration_v3_handles_desktop_application_names() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config_v3(
+            json!({
+              "data": [
+                EngineRecordV3::full("test1", "Test 1").build(),
+                EngineRecordV3::full("test2", "Test 2")
+                .override_variants(
+                    VariantV3::new()
+                      .applications(&["firefox-macosx", "firefox-linux"])
+                )
+                .build(),
+                EngineRecordV3::full("test3", "Test 3")
+                .override_variants(
+                    VariantV3::new()
+                      .applications(&["firefox-win"])
+                )
+                .build(),
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                }
+              ]
+            })
+            .to_string(),
+        );
+        config_result.expect("Should have set the configuration successfully");
+
+        for (app_name, expected_id) in [
+            (SearchApplicationNameV3::FirefoxWin, "test3"),
+            (SearchApplicationNameV3::FirefoxMacosx, "test2"),
+            (SearchApplicationNameV3::FirefoxLinux, "test2"),
+        ] {
+            let result = Arc::clone(&selector)
+                .filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                    app_name: app_name.clone(),
+                    ..Default::default()
+                })
+                .expect("Should have filtered the configuration without error");
+
+            assert_eq!(
+                result,
+                RefinedSearchConfigV3 {
+                    engines: vec!(
+                        ExpectedEngineV3::full("test1", "Test 1").build(),
+                        ExpectedEngineV3::full(expected_id, &format!("Test {}", &expected_id[4..]))
+                            .build()
+                    ),
+                    app_default_engine_id: Some("test1".to_string()),
+                    app_private_default_engine_id: None
+                },
+                "Should have selected test1 and {expected_id} for {app_name:?}"
+            );
+        }
+    }
+
+    #[test]
     fn test_filter_engine_configuration_v3_handles_environments() {
         let selector = Arc::new(SearchEngineSelector::new());
 
@@ -1073,9 +1131,9 @@ mod tests {
         config_result.expect("Should have set the configuration successfully");
 
         let mut result =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 distribution_id: String::new(),
-                app_name: SearchApplicationName::Firefox,
+                app_name: SearchApplicationNameV3::FirefoxWin,
                 ..Default::default()
             });
 
@@ -1094,9 +1152,9 @@ mod tests {
             }, "Should have selected test1 for all matching locales, as the environments do not match for the other two"
         );
 
-        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             distribution_id: String::new(),
-            app_name: SearchApplicationName::FocusIos,
+            app_name: SearchApplicationNameV3::FocusIos,
             ..Default::default()
         });
 
@@ -1118,9 +1176,9 @@ mod tests {
             "Should have selected test1 for all matching locales and test2 for matching Focus IOS"
         );
 
-        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+        result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
             distribution_id: "starship".to_string(),
-            app_name: SearchApplicationName::Firefox,
+            app_name: SearchApplicationNameV3::FirefoxWin,
             ..Default::default()
         });
 
@@ -1258,10 +1316,11 @@ mod tests {
         );
         config_result.expect("Should have set the configuration successfully");
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            distribution_id: "test-distro".to_string(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                distribution_id: "test-distro".to_string(),
+                ..Default::default()
+            });
         assert!(
             result.is_ok(),
             "Should have filtered the configuration without error. {:?}",
@@ -1282,11 +1341,12 @@ mod tests {
             "Should have selected the distro-default engine for the matching specific default"
         );
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            region: "fr".into(),
-            distribution_id: String::new(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                region: "fr".into(),
+                distribution_id: String::new(),
+                ..Default::default()
+            });
         assert!(
             result.is_ok(),
             "Should have filtered the configuration without error. {:?}",
@@ -1527,7 +1587,7 @@ mod tests {
         }
 
         assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "en-CA".into(),
                 region: "CA".into(),
                 ..Default::default()
@@ -1592,7 +1652,7 @@ mod tests {
         starts_with_wiki_config.expect("Should have set the configuration successfully");
 
         assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "en-CA".into(),
                 region: "CA".into(),
                 ..Default::default()
@@ -1606,7 +1666,7 @@ mod tests {
         );
 
         assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "en-GB".into(),
                 region: "GB".into(),
                 ..Default::default()
@@ -2008,10 +2068,11 @@ mod tests {
 
         let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            distribution_id: "test-distro".to_string(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                distribution_id: "test-distro".to_string(),
+                ..Default::default()
+            });
         assert!(
             result.is_err(),
             "Should throw an error when a configuration has not been specified before filtering"
@@ -2070,10 +2131,11 @@ mod tests {
 
         let selector = setup_remote_settings_test_v3(RECORDS_MISSING);
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            distribution_id: "test-distro".to_string(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                distribution_id: "test-distro".to_string(),
+                ..Default::default()
+            });
         assert!(
             result.is_err(),
             "Should throw an error when a configuration has not been specified before filtering"
@@ -2335,10 +2397,11 @@ mod tests {
         let distro_default_engine =
             ExpectedEngineV3::minimal("distro-default", "Distribution Default").build();
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            distribution_id: "test-distro".to_string(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                distribution_id: "test-distro".to_string(),
+                ..Default::default()
+            });
         assert!(
             result.is_ok(),
             "Should have filtered the configuration without error. {:?}",
@@ -2358,11 +2421,12 @@ mod tests {
             "Should have selected the default engine for the matching specific default"
         );
 
-        let result = Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
-            region: "fr".into(),
-            distribution_id: String::new(),
-            ..Default::default()
-        });
+        let result =
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
+                region: "fr".into(),
+                distribution_id: String::new(),
+                ..Default::default()
+            });
         assert!(
             result.is_ok(),
             "Should have filtered the configuration without error. {:?}",
@@ -2453,7 +2517,7 @@ mod tests {
         let selector = setup_remote_settings_test_v3(RECORDS_PRESENT);
 
         let result_de =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "de-AT".into(),
                 ..Default::default()
             });
@@ -2474,7 +2538,7 @@ mod tests {
         );
 
         let result_en =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "en-AU".to_string(),
                 ..Default::default()
             });
@@ -2663,7 +2727,7 @@ mod tests {
         config_result.expect("Should have set the configuration successfully");
 
         let result_de =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "de-AT".into(),
                 ..Default::default()
             });
@@ -2684,7 +2748,7 @@ mod tests {
         );
 
         let result_en =
-            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironment {
+            Arc::clone(&selector).filter_engine_configuration_v3(SearchUserEnvironmentV3 {
                 locale: "en-AU".to_string(),
                 ..Default::default()
             });

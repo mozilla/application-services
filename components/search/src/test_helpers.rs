@@ -1,8 +1,8 @@
 use crate::{
     JSONEngineBase, JSONEngineBaseV3, JSONEngineMethod, JSONEngineUrl, JSONEngineUrls,
     JSONEngineVariant, JSONEngineVariantV3, JSONVariantEnvironment, SearchEngineClassification,
-    SearchEngineDefinition, SearchEngineDefinitionV3, SearchEnginePartnerDetails, SearchEngineUrl,
-    SearchEngineUrls, SearchUrlParam,
+    SearchEngineClassificationV3, SearchEngineDefinition, SearchEngineDefinitionV3,
+    SearchEnginePartnerDetails, SearchEngineUrl, SearchEngineUrls, SearchUrlParam,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -872,7 +872,7 @@ impl ExpectedEngineV3 {
     fn expected_full_engine(identifier: &str, name: &str) -> SearchEngineDefinitionV3 {
         SearchEngineDefinitionV3 {
             charset: "UTF-8".to_string(),
-            classification: SearchEngineClassification::General,
+            classification: SearchEngineClassificationV3::General,
             identifier: identifier.to_string(),
             name: name.to_string(),
             optional: false,
@@ -952,7 +952,7 @@ impl ExpectedEngineV3 {
         SearchEngineDefinitionV3 {
             aliases: Vec::new(),
             charset: "UTF-8".to_string(),
-            classification: SearchEngineClassification::General,
+            classification: SearchEngineClassificationV3::General,
             identifier: identifier.to_string(),
             name: name.to_string(),
             optional: false,
@@ -1253,10 +1253,20 @@ pub fn partner_map(
 }
 
 #[cfg(test)]
+impl From<SearchEngineClassification> for SearchEngineClassificationV3 {
+    fn from(classification: SearchEngineClassification) -> Self {
+        match classification {
+            SearchEngineClassification::General => SearchEngineClassificationV3::General,
+            SearchEngineClassification::Unknown => SearchEngineClassificationV3::Unknown,
+        }
+    }
+}
+
+#[cfg(test)]
 pub static JSON_ENGINE_BASE_V3: Lazy<JSONEngineBaseV3> = Lazy::new(|| JSONEngineBaseV3 {
     aliases: JSON_ENGINE_BASE.aliases.clone(),
     charset: JSON_ENGINE_BASE.charset.clone(),
-    classification: JSON_ENGINE_BASE.classification.clone(),
+    classification: JSON_ENGINE_BASE.classification.clone().into(),
     name: JSON_ENGINE_BASE.name.clone(),
     partner: Some(partner_map(&[
         ("default", "firefox", None),
@@ -1267,7 +1277,10 @@ pub static JSON_ENGINE_BASE_V3: Lazy<JSONEngineBaseV3> = Lazy::new(|| JSONEngine
 
 #[cfg(test)]
 pub static JSON_ENGINE_VARIANT_V3: Lazy<JSONEngineVariantV3> = Lazy::new(|| JSONEngineVariantV3 {
-    environment: JSON_ENGINE_VARIANT.environment.clone(),
+    environment: JSONVariantEnvironment {
+        all_regions_and_locales: JSON_ENGINE_VARIANT.environment.all_regions_and_locales,
+        ..Default::default()
+    },
     is_new_until: JSON_ENGINE_VARIANT.is_new_until.clone(),
     optional: JSON_ENGINE_VARIANT.optional,
     partner: Some(partner_map(&[("default", "trek", Some("star"))])),
@@ -1278,7 +1291,10 @@ pub static JSON_ENGINE_VARIANT_V3: Lazy<JSONEngineVariantV3> = Lazy::new(|| JSON
 #[cfg(test)]
 pub static JSON_ENGINE_SUBVARIANT_V3: Lazy<JSONEngineVariantV3> =
     Lazy::new(|| JSONEngineVariantV3 {
-        environment: JSON_ENGINE_SUBVARIANT.environment.clone(),
+        environment: JSONVariantEnvironment {
+            all_regions_and_locales: JSON_ENGINE_SUBVARIANT.environment.all_regions_and_locales,
+            ..Default::default()
+        },
         is_new_until: JSON_ENGINE_SUBVARIANT.is_new_until.clone(),
         optional: JSON_ENGINE_SUBVARIANT.optional,
         partner: Some(partner_map(&[("default", "trek2", Some("star2"))])),
@@ -1677,7 +1693,7 @@ impl ExpectedEngineFromJSONBase {
         SearchEngineDefinitionV3 {
             aliases: self.engine.aliases,
             charset: self.engine.charset,
-            classification: self.engine.classification,
+            classification: self.engine.classification.into(),
             identifier: self.engine.identifier,
             is_new_until: self.engine.is_new_until,
             name: self.engine.name,
