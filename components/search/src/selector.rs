@@ -470,7 +470,7 @@ mod tests {
             json!({
               "data": [
                 EngineRecordV3::full("test1", "Test 1").build(),
-                EngineRecordV3::minimal("test2", "Test 2").build(),
+                EngineRecordV3::minimal("test2", "Test 2").classification("ai").build(),
                 {
                   "recordType": "defaultEngines",
                   "globalDefault": "test1",
@@ -496,7 +496,9 @@ mod tests {
             RefinedSearchConfigV3 {
                 engines: vec!(
                     ExpectedEngineV3::full("test1", "Test 1").build(),
-                    ExpectedEngineV3::minimal("test2", "Test 2").build(),
+                    ExpectedEngineV3::minimal("test2", "Test 2")
+                        .classification(SearchEngineClassificationV3::Ai)
+                        .build(),
                 ),
                 app_default_engine_id: Some("test1".to_string()),
                 app_private_default_engine_id: Some("test2".to_string())
