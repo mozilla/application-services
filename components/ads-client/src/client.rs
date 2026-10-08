@@ -490,6 +490,46 @@ mod tests {
     }
 
     #[test]
+    fn test_context_id_is_not_sent_to_mars_when_relevance_is_set() {
+        viaduct_dev::init_backend_dev();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            environment: Environment::Test,
+            #[cfg(feature = "stateful")]
+            store_config: None,
+            telemetry: MozAdsTelemetryWrapper::noop(),
+        };
+        let client: AdsClient<MozAdsTelemetryWrapper> = AdsClient::new(config);
+
+        // Matcher::Json compares the whole body, ignoring key order, so any
+        // extra key such as context_id makes the request go unmatched.
+        // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
+        // Any new fields must be considered along side relevence scores.
+        let expected_response = get_example_happy_uatile_response();
+        let m: mockito::Mock = mockito::mock("POST", "/ads")
+            .match_body(mockito::Matcher::Json(serde_json::json!({
+                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap(),
+                "relevance": {"sports": 0.8},
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .create();
+
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            false,
+            Default::default(),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+    }
+
+    #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
         let mars_client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());

@@ -381,6 +381,81 @@ mod tests {
     }
 
     #[test]
+    fn test_ad_request_omits_relevance_when_empty() {
+        let request = AdRequest::try_new(
+            Default::default(),
+            TEST_CONTEXT_ID.to_string(),
+            Environment::Test,
+            AdRequestFlags::default(),
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "example_placement".to_string(),
+            }],
+            AdRequestRelevance::default(),
+        )
+        .unwrap();
+
+        let serialized = to_value(&request).unwrap();
+        assert!(
+            serialized.get("relevance").is_none(),
+            "relevance object must be omitted from the wire when empty, got: {serialized}"
+        );
+    }
+
+    #[test]
+    fn test_ad_request_includes_relevance_when_present() {
+        let request = AdRequest::try_new(
+            Default::default(),
+            TEST_CONTEXT_ID.to_string(),
+            Environment::Test,
+            AdRequestFlags::default(),
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "example_placement".to_string(),
+            }],
+            HashMap::from([
+                ("sports".to_string(), 0.8),
+                ("technology".to_string(), 0.25),
+            ]),
+        )
+        .unwrap();
+
+        let serialized = to_value(&request).unwrap();
+        assert_eq!(
+            serialized.get("relevance"),
+            Some(&json!({"sports": 0.8, "technology": 0.25})),
+        );
+    }
+
+    #[test]
+    fn test_ad_request_omits_context_id_when_empty() {
+        let request = AdRequest::try_new(
+            Default::default(),
+            String::new(),
+            Environment::Test,
+            AdRequestFlags::default(),
+            false,
+            vec![AdPlacementRequest {
+                content: None,
+                count: 1,
+                placement: "example_placement".to_string(),
+            }],
+            HashMap::from([("sports".to_string(), 0.8)]),
+        )
+        .unwrap();
+
+        let serialized = to_value(&request).unwrap();
+        assert!(
+            serialized.get("context_id").is_none(),
+            "context_id must be omitted from the wire when empty, got: {serialized}"
+        );
+    }
+
+    #[test]
     fn test_ad_request_serializes_with_contextual_placement_flag_and_mixed_content() {
         let request = AdRequest::try_new(
             Default::default(),
@@ -655,6 +730,78 @@ mod tests {
         .unwrap();
 
         assert_ne!(RequestHash::new(&req_direct), RequestHash::new(&req_ohttp));
+    }
+
+    #[test]
+    fn test_relevance_produces_different_hash() {
+        use crate::http_cache::RequestHash;
+
+        let make_request = |relevance: AdRequestRelevance| {
+            AdRequest::try_new(
+                Default::default(),
+                "same-id".to_string(),
+                Environment::Test,
+                AdRequestFlags::default(),
+                false,
+                vec![AdPlacementRequest {
+                    content: None,
+                    count: 1,
+                    placement: "tile_1".to_string(),
+                }],
+                relevance,
+            )
+            .unwrap()
+        };
+
+        let req_none = make_request(AdRequestRelevance::default());
+        let req_sports = make_request(HashMap::from([("sports".to_string(), 0.8)]));
+        let req_sports_lower = make_request(HashMap::from([("sports".to_string(), 0.5)]));
+        let req_news = make_request(HashMap::from([("news".to_string(), 0.8)]));
+
+        assert_ne!(RequestHash::new(&req_none), RequestHash::new(&req_sports));
+        assert_ne!(
+            RequestHash::new(&req_sports),
+            RequestHash::new(&req_sports_lower)
+        );
+        assert_ne!(RequestHash::new(&req_sports), RequestHash::new(&req_news));
+    }
+
+    #[test]
+    fn test_relevance_hash_is_independent_of_insertion_order() {
+        use crate::http_cache::RequestHash;
+
+        let keys = ["arts", "business", "news", "sports", "technology", "travel"];
+
+        let mut forward = AdRequestRelevance::new();
+        for (i, k) in keys.iter().enumerate() {
+            forward.insert(k.to_string(), i as f64 / 10.0);
+        }
+        let mut reverse = AdRequestRelevance::new();
+        for (i, k) in keys.iter().enumerate().rev() {
+            reverse.insert(k.to_string(), i as f64 / 10.0);
+        }
+
+        let make_request = |relevance: AdRequestRelevance| {
+            AdRequest::try_new(
+                Default::default(),
+                "same-id".to_string(),
+                Environment::Test,
+                AdRequestFlags::default(),
+                false,
+                vec![AdPlacementRequest {
+                    content: None,
+                    count: 1,
+                    placement: "tile_1".to_string(),
+                }],
+                relevance,
+            )
+            .unwrap()
+        };
+
+        assert_eq!(
+            RequestHash::new(&make_request(forward)),
+            RequestHash::new(&make_request(reverse)),
+        );
     }
 
     #[test]
