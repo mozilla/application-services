@@ -5,13 +5,13 @@ use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
 use autofill::{
+    create_autofill_key,
     db::{
         credit_cards::CreditCardsDeletionMetrics,
         models::address::{Address, UpdatableAddressFields},
         models::credit_card::{CreditCard, UpdatableCreditCardFields},
         store::Store as AutofillStore,
     },
-    encryption::{create_autofill_key, decrypt_string, encrypt_string},
     error::ApiResult as AutofillResult,
 };
 use std::{
@@ -95,14 +95,10 @@ pub fn scrub_credit_card(s: Arc<AutofillStore>) -> AutofillResult<()> {
 
 pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
     s: Arc<AutofillStore>,
-    local_enc_key: String,
 ) -> AutofillResult<CreditCardsDeletionMetrics> {
     Ok(
-        AutofillStore::scrub_undecryptable_credit_card_data_for_remote_replacement(
-            s,
-            local_enc_key,
-        )
-        .expect("scrub_undecryptable_credit_card_data_for_remote_replacement() to succeed"),
+        AutofillStore::scrub_undecryptable_credit_card_data_for_remote_replacement(s)
+            .expect("scrub_undecryptable_credit_card_data_for_remote_replacement() to succeed"),
     )
 }
 
@@ -116,23 +112,11 @@ pub fn delete_credit_card(s: &AutofillStore, c: CreditCard) -> AutofillResult<()
     Ok(())
 }
 
-pub fn verify_credit_card(s: &AutofillStore, c: &CreditCard, key: String) {
+pub fn verify_credit_card(s: &AutofillStore, c: &CreditCard) {
     let equivalent = s
         .get_credit_card(c.guid.clone())
         .expect("get_credit_card() to succeed");
-    assert_credit_cards_equiv(&equivalent, c, key.clone(), key);
-}
-
-pub fn verify_credit_card_with_two_keys(
-    s: &AutofillStore,
-    c: &CreditCard,
-    stored_record_key: String,
-    c_key: String,
-) {
-    let equivalent = s
-        .get_credit_card(c.guid.clone())
-        .expect("get_credit_card() to succeed");
-    assert_credit_cards_equiv(&equivalent, c, stored_record_key, c_key);
+    assert_credit_cards_equiv(&equivalent, c);
 }
 
 pub fn verify_credit_card_removal(s: &AutofillStore) {
@@ -140,13 +124,9 @@ pub fn verify_credit_card_removal(s: &AutofillStore) {
     assert!(c.is_empty());
 }
 
-pub fn assert_credit_cards_equiv(a: &CreditCard, b: &CreditCard, key_a: String, key_b: String) {
+pub fn assert_credit_cards_equiv(a: &CreditCard, b: &CreditCard) {
     assert_eq!(a.cc_name, b.cc_name, "cc_name mismatch");
-    assert_eq!(
-        decrypt_string(key_a, a.cc_number_enc.clone()).expect("to decrypt a.cc_number_enc"),
-        decrypt_string(key_b, b.cc_number_enc.clone()).expect("to decrypt b.cc_number_enc"),
-        "cc_number_enc mismatch",
-    );
+    assert_eq!(a.cc_number, b.cc_number, "cc_number mismatch");
     assert_eq!(
         a.cc_number_last_4, b.cc_number_last_4,
         "cc_number_last_4 mismatch"
@@ -160,15 +140,14 @@ pub fn assert_credit_cards_equiv(a: &CreditCard, b: &CreditCard, key_a: String, 
 fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add some credit cards to client0");
 
-    let key = create_autofill_key().expect("encryption key created");
+    let key = c0.key.clone();
+    c1.set_autofill_key(key.clone()).expect("c1 key set");
 
     let cc1 = add_credit_card(
         &c0.autofill_store,
         UpdatableCreditCardFields {
             cc_name: "jane doe".to_string(),
-            cc_number_enc: encrypt_string(key.clone(), "2222222222221234".to_string())
-                .expect("encrypted cc number for cc1"),
-            cc_number_last_4: "1234".to_string(),
+            cc_number: "2222222222221234".to_string(),
             cc_exp_month: 3,
             cc_exp_year: 2022,
             cc_type: "visa".to_string(),
@@ -180,9 +159,7 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
         &c0.autofill_store,
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
-            cc_number_enc: encrypt_string(key.clone(), "9999999999996543".to_string())
-                .expect("encrypted cc number for cc2"),
-            cc_number_last_4: "6543".to_string(),
+            cc_number: "9999999999996543".to_string(),
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -197,8 +174,8 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
     sync_credit_cards(c1, key.clone()).expect("c1 sync to work");
 
     log::info!("Check state");
-    verify_credit_card(&c1.autofill_store, &cc1, key.clone());
-    verify_credit_card(&c1.autofill_store, &cc2, key.clone());
+    verify_credit_card(&c1.autofill_store, &cc1);
+    verify_credit_card(&c1.autofill_store, &cc2);
 
     // clear records
     delete_credit_card(&c0.autofill_store, cc1).expect("cc1 to be deleted from c0");
@@ -210,16 +187,14 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
 }
 
 fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut TestClient) {
-    let key = create_autofill_key().expect("encryption key created");
+    let key = c0.key.clone();
 
     log::info!("Add a credit card to client0");
     let cc3 = add_credit_card(
         &c0.autofill_store,
         UpdatableCreditCardFields {
             cc_name: "jane deer".to_string(),
-            cc_number_enc: encrypt_string(key.clone(), "88888888888888".to_string())
-                .expect("encrypted cc number for cc3"),
-            cc_number_last_4: "6789".to_string(),
+            cc_number: "88888888888888".to_string(),
             cc_exp_month: 12,
             cc_exp_year: 2027,
             cc_type: "visa".to_string(),
@@ -293,16 +268,13 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
 
 fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add a credit card to client0");
-    let old_key = create_autofill_key().expect("encryption key created");
 
     // Add a credit card
     let credit_card0 = add_credit_card(
         &c0.autofill_store,
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
-            cc_number_enc: encrypt_string(old_key.clone(), "88888888888888".to_string())
-                .expect("encrypted cc number for credit_card0"),
-            cc_number_last_4: "8888".to_string(),
+            cc_number: "88888888888888".to_string(),
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -311,21 +283,21 @@ fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut Test
     .expect("add credit_card0");
 
     log::info!("Verifying credit_card0 on c0");
-
-    // Check that the corrupted credit card exists on first device
-    verify_credit_card(&c0.autofill_store, &credit_card0, old_key.clone());
+    verify_credit_card(&c0.autofill_store, &credit_card0);
 
     log::info!("Syncing client0 with corrupted record");
 
-    // In order to simulate syncing a corrupted credit card created with a key we no longer have, we are syncing
-    // with a newly created key.
+    // Simulate a corrupted record: reopen the store with a fresh key, under
+    // which the existing record cannot be decrypted for upload.
     let new_key = create_autofill_key().expect("second encryption key created");
+    c0.set_autofill_key(new_key.clone())
+        .expect("c0 key changed");
 
     let failures = sync_credit_cards_with_failure(c0, new_key.clone())
         .expect("sync to complete with failures");
     let credit_card_failures = failures.get("creditcards");
     assert!(credit_card_failures.is_some());
-    assert!(credit_card_failures.unwrap().contains("Crypto Error"));
+    assert!(credit_card_failures.unwrap().contains("crypt"));
 
     // clear records
     delete_credit_card(&c0.autofill_store, credit_card0)
@@ -339,7 +311,8 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     c1: &mut TestClient,
 ) {
     log::info!("Adding a credit card to client0");
-    let key = create_autofill_key().expect("encryption key created");
+    let key = c0.key.clone();
+    c1.set_autofill_key(key.clone()).expect("c1 key set");
     let cc_number = "88888888888888".to_string();
 
     // Add a credit card
@@ -347,9 +320,7 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
         &c0.autofill_store,
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
-            cc_number_enc: encrypt_string(key.clone(), cc_number.clone())
-                .expect("encrypted cc number for credit_card0"),
-            cc_number_last_4: "8888".to_string(),
+            cc_number: cc_number.clone(),
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -360,7 +331,7 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     let cc0id = credit_card0.clone().guid;
 
     log::info!("Verifying credit_card0 on c0");
-    verify_credit_card(&c0.autofill_store, &credit_card0, key.clone());
+    verify_credit_card(&c0.autofill_store, &credit_card0);
 
     // Here we're checking that c1 doesn't have the record yet. This is to validate
     // that the devices are not sharing a store reference.
@@ -377,24 +348,26 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     log::info!("Verifying the synced record on both devices");
     // Verify that both devices store the credit card record after syncing and that
     // the decrypted value of the cc_number_enc field is the original card number
-    verify_credit_card(&c0.autofill_store, &credit_card0, key.clone());
-    verify_credit_card(&c1.autofill_store, &credit_card0, key.clone());
+    verify_credit_card(&c0.autofill_store, &credit_card0);
+    verify_credit_card(&c1.autofill_store, &credit_card0);
 
     log::info!("Scrubbing the credit card on c0");
+    // Simulate a lost key: reopen c0's store with a fresh one, under which the
+    // existing record is undecryptable.
     let new_key = create_autofill_key().expect("encryption key created");
-    let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(
-        c0.autofill_store.clone(),
-        new_key.clone(),
-    )
-    .expect("c0 credit card to be scrubbed");
+    c0.set_autofill_key(new_key.clone())
+        .expect("c0 key changed");
+    let metrics =
+        scrub_undecryptable_credit_card_data_for_remote_replacement(c0.autofill_store.clone())
+            .expect("c0 credit card to be scrubbed");
     assert_eq!(metrics.total_scrubbed_records, 1);
 
     log::info!("Verifying that the record on c0 has been scrubbed");
     let c0_scrubbed_record = get_credit_card(&c0.autofill_store, cc0id.clone());
-    assert!(c0_scrubbed_record.cc_number_enc.is_empty());
+    assert!(c0_scrubbed_record.cc_number.is_empty());
 
     // Being super cautious and checking that the scrub didn't impact the second device
-    verify_credit_card(&c1.autofill_store, &credit_card0, key.clone());
+    verify_credit_card(&c1.autofill_store, &credit_card0);
 
     // Sync the first device after scrubbing
     log::info!("Syncing client0 -- after scrubbing");
@@ -405,18 +378,10 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
     sync_credit_cards(c1, key.clone()).expect("c1 post-scrub sync to work");
 
     log::info!("Verifying that c0 has the restored record");
-    // We are passing two keys here, `new_key` is what we introduced on device c0 after simulating
-    // a lost or corrupted key and `key` is what we used to encrypt the credit card number for `credit_card0`.
-    // We need both to ensure that we still have the same credit card number after decryption.
-    verify_credit_card_with_two_keys(
-        &c0.autofill_store,
-        &credit_card0,
-        new_key.clone(),
-        key.clone(),
-    );
+    verify_credit_card(&c0.autofill_store, &credit_card0);
 
     // Again this check is done out of an abundance of caution
-    verify_credit_card(&c1.autofill_store, &credit_card0, key.clone());
+    verify_credit_card(&c1.autofill_store, &credit_card0);
 
     // clear records
     delete_credit_card(&c0.autofill_store, credit_card0.clone())
