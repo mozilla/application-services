@@ -166,9 +166,7 @@ pub(crate) struct JSONEngineBaseV3 {
     /// The character set this engine uses for queries. Defaults to 'UTF-8' if not set.
     pub charset: Option<String>,
 
-    /// The classification of search engine according to the main search types
-    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
-    /// a general search engine is supported.
+    /// The classification of search engine according to the main search types.
     #[serde(default)]
     pub classification: SearchEngineClassificationV3,
 
