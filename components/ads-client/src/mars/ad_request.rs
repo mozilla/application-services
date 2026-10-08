@@ -19,6 +19,7 @@ const ENDPOINT: &str = "/ads";
 pub struct AdRequest {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub blocks: Vec<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub context_id: String,
     /// Skipped to exclude from the request body
     #[serde(skip)]
@@ -30,6 +31,8 @@ pub struct AdRequest {
     #[serde(skip)]
     pub ohttp: bool,
     pub placements: Vec<AdPlacementRequest>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub relevance: AdRequestRelevance,
 }
 
 /// Hash implementation intentionally excludes `context_id` as it rotates
@@ -72,6 +75,7 @@ impl AdRequest {
         flags: AdRequestFlags,
         ohttp: bool,
         placements: Vec<AdPlacementRequest>,
+        relevance: AdRequestRelevance,
     ) -> Result<Self, BuildRequestError> {
         if placements.is_empty() {
             return Err(BuildRequestError::EmptyConfig);
@@ -85,6 +89,7 @@ impl AdRequest {
             headers: Headers::new(),
             ohttp,
             placements: vec![],
+            relevance,
         };
 
         let mut used_placement_ids: HashSet<String> = HashSet::new();
@@ -115,6 +120,7 @@ impl AdRequest {
 }
 
 pub type AdRequestFlags = HashMap<String, bool>;
+pub type AdRequestRelevance = HashMap<String, f64>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 pub struct AdPlacementRequest {
@@ -227,6 +233,7 @@ mod tests {
                     placement: "example_placement_2".to_string(),
                 },
             ],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -255,6 +262,7 @@ mod tests {
                     placement: "example_placement_2".to_string(),
                 },
             ],
+            relevance: AdRequestRelevance::default(),
         };
 
         assert_eq!(request, expected_request);
@@ -273,6 +281,7 @@ mod tests {
                 count: 1,
                 placement: "example_placement".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -298,6 +307,7 @@ mod tests {
                 count: 1,
                 placement: "example_placement".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -322,6 +332,7 @@ mod tests {
                 count: 1,
                 placement: "example_placement".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -347,6 +358,7 @@ mod tests {
                 count: 1,
                 placement: "example_placement".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -390,6 +402,7 @@ mod tests {
                     placement: "newtab_stories_v2_4".to_string(),
                 },
             ],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -425,6 +438,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
         let req_on = AdRequest::try_new(
@@ -434,6 +448,7 @@ mod tests {
             HashMap::from([("contextual_placement".to_string(), true)]),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -459,6 +474,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
         let req_https = AdRequest::try_new(
@@ -468,6 +484,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -500,6 +517,7 @@ mod tests {
                     placement: "example_placement_1".to_string(),
                 },
             ],
+            AdRequestRelevance::default(),
         );
         assert!(request.is_err());
     }
@@ -513,6 +531,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             vec![],
+            AdRequestRelevance::default(),
         );
         assert!(request.is_err());
     }
@@ -539,6 +558,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
         let req2 = AdRequest::try_new(
@@ -548,6 +568,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -569,6 +590,7 @@ mod tests {
                 count: 1,
                 placement: "tile_1".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -583,6 +605,7 @@ mod tests {
                 count: 3,
                 placement: "tile_2".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -608,6 +631,7 @@ mod tests {
             AdRequestFlags::default(),
             false,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
         let req_ohttp = AdRequest::try_new(
@@ -617,6 +641,7 @@ mod tests {
             AdRequestFlags::default(),
             true,
             make_placements(),
+            AdRequestRelevance::default(),
         )
         .unwrap();
 
@@ -638,6 +663,7 @@ mod tests {
                 count: 1,
                 placement: "tile_1".to_string(),
             }],
+            AdRequestRelevance::default(),
         )
         .unwrap();
 

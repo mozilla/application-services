@@ -8,7 +8,7 @@ use crate::ads::{AdImage, AdSpoc, AdTile};
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
-use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
+use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
 use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
@@ -202,7 +202,14 @@ where
         blocks: Vec<String>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(ad_placement_requests, flags, options, ohttp, blocks)
+            .request_ads::<AdImage>(
+                ad_placement_requests,
+                flags,
+                options,
+                ohttp,
+                blocks,
+                AdRequestRelevance::default(),
+            )
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })?;
@@ -218,8 +225,14 @@ where
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result =
-            self.request_ads::<AdSpoc>(ad_placement_requests, flags, options, ohttp, blocks);
+        let result = self.request_ads::<AdSpoc>(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            AdRequestRelevance::default(),
+        );
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -237,9 +250,16 @@ where
         options: Option<CachePolicy>,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result =
-            self.request_ads::<AdTile>(ad_placement_requests, flags, options, ohttp, blocks);
+        let result = self.request_ads::<AdTile>(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            relevance,
+        );
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -265,11 +285,17 @@ where
         options: Option<CachePolicy>,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<AdResponse<A>, RequestAdsError>
     where
         A: AdResponseValue,
     {
-        let context_id = self.get_context_id()?;
+        let context_id = if relevance.is_empty() {
+            self.get_context_id()?
+        } else {
+            String::new()
+        };
+
         let cache_policy = options.unwrap_or_default();
         let (mut response, request_hash) = self.client.fetch_ads::<A>(
             context_id,
@@ -278,6 +304,7 @@ where
             cache_policy,
             ohttp,
             blocks,
+            relevance,
         )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
@@ -415,6 +442,7 @@ mod tests {
             None,
             false,
             Default::default(),
+            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -543,6 +571,7 @@ mod tests {
                 Some(CachePolicy::default()),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
 
