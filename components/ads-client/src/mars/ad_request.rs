@@ -53,6 +53,15 @@ impl Hash for AdRequest {
                 v.hash(state);
             }
         }
+        if !self.relevance.is_empty() {
+            // HashMap is unordered — sort by key for a stable hash.
+            let mut sorted: Vec<_> = self.relevance.iter().collect();
+            sorted.sort_unstable_by_key(|(k, _)| k.as_str());
+            for (k, v) in sorted {
+                k.hash(state);
+                v.to_bits().hash(state);
+            }
+        }
         self.ohttp.hash(state);
         self.placements.hash(state);
     }
