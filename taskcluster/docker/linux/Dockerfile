@@ -2,15 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache
 
 # Add worker user
+# Also, remove ubuntu user since taskcluster wants `worker` to get uuid=1000.
 
 RUN mkdir -p /builds && \
-    useradd -d /builds/worker -s /bin/bash -m worker && \
+    userdel ubuntu && \
+    useradd --uid=1000 -d /builds/worker -s /bin/bash -m worker && \
     chown worker:worker /builds/worker && \
     mkdir /builds/worker/artifacts && \
     chown worker:worker /builds/worker/artifacts
@@ -69,7 +71,11 @@ RUN apt-get update -qq \
         # SQLCipher dependency.
         tclsh \
         # Required by bindgen (used by ohttp crate for C bindings)
+        build-essential \
         libclang-dev \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
+        binutils-aarch64-linux-gnu \
         ##########################
         # CI-specific dependencies
         ##########################
@@ -106,18 +112,19 @@ RUN apt-get update -qq \
         python3-venv \
         # Used by gradle and the robolectric toolchain task
         maven \
+        # For formatting uniffi generated python code
+        python3-yapf \
+        # Required to manipulate archiving operations for upcoming monitoring work
+        python3-zstandard \
+        # Not sure what these are needed for, they came from an undocument pip3 install command
+        python3-pytest \
+        python3-toml \
+        python3-yaml \
     && apt-get clean
 
-RUN pip3 install --upgrade pip
-RUN pip3 install \
-    pytest \
-    pyyaml \
-    toml \
-    taskcluster \
-    # For formatting uniffi generated python code
-    yapf \
-    # Required to manipulate archiving operations for upcoming monitoring work
-    zstandard
+# We need to use --break-system-packages to let pip install global packages.
+# Only use pip to install things that don't have a ubuntu package.
+RUN pip3 install --break-system-packages pyyaml taskcluster 
 
 # Compile the UTF-8 english locale files (required by Python).
 RUN locale-gen en_US.UTF-8
@@ -179,10 +186,6 @@ RUN \
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
     PATH=/builds/worker/.local/bin:$PATH
-
-# Switch to the worker user to install rustup
-# After startup, run-task will downgrade it's permissions to be this user
-USER worker
 
 # run-task needs to run as root (after initialization, it changes to `worker`)
 USER root

@@ -37,16 +37,11 @@ def setup_build_tasks(config, tasks):
 
 
 def setup_linux_build_task(task, target, binary):
-    docker_image = "linux"
-
-    if target in ("aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"):
-        docker_image = "linux2004"
-
     task["description"] = f"Build {binary} ({target})"
     task["worker-type"] = "b-linux"
     task["worker"] = {
         "max-run-time": 1800,
-        "docker-image": {"in-tree": docker_image},
+        "docker-image": {"in-tree": "linux"},
         "artifacts": [
             {
                 "name": f"public/build/{binary}-{target}.zip",
