@@ -13,8 +13,7 @@
 
 ### Search
 
-- Added in-development v3 APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
-  The APIs are currently the same as v2 but do not support configuration overrides.
+- Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
 
 # v159.0 (_2026-10-07_)
 
