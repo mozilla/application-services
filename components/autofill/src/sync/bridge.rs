@@ -13,16 +13,26 @@ impl Store {
         let engine = crate::sync::address::create_engine(self);
         Arc::new(AddressesBridgedEngine::new(Box::new(engine)))
     }
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing a `ConfigSyncEngine` only assembles structs
+    /// and never touches the DB, so this cannot fail.
+    pub fn credit_cards_bridged_engine(self: Arc<Self>) -> Arc<CreditCardsBridgedEngine> {
+        let engine = crate::sync::credit_card::create_engine(self);
+        Arc::new(CreditCardsBridgedEngine::new(Box::new(engine)))
+    }
 }
 
-// Generates the UniFFI-exposed `AddressesBridgedEngine`, a newtype around
+// Generates the UniFFI-exposed bridged engines, newtypes around
 // `sync15::engine::BridgedEngineWrapper`.
 sync15::uniffi_bridged_engine!(AddressesBridgedEngine);
+sync15::uniffi_bridged_engine!(CreditCardsBridgedEngine);
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db::models::address::UpdatableAddressFields;
+    use crate::db::models::credit_card::UpdatableCreditCardFields;
     use std::collections::HashMap;
 
     // Exercises the sync metadata the bridge owns: last_sync, sync_id and reset.
@@ -34,6 +44,42 @@ mod tests {
             Store::new_shared_memory("addresses-bridge", crate::db::test::test_encdec()).unwrap(),
         );
         let bridge = store.addresses_bridged_engine();
+
+        bridge.sync_started().unwrap();
+        // Fresh DB: never synced.
+        assert_eq!(bridge.last_sync().unwrap(), 0);
+        bridge.set_uploaded(3, vec![]).unwrap();
+        assert_eq!(bridge.last_sync().unwrap(), 3);
+
+        assert!(bridge.sync_id().unwrap().is_none());
+
+        bridge.ensure_current_sync_id("some_guid").unwrap();
+        assert_eq!(bridge.sync_id().unwrap(), Some("some_guid".to_string()));
+        // changing the sync ID resets the timestamp
+        assert_eq!(bridge.last_sync().unwrap(), 0);
+        bridge.set_uploaded(3, vec![]).unwrap();
+
+        bridge.reset_sync_id().unwrap();
+        assert_ne!(bridge.sync_id().unwrap(), Some("some_guid".to_string()));
+        assert_eq!(bridge.last_sync().unwrap(), 0);
+        bridge.set_uploaded(3, vec![]).unwrap();
+
+        // `reset` clears the guid and the timestamp.
+        bridge.reset().unwrap();
+        assert_eq!(bridge.last_sync().unwrap(), 0);
+        assert!(bridge.sync_id().unwrap().is_none());
+    }
+
+    // The same metadata the addresses bridge owns, on the credit cards one.
+    #[test]
+    fn test_credit_cards_sync_meta() {
+        error_support::init_for_tests();
+
+        let store = Arc::new(
+            Store::new_shared_memory("credit-cards-bridge", crate::db::test::test_encdec())
+                .unwrap(),
+        );
+        let bridge = store.credit_cards_bridged_engine();
 
         bridge.sync_started().unwrap();
         // Fresh DB: never synced.
@@ -139,6 +185,110 @@ mod tests {
             .get_address("remote-only-bbbb".to_string())
             .expect("remote address should have been stored");
         assert_eq!(stored.street_address, "99 Remote Road");
+
+        assert_eq!(bridge.last_sync().unwrap(), 1234);
+        bridge.set_uploaded(5678, vec![local.guid.clone()]).unwrap();
+        bridge.sync_finished().unwrap();
+        assert_eq!(bridge.last_sync().unwrap(), 5678);
+
+        // Acknowledging the upload cleared the record's change counter, so a
+        // subsequent sync has nothing to send.
+        assert!(bridge.apply(5678).expect("should apply again").is_empty());
+    }
+
+    // The credit card counterpart of `test_sync_via_bridge`. Payloads carry the
+    // card number in cleartext, while the store keeps it encrypted, so this
+    // also covers the encryption on the way in and decryption on the way out.
+    #[test]
+    fn test_credit_cards_sync_via_bridge() {
+        error_support::init_for_tests();
+
+        let store = Arc::new(
+            Store::new_shared_memory(
+                "credit-cards-bridge-roundtrip",
+                crate::db::test::test_encdec(),
+            )
+            .unwrap(),
+        );
+
+        // A local-only card: nothing on the server knows about it yet, so it
+        // should be uploaded.
+        let local = store
+            .add_credit_card(UpdatableCreditCardFields {
+                cc_name: "Local Person".to_string(),
+                cc_number: "4111111111111111".to_string(),
+                cc_exp_month: 1,
+                cc_exp_year: 2030,
+                cc_type: "visa".to_string(),
+            })
+            .expect("should add local card");
+
+        let bridge = store.clone().credit_cards_bridged_engine();
+
+        // `sync_started` is what creates the sync staging tables.
+        bridge.sync_started().expect("should prepare for sync");
+
+        // An incoming remote card that isn't known locally. We build the
+        // envelope as raw JSON, exactly as the JS bridge hands it to us.
+        let incoming = vec![serde_json::json!({
+            "id": "remote-only-cccc",
+            "modified": 0,
+            "payload": serde_json::json!({
+                "id": "remote-only-cccc",
+                "entry": {
+                    "cc-name": "Remote Person",
+                    "cc-number": "5555555555554444",
+                    "cc-exp-month": 12,
+                    "cc-exp-year": 2031,
+                    "cc-type": "mastercard",
+                    "version": 3,
+                },
+            })
+            .to_string(),
+        })
+        .to_string()];
+        bridge
+            .store_incoming(incoming)
+            .expect("should store incoming");
+
+        // Applying stores the remote record locally and returns the local-only
+        // card for upload.
+        let outgoing = bridge.apply(1234).expect("should apply");
+        let changes: HashMap<String, serde_json::Value> = outgoing
+            .into_iter()
+            .map(|s| {
+                let bso: serde_json::Value = serde_json::from_str(&s).unwrap();
+                let payload: serde_json::Value =
+                    serde_json::from_str(bso["payload"].as_str().unwrap()).unwrap();
+                (payload["id"].as_str().unwrap().to_string(), payload)
+            })
+            .collect();
+
+        // Only the local card is outgoing, with its number decrypted; the
+        // just-applied remote one is not re-uploaded.
+        assert_eq!(changes.len(), 1);
+        assert_eq!(
+            changes[&local.guid]["entry"]["cc-number"],
+            "4111111111111111"
+        );
+
+        // The incoming card was persisted encrypted and reads back decrypted.
+        let stored = store
+            .get_credit_card("remote-only-cccc".to_string())
+            .expect("remote card should have been stored");
+        assert_eq!(stored.cc_number, "5555555555554444");
+        assert_eq!(stored.cc_number_last_4, "4444");
+        {
+            let db = store.lock_db().unwrap();
+            let stored_enc: String = db
+                .query_row(
+                    "SELECT cc_number_enc FROM credit_cards_data WHERE guid = 'remote-only-cccc'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(!stored_enc.contains("5555555555554444"));
+        }
 
         assert_eq!(bridge.last_sync().unwrap(), 1234);
         bridge.set_uploaded(5678, vec![local.guid.clone()]).unwrap();

@@ -19,7 +19,7 @@ use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
 use crate::db::models::passport::*;
 use crate::db::store::Store;
-pub use crate::sync::AddressesBridgedEngine;
+pub use crate::sync::{AddressesBridgedEngine, CreditCardsBridgedEngine};
 use db_crypto::{EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager};
 pub use error::{ApiResult, AutofillApiError, Error, Result};
 use error_support::handle_error;
