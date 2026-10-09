@@ -233,6 +233,19 @@ interface Store {
     [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
 
+    /// A stored credit card without its number, so that reading one costs no
+    /// decryption. See `get_all_credit_cards_without_numbers`.
+    [Throws=AutofillApiError]
+    CreditCard get_credit_card_without_number(string guid);
+
+    /// Every stored credit card without its number. `get_all_credit_cards`
+    /// decrypts each one, which with an NSS-backed key can mean a primary
+    /// password prompt; an application listing cards by name, last four digits
+    /// and expiry asks for this instead, and reads the number of a single card
+    /// with `get_credit_card` once it knows which one the user meant.
+    [Throws=AutofillApiError]
+    sequence<CreditCard> get_all_credit_cards_without_numbers();
+
     [Throws=AutofillApiError]
     i64 count_all_credit_cards();
 

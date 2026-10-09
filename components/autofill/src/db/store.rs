@@ -214,6 +214,29 @@ impl Store {
             .collect()
     }
 
+    /// A stored credit card without its number, so that reading one costs no
+    /// decryption. See `get_all_credit_cards_without_numbers`.
+    #[handle_error(Error)]
+    pub fn get_credit_card_without_number(&self, guid: String) -> ApiResult<CreditCard> {
+        let db = self.lock_db()?;
+        Ok(
+            credit_cards::get_credit_card(&db.writer, &Guid::new(&guid))?
+                .into_external_without_number(),
+        )
+    }
+
+    /// Every stored credit card without its number, so that listing them
+    /// decrypts nothing and cannot prompt for a primary password.
+    /// `get_credit_card` reads the number of the one card that needs it.
+    #[handle_error(Error)]
+    pub fn get_all_credit_cards_without_numbers(&self) -> ApiResult<Vec<CreditCard>> {
+        let db = self.lock_db()?;
+        Ok(credit_cards::get_all_credit_cards(&db.writer)?
+            .into_iter()
+            .map(|x| x.into_external_without_number())
+            .collect())
+    }
+
     #[handle_error(Error)]
     pub fn count_all_credit_cards(&self) -> ApiResult<i64> {
         let count = credit_cards::count_all_credit_cards(&self.lock_db()?.writer)?;
@@ -641,6 +664,51 @@ mod tests {
                 .unwrap();
             assert_eq!(enc, "");
         }
+    }
+
+    #[test]
+    fn test_reads_without_numbers_do_not_decrypt() {
+        ensure_initialized();
+        let store = Store::new_shared_memory("no-number-reads", test_encdec()).unwrap();
+        // Encrypted under a key this store does not have: any attempt to read
+        // the number fails, which is what makes the reads below evidence that
+        // they do not attempt it.
+        let foreign = crate::db::test::random_key_encryptor().unwrap();
+        let internal = crate::db::models::credit_card::InternalCreditCard {
+            guid: sync_guid::Guid::random(),
+            cc_name: "jane doe".to_string(),
+            cc_number_enc: crate::db::models::credit_card::encrypt_str(
+                &foreign,
+                "4111111111117629",
+            )
+            .unwrap(),
+            cc_number_last_4: "7629".to_string(),
+            cc_exp_month: 1,
+            cc_exp_year: 2030,
+            cc_type: "visa".to_string(),
+            ..Default::default()
+        };
+        {
+            let db = store.lock_db().unwrap();
+            let tx = db.unchecked_transaction().unwrap();
+            crate::db::credit_cards::add_internal_credit_card(&tx, &internal).unwrap();
+            tx.commit().unwrap();
+        }
+
+        let card = store
+            .get_credit_card_without_number(internal.guid.to_string())
+            .unwrap();
+        assert_eq!(card.cc_number, "");
+        // Everything a card is listed by is stored in the clear and comes back.
+        assert_eq!(card.cc_name, "jane doe");
+        assert_eq!(card.cc_number_last_4, "7629");
+        assert_eq!(card.cc_exp_month, 1);
+        assert_eq!(card.cc_type, "visa");
+
+        let all = store.get_all_credit_cards_without_numbers().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].cc_number, "");
+        assert_eq!(all[0].cc_number_last_4, "7629");
     }
 
     #[test]

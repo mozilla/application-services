@@ -125,7 +125,17 @@ impl InternalCreditCard {
         } else {
             decrypt_str(encdec, &self.cc_number_enc)?
         };
-        Ok(CreditCard {
+        Ok(self.into_external_with(cc_number))
+    }
+
+    /// The record with its number left unread: `cc_number` comes back empty,
+    /// as it does for a scrubbed card.
+    pub(crate) fn into_external_without_number(self) -> CreditCard {
+        self.into_external_with(String::new())
+    }
+
+    fn into_external_with(self, cc_number: String) -> CreditCard {
+        CreditCard {
             guid: self.guid.to_string(),
             cc_name: self.cc_name,
             cc_number,
@@ -142,7 +152,7 @@ impl InternalCreditCard {
             },
             time_last_modified: u64::from(self.metadata.time_last_modified) as i64,
             times_used: self.metadata.times_used,
-        })
+        }
     }
 }
 
