@@ -9,6 +9,12 @@
 
 [Full Changelog](In progress)
 
+### Autofill
+
+- **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
+- **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext.
+- Credit cards can store an optional CVV, encrypted like the number and handled transparently: `UpdatableCreditCardFields.cc_cvv` (cleartext in, defaults to none) and `CreditCard.cc_cvv` (decrypted out). A v6 schema upgrade adds the column; existing rows simply have no CVV. The CVV syncs as a new optional `cc-cvv` payload field; records written by older clients round-trip it through the mirror's unknown-fields handling, so their edits do not drop it.
+
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
@@ -67,8 +73,6 @@
 
 ### Autofill
 
-- **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
-- **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext.
 - **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged. The key passed to the sync manager via `local_encryption_keys` is accepted but ignored.
 
 ## ✨ What's Changed ✨

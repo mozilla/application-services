@@ -248,6 +248,7 @@ fn run_add_credit_card(store: &Store) -> Result<()> {
     let cc_fields = credit_card::UpdatableCreditCardFields {
         cc_name: prompt_string("cc_name").unwrap_or_default(),
         cc_number: prompt_string("cc_number").unwrap_or_default(),
+        cc_cvv: None,
         cc_exp_month: prompt_usize("cc_exp_month").unwrap_or_default() as i64,
         cc_exp_year: prompt_usize("cc_exp_year").unwrap_or_default() as i64,
         cc_type: prompt_string("cc_type").unwrap_or_default(),
@@ -285,6 +286,7 @@ fn run_update_credit_card(store: &Store, guid: String) -> Result<()> {
     let updatable = credit_card::UpdatableCreditCardFields {
         cc_name: update_string("cc_name", cc.cc_name),
         cc_number: update_string("cc_number", cc.cc_number),
+        cc_cvv: None,
         cc_exp_month: update_i64("cc_exp_month", cc.cc_exp_month),
         cc_exp_year: update_i64("cc_exp_year", cc.cc_exp_year),
         cc_type: update_string("cc_type", cc.cc_type),
