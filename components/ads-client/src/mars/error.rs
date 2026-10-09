@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use sql_support::open_database;
 use viaduct::Response;
 
 #[derive(Debug, thiserror::Error)]
@@ -47,7 +48,7 @@ pub enum FetchAdsError {
     Request(#[from] viaduct::ViaductError),
 
     #[error("Internal database error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
+    Sqlite(#[from] open_database::Error),
 
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),

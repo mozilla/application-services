@@ -18,6 +18,7 @@ use self::{
 };
 use crate::bytesize::ByteSize;
 
+use sql_support::open_database;
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
 
@@ -53,12 +54,15 @@ impl HttpCache {
         HttpCacheBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear(&self) -> Result<(), open_database::Error> {
         self.store.clear_all()?;
         Ok(())
     }
 
-    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
+    pub fn invalidate_by_hash(
+        &self,
+        request_hash: &RequestHash,
+    ) -> Result<(), open_database::Error> {
         self.store.invalidate_by_hash(request_hash)?;
         Ok(())
     }
@@ -110,8 +114,8 @@ impl HttpCache {
         Ok((response, outcomes))
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.store.close()
+    pub fn shutdown_db(&self) {
+        self.store.close();
     }
 }
 

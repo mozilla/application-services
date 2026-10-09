@@ -5,6 +5,7 @@
 
 use std::hash::Hash;
 
+use sql_support::open_database;
 use viaduct::{Client, ClientSettings, Request, Response};
 
 use super::error::{HTTPError, TransportError};
@@ -29,8 +30,8 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
-        if let Some(cache) = &self.http_cache {
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+        if let Some(cache) = self.http_cache.as_ref() {
             cache.clear()?;
         }
         Ok(())
@@ -47,8 +48,8 @@ impl<T: Telemetry> MARSTransport<T> {
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
-    ) -> Result<(), rusqlite::Error> {
-        if let Some(cache) = &self.http_cache {
+    ) -> Result<(), open_database::Error> {
+        if let Some(cache) = self.http_cache.as_ref() {
             cache.invalidate_by_hash(request_hash)?;
         }
         Ok(())
@@ -61,7 +62,7 @@ impl<T: Telemetry> MARSTransport<T> {
         ohttp: bool,
     ) -> Result<Response, TransportError> {
         let client = Self::client_for(ohttp)?;
-        if let Some(cache) = &self.http_cache {
+        if let Some(cache) = self.http_cache.as_ref() {
             let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
             for outcome in &outcomes {
                 self.telemetry.record(outcome);
@@ -75,11 +76,10 @@ impl<T: Telemetry> MARSTransport<T> {
         }
     }
 
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
-        if let Some(cache) = self.http_cache.take() {
-            cache.shutdown_db()?;
+    pub fn shutdown_db(&self) {
+        if let Some(cache) = self.http_cache.as_ref() {
+            cache.shutdown_db();
         }
-        Ok(())
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {

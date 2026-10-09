@@ -12,15 +12,11 @@ use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
 use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
-#[cfg(feature = "stateful")]
-use crate::shutdown::AdsStoreShutdown;
-use crate::shutdown::ShutdownReferences;
 use crate::telemetry::Telemetry;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
-#[cfg(feature = "stateful")]
-use parking_lot::Mutex;
+use sql_support::open_database;
 use std::collections::HashMap;
 #[cfg(feature = "stateful")]
 use std::sync::Arc;
@@ -40,7 +36,7 @@ where
     T: Clone + Telemetry,
 {
     #[cfg(feature = "stateful")]
-    ads_store: Arc<Mutex<Option<AdsStore>>>,
+    ads_store: Arc<Option<AdsStore>>,
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
     telemetry: T,
@@ -100,14 +96,14 @@ where
         telemetry.record(&ClientOperationEvent::New);
         Self {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Mutex::new(ads_store)),
+            ads_store: Arc::new(ads_store),
             client,
             context_id_component,
             telemetry: telemetry.clone(),
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.client.clear_cache()
     }
 
@@ -250,12 +246,16 @@ where
             })
     }
 
-    pub fn shutdown_references(&self) -> ShutdownReferences<T> {
-        ShutdownReferences::new(
-            self.telemetry.clone(),
-            #[cfg(feature = "stateful")]
-            AdsStoreShutdown::new(self.ads_store.clone()),
-        )
+    pub fn shutdown(&self) {
+        // Drop telemetry (within the telemetry wrapper)
+        self.telemetry.shutdown();
+
+        #[cfg(feature = "stateful")]
+        if let Some(ads_store) = self.ads_store.as_ref() {
+            ads_store.shutdown_db();
+        }
+
+        self.client.shutdown_db();
     }
 
     fn request_ads<A>(
@@ -315,11 +315,11 @@ mod tests {
         let telemetry = client.get_telemetry();
         AdsClient {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Mutex::new(Some(
+            ads_store: Arc::new(Some(
                 AdsStoreBuilder::new("test_store.db")
                     .build(MozAdsTelemetryWrapper::noop())
                     .expect("Simplest AdsStoreBuilder should be constructable"),
-            ))),
+            )),
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),

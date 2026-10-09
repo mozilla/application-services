@@ -6,9 +6,9 @@ use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::HttpCache;
-use rusqlite::Connection;
-use sql_support::open_database;
-use std::path::PathBuf;
+use rusqlite::OpenFlags;
+use sql_support::{open_database, LazyDb};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
@@ -18,6 +18,8 @@ const MIN_CACHE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_CACHE_SIZE: ByteSize = ByteSize::mib(100);
 const MIN_TTL: Duration = Duration::from_secs(1);
 const MAX_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
+
+const IN_MEMORY_DB_PATH: &str = ":memory:";
 
 #[derive(Debug, thiserror::Error)]
 pub enum HttpCacheBuilderError {
@@ -59,9 +61,9 @@ impl HttpCacheBuilder {
     pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let conn = self.open_connection()?;
+        let db = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new(conn);
+        let store = HttpCacheStore::new(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
@@ -75,9 +77,9 @@ impl HttpCacheBuilder {
     pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let conn = self.open_connection()?;
+        let db = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new_with_test_clock(conn);
+        let store = HttpCacheStore::new_with_test_clock(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
@@ -97,14 +99,32 @@ impl HttpCacheBuilder {
         self
     }
 
-    fn open_connection(&self) -> Result<Connection, HttpCacheBuilderError> {
-        let initializer = HttpCacheConnectionInitializer {};
-        let conn = if cfg!(test) {
-            open_database::open_memory_database(&initializer)?
+    fn open_connection(
+        &self,
+    ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
+        if !cfg!(test) {
+            let db = LazyDb::new(
+                &self.db_path,
+                OpenFlags::default(),
+                HttpCacheConnectionInitializer {},
+            );
+
+            // Attempt to open initial connection, resolving an error if needed.
+            let _ = db.lock()?;
+            Ok(db)
         } else {
-            open_database::open_database(&self.db_path, &initializer)?
-        };
-        Ok(conn)
+            // If we cannot instantiate a filesystem db, or cfg!(test) == true, we fall back to a memory db.
+            let memory_db = LazyDb::new(
+                Path::new(IN_MEMORY_DB_PATH),
+                OpenFlags::default(),
+                HttpCacheConnectionInitializer {},
+            );
+
+            // Attempt to open initial connection, resolving an error if needed.
+            let _ = memory_db.lock()?;
+
+            Ok(memory_db)
+        }
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
