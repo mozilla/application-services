@@ -102,7 +102,6 @@ impl HttpCacheBuilder {
     fn open_connection(
         &self,
     ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
-        let memory_path = Path::new(IN_MEMORY_DB_PATH).to_path_buf();
         if !cfg!(test) {
             let db = LazyDb::new(
                 &self.db_path,
@@ -116,7 +115,7 @@ impl HttpCacheBuilder {
         } else {
             // If we cannot instantiate a filesystem db, or cfg!(test) == true, we fall back to a memory db.
             let memory_db = LazyDb::new(
-                &memory_path,
+                Path::new(IN_MEMORY_DB_PATH),
                 OpenFlags::default(),
                 HttpCacheConnectionInitializer {},
             );

@@ -72,7 +72,6 @@ impl AdsStoreBuilder {
         &mut self,
         telemetry: impl Telemetry,
     ) -> Result<LazyDb<AdsStoreConnectionInitializer>, AdsStoreBuilderError> {
-        let memory_path = Path::new(IN_MEMORY_DB_PATH).to_path_buf();
         if !cfg!(test) {
             let db = LazyDb::new(
                 &self.db_path,
@@ -91,7 +90,7 @@ impl AdsStoreBuilder {
 
         // If we cannot instantiate a filesystem db, or cfg!(test) == true, we fall back to a memory db.
         let memory_db = LazyDb::new(
-            &memory_path,
+            &Path::new(IN_MEMORY_DB_PATH),
             OpenFlags::default(),
             AdsStoreConnectionInitializer {},
         );
