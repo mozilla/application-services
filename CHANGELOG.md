@@ -7,6 +7,12 @@
   The new crate name is `viaduct-backend-rust`.
   iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
 
+## ✨ What's Changed ✨
+
+### Nimbus
+
+- The `pref-key` annotation for FML feature variables has been removed. ([#7559](https://github.com/mozilla/application-services/pull/7559/))
+
 [Full Changelog](In progress)
 
 # v159.0 (_2026-10-07_)
