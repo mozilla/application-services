@@ -15,7 +15,7 @@ pub use environment::Environment;
 pub use report_reason::ReportReason;
 
 use self::{
-    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
+    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags, AdRequestRelevance},
     ad_response::{AdResponse, AdResponseValue},
     error::{
         CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError,
@@ -61,6 +61,7 @@ where
         self.transport.clear_cache()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn fetch_ads<A>(
         &self,
         context_id: String,
@@ -69,6 +70,7 @@ where
         cache_policy: CachePolicy,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
@@ -80,6 +82,7 @@ where
             flags,
             ohttp,
             placements,
+            relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
@@ -110,6 +113,7 @@ where
             flags,
             ohttp,
             placements,
+            AdRequestRelevance::default(),
         )?;
 
         if ohttp {
@@ -336,6 +340,7 @@ mod tests {
             CachePolicy::default(),
             false,
             Default::default(),
+            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -370,6 +375,7 @@ mod tests {
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -383,6 +389,7 @@ mod tests {
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);

@@ -8,7 +8,7 @@ use crate::ads::{AdImage, AdSpoc, AdTile};
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
-use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags};
+use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
 use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
@@ -193,6 +193,7 @@ where
             })
     }
 
+    // relevance is not implemented for image ads, using an empty HashMap.
     pub fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
@@ -202,7 +203,14 @@ where
         blocks: Vec<String>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(ad_placement_requests, flags, options, ohttp, blocks)
+            .request_ads::<AdImage>(
+                ad_placement_requests,
+                flags,
+                options,
+                ohttp,
+                blocks,
+                AdRequestRelevance::default(),
+            )
             .inspect_err(|e| {
                 self.telemetry.record(e);
             })?;
@@ -210,6 +218,7 @@ where
         Ok(response.take_first())
     }
 
+    // relevance is not implemented for spocs, using an empty HashMap.
     pub fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
@@ -218,8 +227,14 @@ where
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result =
-            self.request_ads::<AdSpoc>(ad_placement_requests, flags, options, ohttp, blocks);
+        let result = self.request_ads::<AdSpoc>(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            AdRequestRelevance::default(),
+        );
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -237,9 +252,16 @@ where
         options: Option<CachePolicy>,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result =
-            self.request_ads::<AdTile>(ad_placement_requests, flags, options, ohttp, blocks);
+        let result = self.request_ads::<AdTile>(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            relevance,
+        );
         result
             .inspect_err(|e| {
                 self.telemetry.record(e);
@@ -265,11 +287,17 @@ where
         options: Option<CachePolicy>,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<AdResponse<A>, RequestAdsError>
     where
         A: AdResponseValue,
     {
-        let context_id = self.get_context_id()?;
+        let context_id = if relevance.is_empty() {
+            self.get_context_id()?
+        } else {
+            String::new()
+        };
+
         let cache_policy = options.unwrap_or_default();
         let (mut response, request_hash) = self.client.fetch_ads::<A>(
             context_id,
@@ -278,6 +306,7 @@ where
             cache_policy,
             ohttp,
             blocks,
+            relevance,
         )?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
@@ -415,6 +444,7 @@ mod tests {
             None,
             false,
             Default::default(),
+            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -454,6 +484,46 @@ mod tests {
             None,
             false,
             Default::default(),
+        );
+        assert!(result.is_ok());
+        m.assert();
+    }
+
+    #[test]
+    fn test_context_id_is_not_sent_to_mars_when_relevance_is_set() {
+        viaduct_dev::init_backend_dev();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            environment: Environment::Test,
+            #[cfg(feature = "stateful")]
+            store_config: None,
+            telemetry: MozAdsTelemetryWrapper::noop(),
+        };
+        let client: AdsClient<MozAdsTelemetryWrapper> = AdsClient::new(config);
+
+        // Matcher::Json compares the whole body, ignoring key order, so any
+        // extra key such as context_id makes the request go unmatched.
+        // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
+        // Any new fields must be considered along side relevence scores.
+        let expected_response = get_example_happy_uatile_response();
+        let m: mockito::Mock = mockito::mock("POST", "/ads")
+            .match_body(mockito::Matcher::Json(serde_json::json!({
+                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap(),
+                "relevance": {"sports": 0.8},
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response.data).unwrap())
+            .create();
+
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            AdRequestFlags::default(),
+            None,
+            false,
+            Default::default(),
+            HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
         m.assert();
@@ -543,6 +613,7 @@ mod tests {
                 Some(CachePolicy::default()),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
 

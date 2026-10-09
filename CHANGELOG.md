@@ -9,6 +9,9 @@
 
 [Full Changelog](In progress)
 
+### Ads-Client
+- Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64.
+
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
