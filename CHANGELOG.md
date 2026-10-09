@@ -7,6 +7,11 @@
   The new crate name is `viaduct-backend-rust`.
   iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
 
+## ✨ What's New ✨
+
+### Error support
+- Wired up the error ping on iOS using glean-sym.
+
 [Full Changelog](In progress)
 
 # v159.0 (_2026-10-07_)
