@@ -9,6 +9,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Autofill
+
+- Added `get_credit_card_without_number()` and `get_all_credit_cards_without_numbers()`, which read a card without decrypting its number. Listing cards by name, last four digits and expiry needs no number, and where the key is NSS-backed decrypting one can put a primary password prompt in front of the user; an application lists through these and calls `get_credit_card()` for the single card whose number it actually needs. `cc_number` comes back empty, as it does for a scrubbed card. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
+
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
