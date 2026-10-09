@@ -95,6 +95,52 @@ pub struct CreditCard {
     pub times_used: i64,
 }
 
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Getting one of these never needs the encryption key, so callers listing
+/// cards by name, last four digits and expiry can do so without forcing the
+/// user to authenticate. Once they know which card they want,
+/// `Store::get_credit_card()` decrypts just that one.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CreditCardCandidate {
+    pub guid: String,
+    pub cc_name: String,
+    pub cc_number_last_4: String,
+    /// Whether a CVV is stored, from the ciphertext being non-empty.
+    pub has_cvv: bool,
+    pub cc_exp_month: i64,
+    pub cc_exp_year: i64,
+    pub cc_type: String,
+
+    pub time_created: i64,
+    pub time_last_used: Option<i64>,
+    pub time_last_modified: i64,
+    pub times_used: i64,
+}
+
+impl From<InternalCreditCard> for CreditCardCandidate {
+    fn from(card: InternalCreditCard) -> Self {
+        // The ciphertexts are dropped unread; only whether a CVV exists is kept.
+        Self {
+            guid: card.guid.to_string(),
+            cc_name: card.cc_name,
+            cc_number_last_4: card.cc_number_last_4,
+            has_cvv: !card.cc_cvv_enc.is_empty(),
+            cc_exp_month: card.cc_exp_month,
+            cc_exp_year: card.cc_exp_year,
+            cc_type: card.cc_type,
+            time_created: u64::from(card.metadata.time_created) as i64,
+            time_last_used: if card.metadata.time_last_used.0 == 0 {
+                None
+            } else {
+                Some(card.metadata.time_last_used.0 as i64)
+            },
+            time_last_modified: u64::from(card.metadata.time_last_modified) as i64,
+            times_used: card.metadata.times_used,
+        }
+    }
+}
+
 pub(crate) fn encrypt_str(encdec: &dyn EncryptorDecryptor, cleartext: &str) -> Result<String> {
     let ciphertext = encdec.encrypt(cleartext.as_bytes().to_vec())?;
     String::from_utf8(ciphertext).map_err(|e| Error::CryptoNotUtf8(format!("encrypting: {e}")))
