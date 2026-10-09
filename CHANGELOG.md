@@ -1,6 +1,17 @@
-# v159.0 (In progress)
+# v160.0 (In progress)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Viaduct
+- Moved the Rust-based backend away from `hyper` back to `reqwest`.
+  The new crate name is `viaduct-backend-rust`.
+  iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
 
 [Full Changelog](In progress)
+
+# v159.0 (_2026-10-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
 
 ## FxA-Client
 - When `begin_pairing_flow` or `begin_oauth_flow` is called with an empty list of scopes, the resulting URL will not include the scope URL query parameter.
@@ -10,6 +21,10 @@
 - `NSSKeyManager::get_key()` fails with `NSSAuthenticationError` rather than `MissingKey` when the token is not authenticated, and `ManagedEncryptorDecryptor` no longer reports a missing key for a key manager that never got as far as an answer: `NSSUninitialized`, `NSSAuthenticationError`, `AuthenticationError` and `AuthenticationCanceled` are passed on as they are. A key store that could not be reached says nothing about whether the key is there, so the application can authenticate again and retry, or honour the cancelled prompt, instead of treating the key as gone. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
 - A locked NSS token is no longer reported as an empty key store. `get_aes256_key()` fails with `TokenNotAuthenticated` instead of returning `None` when the key database could not be searched. A logout racing `NSSKeyManager::get_key()` can no longer make an existing key look absent and have a replacement generated in its place. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
 - `get_or_create_aes256_key()` holds the token lock across the lookup and the key creation it can lead to, so two callers can no longer both find no key and both create one under the same name. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
+
+### Tracing Support
+
+- Export `SimpleEventFilter`, the filter `simple_event_layer()` uses to select events from this crate's logging macros. Other layers in the same subscriber can now skip those events with `SimpleEventFilter.not()` instead of copying the filter. Firefox needs this to forward Rust `tracing` events to Gecko logging and the profiler without handling application-services events twice. ([bug 1652558](https://bugzilla.mozilla.org/show_bug.cgi?id=1652558))
 
 # v158.0 (_2026-09-24_)
 
@@ -47,6 +62,14 @@
 - Refactor the database encryption support into a new support crate `db-crypto`, which provides all the same functions and traits as were previously available in `logins::encryption` module. However, this leads to two breaking changes: the functionality has been moved into a new `db_crypto` UniFFI namespace, and the error type has changed from `LoginsApiError` to `DbCryptoApiError`. ([#7542](https://github.com/mozilla/application-services/pull/7542))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v156.0...v157.0)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Autofill
+
+- **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
+- **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext.
+- **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged. The key passed to the sync manager via `local_encryption_keys` is accepted but ignored.
 
 ## ✨ What's Changed ✨
 
