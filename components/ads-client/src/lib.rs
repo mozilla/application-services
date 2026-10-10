@@ -46,8 +46,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 });
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Arc<Mutex<AdsClient<MozAdsTelemetryWrapper>>>,
-    shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
+    inner: Arc<AdsClient<MozAdsTelemetryWrapper>>,
     #[cfg(feature = "stateful")]
     _worker: BackgroundWorker,
 }

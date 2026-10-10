@@ -116,8 +116,7 @@ impl MozAdsClientBuilder {
             telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
-        let shutdown_references = client.shutdown_references();
-        let inner = Arc::new(Mutex::new(client));
+        let inner = Arc::new(client);
         #[cfg(feature = "stateful")]
         let worker = if store_set {
             worker::BackgroundWorker::new(inner.clone())
@@ -126,7 +125,6 @@ impl MozAdsClientBuilder {
         };
         MozAdsClient {
             inner,
-            shutdown_references,
             #[cfg(feature = "stateful")]
             _worker: worker,
         }

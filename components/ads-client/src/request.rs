@@ -67,25 +67,6 @@ pub enum QueuedRequest {
     ReportAd { reason: ReportReason, url: Url },
 }
 
-// Request dispatch enum for passing different instructions to the background worker thread.
-// `RequestAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(Clone, Debug, PartialEq)]
-pub enum DispatchRequest {
-    RecordClick {
-        url: Url,
-    },
-    RecordImpression {
-        url: Url,
-    },
-    ReportAd {
-        reason: ReportReason,
-        url: Url,
-    },
-    RequestAds {
-        ad_requests: HashSet<AdPlacementRequest>,
-    },
-}
-
 impl From<QueuedRequest> for DispatchRequest {
     fn from(value: QueuedRequest) -> Self {
         match value {

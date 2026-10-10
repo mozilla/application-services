@@ -25,7 +25,7 @@ pub struct BackgroundWorker {
 
 impl BackgroundWorker {
     pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(
-        inner_client: Arc<Mutex<AdsClient<T>>>,
+        inner_client: Arc<AdsClient<T>>,
     ) -> BackgroundWorker {
         let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
         let worker_request_queue = request_queue.clone();
@@ -91,7 +91,7 @@ impl BackgroundWorker {
 
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
 fn worker<T: Telemetry + Clone>(
-    inner_client: Arc<Mutex<AdsClient<T>>>,
+    inner_client: Arc<AdsClient<T>>,
     request_queue: Arc<Mutex<RequestQueue>>,
 ) {
     loop {
@@ -115,9 +115,6 @@ fn worker<T: Telemetry + Clone>(
 // `RequestAds` are prefetch mechanisms that query and load data into the local cache.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DispatchRequest {
-    RequestAds {
-        ad_requests: HashSet<AdPlacementRequest>,
-    },
     RecordClick {
         url: Url,
     },
@@ -128,6 +125,9 @@ pub enum DispatchRequest {
         url: Url,
         reason: ReportReason,
     },
+    RequestAds {
+        ad_requests: HashSet<AdPlacementRequest>,
+    },
 }
 
 impl DispatchRequest {
@@ -135,7 +135,7 @@ impl DispatchRequest {
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
     pub fn handle_request<T: Telemetry + Clone>(
         self,
-        _ads_client_inner: Arc<Mutex<AdsClient<T>>>,
+        _ads_client_inner: Arc<AdsClient<T>>,
     ) -> Result<(), ComponentError> {
         // TODO: Add 'running a request' logic to here.
         error_support::error!("Running a request is currently not set up yet: {self:?}");
