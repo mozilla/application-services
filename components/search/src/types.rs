@@ -283,6 +283,7 @@ impl SearchEngineClassification {
 #[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchEngineClassificationV3 {
+    Ai = 3,
     General = 2,
     #[default]
     #[serde(other)]
@@ -294,6 +295,7 @@ impl SearchEngineClassificationV3 {
         match self {
             SearchEngineClassificationV3::Unknown => "unknown",
             SearchEngineClassificationV3::General => "general",
+            SearchEngineClassificationV3::Ai => "ai",
         }
     }
 }
@@ -374,11 +376,7 @@ pub struct SearchEngineDefinitionV3 {
     /// The character set this engine uses for queries.
     pub charset: String,
 
-    /// The classification of search engine according to the main search types
-    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
-    /// a general search engine is supported.
-    /// On Android, only general search engines may be selected as "default"
-    /// search engines.
+    /// The classification of search engine according to the main search types.
     pub classification: SearchEngineClassificationV3,
 
     /// The identifier of the search engine. This is used as an internal
