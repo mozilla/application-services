@@ -5,15 +5,16 @@ pub mod store;
 use crate::{
     ads::PlacementId,
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
-    common::bytesize::ByteSize,
+    bytesize::ByteSize,
 };
+use sql_support::open_database;
 use std::path::Path;
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
+    is_memory: bool,
     #[allow(dead_code)]
     max_size: ByteSize,
-    is_memory: bool,
 }
 
 impl AdsStore {
@@ -21,22 +22,22 @@ impl AdsStore {
         AdsStoreBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+    pub fn clear(&self) -> Result<(), open_database::Error> {
         self.holder.clear_all()?;
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.holder.close()
-    }
-
-    pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), rusqlite::Error> {
+    pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), open_database::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
         Ok(())
     }
 
     pub fn is_memory(&self) -> bool {
         self.is_memory
+    }
+
+    pub fn shutdown_db(&self) {
+        self.holder.close();
     }
 }
 

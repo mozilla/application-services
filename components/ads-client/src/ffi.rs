@@ -111,9 +111,9 @@ impl MozAdsClientBuilder {
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
-            telemetry: telemetry.clone(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            telemetry: telemetry.clone(),
         };
         let client = AdsClient::new(client_config);
         let shutdown_references = client.shutdown_references();
@@ -137,13 +137,13 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
-        self.0.lock().store_config = Some(store_config);
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
         self
     }
 
-    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
-        self.0.lock().environment = Some(environment);
+    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
+        self.0.lock().store_config = Some(store_config);
         self
     }
 
@@ -160,7 +160,9 @@ impl MozAdsClientBuilder {
     }
 }
 
-#[derive(Clone, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+// Deliberately unsorted: uniffi encodes variants by index, and this mirrors
+// `Environment`.
+#[derive(Clone, Debug, Default, uniffi::Enum, PartialEq, Eq)]
 pub enum MozAdsEnvironment {
     #[default]
     Prod,
@@ -483,7 +485,7 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsClientBuilder};
+    use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder};
     use std::sync::Arc;
 
     #[test]
@@ -509,5 +511,65 @@ mod tests {
         assert_eq!(weak_telemetry.strong_count(), 0);
         builder.build();
         assert_eq!(weak_telemetry.strong_count(), 0);
+    }
+
+    #[test]
+    fn test_shutdown_telemetry_basic() {
+        viaduct_dev::init_backend_dev();
+
+        // test with client created from config with no cache
+        let builder = Arc::new(MozAdsClientBuilder::new()).telemetry(Box::new(NoopMozAdsTelemetry));
+        let weak_reference = builder
+            .fetch_telemetry()
+            .expect("Inner telemetry should be Some in builder");
+        let client = builder.build();
+
+        // weak ref will show 0 strong references when the Arc<dyn MozAdsTelemetry> is gone.
+        assert_ne!(weak_reference.strong_count(), 0);
+        client.shutdown().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
+
+        // test also with http cache
+        let builder = Arc::new(MozAdsClientBuilder::new())
+            .telemetry(Box::new(NoopMozAdsTelemetry))
+            .cache_config(MozAdsCacheConfig {
+                db_path: "test_shutdown_is_idempotent".to_string(),
+                default_cache_ttl_seconds: None,
+                max_size_mib: None,
+            });
+        let weak_reference = builder
+            .fetch_telemetry()
+            .expect("Inner telemetry should be Some in builder");
+        let client = builder.build();
+
+        // weak ref will show 0 strong references when the Arc<dyn MozAdsTelemetry> is gone.
+        assert_ne!(weak_reference.strong_count(), 0);
+        client.shutdown().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
+    }
+
+    #[test]
+    fn test_shutdown_is_idempotent() {
+        viaduct_dev::init_backend_dev();
+
+        let builder = Arc::new(MozAdsClientBuilder::new())
+            .telemetry(Box::new(NoopMozAdsTelemetry))
+            .cache_config(MozAdsCacheConfig {
+                db_path: "test_shutdown_is_idempotent".to_string(),
+                default_cache_ttl_seconds: None,
+                max_size_mib: None,
+            });
+        let weak_reference = builder
+            .fetch_telemetry()
+            .expect("Inner telemetry should be Some in builder");
+        let client = builder.build();
+
+        client.shutdown().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
+
+        // Repeated shutdowns must not error or re-close an already closed connection.
+        client.shutdown().unwrap();
+        client.shutdown().unwrap();
+        assert_eq!(weak_reference.strong_count(), 0);
     }
 }

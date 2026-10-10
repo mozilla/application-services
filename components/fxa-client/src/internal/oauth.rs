@@ -306,13 +306,16 @@ impl FirefoxAccount {
         let keys_jwk = URL_SAFE_NO_PAD.encode(jwk_json);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config().client_id)
-            .append_pair("scope", &scopes.join(" "))
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline")
             .append_pair("keys_jwk", &keys_jwk);
 
+        if !scopes.is_empty() {
+            url.query_pairs_mut()
+                .append_pair("scope", &scopes.join(" "));
+        }
         if self.state.config().redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
             url.query_pairs_mut()
                 .append_pair("context", "oauth_webchannel_v1");
@@ -688,6 +691,24 @@ mod tests {
     }
 
     #[test]
+    fn test_oauth_flow_url_without_scopes() {
+        nss_as::ensure_initialized();
+        let config = Config::new_with_mock_well_known_fxa_client_configuration(
+            "https://mock-fxa.example.com",
+            "12345678",
+            "https://foo.bar",
+        );
+        let mut fxa = FirefoxAccount::with_config(config);
+        let url = fxa
+            .begin_oauth_flow("", &[], "test_oauth_flow_url")
+            .unwrap();
+        let flow_url = Url::parse(&url).unwrap();
+        let params: HashMap<String, String> = flow_url.query_pairs().into_owned().collect();
+
+        assert!(!params.contains_key("scope"));
+    }
+
+    #[test]
     fn test_oauth_flow_url() {
         nss_as::ensure_initialized();
         let config = Config::new_with_mock_well_known_fxa_client_configuration(
@@ -703,60 +724,19 @@ mod tests {
 
         assert_eq!(flow_url.path(), "/authorization");
 
-        let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 11);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("entrypoint"),
-                Cow::Borrowed("test_oauth_flow_url")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
-        );
-
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
-        );
-        let state_param = pairs.next().unwrap();
-        assert_eq!(state_param.0, Cow::Borrowed("state"));
-        assert_eq!(state_param.1.len(), 22);
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("code_challenge_method"),
-                Cow::Borrowed("S256")
-            ))
-        );
-        let code_challenge_param = pairs.next().unwrap();
-        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
-        assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
-        );
-        let keys_jwk = pairs.next().unwrap();
-        assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
-        assert_eq!(keys_jwk.1.len(), 168);
-
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
+        assert_eq!(flow_url.query_pairs().count(), 11);
+        let params: HashMap<String, String> = flow_url.query_pairs().into_owned().collect();
+        assert_eq!(params["action"], "email");
+        assert_eq!(params["response_type"], "code");
+        assert_eq!(params["entrypoint"], "test_oauth_flow_url");
+        assert_eq!(params["client_id"], "12345678");
+        assert_eq!(params["scope"], "profile");
+        assert_eq!(params["state"].len(), 22);
+        assert_eq!(params["code_challenge_method"], "S256");
+        assert_eq!(params["code_challenge"].len(), 43);
+        assert_eq!(params["access_type"], "offline");
+        assert_eq!(params["keys_jwk"].len(), 168);
+        assert_eq!(params["redirect_uri"], "https://foo.bar");
     }
 
     #[test]
@@ -849,55 +829,17 @@ mod tests {
         assert_eq!(flow_url.path(), "/pair/supp");
         assert_eq!(flow_url.fragment(), expected_parsed_url.fragment());
 
-        let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 9);
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("entrypoint"),
-                Cow::Borrowed("test_pairing_flow_url")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("scope"),
-                Cow::Borrowed("https://identity.mozilla.com/apps/oldsync")
-            ))
-        );
-
-        let state_param = pairs.next().unwrap();
-        assert_eq!(state_param.0, Cow::Borrowed("state"));
-        assert_eq!(state_param.1.len(), 22);
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("code_challenge_method"),
-                Cow::Borrowed("S256")
-            ))
-        );
-        let code_challenge_param = pairs.next().unwrap();
-        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
-        assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
-        );
-        let keys_jwk = pairs.next().unwrap();
-        assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
-        assert_eq!(keys_jwk.1.len(), 168);
-
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
+        assert_eq!(flow_url.query_pairs().count(), 9);
+        let params: HashMap<String, String> = flow_url.query_pairs().into_owned().collect();
+        assert_eq!(params["entrypoint"], "test_pairing_flow_url");
+        assert_eq!(params["client_id"], "12345678");
+        assert_eq!(params["scope"], "https://identity.mozilla.com/apps/oldsync");
+        assert_eq!(params["state"].len(), 22);
+        assert_eq!(params["code_challenge_method"], "S256");
+        assert_eq!(params["code_challenge"].len(), 43);
+        assert_eq!(params["access_type"], "offline");
+        assert_eq!(params["keys_jwk"].len(), 168);
+        assert_eq!(params["redirect_uri"], "https://foo.bar");
     }
 
     #[test]

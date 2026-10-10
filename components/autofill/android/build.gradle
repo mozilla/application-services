@@ -7,11 +7,13 @@ android {
 
 dependencies {
     // Part of the public API.
+    api project(':db-crypto')
     api project(':sync15')
 
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.work.testing
     testImplementation project(":syncmanager")
+    testImplementation project(":init_rust_components")
 }
 
 ext.configureUniFFIBindgen("autofill")

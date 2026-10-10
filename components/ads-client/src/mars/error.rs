@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use sql_support::open_database;
 use viaduct::Response;
 
 #[derive(Debug, thiserror::Error)]
@@ -19,11 +20,11 @@ pub enum CallbackRequestError {
     #[error("Could not fetch ads, MARS responded with: {0}")]
     HTTPError(#[from] HTTPError),
 
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
     #[error("Invalid callback URL: {0}")]
     InvalidUrl(#[from] url::ParseError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
@@ -43,11 +44,11 @@ pub enum FetchAdsError {
     #[error("OHTTP preflight failed: {0}")]
     Preflight(#[from] CallbackRequestError),
 
-    #[error("Internal database error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
+
+    #[error("Internal database error: {0}")]
+    Sqlite(#[from] open_database::Error),
 
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
@@ -148,11 +149,11 @@ mod tests {
 
     fn mock_response(status: u16, body: &str) -> Response {
         Response {
-            request_method: viaduct::Method::Get,
-            url: Url::parse("https://example.com").unwrap(),
-            status,
-            headers: viaduct::Headers::new(),
             body: body.as_bytes().to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Get,
+            status,
+            url: Url::parse("https://example.com").unwrap(),
         }
     }
 

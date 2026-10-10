@@ -5,15 +5,19 @@
 #![warn(rust_2018_idioms)]
 
 use anyhow::Result;
+use async_trait::async_trait;
 use autofill::db::{
     models::{address, credit_card},
     store::Store,
 };
-use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
-use autofill::error::Error;
+use autofill::{
+    create_autofill_key, create_autofill_store_with_nss_keymanager, create_managed_encdec,
+    create_static_key_manager,
+};
 use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
-use cli_support::prompt::{prompt_string, prompt_usize};
+use cli_support::prompt::{prompt_password, prompt_string, prompt_usize};
+use db_crypto::{DbCryptoApiError, PrimaryPasswordAuthenticator};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
@@ -50,6 +54,13 @@ pub struct Opts {
     /// Sets the path to the database
     #[arg(name = "database_path", long, short = 'd')]
     pub database_path: Option<String>,
+
+    /// Use a Firefox profile directory: NSS is initialized against its
+    /// key4.db and the store opens <profile>/autofill.db with the
+    /// NSS-managed key, prompting for the primary password if one is set.
+    /// Overrides --key.
+    #[arg(name = "profile_path", long = "profile", short = 'p')]
+    pub profile_path: Option<String>,
 
     /// Disables all logging (useful for performance evaluation)
     #[arg(name = "no-logging", long)]
@@ -233,15 +244,10 @@ fn run_delete_address(store: &Store, guid: String) -> Result<()> {
     Ok(())
 }
 
-fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
-    let encdec = EncryptorDecryptor::new(key)?;
-    let cc_number = prompt_string("cc_number").unwrap_or_default();
-    let cc_number_enc = encdec.encrypt(&cc_number)?;
-    let cc_number_last_4 = cc_number_enc.chars().rev().take(4).collect();
+fn run_add_credit_card(store: &Store) -> Result<()> {
     let cc_fields = credit_card::UpdatableCreditCardFields {
         cc_name: prompt_string("cc_name").unwrap_or_default(),
-        cc_number_enc,
-        cc_number_last_4,
+        cc_number: prompt_string("cc_number").unwrap_or_default(),
         cc_exp_month: prompt_usize("cc_exp_month").unwrap_or_default() as i64,
         cc_exp_year: prompt_usize("cc_exp_year").unwrap_or_default() as i64,
         cc_type: prompt_string("cc_type").unwrap_or_default(),
@@ -253,46 +259,23 @@ fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
     Ok(())
 }
 
-// copied from the impl.
-fn get_last_4(v: &str) -> String {
-    v.chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>()
-}
-
-fn run_get_credit_card(store: &Store, guid: String, key: &str) -> Result<()> {
+fn run_get_credit_card(store: &Store, guid: String) -> Result<()> {
     println!("Getting credit card for guid `{}`", guid);
 
     let credit_card = Store::get_credit_card(store, guid)?;
 
     println!("Retrieved credit card: {:#?}", credit_card);
-    let encdec = EncryptorDecryptor::new(key)?;
-    let card_number = encdec.decrypt(&credit_card.cc_number_enc)?;
-    println!("credit-card number decrypts as: {}", card_number);
-    if get_last_4(&card_number) != credit_card.cc_number_last_4 {
-        println!("***** - last 4 digits are wrong!!!");
-    }
     Ok(())
 }
 
-fn run_get_all_credit_cards(store: &Store, key: &str) -> Result<()> {
+fn run_get_all_credit_cards(store: &Store) -> Result<()> {
     println!("Getting all credit cards");
-    let encdec = EncryptorDecryptor::new(key)?;
 
     let credit_cards = Store::get_all_credit_cards(store)?;
 
     println!("Retrieved credit cards:");
     for card in credit_cards {
         println!("{:#?}", card);
-        let card_number = encdec.decrypt(&card.cc_number_enc)?;
-        println!("credit-card number decrypts as: {}", card_number);
-        if get_last_4(&card_number) != card.cc_number_last_4 {
-            println!("***** - last 4 digits are wrong!!!");
-        }
     }
     Ok(())
 }
@@ -301,9 +284,7 @@ fn run_update_credit_card(store: &Store, guid: String) -> Result<()> {
     let cc = Store::get_credit_card(store, guid.clone())?;
     let updatable = credit_card::UpdatableCreditCardFields {
         cc_name: update_string("cc_name", cc.cc_name),
-        // TODO: EncryptorDecryptor dance
-        cc_number_enc: update_string("cc_number_enc", cc.cc_number_enc),
-        cc_number_last_4: update_string("cc_number_last_4", cc.cc_number_last_4),
+        cc_number: update_string("cc_number", cc.cc_number),
         cc_exp_month: update_i64("cc_exp_month", cc.cc_exp_month),
         cc_exp_year: update_i64("cc_exp_year", cc.cc_exp_year),
         cc_type: update_string("cc_type", cc.cc_type),
@@ -332,7 +313,6 @@ fn run_delete_credit_card(store: &Store, guid: String) -> Result<()> {
 #[allow(clippy::too_many_arguments)]
 fn run_sync(
     store: &Arc<Store>,
-    key: &str,
     cred_file: String,
     wipe_all: bool,
     wipe: bool,
@@ -350,11 +330,10 @@ fn run_sync(
     }
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
-    let mut engines: Vec<Box<dyn SyncEngine>> = vec![
+    let engines: Vec<Box<dyn SyncEngine>> = vec![
         Arc::clone(store).create_addresses_sync_engine(),
         Arc::clone(store).create_credit_cards_sync_engine(),
     ];
-    engines[1].set_local_encryption_key(key)?;
     for engine in &engines {
         if wipe {
             engine.wipe()?;
@@ -421,7 +400,25 @@ fn run_sync(
     }
 }
 
-fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<String> {
+struct TerminalPrimaryPasswordAuthenticator {}
+#[async_trait]
+impl PrimaryPasswordAuthenticator for TerminalPrimaryPasswordAuthenticator {
+    async fn get_primary_password(&self) -> Result<String, DbCryptoApiError> {
+        Ok(prompt_password("primary password").unwrap_or_default())
+    }
+
+    async fn on_authentication_success(&self) -> Result<(), DbCryptoApiError> {
+        println!("success");
+        Ok(())
+    }
+
+    async fn on_authentication_failure(&self) -> Result<(), DbCryptoApiError> {
+        println!("this did not work, please try again:");
+        Ok(())
+    }
+}
+
+fn get_encryption_key(db_path: &str, opts: &Opts) -> Result<String> {
     // See the docstring for --key above for more context.
     // if key was specified we use ut.
     if let Some(key) = &opts.key {
@@ -454,7 +451,12 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
         Ok(res)
     }
 
-    let db = AutofillDb::new(db_path)?;
+    // The store needs an encryptor before it can open, but the example key
+    // lives in the database's meta table - so peek with a throwaway one.
+    let db = AutofillDb::new(
+        db_path,
+        create_managed_encdec(create_static_key_manager(create_autofill_key()?)),
+    )?;
 
     let key: Option<String> = get_meta(&db, "example-encryption-key")?;
     if let Some(key) = key {
@@ -462,11 +464,12 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
     }
     // So we need to generate it - but refuse to do so if it already has
     // cards.
-    if !Store::get_all_credit_cards(store)?.is_empty() {
+    let cards: i64 = db.query_row("SELECT COUNT(*) FROM credit_cards_data", [], |r| r.get(0))?;
+    if cards != 0 {
         println!("***** We don't have a key but do have credit-cards.");
         println!("***** I'm not going to generate an example one, so");
         println!("***** you should probably delete the database (or all cards) and start again");
-        return Err(Error::MissingEncryptionKey.into());
+        anyhow::bail!("no encryption key, but the database has credit cards");
     }
     // ok, generate it.
     println!("***** Generating and storing example key");
@@ -476,22 +479,40 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
 }
 
 fn main() -> Result<()> {
-    nss_as::ensure_initialized();
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 
     let opts = Opts::parse();
     if !opts.no_logging {
         cli_support::init_trace_logging();
     }
 
-    let db_path = opts
-        .database_path
-        .clone()
-        .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
-    let store = Store::new(&db_path)?;
-
-    let key = get_encryption_key(&store, &db_path, &opts)?;
-    log::trace!("Using encryption key {}", key);
+    let store = if let Some(profile_path) = &opts.profile_path {
+        // The profile's key4.db holds the encryption key; NSS reads it
+        // itself and prompts for the primary password when needed.
+        init_rust_components::initialize(profile_path.clone());
+        let db_path = opts.database_path.clone().unwrap_or_else(|| {
+            std::path::Path::new(profile_path)
+                .join("autofill.db")
+                .display()
+                .to_string()
+        });
+        create_autofill_store_with_nss_keymanager(
+            db_path,
+            Arc::new(TerminalPrimaryPasswordAuthenticator {}),
+        )?
+    } else {
+        nss_as::ensure_initialized();
+        let db_path = opts
+            .database_path
+            .clone()
+            .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
+        let key = get_encryption_key(&db_path, &opts)?;
+        log::trace!("Using encryption key {}", key);
+        Arc::new(Store::new(
+            &db_path,
+            create_managed_encdec(create_static_key_manager(key.clone())),
+        )?)
+    };
 
     match opts.cmd {
         Command::AddAddress {} => run_add_address(&store),
@@ -500,9 +521,9 @@ fn main() -> Result<()> {
         Command::UpdateAddress { guid } => run_update_address(&store, guid),
         Command::DeleteAddress { guid } => run_delete_address(&store, guid),
 
-        Command::AddCreditCard {} => run_add_credit_card(&store, &key),
-        Command::GetCreditCard { guid } => run_get_credit_card(&store, guid, &key),
-        Command::GetAllCreditCards => run_get_all_credit_cards(&store, &key),
+        Command::AddCreditCard {} => run_add_credit_card(&store),
+        Command::GetCreditCard { guid } => run_get_credit_card(&store, guid),
+        Command::GetAllCreditCards => run_get_all_credit_cards(&store),
         Command::UpdateCreditCard { guid } => run_update_credit_card(&store, guid),
         Command::DeleteCreditCard { guid } => run_delete_credit_card(&store, guid),
         Command::Sync {
@@ -512,15 +533,6 @@ fn main() -> Result<()> {
             reset,
             nsyncs,
             wait,
-        } => run_sync(
-            &Arc::new(store),
-            &key,
-            credential_file,
-            wipe_all,
-            wipe,
-            reset,
-            nsyncs,
-            wait,
-        ),
+        } => run_sync(&store, credential_file, wipe_all, wipe, reset, nsyncs, wait),
     }
 }
