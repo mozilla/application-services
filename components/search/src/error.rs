@@ -19,7 +19,7 @@ pub enum Error {
     SearchConfigNotSpecified,
     #[error("Search configuration overrides not specified")]
     SearchConfigOverridesNotSpecified,
-    #[error("No search config v2 records received from remote settings")]
+    #[error("No search config records received from remote settings")]
     SearchConfigNoRecords,
     #[error("No search config overrides v2 records received from remote settings")]
     SearchConfigOverridesNoRecords,
