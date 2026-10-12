@@ -25,7 +25,7 @@ use crate::event::{
 };
 use crate::metadata::MetadataStore;
 use crate::reducer::{EventReducer, ResolvedEvent};
-use crate::schema::{EventBody, SchemaRegistry, SchemaVersion};
+use crate::schema::{Body, SchemaRegistry, SchemaVersion};
 use base64::prelude::{Engine, BASE64_STANDARD};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -261,7 +261,7 @@ impl EventSyncEngine {
 
     /// Resolve a baseline's body to the current schema. `None` if it carries no
     /// schema this client can read (the baseline is then below our floor).
-    fn read_baseline(&self, body: &EventBody) -> Result<Option<serde_json::Value>> {
+    fn read_baseline(&self, body: &Body) -> Result<Option<serde_json::Value>> {
         match self
             .schema
             .read(BASELINE_EVENT_TYPE, body, self.schema.current())
@@ -769,8 +769,8 @@ mod tests {
         )
     }
 
-    fn body(payload: serde_json::Value) -> EventBody {
-        EventBody::single(1, payload)
+    fn body(payload: serde_json::Value) -> Body {
+        Body::single(1, payload)
     }
 
     /// An incoming BSO for any wire record at a given server position.
@@ -789,7 +789,7 @@ mod tests {
         entities: &[(&str, serde_json::Value)],
         max_bytes: usize,
     ) -> Vec<IncomingBso> {
-        let body = EventBody::single(1, baseline_payload(entities));
+        let body = Body::single(1, baseline_payload(entities));
         let record = WireEvent::baseline(
             WirePosition {
                 modified_ms: cover_ms,
@@ -936,7 +936,7 @@ mod tests {
                 modified_ms: 100,
                 record_id: Guid::new("e100"),
             },
-            EventBody::single(
+            Body::single(
                 1,
                 baseline_payload(&[("containerX", json!({ "name": "foo" }))]),
             ),
@@ -1029,7 +1029,7 @@ mod tests {
 
         // Body carries a schema-2 representation our schema-1 client sees but
         // can't parse.
-        let mut evt_body = EventBody::single(1, json!({ "n": "foo" }));
+        let mut evt_body = Body::single(1, json!({ "n": "foo" }));
         evt_body.insert(2, json!({ "name": "foo" }));
         let record = WireEvent::event("modify-name".to_string(), Guid::new("containerX"), evt_body);
 
@@ -1077,7 +1077,7 @@ mod tests {
         // A baseline sliced tiny, so it takes more than ten frames. That is enough
         // that a plain string sort (rather than numeric) would put `_10` before
         // `_2` and corrupt the reassembled bytes.
-        let body = EventBody::single(
+        let body = Body::single(
             1,
             baseline_payload(&[
                 ("A", json!({ "x": 1 })),
@@ -1125,7 +1125,7 @@ mod tests {
                 modified_ms: 100,
                 record_id: Guid::new("cover"),
             },
-            EventBody::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
+            Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
         );
         let json = serde_json::to_string(&record).unwrap();
         let chunks = split_frames(&json, 15);
@@ -1168,7 +1168,7 @@ mod tests {
                 modified_ms: 100,
                 record_id: Guid::new("cover"),
             },
-            EventBody::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
+            Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
         );
         let mut frames = frames_of(&record, "g", 15);
         frames.truncate(2);

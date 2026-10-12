@@ -9,13 +9,13 @@
 //! Events are opaque and GUID-keyed. Each has a record id (server key; batches
 //! suffix the base UUID with `_{X}`, see [`batch_record_id`]), an entity (what
 //! the event is about; with the type it forms the [`GateKey`]), a caller-defined
-//! type, and a schema-versioned [`crate::schema::EventBody`].
+//! type, and a schema-versioned [`crate::schema::Body`].
 //!
 //! [`IncomingEvent`] is the assembled shape the engine consumes. [`WireEvent`]
 //! and [`WirePart`] are how a record is serialized and (when too large) framed
 //! for transport. The base64 framing and reassembly of frames lives in the engine.
 
-use crate::schema::{EventBody, SchemaVersion};
+use crate::schema::{Body, SchemaVersion};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use sync15::{Guid, ServerTimestamp};
@@ -128,7 +128,7 @@ pub struct IncomingEvent {
     pub position: EventPosition,
     /// The schema-versioned payload, whole even if the record was split for
     /// transport (splitting and reassembly happen on raw bytes, below this).
-    pub body: EventBody,
+    pub body: Body,
     /// Highest schema version tag the body carries (visible even when this client
     /// can't read that schema).
     pub max_schema: SchemaVersion,
@@ -164,8 +164,8 @@ pub(crate) struct WireEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) schema: Option<SchemaVersion>,
     /// The schema-versioned payload. Absent on a `baseline-needed` marker.
-    #[serde(default, skip_serializing_if = "EventBody::is_empty")]
-    pub(crate) body: EventBody,
+    #[serde(default, skip_serializing_if = "Body::is_empty")]
+    pub(crate) body: Body,
 }
 
 /// One `_{n}` frame of a record too big for a single upload: an opaque,
@@ -199,7 +199,7 @@ fn guid_is_empty(g: &Guid) -> bool {
 
 impl WireEvent {
     /// A domain event.
-    pub(crate) fn event(event_type: String, entity: Guid, body: EventBody) -> Self {
+    pub(crate) fn event(event_type: String, entity: Guid, body: Body) -> Self {
         Self {
             event_type,
             entity,
@@ -210,7 +210,7 @@ impl WireEvent {
     }
 
     /// A baseline covering `covers_up_to`.
-    pub(crate) fn baseline(covers_up_to: WirePosition, body: EventBody) -> Self {
+    pub(crate) fn baseline(covers_up_to: WirePosition, body: Body) -> Self {
         Self {
             event_type: BASELINE_EVENT_TYPE.to_string(),
             entity: empty_guid(),
@@ -227,7 +227,7 @@ impl WireEvent {
             entity: empty_guid(),
             covers_up_to: None,
             schema: Some(schema),
-            body: EventBody::new(),
+            body: Body::new(),
         }
     }
 }

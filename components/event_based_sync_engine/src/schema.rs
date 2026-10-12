@@ -35,11 +35,11 @@ pub type MigrateFn = Box<dyn Fn(&str, serde_json::Value) -> serde_json::Value + 
 /// inside an internally-tagged enum (buffered keys replay as strings); we parse
 /// the key ourselves to avoid that.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct EventBody {
+pub struct Body {
     reps: BTreeMap<SchemaVersion, serde_json::Value>,
 }
 
-impl Serialize for EventBody {
+impl Serialize for Body {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         use serde::ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(self.reps.len()))?;
@@ -50,18 +50,18 @@ impl Serialize for EventBody {
     }
 }
 
-impl<'de> Deserialize<'de> for EventBody {
+impl<'de> Deserialize<'de> for Body {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         struct Visitor;
         impl<'de> serde::de::Visitor<'de> for Visitor {
-            type Value = EventBody;
+            type Value = Body;
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("a map of stringified schema version to payload")
             }
             fn visit_map<M: serde::de::MapAccess<'de>>(
                 self,
                 mut map: M,
-            ) -> std::result::Result<EventBody, M::Error> {
+            ) -> std::result::Result<Body, M::Error> {
                 let mut reps = BTreeMap::new();
                 while let Some((key, value)) = map.next_entry::<String, serde_json::Value>()? {
                     let version = key
@@ -69,14 +69,14 @@ impl<'de> Deserialize<'de> for EventBody {
                         .map_err(serde::de::Error::custom)?;
                     reps.insert(version, value);
                 }
-                Ok(EventBody { reps })
+                Ok(Body { reps })
             }
         }
         deserializer.deserialize_map(Visitor)
     }
 }
 
-impl EventBody {
+impl Body {
     pub fn new() -> Self {
         Self::default()
     }
@@ -159,12 +159,8 @@ impl SchemaRegistry {
 
     /// Dual-write: given a payload already in the current schema, render every
     /// representation from `current` down to `floor`.
-    pub fn dual_write(
-        &self,
-        event_type: &str,
-        current_payload: serde_json::Value,
-    ) -> Result<EventBody> {
-        let mut body = EventBody::new();
+    pub fn dual_write(&self, event_type: &str, current_payload: serde_json::Value) -> Result<Body> {
+        let mut body = Body::new();
         body.insert(self.current, current_payload.clone());
 
         let mut payload = current_payload;
@@ -190,7 +186,7 @@ impl SchemaRegistry {
     pub fn read(
         &self,
         event_type: &str,
-        body: &EventBody,
+        body: &Body,
         reader: SchemaVersion,
     ) -> Result<serde_json::Value> {
         if let Some(exact) = body.get(reader) {
@@ -271,7 +267,7 @@ mod tests {
     fn migrate_on_read_upgrades_old_event() {
         let reg = registry_v2();
         // A schema-1-only event authored before schema 2 existed.
-        let body = EventBody::single(1, json!({ "n": "foo" }));
+        let body = Body::single(1, json!({ "n": "foo" }));
         let resolved = reg.read("modify-name", &body, 2).unwrap();
         assert_eq!(resolved, json!({ "name": "foo" }));
     }
@@ -293,17 +289,17 @@ mod tests {
     fn below_floor_event_is_unreadable() {
         let reg = registry_v2();
         // Only a schema-3 representation, but this client is v2.
-        let body = EventBody::single(3, json!({ "whatever": true }));
+        let body = Body::single(3, json!({ "whatever": true }));
         let err = reg.read("modify-name", &body, 2).unwrap_err();
         assert!(matches!(err, Error::NoReadableSchema { reader: 2, .. }));
     }
 
     #[test]
     fn wire_format_uses_stringified_versions() {
-        let body = EventBody::single(1, json!({ "n": "foo" }));
+        let body = Body::single(1, json!({ "n": "foo" }));
         let wire = serde_json::to_string(&body).unwrap();
         assert_eq!(wire, r#"{"1":{"n":"foo"}}"#);
-        let round: EventBody = serde_json::from_str(&wire).unwrap();
+        let round: Body = serde_json::from_str(&wire).unwrap();
         assert_eq!(round, body);
     }
 }

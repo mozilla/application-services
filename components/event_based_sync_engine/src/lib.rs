@@ -37,4 +37,4 @@ pub use metadata::{MemoryMetadataStore, MetadataStore};
 #[cfg(feature = "sql")]
 pub use metadata_sql::SqliteMetadataStore;
 pub use reducer::{EventReducer, ResolvedEvent};
-pub use schema::{EventBody, MigrateFn, SchemaRegistry, SchemaVersion};
+pub use schema::{Body, MigrateFn, SchemaRegistry, SchemaVersion};
