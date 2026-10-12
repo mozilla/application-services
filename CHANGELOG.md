@@ -7,6 +7,10 @@
   The new crate name is `viaduct-backend-rust`.
   iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
 
+### Db-Crypto, Logins, Autofill
+- `create_static_key_manager()` and `create_managed_encdec()` moved from `logins` and `autofill` to `db-crypto`, since both components defining them caused duplicate definitions in Swift.
+  Kotlin consumers need to import them from `mozilla.appservices.db_crypto` instead of `mozilla.appservices.logins` / `mozilla.appservices.autofill`. ([bug 2080807](https://bugzilla.mozilla.org/show_bug.cgi?id=2080807))
+
 [Full Changelog](In progress)
 
 # v159.0 (_2026-10-07_)
