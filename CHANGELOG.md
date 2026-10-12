@@ -33,6 +33,11 @@
 
 - The `pref-key` annotation for FML feature variables has been removed. ([#7559](https://github.com/mozilla/application-services/pull/7559/))
 
+### Sync15
+
+- Better interoperability with clients which choose engines per device: sync IDs are adopted from `meta/syncids` rather than minted, and our declined engines are kept when `meta/global` has no engines or declined engines.
+- A fresh `meta/global` no longer lists declined engines in `engines`.
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨
