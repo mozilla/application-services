@@ -132,21 +132,16 @@ impl SchemaRegistry {
         }
     }
 
-    /// Register the migration pair that introduces `to_version`, raising the
-    /// current schema to at least `to_version`.
+    /// Register the migration pair that introduces schema `version`, raising the
+    /// current schema to at least `version`.
     ///
-    /// * `up` migrates `to_version - 1 -> to_version` (migrate-on-read)
-    /// * `down` migrates `to_version -> to_version - 1` (dual-write)
-    pub fn register_migration(
-        &mut self,
-        to_version: SchemaVersion,
-        up: MigrateFn,
-        down: MigrateFn,
-    ) {
-        debug_assert!(to_version > self.floor, "cannot migrate below the floor");
-        self.up.insert(to_version, up);
-        self.down.insert(to_version, down);
-        self.current = self.current.max(to_version);
+    /// * `up` migrates `version - 1 -> version` (migrate-on-read)
+    /// * `down` migrates `version -> version - 1` (dual-write)
+    pub fn register_migration(&mut self, version: SchemaVersion, up: MigrateFn, down: MigrateFn) {
+        debug_assert!(version > self.floor, "cannot migrate below the floor");
+        self.up.insert(version, up);
+        self.down.insert(version, down);
+        self.current = self.current.max(version);
     }
 
     pub fn current(&self) -> SchemaVersion {
