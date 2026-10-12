@@ -7,7 +7,6 @@ license = "MPL-2.0"
 description = "A generic event-based sync engine."
 
 [features]
-# disable whith `--no-default-features`
 default = ["sql"]
 sql = ["dep:rusqlite", "dep:sql-support"]
 
