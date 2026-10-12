@@ -15,7 +15,7 @@ mod store;
 mod sync;
 mod util;
 
-use db_crypto::{EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager};
+use db_crypto::{EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager};
 uniffi::include_scaffolding!("logins");
 
 #[cfg(feature = "keydb")]
@@ -31,20 +31,6 @@ use std::sync::Arc;
 /// Identifier for the logins key, under which the key is stored in NSS.
 #[cfg(feature = "keydb")]
 static KEY_NAME: &str = "as-logins-key";
-
-// Utility function to create a StaticKeyManager to be used for the time being until support lands
-// for [trait implementation of an UniFFI
-// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
-// in UniFFI.
-pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
-    Arc::new(StaticKeyManager::new(key))
-}
-
-// Similar to create_static_key_manager above, create a
-// ManagedEncryptorDecryptor by passing in a KeyManager
-pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
-    Arc::new(ManagedEncryptorDecryptor::new(key_manager))
-}
 
 // Create a LoginStore by passing in a db path and a static key
 //

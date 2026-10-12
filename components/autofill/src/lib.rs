@@ -20,7 +20,7 @@ use crate::db::models::credit_card::*;
 use crate::db::models::passport::*;
 use crate::db::store::Store;
 pub use crate::sync::AddressesBridgedEngine;
-use db_crypto::{EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager};
+use db_crypto::{EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager};
 pub use error::{ApiResult, AutofillApiError, Error, Result};
 use error_support::handle_error;
 use std::sync::Arc;
@@ -33,20 +33,6 @@ pub use db_crypto::{NSSKeyManager, PrimaryPasswordAuthenticator};
 /// Identifier for the autofill key, under which the key is stored in NSS.
 #[cfg(feature = "keydb")]
 static KEY_NAME: &str = "as-autofill-key";
-
-// Utility function to create a StaticKeyManager to be used for the time being until support lands
-// for [trait implementation of an UniFFI
-// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
-// in UniFFI.
-pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
-    Arc::new(StaticKeyManager::new(key))
-}
-
-// Similar to create_static_key_manager above, create a
-// ManagedEncryptorDecryptor by passing in a KeyManager
-pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
-    Arc::new(ManagedEncryptorDecryptor::new(key_manager))
-}
 
 // Create a Store by passing in a db path and a static key
 //
