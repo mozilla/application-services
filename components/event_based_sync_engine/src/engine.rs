@@ -21,7 +21,7 @@ use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
 use crate::event::{
     batch_record_id, EventPosition, GateKey, IncomingEvent, Wire, WireEvent, WirePart,
-    WirePosition, BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
+    BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
 };
 use crate::metadata::MetadataStore;
 use crate::reducer::{EventReducer, ResolvedEvent};
@@ -280,7 +280,7 @@ impl EventSyncEngine {
     ) -> Result<(Guid, Vec<OutgoingBso>)> {
         let payload = self.reducer.baseline();
         let body = self.schema.dual_write(BASELINE_EVENT_TYPE, payload)?;
-        let record = WireEvent::baseline(WirePosition::from(covers_up_to), body);
+        let record = WireEvent::baseline(covers_up_to.clone(), body);
         let group = Guid::random();
         let bsos = self.frame(&record, &group)?;
         Ok((group, bsos))
@@ -372,7 +372,7 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
             position: EventPosition::new(modified, group),
             body: wire.body,
             max_schema,
-            covers_up_to: wire.covers_up_to.map(EventPosition::from),
+            covers_up_to: wire.covers_up_to,
         });
     }
     out
@@ -773,6 +773,10 @@ mod tests {
         Body::single(1, payload)
     }
 
+    fn pos(millis: i64, id: &str) -> EventPosition {
+        EventPosition::new(ServerTimestamp::from_millis(millis), Guid::new(id))
+    }
+
     /// An incoming BSO for any wire record at a given server position.
     fn incoming<T: Serialize>(record: &T, modified_ms: i64, id: &str) -> IncomingBso {
         OutgoingBso::from_content(OutgoingEnvelope::from(Guid::new(id)), record)
@@ -790,13 +794,7 @@ mod tests {
         max_bytes: usize,
     ) -> Vec<IncomingBso> {
         let body = Body::single(1, baseline_payload(entities));
-        let record = WireEvent::baseline(
-            WirePosition {
-                modified_ms: cover_ms,
-                record_id: Guid::new(cover_id),
-            },
-            body,
-        );
+        let record = WireEvent::baseline(pos(cover_ms, cover_id), body);
         let json = serde_json::to_string(&record).unwrap();
         let chunks = split_frames(&json, max_bytes);
         let count = chunks.len() as u32;
@@ -831,7 +829,7 @@ mod tests {
         IncomingEvent {
             event_type: event_type.to_string(),
             entity: Guid::new(entity),
-            position: EventPosition::new(ServerTimestamp::from_millis(modified_ms), Guid::new(id)),
+            position: pos(modified_ms, id),
             body: body(payload),
             max_schema: 1,
             covers_up_to: None,
@@ -932,10 +930,7 @@ mod tests {
         // A baseline covering up to (100, "e100"), plus an older event (covered,
         // ignored) and a newer event (applied).
         let baseline = WireEvent::baseline(
-            WirePosition {
-                modified_ms: 100,
-                record_id: Guid::new("e100"),
-            },
+            pos(100, "e100"),
             Body::single(
                 1,
                 baseline_payload(&[("containerX", json!({ "name": "foo" }))]),
@@ -1014,8 +1009,7 @@ mod tests {
             .unwrap();
         assert_eq!(record.event_type, BASELINE_EVENT_TYPE);
         let cover = record.covers_up_to.expect("a baseline carries a cover");
-        assert_eq!(cover.modified_ms, 110);
-        assert_eq!(cover.record_id.as_str(), "e110");
+        assert_eq!(cover, pos(110, "e110"));
     }
 
     #[test]
@@ -1086,13 +1080,7 @@ mod tests {
                 ("D", json!({ "x": 4 })),
             ]),
         );
-        let record = WireEvent::baseline(
-            WirePosition {
-                modified_ms: 100,
-                record_id: Guid::new("cover"),
-            },
-            body.clone(),
-        );
+        let record = WireEvent::baseline(pos(100, "cover"), body.clone());
         let mut frames = frames_of(&record, "g", 15);
         assert!(
             frames.len() > 10,
@@ -1104,13 +1092,7 @@ mod tests {
         let assembled = assemble_events(frames, 1);
         assert_eq!(assembled.len(), 1);
         let ev = &assembled[0];
-        assert_eq!(
-            ev.covers_up_to,
-            Some(EventPosition::new(
-                ServerTimestamp::from_millis(100),
-                Guid::new("cover")
-            ))
-        );
+        assert_eq!(ev.covers_up_to, Some(pos(100, "cover")));
         // Frames reassembled to the identical body despite reversed delivery.
         assert_eq!(ev.body, body);
     }
@@ -1121,10 +1103,7 @@ mod tests {
         // batches. The assembled position must be deterministic (the max) and
         // independent of arrival order, or clients diverge.
         let record = WireEvent::baseline(
-            WirePosition {
-                modified_ms: 100,
-                record_id: Guid::new("cover"),
-            },
+            pos(100, "cover"),
             Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
         );
         let json = serde_json::to_string(&record).unwrap();
@@ -1164,10 +1143,7 @@ mod tests {
     fn assemble_events_rejects_incomplete_group() {
         // Two frames, but they claim a group of three.
         let record = WireEvent::baseline(
-            WirePosition {
-                modified_ms: 100,
-                record_id: Guid::new("cover"),
-            },
+            pos(100, "cover"),
             Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
         );
         let mut frames = frames_of(&record, "g", 15);

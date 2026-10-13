@@ -16,7 +16,7 @@
 //! for transport. The base64 framing and reassembly of frames lives in the engine.
 
 use crate::schema::{Body, SchemaVersion};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use sync15::{Guid, ServerTimestamp};
 
@@ -49,10 +49,33 @@ impl GateKey {
 ///
 /// Newer means larger `modified`, ties broken by record id. Batch operations
 /// share a `modified` and are disambiguated by their `_{X}`-suffixed ids.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// Serializes as `{ "modified_ms", "record_id" }` with explicit integer millis
+/// (not `ServerTimestamp`'s float seconds), so a persisted or on-wire position
+/// is always parseable independent of the caller's payload schema.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventPosition {
+    #[serde(rename = "modified_ms", with = "millis")]
     pub modified: ServerTimestamp,
     pub record_id: Guid,
+}
+
+/// serde adapter: `ServerTimestamp` as integer milliseconds.
+mod millis {
+    use super::*;
+
+    pub fn serialize<S: Serializer>(
+        ts: &ServerTimestamp,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_i64(ts.as_millis())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<ServerTimestamp, D::Error> {
+        i64::deserialize(deserializer).map(ServerTimestamp::from_millis)
+    }
 }
 
 impl EventPosition {
@@ -83,33 +106,6 @@ impl Ord for EventPosition {
 impl PartialOrd for EventPosition {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-/// A position as carried on the wire in a baseline's `covers_up_to`. Separate
-/// from [`EventPosition`] so the encoding is explicit integer milliseconds and
-/// always parseable independent of the caller's payload schema.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct WirePosition {
-    pub modified_ms: i64,
-    pub record_id: Guid,
-}
-
-impl From<&EventPosition> for WirePosition {
-    fn from(pos: &EventPosition) -> Self {
-        Self {
-            modified_ms: pos.modified.as_millis(),
-            record_id: pos.record_id.clone(),
-        }
-    }
-}
-
-impl From<WirePosition> for EventPosition {
-    fn from(wire: WirePosition) -> Self {
-        EventPosition::new(
-            ServerTimestamp::from_millis(wire.modified_ms),
-            wire.record_id,
-        )
     }
 }
 
@@ -158,7 +154,7 @@ pub(crate) struct WireEvent {
     pub(crate) entity: Guid,
     /// The point in the global order a baseline stands in for. Baselines only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) covers_up_to: Option<WirePosition>,
+    pub(crate) covers_up_to: Option<EventPosition>,
     /// Emitter schema on a `baseline-needed` marker, so the fleet can elect its
     /// highest-schema member. Markers only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,7 +206,7 @@ impl WireEvent {
     }
 
     /// A baseline covering `covers_up_to`.
-    pub(crate) fn baseline(covers_up_to: WirePosition, body: Body) -> Self {
+    pub(crate) fn baseline(covers_up_to: EventPosition, body: Body) -> Self {
         Self {
             event_type: BASELINE_EVENT_TYPE.to_string(),
             entity: empty_guid(),
@@ -263,16 +259,13 @@ mod tests {
     }
 
     #[test]
-    fn wire_position_round_trips() {
+    fn position_serializes_as_integer_millis_and_round_trips() {
         let pos = EventPosition::new(ServerTimestamp::from_millis(1234), Guid::new("rec-1"));
-        let wire = WirePosition::from(&pos);
-        assert_eq!(wire.modified_ms, 1234);
-        let back: EventPosition = wire.clone().into();
-        assert_eq!(back, pos);
-
-        let json = serde_json::to_string(&wire).unwrap();
-        let parsed: WirePosition = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed, wire);
+        let json = serde_json::to_string(&pos).unwrap();
+        // Integer millis, not `ServerTimestamp`'s float seconds.
+        assert_eq!(json, r#"{"modified_ms":1234,"record_id":"rec-1"}"#);
+        let parsed: EventPosition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, pos);
     }
 
     #[test]

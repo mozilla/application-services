@@ -11,7 +11,7 @@
 
 use crate::baseline::BaselineState;
 use crate::error::{Error, Result};
-use crate::event::{EventPosition, GateKey, WirePosition};
+use crate::event::{EventPosition, GateKey};
 use crate::metadata::MetadataStore;
 use crate::schema::SchemaVersion;
 use rusqlite::{
@@ -87,8 +87,8 @@ impl ConnectionInitializer for MetadataConnectionInitializer {
 /// integer millis).
 #[derive(Default, Serialize, Deserialize)]
 struct StoredBaselineState {
-    floor: Option<WirePosition>,
-    newest_event: Option<WirePosition>,
+    floor: Option<EventPosition>,
+    newest_event: Option<EventPosition>,
     events_since_baseline: u64,
     max_schema_since_baseline: SchemaVersion,
     bar_blocked_since_ms: Option<i64>,
@@ -97,8 +97,8 @@ struct StoredBaselineState {
 impl From<&BaselineState> for StoredBaselineState {
     fn from(s: &BaselineState) -> Self {
         Self {
-            floor: s.floor.as_ref().map(WirePosition::from),
-            newest_event: s.newest_event.as_ref().map(WirePosition::from),
+            floor: s.floor.clone(),
+            newest_event: s.newest_event.clone(),
             events_since_baseline: s.events_since_baseline,
             max_schema_since_baseline: s.max_schema_since_baseline,
             bar_blocked_since_ms: s.bar_blocked_since.map(|t| t.as_millis()),
@@ -109,8 +109,8 @@ impl From<&BaselineState> for StoredBaselineState {
 impl From<StoredBaselineState> for BaselineState {
     fn from(s: StoredBaselineState) -> Self {
         Self {
-            floor: s.floor.map(EventPosition::from),
-            newest_event: s.newest_event.map(EventPosition::from),
+            floor: s.floor,
+            newest_event: s.newest_event,
             events_since_baseline: s.events_since_baseline,
             max_schema_since_baseline: s.max_schema_since_baseline,
             bar_blocked_since: s.bar_blocked_since_ms.map(ServerTimestamp::from_millis),
@@ -196,14 +196,14 @@ impl MetadataStore for SqliteMetadataStore {
     fn position(&self, key: &GateKey) -> Result<Option<EventPosition>> {
         let conn = self.conn.lock().unwrap();
         Ok(match self.get_meta::<String>(&conn, &position_key(key)?)? {
-            Some(json) => Some(serde_json::from_str::<WirePosition>(&json)?.into()),
+            Some(json) => Some(serde_json::from_str::<EventPosition>(&json)?),
             None => None,
         })
     }
 
     fn set_position(&self, key: GateKey, pos: EventPosition) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        let value = serde_json::to_string(&WirePosition::from(&pos))?;
+        let value = serde_json::to_string(&pos)?;
         self.put_meta(&conn, &position_key(&key)?, &value)
     }
 
@@ -223,7 +223,7 @@ impl MetadataStore for SqliteMetadataStore {
                 |row| -> Result<(String, EventPosition)> {
                     let key: String = row.get(0)?;
                     let value: String = row.get(1)?;
-                    Ok((key, serde_json::from_str::<WirePosition>(&value)?.into()))
+                    Ok((key, serde_json::from_str::<EventPosition>(&value)?))
                 },
             )?;
             rows.filter_map(|r| match r {

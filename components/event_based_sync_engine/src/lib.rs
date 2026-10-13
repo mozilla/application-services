@@ -30,7 +30,7 @@ pub use baseline::{BaselineConfig, BaselineState};
 pub use engine::{EventSyncEngine, DEFAULT_MAX_RECORD_PAYLOAD_BYTES};
 pub use error::{Error, Result};
 pub use event::{
-    batch_record_id, EventPosition, GateKey, IncomingEvent, WirePosition, BASELINE_EVENT_TYPE,
+    batch_record_id, EventPosition, GateKey, IncomingEvent, BASELINE_EVENT_TYPE,
     BASELINE_NEEDED_EVENT_TYPE,
 };
 pub use metadata::{MemoryMetadataStore, MetadataStore};
