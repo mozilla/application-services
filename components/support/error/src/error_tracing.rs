@@ -23,15 +23,32 @@ pub fn report_error_to_app(type_name: String, message: String) {
         }
         globals.breadcrumbs.get_breadcrumbs()
     };
+
     // Report errors by sending a tracing event to the `app-services-error-reporter::error` target.
     //
     // Applications should register for these events and send a glean error ping when they occur.
     //
     // breadcrumbs will be sent in the `breadcrumbs` field as a single string, with each individual
     // breadcrumb joined by newlines.
-    let breadcrumbs = breadcrumbs.join("\n");
+    let breadcrumb_string = breadcrumbs.join("\n");
     let message = truncate_message(message);
-    tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumbs);
+    tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumb_string);
+
+    // Report errors via the glean ping
+    //
+    // Currently enabled on iOS, eventually this will be the way we send the Glean error ping for
+    // all applications.
+    #[cfg(feature = "glean-sym")]
+    report_error_to_app_via_glean_sym(type_name, message, breadcrumbs);
+}
+
+#[cfg(feature = "glean-sym")]
+fn report_error_to_app_via_glean_sym(type_name: String, message: String, breadcrumbs: Vec<String>) {
+    use crate::glean_metrics;
+    glean_metrics::rust_component_errors::error_type.set(type_name);
+    glean_metrics::rust_component_errors::details.set(message);
+    glean_metrics::rust_component_errors::breadcrumbs.set(breadcrumbs);
+    glean_metrics::rust_component_errors.submit(None);
 }
 
 pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32) {
