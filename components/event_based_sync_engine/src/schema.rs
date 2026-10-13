@@ -188,11 +188,10 @@ impl SchemaRegistry {
             return Ok(exact.clone());
         }
 
-        // `versions()` is ascending, so the last match is the highest below reader.
         let start = body
             .versions()
             .filter(|v| *v < reader)
-            .last()
+            .max()
             .ok_or_else(|| Error::NoReadableSchema {
                 reader,
                 available: body.versions().collect(),
