@@ -1,8 +1,8 @@
 use crate::{
     JSONEngineBase, JSONEngineBaseV3, JSONEngineMethod, JSONEngineUrl, JSONEngineUrls,
     JSONEngineVariant, JSONEngineVariantV3, JSONVariantEnvironment, SearchEngineClassification,
-    SearchEngineDefinition, SearchEngineDefinitionV3, SearchEnginePartnerDetails, SearchEngineUrl,
-    SearchEngineUrls, SearchUrlParam,
+    SearchEngineClassificationV3, SearchEngineDefinition, SearchEngineDefinitionV3,
+    SearchEnginePartnerDetails, SearchEngineUrl, SearchEngineUrls, SearchUrlParam,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -175,6 +175,7 @@ pub struct EngineRecordV3 {
     urls: Value,
     variants: Vec<Value>,
     partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
+    deprecated: bool,
 
     // Remote Settings metadata
     id: Option<String>,
@@ -197,6 +198,7 @@ impl EngineRecordV3 {
                     telemetry_suffix: Some("telemetry_suffix".to_string()),
                 },
             )])),
+            deprecated: false,
             urls: json!({
                 "search": {
                     "base": "https://example.com",
@@ -260,6 +262,7 @@ impl EngineRecordV3 {
             name: name.to_string(),
             classification: "general".to_string(),
             partner: None,
+            deprecated: false,
             urls: json!({
                 "search": {
                     "base": "https://example.com",
@@ -288,6 +291,7 @@ impl EngineRecordV3 {
                 "classification": self.classification,
                 "partner": self.partner,
                 "urls": self.urls,
+                "deprecated": self.deprecated,
             },
             "variants": self.variants,
         });
@@ -327,6 +331,11 @@ impl EngineRecordV3 {
 
     pub fn last_modified(mut self, last_modified: i64) -> Self {
         self.last_modified = Some(last_modified);
+        self
+    }
+
+    pub fn deprecated(mut self, deprecated: bool) -> Self {
+        self.deprecated = deprecated;
         self
     }
 }
@@ -865,6 +874,15 @@ impl ExpectedEngineV3 {
         }
     }
 
+    pub fn deprecated(self, deprecated: bool) -> Self {
+        Self {
+            engine: SearchEngineDefinitionV3 {
+                deprecated,
+                ..self.engine
+            },
+        }
+    }
+
     pub fn build(self) -> SearchEngineDefinitionV3 {
         self.engine
     }
@@ -872,7 +890,7 @@ impl ExpectedEngineV3 {
     fn expected_full_engine(identifier: &str, name: &str) -> SearchEngineDefinitionV3 {
         SearchEngineDefinitionV3 {
             charset: "UTF-8".to_string(),
-            classification: SearchEngineClassification::General,
+            classification: SearchEngineClassificationV3::General,
             identifier: identifier.to_string(),
             name: name.to_string(),
             optional: false,
@@ -952,7 +970,7 @@ impl ExpectedEngineV3 {
         SearchEngineDefinitionV3 {
             aliases: Vec::new(),
             charset: "UTF-8".to_string(),
-            classification: SearchEngineClassification::General,
+            classification: SearchEngineClassificationV3::General,
             identifier: identifier.to_string(),
             name: name.to_string(),
             optional: false,
@@ -970,6 +988,7 @@ impl ExpectedEngineV3 {
                 visual_search: None,
             },
             is_new_until: None,
+            deprecated: false,
         }
     }
 }
@@ -1253,21 +1272,35 @@ pub fn partner_map(
 }
 
 #[cfg(test)]
+impl From<SearchEngineClassification> for SearchEngineClassificationV3 {
+    fn from(classification: SearchEngineClassification) -> Self {
+        match classification {
+            SearchEngineClassification::General => SearchEngineClassificationV3::General,
+            SearchEngineClassification::Unknown => SearchEngineClassificationV3::Unknown,
+        }
+    }
+}
+
+#[cfg(test)]
 pub static JSON_ENGINE_BASE_V3: Lazy<JSONEngineBaseV3> = Lazy::new(|| JSONEngineBaseV3 {
     aliases: JSON_ENGINE_BASE.aliases.clone(),
     charset: JSON_ENGINE_BASE.charset.clone(),
-    classification: JSON_ENGINE_BASE.classification.clone(),
+    classification: JSON_ENGINE_BASE.classification.clone().into(),
     name: JSON_ENGINE_BASE.name.clone(),
     partner: Some(partner_map(&[
         ("default", "firefox", None),
         ("newtab", "firefox-newtab", Some("nt")),
     ])),
     urls: JSON_ENGINE_BASE.urls.clone(),
+    deprecated: false,
 });
 
 #[cfg(test)]
 pub static JSON_ENGINE_VARIANT_V3: Lazy<JSONEngineVariantV3> = Lazy::new(|| JSONEngineVariantV3 {
-    environment: JSON_ENGINE_VARIANT.environment.clone(),
+    environment: JSONVariantEnvironment {
+        all_regions_and_locales: JSON_ENGINE_VARIANT.environment.all_regions_and_locales,
+        ..Default::default()
+    },
     is_new_until: JSON_ENGINE_VARIANT.is_new_until.clone(),
     optional: JSON_ENGINE_VARIANT.optional,
     partner: Some(partner_map(&[("default", "trek", Some("star"))])),
@@ -1278,7 +1311,10 @@ pub static JSON_ENGINE_VARIANT_V3: Lazy<JSONEngineVariantV3> = Lazy::new(|| JSON
 #[cfg(test)]
 pub static JSON_ENGINE_SUBVARIANT_V3: Lazy<JSONEngineVariantV3> =
     Lazy::new(|| JSONEngineVariantV3 {
-        environment: JSON_ENGINE_SUBVARIANT.environment.clone(),
+        environment: JSONVariantEnvironment {
+            all_regions_and_locales: JSON_ENGINE_SUBVARIANT.environment.all_regions_and_locales,
+            ..Default::default()
+        },
         is_new_until: JSON_ENGINE_SUBVARIANT.is_new_until.clone(),
         optional: JSON_ENGINE_SUBVARIANT.optional,
         partner: Some(partner_map(&[("default", "trek2", Some("star2"))])),
@@ -1677,7 +1713,7 @@ impl ExpectedEngineFromJSONBase {
         SearchEngineDefinitionV3 {
             aliases: self.engine.aliases,
             charset: self.engine.charset,
-            classification: self.engine.classification,
+            classification: self.engine.classification.into(),
             identifier: self.engine.identifier,
             is_new_until: self.engine.is_new_until,
             name: self.engine.name,
@@ -1685,6 +1721,7 @@ impl ExpectedEngineFromJSONBase {
             order_hint: self.engine.order_hint,
             partner,
             urls: self.engine.urls,
+            deprecated: false,
         }
     }
 }

@@ -23,6 +23,8 @@ pub enum Error {
     SearchConfigNoRecords,
     #[error("No search config overrides v2 records received from remote settings")]
     SearchConfigOverridesNoRecords,
+    #[error("Unknown is not a valid application name")]
+    SearchConfigInvalidName,
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Remote Settings error: {0}")]
