@@ -115,11 +115,16 @@ impl MozAdsClientBuilder {
             store_config: inner.store_config.clone().map(Into::into),
             telemetry: telemetry.clone(),
         };
+        #[cfg(feature = "stateful")]
+        let worker_batch_interval_ms = client_config
+            .store_config
+            .as_ref()
+            .and_then(|config| config.batch_interval_ms);
         let client = AdsClient::new(client_config);
         let inner = Arc::new(client);
         #[cfg(feature = "stateful")]
         let worker = if store_set {
-            worker::BackgroundWorker::new(inner.clone())
+            worker::BackgroundWorker::new(inner.clone(), worker_batch_interval_ms)
         } else {
             worker::BackgroundWorker::new_empty()
         };
@@ -182,6 +187,8 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
+    /// Interval rate for batching commands used by the background worker.
+    pub batch_interval_ms: Option<u64>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -457,6 +464,7 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
+            batch_interval_ms: config.batch_interval_ms,
         }
     }
 }

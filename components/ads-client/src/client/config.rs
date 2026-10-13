@@ -28,4 +28,5 @@ pub struct AdsCacheConfig {
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
     pub db_path: String,
+    pub batch_interval_ms: Option<u64>,
 }

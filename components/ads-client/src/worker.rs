@@ -16,7 +16,7 @@ pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
 // Thread sleep delay to wait for new requests to queue before resolving them.
 // This must be a very short amount of time to ensure ads are requested near-immediately on startup.
-pub const ADS_CLIENT_WORKER_SLEEP_LENGTH: Duration = Duration::from_millis(2);
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
 
 pub struct BackgroundWorker {
     _worker_thread: Option<JoinHandle<()>>,
@@ -26,6 +26,7 @@ pub struct BackgroundWorker {
 impl BackgroundWorker {
     pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(
         inner_client: Arc<AdsClient<T>>,
+        batch_interval_ms: Option<u64>,
     ) -> BackgroundWorker {
         let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
         let worker_request_queue = request_queue.clone();
@@ -34,7 +35,7 @@ impl BackgroundWorker {
         // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone())).inspect_err(|err| {
+            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone(), batch_interval_ms)).inspect_err(|err| {
                 // TODO: Replace this log with telemetry.
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
             }).ok()
@@ -93,7 +94,11 @@ impl BackgroundWorker {
 fn worker<T: Telemetry + Clone>(
     inner_client: Arc<AdsClient<T>>,
     request_queue: Arc<Mutex<RequestQueue>>,
+    batch_interval_ms: Option<u64>,
 ) {
+    let sleep_duration = batch_interval_ms
+        .map(|t| Duration::from_millis(t))
+        .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
     loop {
         // Get lock and extract next request. Lock is not held over the duration of the request but immediately dropped.
         let next_request = {
@@ -106,7 +111,7 @@ fn worker<T: Telemetry + Clone>(
             let _ = request.handle_request(inner_client.clone());
         } else {
             // If the queue is empty, we have a very short pause with no locks to allow it to be written to.
-            std::thread::sleep(ADS_CLIENT_WORKER_SLEEP_LENGTH);
+            std::thread::sleep(sleep_duration);
         }
     }
 }
