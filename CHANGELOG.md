@@ -24,6 +24,11 @@
 
 - Wired up the error ping on iOS using glean-sym.
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+- Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨

@@ -11,23 +11,18 @@ use viaduct::{Client, ClientSettings, Request, Response};
 use super::error::{HTTPError, TransportError};
 use crate::{
     http_cache::{HttpCache, RequestHash},
-    telemetry::Telemetry,
-    CachePolicy,
+    telemetry, CachePolicy,
 };
 
 const OHTTP_CHANNEL_ID: &str = "ads-client";
 
-pub struct MARSTransport<T: Telemetry> {
+pub struct MARSTransport {
     http_cache: Option<HttpCache>,
-    telemetry: T,
 }
 
-impl<T: Telemetry> MARSTransport<T> {
-    pub fn new(http_cache: Option<HttpCache>, telemetry: T) -> Self {
-        Self {
-            http_cache,
-            telemetry,
-        }
+impl MARSTransport {
+    pub fn new(http_cache: Option<HttpCache>) -> Self {
+        Self { http_cache }
     }
 
     pub fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -65,7 +60,7 @@ impl<T: Telemetry> MARSTransport<T> {
         if let Some(cache) = self.http_cache.as_ref() {
             let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
             for outcome in &outcomes {
-                self.telemetry.record(outcome);
+                telemetry::record_http_cache_outcome(outcome);
             }
             HTTPError::check(&response)?;
             Ok(response)

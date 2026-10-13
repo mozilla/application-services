@@ -75,13 +75,13 @@ class MozAdsClientBuilder {
 | -------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
 | `environment`  | `MozAdsEnvironment`   | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. Defaults to Prod. |
 | `cacheConfig`  | `MozAdsCacheConfig?`  | Optional configuration for the internal cache.                                                         |
-| `telemetry`    | `MozAdsTelemetry?`    | Optional telemetry instance for recording metrics. If not provided, a no-op implementation is used.    |
+| `telemetry`    | `MozAdsTelemetry?`    | Optional telemetry instance for recording metrics. Telemetry is process-wide: the most recently built client's instance receives metrics from every client.    |
 
 ---
 
 ## `MozAdsTelemetry`
 
-Telemetry interface for recording ads client metrics. You must provide an implementation of this interface to the `MozAdsClientBuilder` to enable telemetry collection. If no telemetry instance is provided, a no-op implementation is used and no metrics will be recorded.
+Telemetry interface for recording ads client metrics. You must provide an implementation of this interface to the `MozAdsClientBuilder` to enable telemetry collection. Telemetry is process-wide: building a client with a telemetry instance makes it the destination for metrics from every client in the process, replacing any instance installed before it. It is dropped when that client shuts down. Until an instance is installed, no metrics are recorded.
 
 ```kotlin
 interface MozAdsTelemetry {
