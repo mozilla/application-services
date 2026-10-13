@@ -6,8 +6,8 @@
 //! the search configuration.
 
 use crate::{
-    SearchApplicationName, SearchDeviceType, SearchEngineClassification, SearchUpdateChannel,
-    SearchUrlParam,
+    SearchApplicationName, SearchDeviceType, SearchEngineClassification,
+    SearchEnginePartnerDetails, SearchUpdateChannel, SearchUrlParam,
 };
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -145,26 +145,14 @@ pub(crate) struct JSONEngineBaseV3 {
     /// The user visible name for the search engine.
     pub name: String,
 
-    /// The partner code for the engine. This will be inserted into parameters
-    /// which include `{partnerCode}`.
-    pub partner_code: Option<String>,
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
 
     /// The URLs associated with the search engine.
     pub urls: JSONEngineUrls,
-}
-
-/// Temporary helper to reduce work for handling the original and v3 types.
-impl From<JSONEngineBaseV3> for JSONEngineBase {
-    fn from(base: JSONEngineBaseV3) -> Self {
-        Self {
-            aliases: base.aliases,
-            charset: base.charset,
-            classification: base.classification,
-            name: base.name,
-            partner_code: base.partner_code,
-            urls: base.urls,
-        }
-    }
 }
 
 /// Specifies details of possible user environments that the engine or variant
@@ -287,6 +275,41 @@ pub(crate) struct JSONEngineRecord {
     pub variants: Vec<JSONEngineVariant>,
 }
 
+/// Describes an individual variant of a search engine.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineVariantV3 {
+    /// Details of the possible user environments that this variant applies to.
+    pub environment: JSONVariantEnvironment,
+
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
+    /// This search engine is presented as an option that the user may enable.
+    /// If not specified, defaults to false.
+    #[serde(default)]
+    pub optional: bool,
+
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
+
+    /// The urls for this variant.
+    pub urls: Option<JSONEngineUrls>,
+
+    /// This section describes subvariations of this search engine that may occur
+    /// depending on the user's environment. The last subvariant that matches
+    /// the user's environment will be applied to the engine.
+    ///
+    /// Note: sub-variants are only supported in a top-level variant. You cannot
+    /// have nested sub-variants.
+    #[serde(default)]
+    pub sub_variants: Vec<JSONEngineVariantV3>,
+}
+
 /// Represents an individual engine record in the v3 configuration.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -301,7 +324,7 @@ pub(crate) struct JSONEngineRecordV3 {
     /// Describes variations of this search engine that may occur depending on
     /// the user's environment. The last variant that matches the user's
     /// environment will be applied to the engine, subvariants may also be applied.
-    pub variants: Vec<JSONEngineVariant>,
+    pub variants: Vec<JSONEngineVariantV3>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -8,12 +8,15 @@ use crate::configuration_overrides_types::JSONOverridesRecord;
 use crate::environment_matching::matches_user_environment;
 use crate::{
     error::Error, JSONDefaultEnginesRecord, JSONEngineBase, JSONEngineMethod, JSONEngineRecord,
-    JSONEngineRecordV3, JSONEngineUrl, JSONEngineUrls, JSONEngineVariant,
+    JSONEngineRecordV3, JSONEngineUrl, JSONEngineUrls, JSONEngineVariant, JSONEngineVariantV3,
     JSONSearchConfigurationRecords, JSONSearchConfigurationRecordsV3, RefinedSearchConfig,
     RefinedSearchConfigV3, SearchEngineDefinition, SearchEngineDefinitionV3, SearchEngineUrl,
     SearchEngineUrls, SearchUserEnvironment,
 };
-use crate::{sort_helpers, JSONAvailableLocalesRecord, JSONEngineBaseV3, JSONEngineOrdersRecord};
+use crate::{
+    sort_helpers, JSONAvailableLocalesRecord, JSONEngineBaseV3, JSONEngineOrdersRecord,
+    JSONVariantEnvironment,
+};
 use remote_settings::RemoteSettingsRecord;
 use std::collections::HashSet;
 
@@ -203,25 +206,52 @@ impl SearchEngineDefinition {
 }
 
 impl SearchEngineDefinitionV3 {
+    fn merge_variant(
+        &mut self,
+        user_environment: &SearchUserEnvironment,
+        variant: &JSONEngineVariantV3,
+    ) {
+        if !self.optional {
+            self.optional = variant.optional;
+        }
+        if let Some(partner) = &variant.partner {
+            self.partner = Some(partner.clone());
+        }
+        if let Some(urls) = &variant.urls {
+            self.urls.merge(user_environment, urls);
+        }
+        if let Some(is_new_until) = &variant.is_new_until {
+            self.is_new_until = Some(is_new_until.clone());
+        }
+    }
+
     pub(crate) fn from_configuration_details(
         user_environment: &SearchUserEnvironment,
         identifier: &str,
         base: JSONEngineBaseV3,
-        variant: &JSONEngineVariant,
-        sub_variant: &Option<JSONEngineVariant>,
+        variant: &JSONEngineVariantV3,
+        sub_variant: &Option<JSONEngineVariantV3>,
     ) -> SearchEngineDefinitionV3 {
-        // v3 engines are currently built identically to v2 engines, so this
-        // delegates to the v2 builder. As search-config-v3 diverges from v2,
-        // we'll need to replace the delegation piecewise (e.g. set v3-only
-        // fields on the result, or fork the builder entirely).
-        SearchEngineDefinition::from_configuration_details(
-            user_environment,
-            identifier,
-            base.into(),
-            variant,
-            sub_variant,
-        )
-        .into()
+        let mut engine_definition = SearchEngineDefinitionV3 {
+            aliases: base.aliases.unwrap_or_default(),
+            charset: base.charset.unwrap_or_else(|| "UTF-8".to_string()),
+            classification: base.classification,
+            identifier: identifier.to_string(),
+            name: base.name,
+            optional: variant.optional,
+            order_hint: None,
+            partner: base.partner,
+            urls: SearchEngineUrls::default(),
+            is_new_until: None,
+        };
+
+        engine_definition.urls.merge(user_environment, &base.urls);
+        engine_definition.merge_variant(user_environment, variant);
+        if let Some(sub_variant) = sub_variant {
+            engine_definition.merge_variant(user_environment, sub_variant);
+        }
+
+        engine_definition
     }
 }
 
@@ -530,21 +560,43 @@ pub(crate) fn filter_engine_configuration_v3_impl(
     })
 }
 
-fn find_matching_variant(
-    variants: Vec<JSONEngineVariant>,
+trait EngineVariant: Clone {
+    fn environment(&self) -> &JSONVariantEnvironment;
+    fn sub_variants(&self) -> Vec<Self>;
+}
+
+impl EngineVariant for JSONEngineVariant {
+    fn environment(&self) -> &JSONVariantEnvironment {
+        &self.environment
+    }
+    fn sub_variants(&self) -> Vec<Self> {
+        self.sub_variants.clone()
+    }
+}
+
+impl EngineVariant for JSONEngineVariantV3 {
+    fn environment(&self) -> &JSONVariantEnvironment {
+        &self.environment
+    }
+    fn sub_variants(&self) -> Vec<Self> {
+        self.sub_variants.clone()
+    }
+}
+
+fn find_matching_variant<V: EngineVariant>(
+    variants: Vec<V>,
     user_environment: &SearchUserEnvironment,
-) -> Option<(JSONEngineVariant, Option<JSONEngineVariant>)> {
+) -> Option<(V, Option<V>)> {
     let matching_variant = variants
         .into_iter()
         .rev()
-        .find(|r| matches_user_environment(&r.environment, user_environment))?;
+        .find(|r| matches_user_environment(r.environment(), user_environment))?;
 
     let matching_sub_variant = matching_variant
-        .sub_variants
-        .iter()
+        .sub_variants()
+        .into_iter()
         .rev()
-        .find(|r| matches_user_environment(&r.environment, user_environment))
-        .cloned();
+        .find(|r| matches_user_environment(r.environment(), user_environment));
 
     Some((matching_variant, matching_sub_variant))
 }
@@ -1582,6 +1634,383 @@ mod from_configuration_details_tests {
                     "2097-03-03",
                 )
                 .build()
+        );
+    }
+}
+
+#[cfg(test)]
+mod from_configuration_details_v3_tests {
+    use crate::test_helpers::{
+        partner_map, ExpectedEngineFromJSONBase, JSON_ENGINE_BASE_V3, JSON_ENGINE_SUBVARIANT_V3,
+        JSON_ENGINE_VARIANT_V3,
+    };
+    use crate::*;
+    use once_cell::sync::Lazy;
+
+    #[test]
+    fn test_fallsback_to_defaults() {
+        // This test doesn't use `..Default::default()` as we want to
+        // be explicit about `JSONEngineBase` and handling `None`
+        // options/default values.
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            JSONEngineBaseV3 {
+                aliases: None,
+                charset: None,
+                classification: SearchEngineClassification::General,
+                name: "Test".to_string(),
+                partner: None,
+                urls: JSONEngineUrls {
+                    search: Some(JSONEngineUrl {
+                        base: Some("https://example.com".to_string()),
+                        ..Default::default()
+                    }),
+                    suggestions: None,
+                    trending: None,
+                    search_form: None,
+                    visual_search: None,
+                },
+            },
+            &JSONEngineVariantV3 {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            SearchEngineDefinitionV3 {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "test".to_string(),
+                is_new_until: None,
+                name: "Test".to_string(),
+                optional: false,
+                order_hint: None,
+                partner: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        ..Default::default()
+                    },
+                    suggestions: None,
+                    trending: None,
+                    search_form: None,
+                    visual_search: None,
+                },
+            }
+        )
+    }
+
+    #[test]
+    fn test_uses_base_values_only() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSONEngineVariantV3 {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test").build_v3(Some(partner_map(&[
+                ("default", "firefox", None),
+                ("newtab", "firefox-newtab", Some("nt")),
+            ])))
+        );
+    }
+
+    #[test]
+    fn test_uses_locale_specific_visual_display_name() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSONEngineVariantV3 {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .visual_search_display_name("Visual Search en-GB")
+                .build_v3(Some(partner_map(&[
+                    ("default", "firefox", None),
+                    ("newtab", "firefox-newtab", Some("nt")),
+                ])))
+        );
+    }
+
+    #[test]
+    fn test_merges_variants() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSON_ENGINE_VARIANT_V3,
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .variant_search_url(
+                    "https://example.com/variant",
+                    "GET",
+                    "variant",
+                    "test variant",
+                    "ship",
+                )
+                .variant_suggestions_url(
+                    "https://example.com/suggestions-variant",
+                    "GET",
+                    "suggest-variant",
+                    "sugg test variant",
+                    "variant",
+                )
+                .variant_trending_url(
+                    "https://example.com/trending-variant",
+                    "GET",
+                    "trend-variant",
+                    "trend test variant",
+                    "trend",
+                    true,
+                )
+                .variant_search_form_url(
+                    "https://example.com/search_form",
+                    "GET",
+                    "search-form-name",
+                    "search-form-value",
+                )
+                .variant_visual_search_url(
+                    "https://example.com/visual-search-variant",
+                    "visual-search-variant-name",
+                    "visual-search-variant-value",
+                    "url_variant",
+                    "Visual Search Variant",
+                    "2096-02-02",
+                )
+                .build_v3(Some(partner_map(&[("default", "trek", Some("star"))])))
+        );
+    }
+
+    #[test]
+    fn test_merges_variant_and_uses_locale_specific_visual_search_display_name() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSON_ENGINE_VARIANT_V3,
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .variant_search_url(
+                    "https://example.com/variant",
+                    "GET",
+                    "variant",
+                    "test variant",
+                    "ship",
+                )
+                .variant_suggestions_url(
+                    "https://example.com/suggestions-variant",
+                    "GET",
+                    "suggest-variant",
+                    "sugg test variant",
+                    "variant",
+                )
+                .variant_trending_url(
+                    "https://example.com/trending-variant",
+                    "GET",
+                    "trend-variant",
+                    "trend test variant",
+                    "trend",
+                    true,
+                )
+                .variant_search_form_url(
+                    "https://example.com/search_form",
+                    "GET",
+                    "search-form-name",
+                    "search-form-value",
+                )
+                .variant_visual_search_url(
+                    "https://example.com/visual-search-variant",
+                    "visual-search-variant-name",
+                    "visual-search-variant-value",
+                    "url_variant",
+                    // locale-specific display name is the key difference here
+                    "Visual Search Variant en-GB",
+                    "2096-02-02",
+                )
+                .build_v3(Some(partner_map(&[("default", "trek", Some("star"))])))
+        );
+    }
+
+    #[test]
+    fn test_merges_sub_variants() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSON_ENGINE_VARIANT_V3,
+            &Some(JSON_ENGINE_SUBVARIANT_V3.clone()),
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .subvariant_search_url(
+                    "https://example.com/subvariant",
+                    "GET",
+                    "subvariant",
+                    "test subvariant",
+                    "shuttle",
+                )
+                .subvariant_suggestions_url(
+                    "https://example.com/suggestions-subvariant",
+                    "GET",
+                    "suggest-subvariant",
+                    "sugg test subvariant",
+                    "subvariant",
+                    true,
+                )
+                .subvariant_trending_url(
+                    "https://example.com/trending-subvariant",
+                    "GET",
+                    "trend-subvariant",
+                    "trend test subvariant",
+                    "subtrend",
+                )
+                .subvariant_search_form_url(
+                    "https://example.com/search-form-subvariant",
+                    "GET",
+                    "search-form-subvariant",
+                    "search form subvariant",
+                )
+                .subvariant_visual_search_url(
+                    "https://example.com/visual-search-subvariant",
+                    "visual-search-subvariant-name",
+                    "visual-search-subvariant-value",
+                    "url_subvariant",
+                    "Visual Search Subvariant",
+                    "2097-03-03",
+                )
+                .build_v3(Some(partner_map(&[("default", "trek2", Some("star2"))])))
+        );
+    }
+
+    #[test]
+    fn test_merges_subvariant_and_uses_locale_specific_visual_search_display_name() {
+        let result = SearchEngineDefinitionV3::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE_V3).clone(),
+            &JSON_ENGINE_VARIANT_V3,
+            &Some(JSON_ENGINE_SUBVARIANT_V3.clone()),
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .subvariant_search_url(
+                    "https://example.com/subvariant",
+                    "GET",
+                    "subvariant",
+                    "test subvariant",
+                    "shuttle",
+                )
+                .subvariant_suggestions_url(
+                    "https://example.com/suggestions-subvariant",
+                    "GET",
+                    "suggest-subvariant",
+                    "sugg test subvariant",
+                    "subvariant",
+                    true,
+                )
+                .subvariant_trending_url(
+                    "https://example.com/trending-subvariant",
+                    "GET",
+                    "trend-subvariant",
+                    "trend test subvariant",
+                    "subtrend",
+                )
+                .subvariant_search_form_url(
+                    "https://example.com/search-form-subvariant",
+                    "GET",
+                    "search-form-subvariant",
+                    "search form subvariant",
+                )
+                .subvariant_visual_search_url(
+                    "https://example.com/visual-search-subvariant",
+                    "visual-search-subvariant-name",
+                    "visual-search-subvariant-value",
+                    "url_subvariant",
+                    // locale-specific display name is the key difference here
+                    "Visual Search Subvariant en-GB",
+                    "2097-03-03",
+                )
+                .build_v3(Some(partner_map(&[("default", "trek2", Some("star2"))])))
         );
     }
 }

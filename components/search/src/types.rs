@@ -4,7 +4,8 @@
 
 //! This module defines the types that we export across the UNIFFI interface.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// The list of possible application names that are currently supported.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
@@ -245,6 +246,16 @@ pub struct SearchEngineDefinition {
     pub click_url: Option<String>,
 }
 
+#[derive(Debug, uniffi::Record, PartialEq, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchEnginePartnerDetails {
+    /// The partner code to use.
+    pub code: Option<String>,
+
+    /// The telemetry suffix to use.
+    pub telemetry_suffix: Option<String>,
+}
+
 /// A search-config-v3 definition for an individual search engine to be
 /// presented to the user.
 #[derive(Debug, uniffi::Record, PartialEq, Clone, Default)]
@@ -279,14 +290,11 @@ pub struct SearchEngineDefinitionV3 {
     /// user's engines. If not supported, it should filter them out.
     pub optional: bool,
 
-    /// The partner code for the engine. This will be inserted into parameters
-    /// which include `{partnerCode}`. May be the empty string.
-    pub partner_code: String,
-
-    /// Optional suffix that is appended to the search engine identifier
-    /// following a dash, i.e. `<identifier>-<suffix>`. If it is an empty string
-    /// no dash should be appended.
-    pub telemetry_suffix: String,
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
 
     /// The URLs associated with the search engine.
     pub urls: SearchEngineUrls,
@@ -297,25 +305,6 @@ pub struct SearchEngineDefinitionV3 {
     /// If the number is not specified, other methods of sorting may be relied
     /// upon (e.g. alphabetical).
     pub order_hint: Option<u32>,
-}
-
-/// Temporary helper to reduce work for handling the original and v3 types.
-impl From<SearchEngineDefinition> for SearchEngineDefinitionV3 {
-    fn from(engine: SearchEngineDefinition) -> Self {
-        Self {
-            aliases: engine.aliases,
-            charset: engine.charset,
-            classification: engine.classification,
-            identifier: engine.identifier,
-            is_new_until: engine.is_new_until,
-            name: engine.name,
-            optional: engine.optional,
-            partner_code: engine.partner_code,
-            telemetry_suffix: engine.telemetry_suffix,
-            urls: engine.urls,
-            order_hint: engine.order_hint,
-        }
-    }
 }
 
 /// Details of the search engines to display to the user, generated as a result
