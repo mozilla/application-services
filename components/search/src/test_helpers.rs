@@ -338,6 +338,11 @@ impl EngineRecordV3 {
         self.deprecated = deprecated;
         self
     }
+
+    pub fn classification(mut self, classification: &str) -> Self {
+        self.classification = classification.to_string();
+        self
+    }
 }
 
 #[cfg(test)]
@@ -881,6 +886,11 @@ impl ExpectedEngineV3 {
                 ..self.engine
             },
         }
+    }
+
+    pub fn classification(mut self, classification: SearchEngineClassificationV3) -> Self {
+        self.engine.classification = classification;
+        self
     }
 
     pub fn build(self) -> SearchEngineDefinitionV3 {
