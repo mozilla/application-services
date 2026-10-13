@@ -5,24 +5,24 @@
 //! This module defines functions for sorting search engines based on priority
 //! and order hints, falling back to alphabetical sorting when neither is provided.
 
-use crate::SearchEngineDefinition;
+use crate::filter::EngineDefinition;
 
-pub(crate) fn set_engine_order(engines: &mut [SearchEngineDefinition], ordered_engines: &[String]) {
+pub(crate) fn set_engine_order<E: EngineDefinition>(engines: &mut [E], ordered_engines: &[String]) {
     let mut order_number = ordered_engines.len();
 
     for engine_id in ordered_engines {
         if let Some(found_engine) = find_engine_with_match_mut(engines, engine_id) {
-            found_engine.order_hint = Some(order_number as u32);
+            found_engine.set_order_hint(Some(order_number as u32));
             order_number -= 1;
         }
     }
 }
 
-pub(crate) fn sort(
+pub(crate) fn sort<E: EngineDefinition>(
     default_engine_id: Option<&String>,
     default_private_engine_id: Option<&String>,
-    a: &SearchEngineDefinition,
-    b: &SearchEngineDefinition,
+    a: &E,
+    b: &E,
 ) -> std::cmp::Ordering {
     let b_index = get_priority(b, default_engine_id, default_private_engine_id);
     let a_index = get_priority(a, default_engine_id, default_private_engine_id);
@@ -32,42 +32,42 @@ pub(crate) fn sort(
     // See Bug 1945295: https://bugzilla.mozilla.org/show_bug.cgi?id=1945295
     // If order is equal and order_hint is None for both, fall back to alphabetical sorting
     if order == std::cmp::Ordering::Equal {
-        return a.name.cmp(&b.name);
+        return a.name().cmp(b.name());
     }
 
     order
 }
 
-fn find_engine_with_match_mut<'a>(
-    engines: &'a mut [SearchEngineDefinition],
+fn find_engine_with_match_mut<'a, E: EngineDefinition>(
+    engines: &'a mut [E],
     engine_id_match: &String,
-) -> Option<&'a mut SearchEngineDefinition> {
+) -> Option<&'a mut E> {
     if engine_id_match.is_empty() {
         return None;
     }
     if let Some(match_no_star) = engine_id_match.strip_suffix('*') {
         return engines
             .iter_mut()
-            .find(|e| e.identifier.starts_with(match_no_star));
+            .find(|e| e.identifier().starts_with(match_no_star));
     }
 
     engines
         .iter_mut()
-        .find(|e| e.identifier == *engine_id_match)
+        .find(|e| e.identifier() == *engine_id_match)
 }
 
-fn get_priority(
-    engine: &SearchEngineDefinition,
+fn get_priority<E: EngineDefinition>(
+    engine: &E,
     default_engine_id: Option<&String>,
     default_private_engine_id: Option<&String>,
 ) -> u32 {
-    if Some(&engine.identifier) == default_engine_id {
+    if Some(engine.identifier()) == default_engine_id.map(String::as_str) {
         return u32::MAX;
     }
-    if Some(&engine.identifier) == default_private_engine_id {
+    if Some(engine.identifier()) == default_private_engine_id.map(String::as_str) {
         return u32::MAX - 1;
     }
-    engine.order_hint.unwrap_or(0)
+    engine.order_hint().unwrap_or(0)
 }
 
 #[cfg(test)]
