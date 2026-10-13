@@ -7,9 +7,9 @@
 //! representation ([`Wire`], [`WireEvent`], [`WirePart`]).
 //!
 //! Events are opaque and GUID-keyed. Each has a record id (server key; batches
-//! suffix the base UUID with `_{X}`, see [`batch_record_id`]), an entity (what
-//! the event is about; with the type it forms the [`GateKey`]), a caller-defined
-//! type, and a schema-versioned [`crate::schema::Body`].
+//! suffix the base UUID with `_{X}`, see [`batch_record_id`]), a [`GateKey`] (the
+//! caller-defined type plus the entity the event is about), and a
+//! schema-versioned [`crate::schema::Body`].
 //!
 //! [`IncomingEvent`] is the assembled shape the engine consumes. [`WireEvent`]
 //! and [`WirePart`] are how a record is serialized and (when too large) framed
@@ -118,8 +118,8 @@ impl PartialOrd for EventPosition {
 /// own `position` is just where the record landed).
 #[derive(Clone, Debug, PartialEq)]
 pub struct IncomingEvent {
-    pub event_type: String,
-    pub entity: Guid,
+    /// The event type and entity: what the event is, and what it is about.
+    pub gate: GateKey,
     /// The record's place in the server order: `(modified, group-or-own-id)`.
     pub position: EventPosition,
     /// The schema-versioned payload, whole even if the record was split for
@@ -130,12 +130,6 @@ pub struct IncomingEvent {
     pub max_schema: SchemaVersion,
     /// The covered position, for a baseline; `None` for every other event.
     pub covers_up_to: Option<EventPosition>,
-}
-
-impl IncomingEvent {
-    pub fn gate_key(&self) -> GateKey {
-        GateKey::new(self.event_type.clone(), self.entity.clone())
-    }
 }
 
 /// A whole logical record, distinguished by `event_type`: a domain event, a

@@ -231,8 +231,8 @@ impl EventSyncEngine {
             }
         }
 
-        let gate = ev.gate_key();
-        if let Some(stored) = self.meta.position(&gate)? {
+        let gate = &ev.gate;
+        if let Some(stored) = self.meta.position(gate)? {
             if !ev.position.supersedes(&stored) {
                 // Older than or identical to what we already applied.
                 return Ok(false);
@@ -243,7 +243,7 @@ impl EventSyncEngine {
         // skip it without advancing the gate.
         let payload = match self
             .schema
-            .read(&ev.event_type, &ev.body, self.schema.current())
+            .read(&gate.event_type, &ev.body, self.schema.current())
         {
             Ok(payload) => payload,
             Err(Error::NoReadableSchema { .. }) => return Ok(false),
@@ -251,11 +251,11 @@ impl EventSyncEngine {
         };
 
         self.reducer.apply_event(ResolvedEvent {
-            event_type: ev.event_type.clone(),
-            entity: ev.entity.clone(),
+            event_type: gate.event_type.clone(),
+            entity: gate.entity.clone(),
             payload,
         });
-        self.meta.set_position(gate, ev.position.clone())?;
+        self.meta.set_position(gate.clone(), ev.position.clone())?;
         Ok(true)
     }
 
@@ -365,8 +365,7 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
             .or(wire.schema)
             .unwrap_or(current);
         out.push(IncomingEvent {
-            event_type: wire.event_type,
-            entity: wire.entity,
+            gate: GateKey::new(wire.event_type, wire.entity),
             // Key the position off the group so it is stable regardless of which
             // frame we read it from.
             position: EventPosition::new(modified, group),
@@ -454,9 +453,9 @@ impl SyncEngine for EventSyncEngine {
         // to elect the writer once the bar stays blocked past the timeout.
         let mut peer_needed_schema: Option<SchemaVersion> = None;
         for ev in assembled {
-            if ev.event_type == BASELINE_EVENT_TYPE {
+            if ev.gate.event_type == BASELINE_EVENT_TYPE {
                 baselines.push(ev);
-            } else if ev.event_type == BASELINE_NEEDED_EVENT_TYPE {
+            } else if ev.gate.event_type == BASELINE_NEEDED_EVENT_TYPE {
                 baseline_needed = true;
                 peer_needed_schema =
                     Some(peer_needed_schema.map_or(ev.max_schema, |m| m.max(ev.max_schema)));
@@ -536,7 +535,7 @@ impl SyncEngine for EventSyncEngine {
                     state.max_schema_since_baseline.max(ev.max_schema);
                 state.newest_event = Some(max_position(state.newest_event.take(), pos.clone()));
             }
-            if pending_keys.contains(&ev.gate_key()) {
+            if pending_keys.contains(&ev.gate) {
                 continue;
             }
             self.ingest(&ev, floor.as_ref())?;
@@ -827,8 +826,7 @@ mod tests {
         payload: serde_json::Value,
     ) -> IncomingEvent {
         IncomingEvent {
-            event_type: event_type.to_string(),
-            entity: Guid::new(entity),
+            gate: GateKey::new(event_type, Guid::new(entity)),
             position: pos(modified_ms, id),
             body: body(payload),
             max_schema: 1,
