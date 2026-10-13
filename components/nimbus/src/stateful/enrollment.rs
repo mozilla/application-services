@@ -439,14 +439,22 @@ pub fn set_experiment_participation(
     db: &Database,
     writer: &mut Writer,
     opt_in: bool,
-) -> Result<()> {
+) -> Result<bool> {
+    let old_value =
+        get_experiment_participation(db, writer).unwrap_or(DEFAULT_EXPERIMENT_PARTICIPATION);
+
     let store = db.get_store(StoreId::Meta);
-    store.put(writer, DB_KEY_EXPERIMENT_PARTICIPATION, &opt_in)
+    store.put(writer, DB_KEY_EXPERIMENT_PARTICIPATION, &opt_in)?;
+
+    Ok(old_value)
 }
 
-pub fn set_rollout_participation(db: &Database, writer: &mut Writer, opt_in: bool) -> Result<()> {
+pub fn set_rollout_participation(db: &Database, writer: &mut Writer, opt_in: bool) -> Result<bool> {
+    let old_value = get_rollout_participation(db, writer).unwrap_or(DEFAULT_ROLLOUT_PARTICIPATION);
     let store = db.get_store(StoreId::Meta);
-    store.put(writer, DB_KEY_ROLLOUT_PARTICIPATION, &opt_in)
+    store.put(writer, DB_KEY_ROLLOUT_PARTICIPATION, &opt_in)?;
+
+    Ok(old_value)
 }
 
 /// Reset unique identifiers in response to application-level telemetry reset.

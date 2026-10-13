@@ -140,6 +140,14 @@ fn main() -> Result<()> {
         fn submit_targeting_context(&self) {
             // do nothing
         }
+
+        fn record_rollouts_opt_out(&self) {
+            // do nothing
+        }
+
+        fn record_studies_opt_out(&self) {
+            // do nothing
+        }
     }
 
     // We set the logging level to be `warn` here, meaning that only

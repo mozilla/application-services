@@ -367,6 +367,41 @@ nimbus_events:
       - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
+
+  rollouts_opt_out:
+    type: event
+    description: >
+      Emitted when a user opts out of rollouts (remote improvements).
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081293
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/7656#pullrequestreview-5522772594
+
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
+  studies_opt_out:
+    type: event
+    description: >
+      Emitted when a user opts out of studies (experiments).
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081305
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/7656#pullrequestreview-5522772594
+
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
 nimbus_health:
   cache_not_ready_for_feature:
     type: event

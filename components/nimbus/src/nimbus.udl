@@ -113,6 +113,10 @@ interface MetricsHandler {
     void record_malformed_feature_config(MalformedFeatureConfigExtraDef event);
 
     void submit_targeting_context();
+
+    void record_rollouts_opt_out();
+
+    void record_studies_opt_out();
 };
 
 dictionary DatabaseLoadExtraDef {
