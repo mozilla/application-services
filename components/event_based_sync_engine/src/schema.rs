@@ -2,12 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Schema evolution: dual-write (backward compat) and migrate-on-read (forward
-//! compat). The schema number belongs to the caller's domain, not the engine.
+//! Schema evolution: write every version (backward compat) and migrate-on-read
+//! (forward compat). The schema number belongs to the caller's domain, not the engine.
 //!
-//! * **Dual-write**: authoring an event serializes the payload in every schema
+//! * **Write**: authoring an event serializes the payload in every schema
 //!   from the current version down to the floor (schema 3 writes `{3, 2, 1}`).
-//!   Older clients read their own representation.
+//!   Older clients read their own representation. They can't migrate a newer
+//!   payload down themselves: they don't have the code for schemas after theirs.
+//!   Only the writer knows both, so it does the down-migration.
 //! * **Migrate-on-read**: reading an event that carries only an older schema
 //!   applies the `n -> n+1` migrations in memory. The server record is untouched.
 //!
@@ -82,7 +84,7 @@ impl Body {
     }
 
     /// A body carrying a single schema representation. Mostly for tests; real
-    /// authoring goes through [`SchemaRegistry::dual_write`].
+    /// authoring goes through [`SchemaRegistry::write`].
     pub fn single(version: SchemaVersion, payload: serde_json::Value) -> Self {
         let mut reps = BTreeMap::new();
         reps.insert(version, payload);
@@ -110,7 +112,7 @@ impl Body {
 /// Registry of schema migrations and the current/floor versions.
 ///
 /// `up[n]` migrates `n-1 -> n` (used by migrate-on-read); `down[n]` migrates
-/// `n -> n-1` (used by dual-write). Registering a migration to version `n`
+/// `n -> n-1` (used by [`SchemaRegistry::write`]). Registering a migration to version `n`
 /// implies the current schema is at least `n`.
 #[derive(Default)]
 pub struct SchemaRegistry {
@@ -136,7 +138,7 @@ impl SchemaRegistry {
     /// current schema to at least `version`.
     ///
     /// * `up` migrates `version - 1 -> version` (migrate-on-read)
-    /// * `down` migrates `version -> version - 1` (dual-write)
+    /// * `down` migrates `version -> version - 1` (write)
     pub fn register_migration(&mut self, version: SchemaVersion, up: MigrateFn, down: MigrateFn) {
         debug_assert!(version > self.floor, "cannot migrate below the floor");
         self.up.insert(version, up);
@@ -152,9 +154,9 @@ impl SchemaRegistry {
         self.floor
     }
 
-    /// Dual-write: given a payload already in the current schema, render every
+    /// Given a payload already in the current schema, render every
     /// representation from `current` down to `floor`.
-    pub fn dual_write(&self, event_type: &str, current_payload: serde_json::Value) -> Result<Body> {
+    pub fn write(&self, event_type: &str, current_payload: serde_json::Value) -> Result<Body> {
         let mut body = Body::new();
         body.insert(self.current, current_payload.clone());
 
@@ -236,11 +238,9 @@ mod tests {
     }
 
     #[test]
-    fn dual_write_renders_down_to_floor() {
+    fn write_renders_down_to_floor() {
         let reg = registry_v2();
-        let body = reg
-            .dual_write("modify-name", json!({ "name": "foo" }))
-            .unwrap();
+        let body = reg.write("modify-name", json!({ "name": "foo" })).unwrap();
         assert_eq!(body.get(2), Some(&json!({ "name": "foo" })));
         assert_eq!(body.get(1), Some(&json!({ "n": "foo" })));
     }
@@ -248,9 +248,7 @@ mod tests {
     #[test]
     fn read_exact_version() {
         let reg = registry_v2();
-        let body = reg
-            .dual_write("modify-name", json!({ "name": "foo" }))
-            .unwrap();
+        let body = reg.write("modify-name", json!({ "name": "foo" })).unwrap();
         assert_eq!(
             reg.read("modify-name", &body, 2).unwrap(),
             json!({ "name": "foo" })
@@ -269,9 +267,7 @@ mod tests {
     #[test]
     fn old_client_reads_its_own_representation() {
         let reg = registry_v2();
-        let body = reg
-            .dual_write("modify-name", json!({ "name": "foo" }))
-            .unwrap();
+        let body = reg.write("modify-name", json!({ "name": "foo" })).unwrap();
         // A schema-1 client reads the schema-1 representation.
         assert_eq!(
             reg.read("modify-name", &body, 1).unwrap(),

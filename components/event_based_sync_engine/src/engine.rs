@@ -160,8 +160,8 @@ impl EventSyncEngine {
 
     /// Record a local change as an event to upload on the next sync.
     ///
-    /// `payload` is in the client's current schema; the engine dual-writes it
-    /// down to the floor. The gate advances in `set_uploaded`, once the server
+    /// `payload` is in the client's current schema; the engine writes it in
+    /// every schema down to the floor. The gate advances in `set_uploaded`, once the server
     /// assigns the authoritative `modified` timestamp.
     pub fn record_local_event(
         &self,
@@ -169,7 +169,7 @@ impl EventSyncEngine {
         entity: Guid,
         payload: serde_json::Value,
     ) -> Result<()> {
-        let body = self.schema.dual_write(event_type, payload)?;
+        let body = self.schema.write(event_type, payload)?;
         let record = WireEvent::event(event_type.to_string(), entity.clone(), body);
         let base = Guid::random();
         let bsos = self.frame(&record, &base)?;
@@ -284,7 +284,7 @@ impl EventSyncEngine {
         covers_up_to: &EventPosition,
     ) -> Result<(Guid, Vec<OutgoingBso>)> {
         let payload = self.reducer.baseline();
-        let body = self.schema.dual_write(BASELINE_EVENT_TYPE, payload)?;
+        let body = self.schema.write(BASELINE_EVENT_TYPE, payload)?;
         let record = WireEvent::baseline(covers_up_to.clone(), body);
         let group = Guid::random();
         let bsos = self.frame(&record, &group)?;

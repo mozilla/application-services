@@ -10,7 +10,7 @@
 //! last-seen gate, schema evolution, baselines). Pure-Rust, like [`sync15`].
 //!
 //! Modules: [`event`] (event + gate key + total order), [`schema`] (multi-schema
-//! payload + dual-write/migrate-on-read), [`reducer`] (storage contract),
+//! payload + write/migrate-on-read), [`reducer`] (storage contract),
 //! [`metadata`] (sync bookkeeping persistence), [`engine`] (ties them together
 //! and implements [`sync15::engine::SyncEngine`]).
 

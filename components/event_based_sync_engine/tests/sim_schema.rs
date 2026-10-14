@@ -126,7 +126,7 @@ fn schema_bar_block_resolves_after_timeout() {
 fn timeout_override_defers_to_highest_active_schema() {
     let mut server = FakeServer::new();
 
-    // Schema-3 nightly writes events (dual-written down to the floor) and leaves.
+    // Schema-3 nightly writes events (in every schema down to the floor) and leaves.
     let nightly = SimClient::new("nightly", schema_v3(), no_baselines());
     nightly.create(json!({ "name": "one" }));
     nightly.create(json!({ "name": "two" }));

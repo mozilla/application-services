@@ -29,8 +29,8 @@ pub struct ResolvedEvent {
 /// must not record a new local event back into the engine.
 pub trait EventReducer: Send + Sync {
     /// Return the full current state as one opaque payload, for the engine to
-    /// serialize into a baseline. The engine never inspects it; it dual-writes it,
-    /// and byte-slices the record if it is too large for one upload.
+    /// serialize into a baseline. The engine never inspects it; it writes it in
+    /// every schema, and byte-slices the record if it is too large for one upload.
     ///
     /// Must be deterministic (e.g. sort collections), so the same state produces
     /// the same bytes on every client.
