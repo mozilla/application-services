@@ -69,3 +69,24 @@ fn delete_is_sticky_against_concurrent_modify() {
     assert_converged(&[&a, &b]);
     assert!(a.state().is_empty(), "entity should be gone");
 }
+
+#[test]
+fn repeated_local_edit_in_one_batch_keeps_the_last() {
+    // Both edits upload in one batch and share a `modified`, so the record id
+    // (random) would break the tie. Repeat to cover both id orderings.
+    for _ in 0..20 {
+        let mut server = FakeServer::new();
+        let a = SimClient::new("A", schema_v1(), no_baselines());
+        let b = SimClient::new("B", schema_v1(), no_baselines());
+
+        let id = a.create(json!({ "name": "orig" }));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        a.modify(&id, "name", json!("first"));
+        a.modify(&id, "name", json!("second"));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        assert_converged(&[&a, &b]);
+        assert_eq!(b.state()[&id]["name"], json!("second"));
+    }
+}

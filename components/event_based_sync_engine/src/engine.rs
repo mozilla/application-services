@@ -174,7 +174,12 @@ impl EventSyncEngine {
         let base = Guid::random();
         let bsos = self.frame(&record, &base)?;
         let gate = GateKey::new(event_type, entity);
-        self.outgoing.lock().unwrap().push(PendingOutgoing {
+        let mut outgoing = self.outgoing.lock().unwrap();
+        // One batch shares a `modified`, so two queued events for the same key
+        // would tie and the random record id, not edit order, would pick the
+        // winner. Only the newest can win anyway: replace the older one.
+        outgoing.retain(|p| p.gate != gate);
+        outgoing.push(PendingOutgoing {
             gate,
             position_id: base,
             bsos,
