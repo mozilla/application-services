@@ -29,6 +29,9 @@
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
 
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
 
 ## ⚠️ Breaking Changes ⚠️
 
