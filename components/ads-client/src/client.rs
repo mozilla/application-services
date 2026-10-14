@@ -472,9 +472,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            telemetry: MozAdsTelemetryWrapper::noop(),
         };
-        let client: AdsClient<MozAdsTelemetryWrapper> = AdsClient::new(config);
+        let client = AdsClient::new(config);
 
         // Matcher::Json compares the whole body, ignoring key order, so any
         // extra key such as context_id makes the request go unmatched.
