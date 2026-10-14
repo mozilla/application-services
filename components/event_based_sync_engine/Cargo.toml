@@ -9,6 +9,7 @@ description = "A generic event-based sync engine."
 [features]
 default = ["sql"]
 sql = ["dep:rusqlite", "dep:sql-support"]
+sync-client = ["sync15/sync-client"]
 
 [dependencies]
 anyhow = "1.0"

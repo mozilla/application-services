@@ -12,7 +12,8 @@
 //! A baseline's body is schema-versioned like an event body, under the reserved
 //! event type [`crate::event::BASELINE_EVENT_TYPE`].
 //!
-//! Not yet implemented: deleting superseded records from the server
+//! The client that writes a baseline also deletes the records it supersedes
+//! from the server, once every frame of the baseline is confirmed.
 
 use crate::event::EventPosition;
 use crate::schema::SchemaVersion;
@@ -67,4 +68,7 @@ pub struct BaselineState {
     /// schema bar. Drives the [`BaselineConfig::baseline_timeout_ms`] override.
     /// Cleared whenever the floor advances. `None` while not blocked.
     pub bar_blocked_since: Option<ServerTimestamp>,
+    /// Cover of a baseline this client wrote whose superseded records are not yet
+    /// deleted from the server. Persisted so an interrupted delete is retried.
+    pub delete_up_to: Option<EventPosition>,
 }

@@ -5,11 +5,10 @@
 //! Engine-owned persistent metadata.
 //!
 //! Sync bookkeeping the engine persists across restarts: the per-field last-seen
-//! map `[GateKey -> EventPosition]`, the last sync time, and the sync
-//! association. The trait keeps the engine storage-agnostic; this module ships
-//! an in-memory impl for tests and examples. The persistent, SQLite-backed impl
-//! (`SqliteMetadataStore`) lives in the `metadata_sql` module, behind the `sql`
-//! feature.
+//! map `[GateKey -> EventPosition]`, the server records seen, the last sync time,
+//! and the sync association. The trait keeps the engine storage-agnostic. This
+//! module has an in-memory impl for tests and examples; the SQLite one
+//! (`SqliteMetadataStore`) is in `metadata_sql`, behind the `sql` feature.
 
 use crate::baseline::BaselineState;
 use crate::error::Result;
@@ -17,7 +16,7 @@ use crate::event::{EventPosition, GateKey};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use sync15::engine::EngineSyncAssociation;
-use sync15::ServerTimestamp;
+use sync15::{Guid, ServerTimestamp};
 
 /// Persistence of the engine's own sync metadata.
 pub trait MetadataStore: Send + Sync {
@@ -30,6 +29,16 @@ pub trait MetadataStore: Send + Sync {
     /// Compaction: drop every last-seen entry strictly older than
     /// `covers_up_to` (the position covered by a new baseline).
     fn prune_positions(&self, covers_up_to: &EventPosition) -> Result<()>;
+
+    /// Remember server record ids, each under the position of the event it
+    /// belongs to (so every frame of a framed event shares one position).
+    fn track_records(&self, records: &[(Guid, EventPosition)]) -> Result<()>;
+
+    /// Tracked record ids whose event is at or below `covers_up_to`, sorted.
+    fn records_covered_by(&self, covers_up_to: &EventPosition) -> Result<Vec<Guid>>;
+
+    /// Stop tracking these record ids.
+    fn forget_records(&self, ids: &[Guid]) -> Result<()>;
 
     /// Last sync time. Milliseconds since the epoch; `EPOCH` for "never".
     fn last_sync(&self) -> Result<ServerTimestamp>;
@@ -56,6 +65,7 @@ pub struct MemoryMetadataStore {
 #[derive(Default)]
 struct Inner {
     positions: HashMap<GateKey, EventPosition>,
+    records: HashMap<Guid, EventPosition>,
     last_sync: Option<ServerTimestamp>,
     assoc: Option<EngineSyncAssociation>,
     baseline: BaselineState,
@@ -83,6 +93,34 @@ impl MetadataStore for MemoryMetadataStore {
             .unwrap()
             .positions
             .retain(|_, pos| pos.supersedes(covers_up_to) || pos == covers_up_to);
+        Ok(())
+    }
+
+    fn track_records(&self, records: &[(Guid, EventPosition)]) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        for (id, pos) in records {
+            inner.records.insert(id.clone(), pos.clone());
+        }
+        Ok(())
+    }
+
+    fn records_covered_by(&self, covers_up_to: &EventPosition) -> Result<Vec<Guid>> {
+        let inner = self.inner.lock().unwrap();
+        let mut ids: Vec<Guid> = inner
+            .records
+            .iter()
+            .filter(|(_, pos)| !pos.supersedes(covers_up_to))
+            .map(|(id, _)| id.clone())
+            .collect();
+        ids.sort();
+        Ok(ids)
+    }
+
+    fn forget_records(&self, ids: &[Guid]) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        for id in ids {
+            inner.records.remove(id);
+        }
         Ok(())
     }
 
@@ -127,6 +165,7 @@ impl MetadataStore for MemoryMetadataStore {
     fn reset(&self) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.positions.clear();
+        inner.records.clear();
         inner.last_sync = None;
         inner.assoc = None;
         inner.baseline = BaselineState::default();

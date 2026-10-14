@@ -78,6 +78,19 @@ impl FakeServer {
         (ts, ids)
     }
 
+    /// Delete records by id, as `DELETE /storage/<coll>?ids=..` does. Unknown ids
+    /// are ignored. Like the real server, this leaves no tombstone.
+    pub fn delete(&mut self, ids: &[Guid]) {
+        for id in ids {
+            self.records.remove(id);
+        }
+    }
+
+    /// Every record on the server.
+    pub fn record_count(&self) -> usize {
+        self.records.len()
+    }
+
     /// Records that make up baselines: a whole baseline record, or a transport
     /// frame (in these tests only baselines are ever large enough to frame).
     pub fn baseline_count(&self) -> usize {
@@ -182,11 +195,26 @@ impl EventReducer for MapReducer {
             }
         }
     }
+
+    fn wipe(&self) {
+        self.state.lock().unwrap().clear();
+    }
 }
 
 // -------------------------------------------------------------------------
 // Simulated client: engine + reducer + download-then-upload sync loop.
 // -------------------------------------------------------------------------
+
+/// A failure injected into one [`SimClient::sync_with`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Fault {
+    None,
+    /// The client stops before deleting (killed, or gone for good).
+    SkipDeletes,
+    /// The server commits the upload but the client never hears back, so
+    /// `set_uploaded` doesn't run (and nothing after it).
+    LoseUploadConfirmation,
+}
 
 pub struct SimClient {
     pub name: &'static str,
@@ -247,8 +275,20 @@ impl SimClient {
             .unwrap();
     }
 
-    /// One download-then-upload round trip. Returns whether anything moved.
+    /// Erase this client's local data, as a disconnect on desktop does.
+    pub fn wipe(&self) {
+        self.engine.wipe().unwrap();
+    }
+
+    /// One download-then-upload round trip, then the deletes a consumer runs
+    /// after the sync.
+    /// Returns whether anything moved.
     pub fn sync(&self, server: &mut FakeServer) -> bool {
+        self.sync_with(server, Fault::None)
+    }
+
+    /// [`SimClient::sync`] with a failure injected.
+    pub fn sync_with(&self, server: &mut FakeServer, fault: Fault) -> bool {
         let mut telem = telemetry::Engine::new("containers");
         let now = server.timestamp();
         let newer = self
@@ -263,9 +303,20 @@ impl SimClient {
         let uploaded = outgoing.len();
         if uploaded > 0 {
             let (ts, ids) = server.upload(outgoing);
+            if fault == Fault::LoseUploadConfirmation {
+                return true;
+            }
             self.engine.set_uploaded(ts, ids).unwrap();
         }
-        downloaded > 0 || uploaded > 0
+        if fault == Fault::SkipDeletes {
+            return downloaded > 0 || uploaded > 0;
+        }
+        let to_delete = self.engine.pending_remote_deletions().unwrap();
+        if !to_delete.is_empty() {
+            server.delete(&to_delete);
+            self.engine.set_deleted(&to_delete).unwrap();
+        }
+        downloaded > 0 || uploaded > 0 || !to_delete.is_empty()
     }
 
     pub fn state(&self) -> HashMap<Guid, Value> {

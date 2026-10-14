@@ -417,6 +417,28 @@ impl Sync15StorageClient {
             Err(e) => Err(e),
         }
     }
+
+    /// Delete individual records from a collection. Ids that are already gone
+    /// are not an error.
+    pub fn delete_records(&self, coll: &CollectionName, ids: &[Guid]) -> error::Result<()> {
+        // The server accepts at most this many ids per `DELETE ?ids=` request.
+        const MAX_IDS_PER_DELETE: usize = 100;
+        for chunk in ids.chunks(MAX_IDS_PER_DELETE) {
+            let base = Url::parse(&self.tsc.api_endpoint()?)?;
+            let mut url = build_collection_url(base, coll.clone())?;
+            let joined: Vec<&str> = chunk.iter().map(Guid::as_str).collect();
+            url.query_pairs_mut().append_pair("ids", &joined.join(","));
+            debug!("Deleting {} records from {}", chunk.len(), coll);
+            let req = self.build_request(Method::Delete, url)?;
+            match self.exec_request::<Value>(req, false) {
+                Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))
+                | Ok(Sync15ClientResponse::Success { .. }) => {}
+                Ok(resp) => return Err(resp.create_storage_error()),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct PostWrapper<'a> {

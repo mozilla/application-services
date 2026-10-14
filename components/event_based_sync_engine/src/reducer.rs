@@ -36,9 +36,11 @@ pub trait EventReducer: Send + Sync {
     /// the same bytes on every client.
     fn baseline(&self) -> serde_json::Value;
 
-    /// Cold start (sync wins): rebuild local state from a baseline payload. It is
+    /// Rebuild (sync wins): replace local state with a baseline payload. It is
     /// the same value a peer returned from [`EventReducer::baseline`], resolved to
-    /// this client's schema.
+    /// this client's schema. Called on a cold start and when this client fell
+    /// behind a baseline; the engine then re-applies the client's own queued
+    /// events through [`EventReducer::apply_event`].
     fn apply_baseline(&self, payload: serde_json::Value);
 
     /// Apply a single winning event.
@@ -46,4 +48,9 @@ pub trait EventReducer: Send + Sync {
     /// Event order across clients isn't guaranteed, so the target entity may
     /// already be gone (e.g. `modify-name` after `deleted`); tolerate that.
     fn apply_event(&self, event: ResolvedEvent);
+
+    /// Erase all local data for this collection. Called from the engine's
+    /// `wipe`, e.g. when the user disconnects on desktop. Must not record local
+    /// events: a wipe is local only, never synced as deletes.
+    fn wipe(&self);
 }

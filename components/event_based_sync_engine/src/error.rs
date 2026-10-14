@@ -33,4 +33,8 @@ pub enum Error {
     /// The [`crate::MetadataStore`] failed; string supplied by the impl.
     #[error("metadata store error: {0}")]
     Metadata(String),
+
+    /// A request to the sync server failed.
+    #[error("sync server error: {0}")]
+    Sync15(#[from] sync15::Error),
 }

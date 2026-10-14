@@ -60,6 +60,8 @@ const BASELINE_STATE_KEY: &str = "baseline_state";
 /// Prefix for gate rows; the rest of the key is the JSON `GateKey`, so it's
 /// unambiguous whatever the event type is.
 const POSITION_PREFIX: &str = "position:";
+/// Prefix for tracked server records; the rest of the key is the record id.
+const RECORD_PREFIX: &str = "record:";
 
 struct MetadataConnectionInitializer;
 
@@ -92,6 +94,8 @@ struct StoredBaselineState {
     events_since_baseline: u64,
     max_schema_since_baseline: SchemaVersion,
     bar_blocked_since_ms: Option<i64>,
+    #[serde(default)]
+    delete_up_to: Option<EventPosition>,
 }
 
 impl From<&BaselineState> for StoredBaselineState {
@@ -102,6 +106,7 @@ impl From<&BaselineState> for StoredBaselineState {
             events_since_baseline: s.events_since_baseline,
             max_schema_since_baseline: s.max_schema_since_baseline,
             bar_blocked_since_ms: s.bar_blocked_since.map(|t| t.as_millis()),
+            delete_up_to: s.delete_up_to.clone(),
         }
     }
 }
@@ -114,6 +119,7 @@ impl From<StoredBaselineState> for BaselineState {
             events_since_baseline: s.events_since_baseline,
             max_schema_since_baseline: s.max_schema_since_baseline,
             bar_blocked_since: s.bar_blocked_since_ms.map(ServerTimestamp::from_millis),
+            delete_up_to: s.delete_up_to,
         }
     }
 }
@@ -239,6 +245,55 @@ impl MetadataStore for SqliteMetadataStore {
         let tx = conn.transaction()?;
         for key in stale {
             self.delete_meta(&tx, &key)?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn track_records(&self, records: &[(Guid, EventPosition)]) -> Result<()> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        for (id, pos) in records {
+            let value = serde_json::to_string(pos)?;
+            self.put_meta(&tx, &format!("{RECORD_PREFIX}{id}"), &value)?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn records_covered_by(&self, covers_up_to: &EventPosition) -> Result<Vec<Guid>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT key, value FROM meta
+             WHERE collection = :collection AND key LIKE :pattern
+             ORDER BY key",
+        )?;
+        let rows = stmt.query_and_then(
+            named_params! {
+                ":collection": self.collection,
+                ":pattern": format!("{}%", RECORD_PREFIX),
+            },
+            |row| -> Result<(String, EventPosition)> {
+                let key: String = row.get(0)?;
+                let value: String = row.get(1)?;
+                Ok((key, serde_json::from_str::<EventPosition>(&value)?))
+            },
+        )?;
+        rows.filter_map(|r| match r {
+            Ok((key, pos)) if !pos.supersedes(covers_up_to) => {
+                Some(Ok(Guid::new(&key[RECORD_PREFIX.len()..])))
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(e)),
+        })
+        .collect()
+    }
+
+    fn forget_records(&self, ids: &[Guid]) -> Result<()> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        for id in ids {
+            self.delete_meta(&tx, &format!("{RECORD_PREFIX}{id}"))?;
         }
         tx.commit()?;
         Ok(())
@@ -438,9 +493,32 @@ mod tests {
             events_since_baseline: 7,
             max_schema_since_baseline: 3,
             bar_blocked_since: Some(ServerTimestamp::from_millis(500)),
+            delete_up_to: Some(pos(100, "floor")),
         };
         store.set_baseline_state(state.clone()).unwrap();
         assert_eq!(store.baseline_state().unwrap(), state);
+    }
+
+    #[test]
+    fn records_covered_by_includes_the_cover_and_forget_drops_them() {
+        let store = SqliteMetadataStore::new_in_memory(COLL);
+        store
+            .track_records(&[
+                (Guid::new("old"), pos(100, "a")),
+                (Guid::new("at"), pos(200, "b")),
+                (Guid::new("new"), pos(300, "c")),
+            ])
+            .unwrap();
+
+        let covered = store.records_covered_by(&pos(200, "b")).unwrap();
+        assert_eq!(covered, vec![Guid::new("at"), Guid::new("old")]);
+
+        store.forget_records(&covered).unwrap();
+        assert!(store.records_covered_by(&pos(200, "b")).unwrap().is_empty());
+        assert_eq!(
+            store.records_covered_by(&pos(300, "c")).unwrap(),
+            vec![Guid::new("new")]
+        );
     }
 
     #[test]

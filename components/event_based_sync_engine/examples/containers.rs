@@ -145,6 +145,10 @@ impl EventReducer for ContainerStore {
             }
         }
     }
+
+    fn wipe(&self) {
+        self.state.lock().unwrap().clear();
+    }
 }
 
 fn container_schema_v1() -> SchemaRegistry {

@@ -15,7 +15,10 @@
 //! Baselines (see [`crate::baseline`]) bound the event stream: a new client
 //! cold-starts from the newest readable baseline; any client advances its floor
 //! and prunes when it observes one; a client past the cadence writes a new
-//! baseline, or a `baseline-needed` marker if it's below the schema bar.
+//! baseline, or a `baseline-needed` marker if it's below the schema bar. Once
+//! every frame of its baseline is confirmed, the writer deletes the records it
+//! supersedes from the server; a client that falls behind a baseline rebuilds
+//! from it, since the events it missed may already be gone.
 
 use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
@@ -54,10 +57,12 @@ fn split_frames(s: &str, max_bytes: usize) -> Vec<String> {
 /// A local event awaiting upload, remembered so [`SyncEngine::set_uploaded`] can
 /// record its final server position into the gate. `position_id` is the id the
 /// event's [`EventPosition`] is keyed on (its record id, or its group when the
-/// record was framed).
+/// record was framed). `payload` is kept in the current schema so the event can
+/// be re-applied after a rebuild from a baseline.
 struct PendingOutgoing {
     gate: GateKey,
     position_id: Guid,
+    payload: serde_json::Value,
     bsos: Vec<OutgoingBso>,
 }
 
@@ -67,8 +72,22 @@ struct PendingOutgoing {
 /// record (its frames may span sync batches) never moves a gate or the floor.
 /// Events and baselines share this and differ only in `on_complete`.
 struct AwaitingConfirmation {
+    /// Every record id in the group, tracked once it's confirmed so a later
+    /// baseline can delete it.
+    ids: Vec<Guid>,
     remaining: HashSet<Guid>,
     on_complete: OnComplete,
+}
+
+impl AwaitingConfirmation {
+    fn new(bsos: &[OutgoingBso], on_complete: OnComplete) -> Self {
+        let ids: Vec<Guid> = bsos.iter().map(|b| b.envelope.id.clone()).collect();
+        Self {
+            remaining: ids.iter().cloned().collect(),
+            ids,
+            on_complete,
+        }
+    }
 }
 
 /// What confirming an [`AwaitingConfirmation`]'s last frame does. An event
@@ -84,11 +103,14 @@ enum OnComplete {
     Baseline {
         cover: EventPosition,
     },
+    /// A `baseline-needed` marker: nothing to do beyond tracking its id.
+    Marker,
 }
 
 /// A record read from the server, tagged with the group its frames reassemble
 /// into (its own record id when whole) and its record position.
 struct StagedRecord {
+    id: Guid,
     group: Guid,
     modified: ServerTimestamp,
     raw: RawRecord,
@@ -169,7 +191,7 @@ impl EventSyncEngine {
         entity: Guid,
         payload: serde_json::Value,
     ) -> Result<()> {
-        let body = self.schema.write(event_type, payload)?;
+        let body = self.schema.write(event_type, payload.clone())?;
         let record = WireEvent::event(event_type.to_string(), entity.clone(), body);
         let base = Guid::random();
         let bsos = self.frame(&record, &base)?;
@@ -182,6 +204,7 @@ impl EventSyncEngine {
         outgoing.push(PendingOutgoing {
             gate,
             position_id: base,
+            payload,
             bsos,
         });
         Ok(())
@@ -291,6 +314,77 @@ impl EventSyncEngine {
         Ok((group, bsos))
     }
 
+    /// Record ids superseded by a baseline this client wrote, still to be deleted
+    /// from the server. Call after a sync; delete them with
+    /// `Sync15StorageClient::delete_records`, then report back through
+    /// [`EventSyncEngine::set_deleted`]. Until then they are returned again.
+    pub fn pending_remote_deletions(&self) -> Result<Vec<Guid>> {
+        Ok(match self.meta.baseline_state()?.delete_up_to {
+            Some(cover) => self.meta.records_covered_by(&cover)?,
+            None => Vec::new(),
+        })
+    }
+
+    /// Mark ids from [`EventSyncEngine::pending_remote_deletions`] as deleted
+    /// from the server.
+    pub fn set_deleted(&self, ids: &[Guid]) -> Result<()> {
+        self.meta.forget_records(ids)?;
+        let mut state = self.meta.baseline_state()?;
+        if let Some(cover) = &state.delete_up_to {
+            if self.meta.records_covered_by(cover)?.is_empty() {
+                state.delete_up_to = None;
+                self.meta.set_baseline_state(state)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Delete what [`EventSyncEngine::pending_remote_deletions`] returns from the
+    /// server and mark it done. Run after each sync. Returns how many records
+    /// were deleted.
+    #[cfg(feature = "sync-client")]
+    pub fn delete_superseded(&self, client: &sync15::client::Sync15StorageClient) -> Result<usize> {
+        let ids = self.pending_remote_deletions()?;
+        if !ids.is_empty() {
+            client.delete_records(&self.collection, &ids)?;
+            self.set_deleted(&ids)?;
+        }
+        Ok(ids.len())
+    }
+
+    /// Re-apply queued local events on top of a freshly applied baseline, which
+    /// replaced local state they had already changed.
+    fn replay_outgoing(&self) {
+        for p in self.outgoing.lock().unwrap().iter() {
+            self.reducer.apply_event(ResolvedEvent {
+                event_type: p.gate.event_type.clone(),
+                entity: p.gate.entity.clone(),
+                payload: p.payload.clone(),
+            });
+        }
+    }
+
+    /// Bound the tracked records when a peer's baseline moves the floor off
+    /// `old_floor`. Deleting what the new baseline covers is its writer's job,
+    /// but a writer can vanish or crash before deleting, so keep one extra
+    /// generation: forget only what the *previous* floor covered, and the next
+    /// writer deletes any leftovers. Keep everything while our own delete is
+    /// pending; `set_deleted` forgets those.
+    fn forget_older_generation(
+        &self,
+        old_floor: Option<&EventPosition>,
+        delete_pending: bool,
+    ) -> Result<()> {
+        let Some(old_floor) = old_floor else {
+            return Ok(());
+        };
+        if delete_pending {
+            return Ok(());
+        }
+        let covered = self.meta.records_covered_by(old_floor)?;
+        self.meta.forget_records(&covered)
+    }
+
     fn build_baseline_needed_bso(&self) -> Result<OutgoingBso> {
         Ok(OutgoingBso::from_content(
             OutgoingEnvelope::from(Guid::random()),
@@ -317,11 +411,13 @@ fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
         let record_id = bso.envelope.id.clone();
         match bso.into_content::<Wire>().kind {
             IncomingKind::Content(Wire::Whole(wire)) => parts.push(StagedRecord {
+                id: record_id.clone(),
                 group: record_id,
                 modified,
                 raw: RawRecord::Whole(wire),
             }),
             IncomingKind::Content(Wire::Frame(p)) => parts.push(StagedRecord {
+                id: record_id,
                 group: p.group,
                 modified,
                 raw: RawRecord::Frame {
@@ -344,13 +440,21 @@ fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
 ///
 /// `current` is the schema fallback for a record carrying no readable version
 /// tag (a `baseline-needed` marker has no body).
-fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<IncomingEvent> {
+///
+/// Also returns each assembled event's record ids under its position, for
+/// [`MetadataStore::track_records`]. An incomplete group isn't tracked: its
+/// final position is unknown, and deleting a frame early would orphan it.
+fn assemble_events(
+    parts: Vec<StagedRecord>,
+    current: SchemaVersion,
+) -> (Vec<IncomingEvent>, Vec<(Guid, EventPosition)>) {
     let mut buckets: HashMap<Guid, Vec<StagedRecord>> = HashMap::new();
     for part in parts {
         buckets.entry(part.group.clone()).or_default().push(part);
     }
 
     let mut out = Vec::with_capacity(buckets.len());
+    let mut records = Vec::new();
     for (group, bucket) in buckets {
         // The record is complete once its newest frame lands, so key the position
         // off the max `modified` across the group — deterministic regardless of
@@ -360,9 +464,13 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
             .map(|r| r.modified)
             .max_by_key(|t| t.as_millis())
             .expect("bucket is non-empty");
+        let ids: Vec<Guid> = bucket.iter().map(|r| r.id.clone()).collect();
         let Some(wire) = reassemble(bucket) else {
             continue;
         };
+        // Key the position on the group, so every frame gives the same one.
+        let position = EventPosition::new(modified, group);
+        records.extend(ids.into_iter().map(|id| (id, position.clone())));
         let max_schema = wire
             .body
             .versions()
@@ -371,15 +479,13 @@ fn assemble_events(parts: Vec<StagedRecord>, current: SchemaVersion) -> Vec<Inco
             .unwrap_or(current);
         out.push(IncomingEvent {
             gate: GateKey::new(wire.event_type, wire.entity),
-            // Key the position off the group so it is stable regardless of which
-            // frame we read it from.
-            position: EventPosition::new(modified, group),
+            position,
             body: wire.body,
             max_schema,
             covers_up_to: wire.covers_up_to,
         });
     }
-    out
+    (out, records)
 }
 
 /// Join one group's staged records into the original [`WireEvent`], or `None` if
@@ -450,7 +556,8 @@ impl SyncEngine for EventSyncEngine {
         // Parse -> reassemble parts -> a stream of whole events. Then split by
         // reserved type into domain events, baselines and `baseline-needed`
         // markers.
-        let assembled = assemble_events(staged_records(staged), self.schema.current());
+        let (assembled, records) = assemble_events(staged_records(staged), self.schema.current());
+        self.meta.track_records(&records)?;
         let mut events: Vec<IncomingEvent> = Vec::new();
         let mut baselines: Vec<IncomingEvent> = Vec::new();
         let mut baseline_needed = false;
@@ -470,13 +577,23 @@ impl SyncEngine for EventSyncEngine {
         }
 
         let mut state = self.meta.baseline_state()?;
-        let is_new_client = self.meta.last_sync()?.as_millis() == 0 && state.floor.is_none();
+        let last_sync = self.meta.last_sync()?;
+        let is_new_client = last_sync.as_millis() == 0 && state.floor.is_none();
+        let newest_cover = baselines
+            .iter()
+            .filter_map(|b| b.covers_up_to.clone())
+            .max();
+        // A cover newer than our last sync may stand in for events we never
+        // downloaded, which its writer may already have deleted from the server.
+        let behind = newest_cover
+            .as_ref()
+            .is_some_and(|c| c.modified.as_millis() > last_sync.as_millis());
 
-        // 1. Received baselines: a new client cold-starts from the newest
+        // 1. Received baselines: a new or behind client rebuilds from the newest
         //    readable one; any client advances its floor to the newest cover
         //    (always parseable) and prunes.
         let mut floor_advance: Option<EventPosition> = None;
-        if is_new_client {
+        if is_new_client || behind {
             let mut readable: Vec<(EventPosition, serde_json::Value)> = Vec::new();
             for baseline in &baselines {
                 let Some(cover) = baseline.covers_up_to.clone() else {
@@ -489,25 +606,26 @@ impl SyncEngine for EventSyncEngine {
             readable.sort_by(|a, b| a.0.cmp(&b.0));
             if let Some((cover, payload)) = readable.pop() {
                 self.reducer.apply_baseline(payload);
+                self.replay_outgoing();
                 floor_advance = Some(cover);
             }
-            // No readable baseline => apply all events from empty (floor stays
-            // None). Present-but-unreadable is the below-floor case.
-        } else if let Some(newest_cover) = baselines
-            .iter()
-            .filter_map(|b| b.covers_up_to.clone())
-            .max()
-        {
-            if state
-                .floor
-                .as_ref()
-                .is_none_or(|f| newest_cover.supersedes(f))
-            {
-                floor_advance = Some(newest_cover);
+            // No readable baseline => a new client applies all events from empty
+            // (floor stays None). Present-but-unreadable is the below-floor case.
+        }
+        if floor_advance.is_none() && !is_new_client {
+            if let Some(newest_cover) = newest_cover {
+                if state
+                    .floor
+                    .as_ref()
+                    .is_none_or(|f| newest_cover.supersedes(f))
+                {
+                    floor_advance = Some(newest_cover);
+                }
             }
         }
         if let Some(cover) = floor_advance {
             self.meta.prune_positions(&cover)?;
+            self.forget_older_generation(state.floor.as_ref(), state.delete_up_to.is_some())?;
             state.newest_event = Some(max_position(state.newest_event.take(), cover.clone()));
             state.floor = Some(cover);
             state.events_since_baseline = 0;
@@ -555,16 +673,15 @@ impl SyncEngine for EventSyncEngine {
         {
             let mut awaiting = self.awaiting_confirmation.lock().unwrap();
             for p in outgoing {
-                let remaining = p.bsos.iter().map(|b| b.envelope.id.clone()).collect();
                 awaiting.insert(
                     p.position_id.clone(),
-                    AwaitingConfirmation {
-                        remaining,
-                        on_complete: OnComplete::Event {
+                    AwaitingConfirmation::new(
+                        &p.bsos,
+                        OnComplete::Event {
                             gate: p.gate,
                             position_id: p.position_id,
                         },
-                    },
+                    ),
                 );
                 bsos.extend(p.bsos);
             }
@@ -601,13 +718,9 @@ impl SyncEngine for EventSyncEngine {
                     // every part before advancing the floor and pruning, so a
                     // half-uploaded baseline never moves the floor.
                     let (group, parts) = self.build_baseline_bsos(&cover)?;
-                    let remaining = parts.iter().map(|b| b.envelope.id.clone()).collect();
                     self.awaiting_confirmation.lock().unwrap().insert(
                         group,
-                        AwaitingConfirmation {
-                            remaining,
-                            on_complete: OnComplete::Baseline { cover },
-                        },
+                        AwaitingConfirmation::new(&parts, OnComplete::Baseline { cover }),
                     );
                     bsos.extend(parts);
                 } else {
@@ -616,7 +729,15 @@ impl SyncEngine for EventSyncEngine {
                         state.bar_blocked_since = Some(timestamp);
                     }
                     if threshold_hit {
-                        bsos.push(self.build_baseline_needed_bso()?);
+                        let marker = self.build_baseline_needed_bso()?;
+                        self.awaiting_confirmation.lock().unwrap().insert(
+                            marker.envelope.id.clone(),
+                            AwaitingConfirmation::new(
+                                std::slice::from_ref(&marker),
+                                OnComplete::Marker,
+                            ),
+                        );
+                        bsos.push(marker);
                     }
                 }
             }
@@ -648,12 +769,19 @@ impl SyncEngine for EventSyncEngine {
             .collect();
         let mut events = Vec::new();
         let mut baselines = Vec::new();
+        let mut confirmed = Vec::new();
         for group in complete {
-            match awaiting.remove(&group).expect("just listed").on_complete {
+            let done = awaiting.remove(&group).expect("just listed");
+            // We never re-download our own records, so track them here.
+            let pos = EventPosition::new(new_timestamp, group);
+            confirmed.extend(done.ids.into_iter().map(|id| (id, pos.clone())));
+            match done.on_complete {
                 OnComplete::Event { gate, position_id } => events.push((gate, position_id)),
                 OnComplete::Baseline { cover } => baselines.push(cover),
+                OnComplete::Marker => {}
             }
         }
+        self.meta.track_records(&confirmed)?;
 
         // Confirmed events advance the gate.
         for (gate, position_id) in events {
@@ -671,10 +799,12 @@ impl SyncEngine for EventSyncEngine {
             }
         }
 
-        // Confirmed baselines advance the floor and prune below it.
+        // Confirmed baselines advance the floor, prune below it, and queue what
+        // they supersede for deletion from the server.
         for cover in baselines {
             if state.floor.as_ref().is_none_or(|f| cover.supersedes(f)) {
                 self.meta.prune_positions(&cover)?;
+                state.delete_up_to = Some(cover.clone());
                 state.newest_event = Some(max_position(state.newest_event.take(), cover.clone()));
                 state.floor = Some(cover);
                 state.events_since_baseline = 0;
@@ -711,9 +841,13 @@ impl SyncEngine for EventSyncEngine {
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        // TODO: erasing local user data needs a reducer hook; for now we only
-        // drop the engine's own sync metadata.
+        // Unsent local edits describe data that's about to be gone.
+        self.outgoing.lock().unwrap().clear();
+        self.awaiting_confirmation.lock().unwrap().clear();
+        // Metadata first: if we stop before wiping the reducer, the next sync
+        // is a cold start, not a client that thinks it already holds the data.
         self.meta.reset()?;
+        self.reducer.wipe();
         Ok(())
     }
 }
@@ -751,6 +885,10 @@ mod tests {
         }
         fn apply_event(&self, event: ResolvedEvent) {
             self.applied.lock().unwrap().push(event);
+        }
+        fn wipe(&self) {
+            self.applied.lock().unwrap().clear();
+            self.baselines.lock().unwrap().clear();
         }
     }
 
@@ -1058,6 +1196,7 @@ mod tests {
             .into_iter()
             .enumerate()
             .map(|(i, data)| StagedRecord {
+                id: batch_record_id(&Guid::new(group), i),
                 group: Guid::new(group),
                 modified: ServerTimestamp::from_millis(100),
                 raw: RawRecord::Frame {
@@ -1091,13 +1230,17 @@ mod tests {
             frames.len()
         );
         frames.reverse();
+        let frame_count = frames.len();
 
-        let assembled = assemble_events(frames, 1);
+        let (assembled, records) = assemble_events(frames, 1);
         assert_eq!(assembled.len(), 1);
         let ev = &assembled[0];
         assert_eq!(ev.covers_up_to, Some(pos(100, "cover")));
         // Frames reassembled to the identical body despite reversed delivery.
         assert_eq!(ev.body, body);
+        // Every frame is tracked under the event's position, not its own.
+        assert_eq!(records.len(), frame_count);
+        assert!(records.iter().all(|(_, p)| *p == ev.position));
     }
 
     #[test]
@@ -1121,6 +1264,7 @@ mod tests {
                 .cloned()
                 .enumerate()
                 .map(|(i, data)| StagedRecord {
+                    id: batch_record_id(&Guid::new("g"), i),
                     group: Guid::new("g"),
                     modified: ServerTimestamp::from_millis(100 + (i as i64 + 1) * 10),
                     raw: RawRecord::Frame {
@@ -1136,10 +1280,10 @@ mod tests {
             Guid::new("g"),
         );
 
-        assert_eq!(assemble_events(make(), 1)[0].position, expected);
+        assert_eq!(assemble_events(make(), 1).0[0].position, expected);
         let mut reversed = make();
         reversed.reverse();
-        assert_eq!(assemble_events(reversed, 1)[0].position, expected);
+        assert_eq!(assemble_events(reversed, 1).0[0].position, expected);
     }
 
     #[test]
@@ -1156,7 +1300,10 @@ mod tests {
                 *part_count = 3;
             }
         }
-        assert!(assemble_events(frames, 1).is_empty());
+        let (assembled, records) = assemble_events(frames, 1);
+        assert!(assembled.is_empty());
+        // Not tracked either: deleting its frames early would orphan the rest.
+        assert!(records.is_empty());
     }
 
     #[test]

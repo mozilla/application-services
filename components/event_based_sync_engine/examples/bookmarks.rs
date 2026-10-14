@@ -179,6 +179,10 @@ impl EventReducer for BookmarkStore {
             }
         }
     }
+
+    fn wipe(&self) {
+        self.state.lock().unwrap().clear();
+    }
 }
 
 fn bookmark_schema_v1() -> SchemaRegistry {

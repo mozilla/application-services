@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Core convergence scenarios: independent edits union, concurrent same-field
-//! edits resolve to one winner everywhere, and deletes stay sticky.
+//! edits resolve to one winner everywhere, deletes stay sticky, and a wiped
+//! client rebuilds from the server.
 
 mod support;
 
+use event_based_sync_engine::BaselineConfig;
 use serde_json::json;
 use support::{
     assert_converged, no_baselines, schema_v1, sync_to_quiescence, FakeServer, SimClient,
@@ -88,5 +90,35 @@ fn repeated_local_edit_in_one_batch_keeps_the_last() {
 
         assert_converged(&[&a, &b]);
         assert_eq!(b.state()[&id]["name"], json!("second"));
+    }
+}
+
+#[test]
+fn wiped_client_drops_unsent_edits_and_rebuilds_from_the_server() {
+    // With and without a baseline (which also deletes the events it covers).
+    for config in [
+        no_baselines(),
+        BaselineConfig {
+            events_per_baseline: Some(2),
+            baseline_timeout_ms: None,
+        },
+    ] {
+        let mut server = FakeServer::new();
+        let a = SimClient::new("A", schema_v1(), config.clone());
+        let b = SimClient::new("B", schema_v1(), config);
+
+        let id = a.create(json!({ "name": "work" }));
+        a.create(json!({ "name": "home" }));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        // B edits but wipes before syncing: the edit must not reach the server.
+        b.modify(&id, "name", json!("lost"));
+        b.wipe();
+        assert!(b.state().is_empty());
+
+        sync_to_quiescence(&[&a, &b], &mut server);
+        assert_converged(&[&a, &b]);
+        assert_eq!(b.state().len(), 2);
+        assert_eq!(a.state()[&id]["name"], json!("work"));
     }
 }
