@@ -16,7 +16,7 @@ pub use report_reason::ReportReason;
 use sql_support::open_database;
 
 use self::{
-    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
+    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags, AdRequestRelevance},
     ad_response::{AdResponse, AdResponseValue},
     error::{
         CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError,
@@ -62,14 +62,16 @@ where
         self.transport.clear_cache()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn fetch_ads<A>(
         &self,
-        context_id: String,
+        context_id: Option<String>,
         flags: AdRequestFlags,
         placements: Vec<AdPlacementRequest>,
         cache_policy: CachePolicy,
         ohttp: bool,
         blocks: Vec<String>,
+        relevance: AdRequestRelevance,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
@@ -81,6 +83,7 @@ where
             flags,
             ohttp,
             placements,
+            relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
@@ -98,7 +101,7 @@ where
     #[cfg(feature = "stateful")]
     pub fn fetch_ads_mixed(
         &self,
-        context_id: String,
+        context_id: Option<String>,
         flags: AdRequestFlags,
         placements: Vec<AdPlacementRequest>,
         ohttp: bool,
@@ -111,6 +114,7 @@ where
             flags,
             ohttp,
             placements,
+            AdRequestRelevance::default(),
         )?;
 
         if ohttp {
@@ -331,12 +335,13 @@ mod tests {
         let client = make_test_client(None);
 
         let result = client.fetch_ads::<AdImage>(
-            TEST_CONTEXT_ID.to_string(),
+            Some(TEST_CONTEXT_ID.to_string()),
             AdRequestFlags::default(),
             make_happy_placement_requests(),
             CachePolicy::default(),
             false,
             Default::default(),
+            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -365,12 +370,13 @@ mod tests {
         // First call should be a miss then warm the cache
         let (response1, _) = client
             .fetch_ads::<AdImage>(
-                TEST_CONTEXT_ID.to_string(),
+                Some(TEST_CONTEXT_ID.to_string()),
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -378,12 +384,13 @@ mod tests {
         // Second call should be a hit
         let (response2, _) = client
             .fetch_ads::<AdImage>(
-                TEST_CONTEXT_ID.to_string(),
+                Some(TEST_CONTEXT_ID.to_string()),
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);
