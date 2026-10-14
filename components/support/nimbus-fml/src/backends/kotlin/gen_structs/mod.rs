@@ -130,7 +130,6 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.internal.PrefBranch".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 "org.json.JSONObject".to_string(),
-                "android.content.SharedPreferences".to_string(),
             ])
             .filter(|i| i != &my_package)
             .collect::<HashSet<String>>()

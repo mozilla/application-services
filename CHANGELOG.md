@@ -24,6 +24,12 @@
 
 - Wired up the error ping on iOS using glean-sym.
 
+## ✨ What's Changed ✨
+
+### Nimbus
+
+- The `pref-key` annotation for FML feature variables has been removed. ([#7559](https://github.com/mozilla/application-services/pull/7559/))
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨
