@@ -248,6 +248,7 @@ Options passed when making a single ad request.
  * @property {MozAdsRequestCachePolicy|null} cachePolicy - Per-request caching policy.
  * @property {Object.<string, boolean>} flags - Request-level flags forwarded as the `flags` object on the wire. An empty object omits it.
  * @property {boolean} ohttp - Whether to route this request through OHTTP (default: false).
+ * @property {Object.<string, boolean>} relevance - Per client calculated relevance scores.  An empty object omits it.  Defaults to `{}`.
  */
 ```
 
@@ -256,6 +257,7 @@ Options passed when making a single ad request.
 | `cachePolicy` | `MozAdsRequestCachePolicy \| null`    | Per-request caching policy. If `null`, uses the client's default TTL with a `CacheFirst` mode.                                             |
 | `flags`       | `Object.<string, boolean>`            | Request-level flags forwarded verbatim as the `flags` object on the wire. An empty object omits it. e.g. `{ contextual_placement: true }`. Defaults to `{}`. |
 | `ohttp`       | `boolean`                             | Whether to route this request through OHTTP. Defaults to `false`.                                                                          |
+| `relevance`   | `Object.<string, number>`             | Per client calculated relevance scores.  An empty object omits it.  Defaults to `{}`.
 
 ---
 

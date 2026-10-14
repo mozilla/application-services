@@ -222,6 +222,7 @@ data class MozAdsRequestOptions(
     val cachePolicy: MozAdsRequestCachePolicy?,
     val flags: Map<String, Boolean> = emptyMap(),
     val ohttp: Boolean = false
+    val relevance: Map<String, Double> = emptyMap(),
 )
 ```
 
@@ -230,6 +231,7 @@ data class MozAdsRequestOptions(
 | `cachePolicy` | `MozAdsRequestCachePolicy?`  | Per-request caching policy. If `null`, uses the client's default TTL with a `CacheFirst` mode.                                             |
 | `flags`       | `Map<String, Boolean>`       | Request-level flags forwarded verbatim as the `flags` object on the wire. An empty map omits it. e.g. `mapOf("contextual_placement" to true)`. Defaults to `emptyMap()`. |
 | `ohttp`       | `Boolean`                    | Whether to route this request through OHTTP. Defaults to `false`.                                                                          |
+| `relevance`   | `Map<String, Double>`       | Per client calculated relevance scores. An empty object omits it. Defaults to `emptyMap()``.                                                 |
 
 ---
 
