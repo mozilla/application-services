@@ -80,7 +80,7 @@ impl AdsClient {
                 .and_then(|x| match AdsStore::builder(x.db_path).build() {
                     Ok(store) => Some(store),
                     Err(e) => {
-                        telemetry::record_ads_store_error(e.telemetry_label(), &e);
+                        telemetry::record_ads_store_error(&e);
                         None
                     }
                 });
@@ -260,6 +260,8 @@ impl AdsClient {
     }
 
     pub fn shutdown(&self) {
+        telemetry::uninstall();
+
         #[cfg(feature = "stateful")]
         if let Some(ads_store) = self.ads_store.as_ref() {
             ads_store.shutdown_db();

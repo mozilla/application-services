@@ -5,24 +5,25 @@
 
 use std::sync::Arc;
 
-use crate::telemetry::Telemetry;
+use crate::telemetry::{self, Telemetry};
 
 /// Receives the ads client's metrics, for the app to record in Glean.
 #[uniffi::export(callback_interface)]
 pub trait MozAdsTelemetry: Send + Sync {
-    // By design: the foreign callback signature; labels come from `metrics.yaml`.
     fn record_build_cache_error(&self, label: String, value: String);
-    // By design: the foreign callback signature; labels come from `metrics.yaml`.
     fn record_client_error(&self, label: String, value: String);
     fn record_client_operation_total(&self, label: String);
-    // By design: the foreign callback signature; labels come from `metrics.yaml`.
     fn record_deserialization_error(&self, label: String, value: String);
-    // By design: the foreign callback signature; labels come from `metrics.yaml`.
     fn record_http_cache_outcome(&self, label: String, value: String);
 }
 
+/// Makes the consumer's callback the destination of every metric recorded from now on.
+pub fn install(callback: Arc<dyn MozAdsTelemetry>) {
+    telemetry::install(MozAdsTelemetryWrapper(callback));
+}
+
 /// Adapts the consumer's [`MozAdsTelemetry`] callback to the core [`Telemetry`] trait.
-pub struct MozAdsTelemetryWrapper(pub Arc<dyn MozAdsTelemetry>);
+struct MozAdsTelemetryWrapper(Arc<dyn MozAdsTelemetry>);
 
 impl Telemetry for MozAdsTelemetryWrapper {
     fn record_build_cache_error(&self, label: &str, value: String) {
@@ -45,16 +46,4 @@ impl Telemetry for MozAdsTelemetryWrapper {
     fn record_http_cache_outcome(&self, label: &str, value: String) {
         self.0.record_http_cache_outcome(label.to_string(), value);
     }
-}
-
-#[cfg(test)]
-pub struct NoopMozAdsTelemetry;
-
-#[cfg(test)]
-impl MozAdsTelemetry for NoopMozAdsTelemetry {
-    fn record_build_cache_error(&self, _label: String, _value: String) {}
-    fn record_client_error(&self, _label: String, _value: String) {}
-    fn record_client_operation_total(&self, _label: String) {}
-    fn record_deserialization_error(&self, _label: String, _value: String) {}
-    fn record_http_cache_outcome(&self, _label: String, _value: String) {}
 }

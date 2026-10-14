@@ -81,7 +81,7 @@ class MozAdsClientBuilder {
 
 ## `MozAdsTelemetry`
 
-Telemetry protocol for recording ads client metrics. You must provide an implementation of this protocol to the `MozAdsClientBuilder` to enable telemetry collection. Telemetry is process-wide: building a client with a telemetry instance makes it the destination for metrics from every client in the process, replacing any instance installed before it. It is dropped when that client shuts down. Until an instance is installed, no metrics are recorded.
+Telemetry protocol for recording ads client metrics. You must provide an implementation of this protocol to the `MozAdsClientBuilder` to enable telemetry collection. Telemetry is process-wide and meant to be set up once: building a client with a telemetry instance makes it the destination for metrics from every client in the process, replacing any instance installed before it. It is dropped when any client shuts down. Until an instance is installed, no metrics are recorded.
 
 ```swift
 protocol MozAdsTelemetry {

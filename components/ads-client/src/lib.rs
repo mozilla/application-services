@@ -26,7 +26,6 @@ mod mars;
 pub mod request;
 pub mod telemetry;
 
-use crate::telemetry::Installation;
 pub use ffi::*;
 
 #[cfg(test)]
@@ -43,8 +42,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: AdsClient,
-    // The telemetry callback this client installed, if any.
-    telemetry: Option<Installation>,
 }
 
 #[uniffi::export]
@@ -174,10 +171,6 @@ impl MozAdsClient {
     // However, future shutdowns may require an error to be logged, so we keep the Result.
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
-        // Drop the telemetry callback this client installed, unless another client has replaced it.
-        if let Some(telemetry) = &self.telemetry {
-            telemetry.uninstall();
-        }
         self.inner.shutdown();
         Ok(())
     }

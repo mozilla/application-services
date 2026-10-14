@@ -7,14 +7,14 @@
 //! forwarded to the process-wide [`Telemetry`] implementation.
 //!
 //! The function signatures match the glean-sym backend this will be replaced
-//! with, so the swap only touches this file. [`Telemetry`] and
-//! [`Installation`] exist only because the FFI layer hands us a UniFFI callback
+//! with, so the swap only touches this file. [`Telemetry`], [`install`] and
+//! [`uninstall`] exist only because the FFI layer hands us a UniFFI callback
 //! that has to be dropped again before shutdown; glean-sym needs none of them.
 //!
 //! Until a callback is installed, and after it is uninstalled, recording is a
 //! no-op.
 
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use parking_lot::RwLock;
 
@@ -30,41 +30,20 @@ pub trait Telemetry: Send + Sync {
 // By design: telemetry is a process-wide singleton, as it will be with glean-sym.
 static CALLBACK: RwLock<Option<Arc<dyn Telemetry>>> = RwLock::new(None);
 
-/// A callback put in place by [`Installation::install`]. Weak, so that only
-/// the singleton keeps the callback alive.
-pub struct Installation(Weak<dyn Telemetry>);
+/// Makes `callback` the destination of every metric recorded from now on.
+pub fn install(callback: impl Telemetry + 'static) {
+    // Dropping a UniFFI callback calls into foreign code, so let the replaced
+    // one drop after the lock is released.
+    let _replaced = CALLBACK.write().replace(Arc::new(callback));
+}
 
-impl Installation {
-    /// Makes `callback` the destination of every metric recorded from now on,
-    /// replacing any callback installed before it.
-    pub fn install(callback: impl Telemetry + 'static) -> Self {
-        let callback: Arc<dyn Telemetry> = Arc::new(callback);
-        let installation = Self(Arc::downgrade(&callback));
-        // Dropping a UniFFI callback calls into foreign code, so let the
-        // replaced one drop after the lock is released.
-        let _replaced = CALLBACK.write().replace(callback);
-        installation
-    }
-
-    /// Drops the callback, unless another one has replaced it since. Recording
-    /// is then a no-op until another one is installed.
-    ///
-    /// UniFFI callbacks left hanging at shutdown crash Firefox Desktop on quit,
-    /// so each client uninstalls its callback when it shuts down.
-    pub fn uninstall(&self) {
-        // As in `install`, the removed callback drops after the lock is released.
-        let _removed = {
-            let mut installed = CALLBACK.write();
-            let is_ours = installed
-                .as_ref()
-                .is_some_and(|current| Weak::ptr_eq(&Arc::downgrade(current), &self.0));
-            if is_ours {
-                installed.take()
-            } else {
-                None
-            }
-        };
-    }
+/// Drops the installed callback, after which recording is a no-op.
+///
+/// UniFFI callbacks left hanging at shutdown crash Firefox Desktop on quit, so
+/// the client uninstalls the callback when it shuts down.
+pub fn uninstall() {
+    // As in `install`, the removed callback drops after the lock is released.
+    let _removed = CALLBACK.write().take();
 }
 
 fn with_callback(f: impl FnOnce(&dyn Telemetry)) {
@@ -127,30 +106,15 @@ mod tests {
     fn test_records_to_installed_callback() {
         let _lock = test_lock();
         let recording = RecordingTelemetry::default();
-        let installation = Installation::install(recording.clone());
+        install(recording.clone());
 
         record_client_operation(ClientOperation::ReportAd);
         // Other tests may record concurrently, so only look for ours.
         assert!(recording.0.lock().iter().any(|label| label == "report_ad"));
 
-        installation.uninstall();
+        uninstall();
         recording.0.lock().clear();
         record_client_operation(ClientOperation::ReportAd);
         assert!(recording.0.lock().is_empty());
-    }
-
-    #[test]
-    fn test_uninstall_leaves_a_replacement_alone() {
-        let _lock = test_lock();
-        let first = Installation::install(RecordingTelemetry::default());
-        let second = Installation::install(RecordingTelemetry::default());
-        // Replacing a callback drops it.
-        assert_eq!(first.0.strong_count(), 0);
-
-        first.uninstall();
-        assert_eq!(second.0.strong_count(), 1);
-
-        second.uninstall();
-        assert_eq!(second.0.strong_count(), 0);
     }
 }

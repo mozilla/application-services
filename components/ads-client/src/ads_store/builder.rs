@@ -33,17 +33,6 @@ pub enum AdsStoreBuilderError {
     },
 }
 
-impl AdsStoreBuilderError {
-    /// The `ads_client.build_cache_error` label this error is recorded under.
-    pub fn telemetry_label(&self) -> &'static str {
-        match self {
-            Self::Database(_) => "store_database_error",
-            Self::EmptyDbPath => "store_empty_db_path",
-            Self::InvalidMaxSize { .. } => "store_invalid_max_size",
-        }
-    }
-}
-
 pub struct AdsStoreBuilder {
     db_path: PathBuf,
     // Flag for whether this db is built in-memory
@@ -92,8 +81,7 @@ impl AdsStoreBuilder {
             // Attempt to open initial connection, resolving an error if needed.
             let conn = db.lock();
             if let Some(e) = conn.err() {
-                let e = AdsStoreBuilderError::from(e);
-                telemetry::record_ads_store_error(e.telemetry_label(), &e);
+                telemetry::record_ads_store_error(&AdsStoreBuilderError::from(e));
             } else {
                 return Ok(db);
             }
