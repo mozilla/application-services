@@ -142,6 +142,12 @@ pub trait SetupStorageClient {
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
     ) -> error::Result<ServerTimestamp>;
+    /// Only used with EngineChoicesModel::Device
+    fn put_sync_ids(
+        &self,
+        xius: ServerTimestamp,
+        sync_ids: &SyncIdsRecord,
+    ) -> error::Result<ServerTimestamp>;
     fn put_crypto_keys(
         &self,
         xius: ServerTimestamp,
@@ -283,6 +289,15 @@ impl SetupStorageClient for Sync15StorageClient {
     ) -> error::Result<ServerTimestamp> {
         let bso = OutMetaGlobalBso::new(Guid::new("global").into(), global)?;
         self.put("storage/meta/global", xius, &bso)
+    }
+
+    fn put_sync_ids(
+        &self,
+        xius: ServerTimestamp,
+        sync_ids: &SyncIdsRecord,
+    ) -> error::Result<ServerTimestamp> {
+        let bso = OutgoingBso::new(Guid::new("syncids").into(), sync_ids)?;
+        self.put("storage/meta/syncids", xius, &bso)
     }
 
     fn put_crypto_keys(

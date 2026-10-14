@@ -60,7 +60,8 @@ pub struct DeviceSettings {
     pub name: String,
     pub kind: DeviceType,
     /// The engines this device syncs, to be published for other devices on the
-    /// account to see. Not yet published.
+    /// account to see. Not yet published. With per-device engine choices, these
+    /// also seed a freshly created `meta/global`.
     #[uniffi(default)]
     pub enabled_engines: Vec<String>,
 }
@@ -82,6 +83,8 @@ pub struct SyncResult {
     /// update the local state (ie, to ensure that their Sync UI correctly
     /// reflects what engines are enabled and disabled), because these could
     /// change after every sync.
+    /// Always `None` when using `EngineChoicesModel::Device`, device's engine
+    /// choices are local without remote updates.
     pub declined: Option<Vec<String>>,
     /// Earliest time that the next sync should happen at
     pub next_sync_allowed_at: Option<SystemTime>,

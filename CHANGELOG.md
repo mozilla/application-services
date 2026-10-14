@@ -21,7 +21,7 @@
 ### Sync Manager
 
 - `SyncParams.enabled_changes` is replaced by `engine_choices_model`. Pass `EngineChoicesModel.Account(enabledChanges)` to keep the current behaviour (in Kotlin, `EngineChoicesModel` is in `mozilla.appservices.sync15`).
-- `DeviceSettings` has a new optional `enabled_engines` field, not yet used.
+- `DeviceSettings` has a new optional `enabled_engines` field. With `EngineChoicesModel.Device`, it seeds the engines and declined engines of a freshly created `meta/global`; it's otherwise not yet used.
 
 ## ✨ What's New ✨
 
@@ -42,6 +42,10 @@
 
 - Better interoperability with clients which choose engines per device: sync IDs are adopted from `meta/syncids` rather than minted, and our declined engines are kept when `meta/global` has no engines or declined engines.
 - A fresh `meta/global` no longer lists declined engines in `engines`.
+
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
 
 [Full Changelog](In progress)
 

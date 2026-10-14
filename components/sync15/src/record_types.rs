@@ -8,7 +8,7 @@ use sync_guid::Guid;
 
 // Known record formats.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MetaGlobalEngine {
     pub version: usize,
     #[serde(rename = "syncID")]
@@ -21,7 +21,10 @@ pub struct MetaGlobalRecord {
     pub sync_id: Guid,
     #[serde(rename = "storageVersion")]
     pub storage_version: usize,
-    #[serde(default)]
+    // An empty `engines` must be omitted entirely: Desktop treats a missing
+    // `engines` as "nothing to reconcile", but an empty one as "everything
+    // has been disabled".
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub engines: HashMap<String, MetaGlobalEngine>,
     #[serde(default)]
     pub declined: Vec<String>,
@@ -35,19 +38,43 @@ pub const SYNC_IDS_RECORD_VERSION: usize = 1;
 /// clients don't add engines to `meta/global`, so this is where we look for an
 /// engine's sync ID before minting a new one - minting would force all of them
 /// to reset the engine.
-/// We only ever read it.
-#[derive(Deserialize, Debug, Clone)]
+/// When using per-account engine choices we only ever read it; when using
+/// per-device choices, we maintain it too.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct SyncIdsRecord {
     #[serde(default)]
     pub version: usize,
     /// The `meta/global` sync ID this record was written under.
-    #[serde(rename = "globalSyncID", default)]
+    #[serde(
+        rename = "globalSyncID",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub global_sync_id: Option<Guid>,
     #[serde(default)]
     pub engines: HashMap<String, MetaGlobalEngine>,
+    /// Fields we don't know about, preserved when we rewrite the record.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SyncIdsRecord {
+    /// A new, empty record for the given `meta/global`.
+    pub fn new_for(global: &MetaGlobalRecord) -> Self {
+        Self {
+            version: SYNC_IDS_RECORD_VERSION,
+            global_sync_id: Some(global.sync_id.clone()),
+            ..Default::default()
+        }
+    }
+
+    /// Whether this record is one we understand, written for the given
+    /// `meta/global`.
+    pub fn is_usable_for(&self, global: &MetaGlobalRecord) -> bool {
+        self.version == SYNC_IDS_RECORD_VERSION
+            && self.global_sync_id.as_ref() == Some(&global.sync_id)
+    }
+
     /// Returns the entry for an engine if it's safe to adopt it for the given
     /// `meta/global` and engine version. These rules must match Desktop's.
     pub fn usable_entry(
@@ -56,9 +83,7 @@ impl SyncIdsRecord {
         name: &str,
         version: usize,
     ) -> Option<&MetaGlobalEngine> {
-        if self.version != SYNC_IDS_RECORD_VERSION
-            || self.global_sync_id.as_ref() != Some(&global.sync_id)
-        {
+        if !self.is_usable_for(global) {
             return None;
         }
         self.engines
@@ -126,6 +151,35 @@ mod sync_ids_tests {
         assert!(r.usable_entry(&global(), "history", 1).is_none());
         // empty syncID
         assert!(r.usable_entry(&global(), "empty", 1).is_none());
+    }
+
+    #[test]
+    fn test_round_trip_keeps_unknown_fields() {
+        let json = serde_json::json!({
+            "version": 1,
+            "globalSyncID": "globalAAAAAA",
+            "engines": {"bookmarks": {"version": 2, "syncID": "bookmarksAAA"}},
+            "someFutureField": {"a": 1},
+        });
+        let r = parse(json.clone());
+        assert_eq!(serde_json::to_value(&r).unwrap(), json);
+    }
+
+    #[test]
+    fn test_new_for() {
+        let r = SyncIdsRecord::new_for(&global());
+        assert!(r.is_usable_for(&global()));
+        assert_eq!(
+            serde_json::to_value(&r).unwrap(),
+            serde_json::json!({"version": 1, "globalSyncID": "globalAAAAAA", "engines": {}})
+        );
+    }
+
+    #[test]
+    fn test_empty_engines_omitted() {
+        let json = serde_json::to_value(global()).unwrap();
+        assert!(json.get("engines").is_none());
+        assert_eq!(json["declined"], serde_json::json!([]));
     }
 
     #[test]
