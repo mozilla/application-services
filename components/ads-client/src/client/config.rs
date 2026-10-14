@@ -3,6 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#[cfg(feature = "stateful")]
+use std::time::Duration;
+
 use crate::mars::Environment;
 use crate::telemetry::Telemetry;
 
@@ -28,5 +31,5 @@ pub struct AdsCacheConfig {
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
     pub db_path: String,
-    pub batch_interval_ms: Option<u64>,
+    pub batch_interval_duration: Option<Duration>,
 }

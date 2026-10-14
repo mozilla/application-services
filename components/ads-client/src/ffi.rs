@@ -19,6 +19,8 @@ use crate::mars::Environment;
 use crate::mars::ReportReason;
 #[cfg(feature = "stateful")]
 use crate::worker;
+#[cfg(feature = "stateful")]
+use crate::worker::ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -26,6 +28,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
+use std::time::Duration;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -116,15 +119,17 @@ impl MozAdsClientBuilder {
             telemetry: telemetry.clone(),
         };
         #[cfg(feature = "stateful")]
-        let worker_batch_interval_ms = client_config
+        let worker_sleep_duration = client_config
             .store_config
             .as_ref()
-            .and_then(|config| config.batch_interval_ms);
+            .and_then(|config| config.batch_interval_duration)
+            .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
+
         let client = AdsClient::new(client_config);
         let inner = Arc::new(client);
         #[cfg(feature = "stateful")]
         let worker = if store_set {
-            worker::BackgroundWorker::new(inner.clone(), worker_batch_interval_ms)
+            worker::BackgroundWorker::new(inner.clone(), worker_sleep_duration)
         } else {
             worker::BackgroundWorker::new_empty()
         };
@@ -188,7 +193,7 @@ pub struct MozAdsCacheConfig {
 pub struct MozAdsStoreConfig {
     pub db_path: String,
     /// Interval rate for batching commands used by the background worker.
-    pub batch_interval_ms: Option<u64>,
+    pub batch_interval_duration: Option<Duration>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -464,7 +469,7 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
-            batch_interval_ms: config.batch_interval_ms,
+            batch_interval_duration: config.batch_interval_duration,
         }
     }
 }

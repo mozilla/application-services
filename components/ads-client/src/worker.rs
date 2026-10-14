@@ -1,4 +1,3 @@
-use parking_lot::Mutex;
 use url::Url;
 
 use crate::{
@@ -20,22 +19,22 @@ pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_mill
 
 pub struct BackgroundWorker {
     _worker_thread: Option<JoinHandle<()>>,
-    worker_request_queue: Option<Arc<Mutex<RequestQueue>>>,
+    worker_request_queue: Option<RequestQueue>,
 }
 
 impl BackgroundWorker {
     pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(
         inner_client: Arc<AdsClient<T>>,
-        batch_interval_ms: Option<u64>,
+        worker_sleep_duration: Duration,
     ) -> BackgroundWorker {
-        let request_queue = Arc::new(Mutex::new(RequestQueue::new()));
+        let request_queue = RequestQueue::new();
         let worker_request_queue = request_queue.clone();
 
         // Attempt to spawn a background worker thread to handle requests.
         // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone(), batch_interval_ms)).inspect_err(|err| {
+            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone(), worker_sleep_duration)).inspect_err(|err| {
                 // TODO: Replace this log with telemetry.
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
             }).ok()
@@ -63,9 +62,8 @@ impl BackgroundWorker {
         ads_requests: Vec<AdPlacementRequest>,
     ) -> Result<(), ComponentError> {
         if let Some(worker_dispatch) = &self.worker_request_queue {
-            let mut queue = worker_dispatch.lock();
             for req in ads_requests {
-                queue.push_ad_request(req);
+                worker_dispatch.push_ad_request(req);
             }
             Ok(())
         } else {
@@ -81,8 +79,7 @@ impl BackgroundWorker {
         queued_request: QueuedRequest,
     ) -> Result<(), ComponentError> {
         if let Some(worker_dispatch) = &self.worker_request_queue {
-            let mut queue = worker_dispatch.lock();
-            queue.push_queued_request(queued_request);
+            worker_dispatch.push_queued_request(queued_request);
             Ok(())
         } else {
             Err(BackgroundWorkerError::Closed.into())
@@ -93,18 +90,12 @@ impl BackgroundWorker {
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
 fn worker<T: Telemetry + Clone>(
     inner_client: Arc<AdsClient<T>>,
-    request_queue: Arc<Mutex<RequestQueue>>,
-    batch_interval_ms: Option<u64>,
+    request_queue: RequestQueue,
+    sleep_duration: Duration,
 ) {
-    let sleep_duration = batch_interval_ms
-        .map(|t| Duration::from_millis(t))
-        .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
     loop {
         // Get lock and extract next request. Lock is not held over the duration of the request but immediately dropped.
-        let next_request = {
-            let mut queue = request_queue.lock();
-            queue.next()
-        };
+        let next_request = request_queue.next();
 
         if let Some(request) = next_request {
             // TODO: Request should be logged via telemetry here.
