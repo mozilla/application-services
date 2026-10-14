@@ -39,6 +39,10 @@
 - `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
 >>>>>>> 4bc0c2b04 ([DISCO-4526] merino: add seq and sid field)
 
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
+
 ## Breaking Changes
 
 ### Autofill

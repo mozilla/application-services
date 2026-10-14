@@ -11,7 +11,7 @@ use crate::EncryptedPayload;
 use crate::bso::OutgoingEncryptedBso;
 use crate::error::{self, Error as ErrorKind, ErrorResponse, debug, info, trace, warn};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord, SyncIdsRecord};
-use crate::{Guid, KeyBundle, ServerTimestamp};
+use crate::{EngineChoicesModel, Guid, KeyBundle, ServerTimestamp};
 use interrupt_support::Interruptee;
 use serde_derive::*;
 
@@ -40,17 +40,23 @@ const DEFAULT_ENGINES: &[(&str, usize)] = &[
 // Declined engines to include in a fresh `meta/global` record.
 const DEFAULT_DECLINED: &[&str] = &[];
 
+/// The storage version we support for an engine, if we know about it.
+pub(crate) fn engine_version(name: &str) -> Option<usize> {
+    DEFAULT_ENGINES
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, version)| *version)
+}
+
 /// State that we require the app to persist to storage for us.
-/// It's a little unfortunate we need this, because it's only tracking
-/// "declined engines", and even then, only needed in practice when there's
-/// no meta/global so we need to create one. It's extra unfortunate because we
-/// want to move away from "globally declined" engines anyway, moving towards
-/// allowing engines to be enabled or disabled per client rather than globally.
+/// It's a little unfortunate we need this, but it's tracking what to
+/// write to meta/global if we find it missing. Per-device clients don't need
+/// it for themselves, only so that a meta/global they create is sane for
+/// older clients.
 ///
 /// Apps are expected to treat this as opaque, so we support serializing it.
-/// Note that this structure is *not* used to *change* the declined engines
-/// list - that will be done in the future, but the API exposed for that
-/// purpose will also take a mutable PersistedGlobalState.
+/// Note that this structure is only used to create a meta/global; it never
+/// changes an existing one.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
 pub enum PersistedGlobalState {
@@ -173,6 +179,29 @@ pub struct GlobalState {
     pub meta_timestamp: ServerTimestamp,
     pub keys: EncryptedPayload,
     pub keys_timestamp: ServerTimestamp,
+    /// Whether this state was set up for per-device engine choices.
+    pub per_device: bool,
+    /// The `meta/syncids` record and its timestamp (zero if there's no such
+    /// record). Only fetched when using per-device engine choices.
+    pub sync_ids: Option<SyncIdsRecord>,
+    pub sync_ids_timestamp: ServerTimestamp,
+}
+
+impl GlobalState {
+    /// Returns the sync ID and version an engine should use. When using
+    /// per-device engine choices, an engine missing from `meta/global` uses its
+    /// `meta/syncids` entry instead.
+    pub fn engine_meta(&self, name: &str) -> Option<&MetaGlobalEngine> {
+        self.global.engines.get(name).or_else(|| {
+            if !self.per_device {
+                return None;
+            }
+            self.sync_ids
+                .as_ref()
+                .filter(|r| r.is_usable_for(&self.global))
+                .and_then(|r| r.engines.get(name))
+        })
+    }
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -217,13 +246,22 @@ fn has_missing_engines(global: &MetaGlobalRecord) -> bool {
     })
 }
 
-/// Fetches `meta/syncids`. A missing or unparseable record just means there's
-/// nothing to adopt, but other errors are fatal - minting new sync IDs because
-/// of a transient error would force clients using the record to reset.
-fn fetch_sync_ids(client: &dyn SetupStorageClient) -> error::Result<Option<SyncIdsRecord>> {
+/// Fetches `meta/syncids` and its timestamp (zero if there's no such record).
+/// A missing or unparseable record just means there's nothing to adopt, but
+/// other errors are fatal - minting new sync IDs because of a transient error
+/// would force clients using the record to reset.
+pub(crate) fn fetch_sync_ids(
+    client: &dyn SetupStorageClient,
+) -> error::Result<(Option<SyncIdsRecord>, ServerTimestamp)> {
     match client.fetch_sync_ids()? {
-        Sync15ClientResponse::Success { record, .. } => Ok(record),
-        Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => Ok(None),
+        Sync15ClientResponse::Success {
+            record,
+            last_modified,
+            ..
+        } => Ok((record, last_modified)),
+        Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+            Ok((None, ServerTimestamp::default()))
+        }
         other => Err(other.create_storage_error()),
     }
 }
@@ -277,7 +315,7 @@ pub struct SetupStateMachine<'a> {
     // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
-    engine_updates: Option<&'a HashMap<String, bool>>,
+    engine_choices: &'a EngineChoicesModel,
     interruptee: &'a dyn Interruptee,
     pub(crate) changes_needed: Option<EngineChangesNeeded>,
 }
@@ -290,7 +328,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
-        engine_updates: Option<&'a HashMap<String, bool>>,
+        engine_choices: &'a EngineChoicesModel,
         interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
@@ -298,7 +336,7 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
-            engine_updates,
+            engine_choices,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -316,7 +354,7 @@ impl<'a> SetupStateMachine<'a> {
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
         interruptee: &'a dyn Interruptee,
-        engine_updates: Option<&'a HashMap<String, bool>>,
+        engine_choices: &'a EngineChoicesModel,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
@@ -325,10 +363,14 @@ impl<'a> SetupStateMachine<'a> {
             pgs,
             sequence: Vec::new(),
             allowed_states,
-            engine_updates,
+            engine_choices,
             interruptee,
             changes_needed: None,
         }
+    }
+
+    fn per_device(&self) -> bool {
+        matches!(self.engine_choices, EngineChoicesModel::Device)
     }
 
     fn advance(&mut self, from: SetupState) -> error::Result<SetupState> {
@@ -389,6 +431,34 @@ impl<'a> SetupStateMachine<'a> {
                         // reupload.
                         if global.storage_version < STORAGE_VERSION {
                             Ok(FreshStartRequired { config })
+                        } else if self.per_device() {
+                            // Engine choices are ours alone: we never change
+                            // meta/global's engines or declined engines. Engines
+                            // get their sync IDs from meta/global if they're
+                            // there, otherwise from meta/syncids.
+                            info!(
+                                "Have info/collections and meta/global. Using per-device engine choices"
+                            );
+                            let (sync_ids, sync_ids_timestamp) = fetch_sync_ids(self.client)?;
+                            // But we remember declined engines, so a fresh start
+                            // writes what a per-account client would. As there,
+                            // a meta/global without engines isn't anyone's choice.
+                            if !global.engines.is_empty() {
+                                self.pgs.set_declined(global.declined.clone());
+                            }
+                            self.changes_needed = Some(EngineChangesNeeded::default());
+                            Ok(InitialWithMetaGlobal {
+                                meta_timestamp: collections
+                                    .get("meta")
+                                    .copied()
+                                    .unwrap_or_default(),
+                                config,
+                                collections,
+                                global,
+                                global_timestamp,
+                                sync_ids,
+                                sync_ids_timestamp,
+                            })
                         } else {
                             info!(
                                 "Have info/collections and meta/global. Computing new engine states"
@@ -415,7 +485,11 @@ impl<'a> SetupStateMachine<'a> {
                             };
                             let result = compute_engine_states(EngineStateInput {
                                 local_declined,
-                                user_changes: self.engine_updates.cloned().unwrap_or_default(),
+                                user_changes: self
+                                    .engine_choices
+                                    .enabled_changes()
+                                    .cloned()
+                                    .unwrap_or_default(),
                                 remote: Some(RemoteEngineState {
                                     declined: remote_declined,
                                     info_collections: collections.keys().cloned().collect(),
@@ -435,7 +509,7 @@ impl<'a> SetupStateMachine<'a> {
                             // Fetch any sync IDs we can adopt before we change
                             // any of our own state, so a failure leaves no trace.
                             let sync_ids = if has_missing_engines(&global) {
-                                fetch_sync_ids(self.client)?
+                                fetch_sync_ids(self.client)?.0
                             } else {
                                 None
                             };
@@ -475,6 +549,8 @@ impl<'a> SetupStateMachine<'a> {
                                 global,
                                 global_timestamp,
                                 meta_timestamp,
+                                sync_ids: None,
+                                sync_ids_timestamp: ServerTimestamp::default(),
                             })
                         }
                     }
@@ -491,6 +567,8 @@ impl<'a> SetupStateMachine<'a> {
                 global,
                 global_timestamp,
                 meta_timestamp,
+                sync_ids,
+                sync_ids_timestamp,
             } => {
                 // Now try and get keys etc - if we fresh-start we'll re-use declined.
                 match self.client.fetch_crypto_keys()? {
@@ -511,6 +589,9 @@ impl<'a> SetupStateMachine<'a> {
                             meta_timestamp,
                             keys: record.payload,
                             keys_timestamp: last_modified,
+                            per_device: self.per_device(),
+                            sync_ids,
+                            sync_ids_timestamp,
                         };
                         Ok(Ready { state })
                     }
@@ -531,7 +612,8 @@ impl<'a> SetupStateMachine<'a> {
                     record: collections,
                     ..
                 } => Ok(
-                    if self.engine_updates.is_none()
+                    if self.engine_choices.enabled_changes().is_none()
+                        && old_state.per_device == self.per_device()
                         && is_same_timestamp(old_state.meta_timestamp, &collections, "meta")
                         && is_same_timestamp(old_state.keys_timestamp, &collections, "crypto")
                     {
@@ -561,9 +643,15 @@ impl<'a> SetupStateMachine<'a> {
 
                 // Upload a fresh `meta/global`...
                 info!("Uploading meta/global");
+                // Per-device clients have no changes, so write exactly what a
+                // per-account client would.
                 let computed = compute_engine_states(EngineStateInput {
                     local_declined: self.pgs.get_declined().iter().cloned().collect(),
-                    user_changes: self.engine_updates.cloned().unwrap_or_default(),
+                    user_changes: self
+                        .engine_choices
+                        .enabled_changes()
+                        .cloned()
+                        .unwrap_or_default(),
                     remote: None,
                 });
                 self.pgs
@@ -647,6 +735,8 @@ enum SetupState {
         global: MetaGlobalRecord,
         global_timestamp: ServerTimestamp,
         meta_timestamp: ServerTimestamp,
+        sync_ids: Option<SyncIdsRecord>,
+        sync_ids_timestamp: ServerTimestamp,
     },
     WithPreviousState {
         old_state: GlobalState,
@@ -688,6 +778,10 @@ mod tests {
     use crate::bso::{IncomingEncryptedBso, IncomingEnvelope};
     use interrupt_support::NeverInterrupts;
     use std::cell::{Cell, RefCell};
+    use std::sync::LazyLock;
+
+    static PER_ACCOUNT: LazyLock<EngineChoicesModel> = LazyLock::new(EngineChoicesModel::default);
+    static PER_DEVICE: EngineChoicesModel = EngineChoicesModel::Device;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -699,6 +793,8 @@ mod tests {
         // If set, uploaded meta/global records are recorded here rather than
         // checked against what the original tests expect.
         uploaded_globals: Option<RefCell<Vec<MetaGlobalRecord>>>,
+        uploaded_sync_ids: RefCell<Vec<SyncIdsRecord>>,
+        wiped: Cell<bool>,
     }
 
     impl SetupStorageClient for InMemoryClient {
@@ -787,11 +883,23 @@ mod tests {
             }
         }
 
+        fn put_sync_ids(
+            &self,
+            xius: ServerTimestamp,
+            sync_ids: &SyncIdsRecord,
+        ) -> error::Result<ServerTimestamp> {
+            self.uploaded_sync_ids.borrow_mut().push(sync_ids.clone());
+            Ok(ServerTimestamp(xius.0 + 1))
+        }
+
         fn put_crypto_keys(
             &self,
             xius: ServerTimestamp,
             _keys: &OutgoingEncryptedBso,
         ) -> error::Result<()> {
+            if self.uploaded_globals.is_some() {
+                return Ok(());
+            }
             assert_eq!(xius, ServerTimestamp(888_800));
             Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
                 status: 500,
@@ -800,6 +908,7 @@ mod tests {
         }
 
         fn wipe_all_remote(&self) -> error::Result<()> {
+            self.wiped.set(true);
             Ok(())
         }
     }
@@ -886,11 +995,18 @@ mod tests {
             sync_ids: sync_ids_not_found(),
             sync_ids_fetches: Cell::new(0),
             uploaded_globals: None,
+            uploaded_sync_ids: RefCell::new(vec![]),
+            wiped: Cell::new(false),
         };
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
-        let mut state_machine =
-            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
+        let mut state_machine = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_ACCOUNT,
+            &NeverInterrupts,
+        );
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"
@@ -929,7 +1045,7 @@ mod tests {
             client: &dyn SetupStorageClient,
             root_key: &KeyBundle,
             pgs: &mut PersistedGlobalState,
-            engine_updates: Option<&HashMap<String, bool>>,
+            engine_choices: &EngineChoicesModel,
             old_state: GlobalState,
             expected_states: &[&str],
         ) {
@@ -937,7 +1053,7 @@ mod tests {
                 client,
                 root_key,
                 pgs,
-                engine_updates,
+                engine_choices,
                 &NeverInterrupts,
             );
             assert!(
@@ -986,6 +1102,8 @@ mod tests {
             sync_ids: sync_ids_not_found(),
             sync_ids_fetches: Cell::new(0),
             uploaded_globals: None,
+            uploaded_sync_ids: RefCell::new(vec![]),
+            wiped: Cell::new(false),
         };
 
         // First a test where the "previous" global state is OK to reuse.
@@ -1002,12 +1120,15 @@ mod tests {
                     .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
+                per_device: false,
+                sync_ids: None,
+                sync_ids_timestamp: ServerTimestamp::default(),
             };
             do_test(
                 &client,
                 &root_key,
                 &mut pgs,
-                None,
+                &PER_ACCOUNT,
                 old_state,
                 &sm_seq_used_previous,
             );
@@ -1027,12 +1148,15 @@ mod tests {
                     .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
+                per_device: false,
+                sync_ids: None,
+                sync_ids_timestamp: ServerTimestamp::default(),
             };
             do_test(
                 &client,
                 &root_key,
                 &mut pgs,
-                None,
+                &PER_ACCOUNT,
                 old_state,
                 &sm_seq_restarted,
             );
@@ -1053,12 +1177,15 @@ mod tests {
                     .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
+                per_device: false,
+                sync_ids: None,
+                sync_ids_timestamp: ServerTimestamp::default(),
             };
             do_test(
                 &client,
                 &root_key,
                 &mut pgs,
-                None,
+                &PER_ACCOUNT,
                 old_state,
                 &sm_seq_used_previous,
             );
@@ -1078,12 +1205,15 @@ mod tests {
                     .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(999_999),
+                per_device: false,
+                sync_ids: None,
+                sync_ids_timestamp: ServerTimestamp::default(),
             };
             do_test(
                 &client,
                 &root_key,
                 &mut pgs,
-                None,
+                &PER_ACCOUNT,
                 old_state,
                 &sm_seq_restarted,
             );
@@ -1103,6 +1233,9 @@ mod tests {
                     .to_encrypted_payload(&root_key)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
+                per_device: false,
+                sync_ids: None,
+                sync_ids_timestamp: ServerTimestamp::default(),
             };
             let mut engine_updates = HashMap::<String, bool>::new();
             engine_updates.insert("logins".to_string(), false);
@@ -1110,7 +1243,9 @@ mod tests {
                 &client,
                 &root_key,
                 &mut pgs,
-                Some(&engine_updates),
+                &EngineChoicesModel::Account {
+                    enabled_changes: engine_updates,
+                },
                 old_state,
                 &sm_seq_restarted,
             );
@@ -1256,6 +1391,7 @@ mod tests {
             version: 1,
             global_sync_id: Some(GLOBAL_SYNC_ID.into()),
             engines: meta_global(engines, &[]).engines,
+            ..Default::default()
         };
         Sync15ClientResponse::Success {
             status: 200,
@@ -1288,6 +1424,8 @@ mod tests {
             sync_ids,
             sync_ids_fetches: Cell::new(0),
             uploaded_globals: Some(RefCell::new(vec![])),
+            uploaded_sync_ids: RefCell::new(vec![]),
+            wiped: Cell::new(false),
         }
     }
 
@@ -1296,7 +1434,7 @@ mod tests {
         root_key: &KeyBundle,
         pgs: &mut PersistedGlobalState,
     ) -> error::Result<GlobalState> {
-        SetupStateMachine::for_full_sync(client, root_key, pgs, None, &NeverInterrupts)
+        SetupStateMachine::for_full_sync(client, root_key, pgs, &PER_ACCOUNT, &NeverInterrupts)
             .run_to_ready(None)
     }
 
@@ -1466,8 +1604,9 @@ mod tests {
                 &root_key,
             );
             // A user change, which must not be persisted when we fail.
-            let mut changes = HashMap::new();
-            changes.insert("tabs".to_string(), false);
+            let mut enabled_changes = HashMap::new();
+            enabled_changes.insert("tabs".to_string(), false);
+            let changes = EngineChoicesModel::Account { enabled_changes };
             let mut pgs = PersistedGlobalState::V2 {
                 declined: Some(vec!["passwords".to_string()]),
             };
@@ -1475,7 +1614,7 @@ mod tests {
                 &client,
                 &root_key,
                 &mut pgs,
-                Some(&changes),
+                &changes,
                 &NeverInterrupts,
             );
             assert!(sm.run_to_ready(None).is_err());
@@ -1512,8 +1651,13 @@ mod tests {
 
         // So next time we can use that state as-is, even though meta/global
         // is older than the `meta` collection.
-        let mut sm =
-            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_ACCOUNT,
+            &NeverInterrupts,
+        );
         sm.run_to_ready(Some(state)).expect("should work");
         assert_eq!(sm.sequence, vec!["WithPreviousState", "Ready"]);
     }
@@ -1535,8 +1679,13 @@ mod tests {
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string(), "history".to_string()]),
         };
-        let mut sm =
-            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_ACCOUNT,
+            &NeverInterrupts,
+        );
         sm.run_to_ready(None).expect("should work");
         assert_eq!(sm.changes_needed, Some(EngineChangesNeeded::default()));
         assert_eq!(
@@ -1620,5 +1769,188 @@ mod tests {
         assert_eq!(pgs_declined(&pgs), Some(string_set(&declined)));
         assert!(uploaded(&client).is_empty());
         assert_eq!(client.sync_ids_fetches.get(), 0);
+    }
+
+    #[test]
+    fn test_per_device_leaves_meta_global_alone() {
+        nss_as::ensure_initialized();
+        error_support::init_for_tests();
+        let root_key = KeyBundle::new_random().unwrap();
+        // Lots of things a per-account client would "fix".
+        let client = recording_client(
+            meta_global_without(&["history", "tabs"], &["passwords"]),
+            sync_ids(&[("tabs", 1, "tabsREGIDAAA")]),
+            &root_key,
+        );
+        let mut pgs = PersistedGlobalState::V2 {
+            declined: Some(vec!["bookmarks".to_string()]),
+        };
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        let state = sm.run_to_ready(None).expect("should work");
+        assert_eq!(sm.changes_needed, Some(EngineChangesNeeded::default()));
+        assert!(uploaded(&client).is_empty());
+        assert!(client.uploaded_sync_ids.borrow().is_empty());
+        assert!(state.per_device);
+        assert_eq!(state.sync_ids_timestamp, ServerTimestamp(META_TS));
+        assert_eq!(state.engine_meta("tabs").unwrap().sync_id, "tabsREGIDAAA");
+        assert_eq!(
+            state.engine_meta("bookmarks").unwrap().sync_id,
+            "syncIDGLOBAL"
+        );
+        assert!(state.engine_meta("history").is_none());
+        // We remember the account's declined engines.
+        assert_eq!(pgs_declined(&pgs), Some(string_set(&["passwords"])));
+    }
+
+    #[test]
+    fn test_per_device_ignores_declined_without_engines() {
+        nss_as::ensure_initialized();
+        error_support::init_for_tests();
+        let root_key = KeyBundle::new_random().unwrap();
+        // A meta/global without engines doesn't replace what we remembered.
+        let client = recording_client(meta_global(&[], &["tabs"]), sync_ids_not_found(), &root_key);
+        let mut pgs = PersistedGlobalState::V2 {
+            declined: Some(vec!["history".to_string()]),
+        };
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        sm.run_to_ready(None).expect("should work");
+        assert_eq!(pgs_declined(&pgs), Some(string_set(&["history"])));
+    }
+
+    #[test]
+    fn test_per_device_sync_ids_errors() {
+        nss_as::ensure_initialized();
+        error_support::init_for_tests();
+        let root_key = KeyBundle::new_random().unwrap();
+        // We always need meta/syncids, so a failure to fetch it is fatal...
+        let client = recording_client(
+            meta_global_without(&[], &[]),
+            Sync15ClientResponse::Error(ErrorResponse::ServerError {
+                route: "storage/meta/syncids".into(),
+                status: 503,
+            }),
+            &root_key,
+        );
+        let mut pgs = PersistedGlobalState::default();
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        assert!(sm.run_to_ready(None).is_err());
+
+        // ...but a missing one is fine.
+        let client = recording_client(
+            meta_global_without(&[], &[]),
+            sync_ids_not_found(),
+            &root_key,
+        );
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        let state = sm.run_to_ready(None).expect("should work");
+        assert!(state.sync_ids.is_none());
+        assert_eq!(state.sync_ids_timestamp, ServerTimestamp(0));
+    }
+
+    #[test]
+    fn test_per_device_fresh_start() {
+        nss_as::ensure_initialized();
+        error_support::init_for_tests();
+        let root_key = KeyBundle::new_random().unwrap();
+        let mut client = recording_client(meta_global(&[], &[]), sync_ids_not_found(), &root_key);
+        client.meta_global = Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound {
+            route: "storage/meta/global".into(),
+        }));
+        let mut pgs = PersistedGlobalState::V2 {
+            declined: Some(vec!["passwords".to_string()]),
+        };
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        // Our mock server never gets a meta/global, so this ends up as a race.
+        assert!(sm.run_to_ready(None).is_err());
+        assert!(client.wiped.get());
+        assert_eq!(sm.changes_needed, Some(EngineChangesNeeded::default()));
+        // Exactly what a per-account client would write.
+        let uploaded = uploaded(&client);
+        let global = &uploaded[0];
+        assert_eq!(engine_names(global), default_engines_except(&["passwords"]));
+        assert_eq!(global.declined, vec!["passwords".to_string()]);
+        assert_eq!(pgs_declined(&pgs), Some(string_set(&["passwords"])));
+    }
+
+    #[test]
+    fn test_previous_state_requires_same_model() {
+        nss_as::ensure_initialized();
+        error_support::init_for_tests();
+        let root_key = KeyBundle::new_random().unwrap();
+        let client = recording_client(
+            meta_global_without(&[], &["passwords"]),
+            sync_ids_not_found(),
+            &root_key,
+        );
+        let mut pgs = PersistedGlobalState::V2 {
+            declined: Some(vec!["passwords".to_string()]),
+        };
+        let state = run(&client, &root_key, &mut pgs).expect("should work");
+        assert!(!state.per_device);
+
+        // A per-account state isn't reused for per-device choices...
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        let state = sm.run_to_ready(Some(state)).expect("should work");
+        assert_ne!(sm.sequence, vec!["WithPreviousState", "Ready"]);
+        assert!(state.per_device);
+
+        // ...but a per-device one is.
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_DEVICE,
+            &NeverInterrupts,
+        );
+        let state = sm.run_to_ready(Some(state)).expect("should work");
+        assert_eq!(sm.sequence, vec!["WithPreviousState", "Ready"]);
+
+        // And the other way around.
+        let mut sm = SetupStateMachine::for_full_sync(
+            &client,
+            &root_key,
+            &mut pgs,
+            &PER_ACCOUNT,
+            &NeverInterrupts,
+        );
+        let state = sm.run_to_ready(Some(state)).expect("should work");
+        assert_ne!(sm.sequence, vec!["WithPreviousState", "Ready"]);
+        assert!(!state.per_device);
     }
 }
