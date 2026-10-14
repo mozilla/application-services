@@ -598,12 +598,82 @@ mod tests {
     }
 
     #[test]
+    fn test_cvv_roundtrip() {
+        ensure_initialized();
+        let store = Store::new_shared_memory("cvv-roundtrip", test_encdec()).unwrap();
+        let fields = UpdatableCreditCardFields {
+            cc_name: "jane doe".to_string(),
+            cc_number: "4111111111117629".to_string(),
+            cc_cvv: Some("123".to_string()),
+            cc_exp_month: 1,
+            cc_exp_year: 2030,
+            cc_type: "visa".to_string(),
+        };
+        let card = store.add_credit_card(fields.clone()).unwrap();
+        assert_eq!(card.cc_cvv.as_deref(), Some("123"));
+        // Stored encrypted, not as the bare value.
+        {
+            let db = store.lock_db().unwrap();
+            let stored: String = db
+                .query_row(
+                    "SELECT cc_cvv_enc FROM credit_cards_data WHERE guid = :guid",
+                    rusqlite::named_params! { ":guid": card.guid },
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(stored.len() > 20);
+            assert!(!stored.contains("123"));
+        }
+
+        // No CVV stores the empty marker and reads back as None; an empty
+        // string is treated the same as None.
+        let card2 = store
+            .add_credit_card(UpdatableCreditCardFields {
+                cc_number: "4111111111111111".to_string(),
+                cc_cvv: Some(String::new()),
+                ..fields.clone()
+            })
+            .unwrap();
+        assert_eq!(card2.cc_cvv, None);
+
+        // Updating replaces or clears it.
+        store
+            .update_credit_card(
+                card.guid.clone(),
+                UpdatableCreditCardFields {
+                    cc_cvv: Some("999".to_string()),
+                    ..fields.clone()
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .get_credit_card(card.guid.clone())
+                .unwrap()
+                .cc_cvv
+                .as_deref(),
+            Some("999")
+        );
+        store
+            .update_credit_card(
+                card.guid.clone(),
+                UpdatableCreditCardFields {
+                    cc_cvv: None,
+                    ..fields
+                },
+            )
+            .unwrap();
+        assert_eq!(store.get_credit_card(card.guid).unwrap().cc_cvv, None);
+    }
+
+    #[test]
     fn test_empty_number_stays_empty() {
         ensure_initialized();
         let store = Store::new_shared_memory("empty-number", test_encdec()).unwrap();
         let empty = UpdatableCreditCardFields {
             cc_name: "jane doe".to_string(),
             cc_number: String::new(),
+            cc_cvv: None,
             cc_exp_month: 1,
             cc_exp_year: 2030,
             cc_type: "visa".to_string(),
@@ -615,6 +685,7 @@ mod tests {
         let with_number = store
             .add_credit_card(UpdatableCreditCardFields {
                 cc_number: "4111111111117629".to_string(),
+                cc_cvv: None,
                 ..empty.clone()
             })
             .unwrap();
@@ -721,6 +792,7 @@ mod tests {
             .add_credit_card(UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
                 cc_number: "567812345678123456781".to_string(),
+                cc_cvv: None,
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),

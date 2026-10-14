@@ -16,6 +16,7 @@ namespace autofill {
 dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -28,6 +29,7 @@ dictionary CreditCard {
     string guid;
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
@@ -348,12 +350,58 @@ interface Store {
     /// DB, so it cannot fail.
     [Self=ByArc]
     AddressesBridgedEngine addresses_bridged_engine();
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing it only assembles structs and never touches
+    /// the DB, so it cannot fail.
+    [Self=ByArc]
+    CreditCardsBridgedEngine credit_cards_bridged_engine();
 };
 
-/// The bridged sync engine for addresses. The canonical docs are in
-/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// The bridged sync engine for addresses, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
 /// NOTE: all timestamps here are milliseconds.
 interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply(i64 server_modified_millis);
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
+};
+
+/// The bridged sync engine for credit cards, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
+/// NOTE: all timestamps here are milliseconds.
+interface CreditCardsBridgedEngine {
     [Throws=AutofillApiError]
     i64 last_sync();
 

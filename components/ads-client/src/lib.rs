@@ -158,9 +158,10 @@ impl MozAdsClient {
         let ohttp = options.ohttp;
         let cache_policy = options.cache_policy.map(CachePolicy::from);
         let blocks = options.blocks;
+        let relevance = options.relevance;
         let response = self
             .inner
-            .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
+            .request_tile_ads(requests, flags, cache_policy, ohttp, blocks, relevance)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }

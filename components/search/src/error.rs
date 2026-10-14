@@ -19,10 +19,12 @@ pub enum Error {
     SearchConfigNotSpecified,
     #[error("Search configuration overrides not specified")]
     SearchConfigOverridesNotSpecified,
-    #[error("No search config v2 records received from remote settings")]
+    #[error("No search config records received from remote settings")]
     SearchConfigNoRecords,
     #[error("No search config overrides v2 records received from remote settings")]
     SearchConfigOverridesNoRecords,
+    #[error("Unknown is not a valid application name")]
+    SearchConfigInvalidName,
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Remote Settings error: {0}")]
