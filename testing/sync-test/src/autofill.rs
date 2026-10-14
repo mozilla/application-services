@@ -148,6 +148,7 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
         UpdatableCreditCardFields {
             cc_name: "jane doe".to_string(),
             cc_number: "2222222222221234".to_string(),
+            cc_cvv: None,
             cc_exp_month: 3,
             cc_exp_year: 2022,
             cc_type: "visa".to_string(),
@@ -160,6 +161,7 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
             cc_number: "9999999999996543".to_string(),
+            cc_cvv: None,
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -195,6 +197,7 @@ fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut 
         UpdatableCreditCardFields {
             cc_name: "jane deer".to_string(),
             cc_number: "88888888888888".to_string(),
+            cc_cvv: None,
             cc_exp_month: 12,
             cc_exp_year: 2027,
             cc_type: "visa".to_string(),
@@ -275,6 +278,7 @@ fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut Test
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
             cc_number: "88888888888888".to_string(),
+            cc_cvv: None,
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -321,6 +325,7 @@ fn test_scrub_undecryptable_records_for_remote_replacement(
         UpdatableCreditCardFields {
             cc_name: "john deer".to_string(),
             cc_number: cc_number.clone(),
+            cc_cvv: None,
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
