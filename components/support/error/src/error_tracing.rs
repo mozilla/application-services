@@ -32,7 +32,7 @@ pub fn report_error_to_app(type_name: String, message: String) {
     // breadcrumb joined by newlines.
     let breadcrumb_string = breadcrumbs.join("\n");
     let message = truncate_message(message);
-    tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumb_string);
+    tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumbs = breadcrumb_string);
 
     // Report errors via the glean ping
     //
@@ -361,6 +361,59 @@ mod test {
         // But not ones from other components
         assert!(rate_limiter.should_send_report("componentb-database-error", start));
         assert!(rate_limiter.should_send_report("componentaa-network-error", start));
+    }
+
+    /// Test that our error events have the correct fields
+    #[test]
+    fn test_error_event_fields() {
+        use std::sync::Arc;
+        use tracing_subscriber::prelude::*;
+        use tracing_support::{
+            Event, EventSink, EventSinkSpecification, EventTarget, Level, TracingLevel,
+        };
+
+        #[derive(Default)]
+        struct Sink(Mutex<Vec<Event>>);
+
+        impl EventSink for Sink {
+            fn on_event(&self, event: Event) {
+                self.0.lock().push(event);
+            }
+        }
+
+        let sink = Arc::new(Sink::default());
+        let sink_id = tracing_support::register_event_sink(
+            EventSinkSpecification {
+                targets: vec![EventTarget {
+                    target: "app-services-error-reporter".into(),
+                    level: TracingLevel::Error,
+                }],
+                min_level: None,
+            },
+            sink.clone(),
+        );
+        let subscriber = tracing_subscriber::registry().with(tracing_support::simple_event_layer());
+        tracing_support::tracing::subscriber::with_default(subscriber, || {
+            report_breadcrumb("breadcrumb".into(), "foo::bar".into(), 10, 20);
+            report_error_to_app("test-component-error".to_string(), "oh no".to_string());
+        });
+        tracing_support::unregister_event_sink(sink_id);
+
+        let events = sink.0.lock();
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.target, "app-services-error-reporter::error");
+        assert_eq!(event.level, Level::Error);
+        assert_eq!(event.message, "oh no");
+        assert_eq!(event.fields["type_name"], "test-component-error");
+        assert!(
+            matches!(
+                event.fields["breadcrumbs"].as_str(),
+                Some(b) if b.contains("breadcrumb")
+            ),
+            "unexpected event.breadcrumbs field: {:?}",
+            event.fields["breadcrumbs"],
+        );
     }
 
     #[test]
