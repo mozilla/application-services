@@ -28,6 +28,7 @@
 
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
+- `request_spoc_or_image_ads` is added to return ads that may ambiguously be spocs or images.
 
 ### Nimbus
 
