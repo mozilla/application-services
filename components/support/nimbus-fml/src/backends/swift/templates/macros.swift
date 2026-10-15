@@ -39,7 +39,7 @@ public class {{class_name}}: FMLFeatureInterface {
         {{p.name()|var_name}}: {{ t|defaults_type_label }} = {{ t|literal(self, p.default(), "") }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) {
-        self.init(variables: _variables, prefs: _prefs, defaults: Defaults({% for p in inner.props() %}
+        self.init(variables: _variables, defaults: Defaults({% for p in inner.props() %}
             {{p.name()|var_name}}: {{p.name()|var_name}}{% if !loop.last %},{% endif %}
         {%- endfor %}))
     }
