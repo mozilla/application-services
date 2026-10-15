@@ -23,7 +23,7 @@
 use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
 use crate::event::{
-    batch_record_id, EventPosition, GateKey, IncomingEvent, Wire, WireEvent, WirePart,
+    batch_record_id, EventPosition, GateKey, Incoming, IncomingEvent, Wire, WireEvent, WirePart,
     BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
 };
 use crate::metadata::MetadataStore;
@@ -433,14 +433,14 @@ fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
     parts
 }
 
-/// Reassemble records into whole [`IncomingEvent`]s. Records are bucketed by
-/// group: a whole record is a size-1 group used directly; a framed record's
-/// frames are joined (in `part` order, base64-decoding `data`) into the original
-/// serialized [`WireEvent`] and parsed once. A framed group is skipped until it
-/// holds exactly `0..part_count`, so a baseline mid-upload is never half-applied.
+/// Reassemble records into whole events, classified into [`Incoming`] by event
+/// type. Records are grouped: a whole record is a group of one, used directly;
+/// a split record's parts are decoded and joined in order into the original
+/// [`WireEvent`], then parsed once. A split group is skipped until it holds
+/// exactly `0..part_count`, so a baseline mid-upload is never half-applied.
 ///
 /// `current` is the schema fallback for a record carrying no readable version
-/// tag (a `baseline-needed` marker has no body).
+/// tag (a `baseline-needed` marker from before markers carried a schema).
 ///
 /// Also returns each assembled event's record ids under its position, for
 /// [`MetadataStore::track_records`]. An incomplete group isn't tracked: its
@@ -448,7 +448,7 @@ fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
 fn assemble_events(
     parts: Vec<StagedRecord>,
     current: SchemaVersion,
-) -> (Vec<IncomingEvent>, Vec<(Guid, EventPosition)>) {
+) -> (Vec<Incoming>, Vec<(Guid, EventPosition)>) {
     let mut buckets: HashMap<Guid, Vec<StagedRecord>> = HashMap::new();
     for part in parts {
         buckets.entry(part.group.clone()).or_default().push(part);
@@ -472,18 +472,27 @@ fn assemble_events(
         // Key the position on the group, so every frame gives the same one.
         let position = EventPosition::new(modified, group);
         records.extend(ids.into_iter().map(|id| (id, position.clone())));
-        let max_schema = wire
-            .body
-            .versions()
-            .max()
-            .or(wire.schema)
-            .unwrap_or(current);
-        out.push(IncomingEvent {
-            gate: GateKey::new(wire.event_type, wire.entity),
-            position,
-            body: wire.body,
-            max_schema,
-            covers_up_to: wire.covers_up_to,
+        out.push(match wire.event_type.as_str() {
+            BASELINE_EVENT_TYPE => {
+                // Its cover is what makes it usable; without one, drop it.
+                let Some(cover) = wire.covers_up_to else {
+                    continue;
+                };
+                Incoming::Baseline {
+                    cover,
+                    body: wire.body,
+                }
+            }
+            BASELINE_NEEDED_EVENT_TYPE => Incoming::BaselineNeeded {
+                position,
+                schema: wire.schema.unwrap_or(current),
+            },
+            _ => Incoming::Event(IncomingEvent {
+                max_schema: wire.body.versions().max().unwrap_or(current),
+                gate: GateKey::new(wire.event_type, wire.entity),
+                position,
+                body: wire.body,
+            }),
         });
     }
     (out, records)
@@ -554,38 +563,32 @@ impl SyncEngine for EventSyncEngine {
     ) -> anyhow::Result<Vec<OutgoingBso>> {
         let staged = std::mem::take(&mut *self.staged.lock().unwrap());
 
-        // Parse -> reassemble parts -> a stream of whole events. Then split by
-        // reserved type into domain events, baselines and `baseline-needed`
-        // markers.
+        // Parse -> reassemble parts -> whole events, already sorted into domain
+        // events, baselines and `baseline-needed` markers.
         let (assembled, records) = assemble_events(staged_records(staged), self.schema.current());
         self.meta.track_records(&records)?;
         let mut events: Vec<IncomingEvent> = Vec::new();
-        let mut baselines: Vec<IncomingEvent> = Vec::new();
-        let mut baseline_needed = false;
+        let mut baselines: Vec<(EventPosition, Body)> = Vec::new();
         let mut markers: Vec<EventPosition> = Vec::new();
         // Highest schema advertised by a peer's `baseline-needed` this sync; used
         // to elect the writer once the bar stays blocked past the timeout.
         let mut peer_needed_schema: Option<SchemaVersion> = None;
-        for ev in assembled {
-            if ev.gate.event_type == BASELINE_EVENT_TYPE {
-                baselines.push(ev);
-            } else if ev.gate.event_type == BASELINE_NEEDED_EVENT_TYPE {
-                baseline_needed = true;
-                markers.push(ev.position.clone());
-                peer_needed_schema =
-                    Some(peer_needed_schema.map_or(ev.max_schema, |m| m.max(ev.max_schema)));
-            } else {
-                events.push(ev);
+        for item in assembled {
+            match item {
+                Incoming::Event(ev) => events.push(ev),
+                Incoming::Baseline { cover, body } => baselines.push((cover, body)),
+                Incoming::BaselineNeeded { position, schema } => {
+                    markers.push(position);
+                    peer_needed_schema = Some(peer_needed_schema.map_or(schema, |m| m.max(schema)));
+                }
             }
         }
+        let baseline_needed = !markers.is_empty();
 
         let mut state = self.meta.baseline_state()?;
         let last_sync = self.meta.last_sync()?;
         let is_new_client = last_sync.as_millis() == 0 && state.floor.is_none();
-        let newest_cover = baselines
-            .iter()
-            .filter_map(|b| b.covers_up_to.clone())
-            .max();
+        let newest_cover = baselines.iter().map(|(cover, _)| cover.clone()).max();
         // A cover newer than our last sync may stand in for events we never
         // downloaded, which its writer may already have deleted from the server.
         let behind = newest_cover
@@ -598,12 +601,9 @@ impl SyncEngine for EventSyncEngine {
         let mut floor_advance: Option<EventPosition> = None;
         if is_new_client || behind {
             let mut readable: Vec<(EventPosition, serde_json::Value)> = Vec::new();
-            for baseline in &baselines {
-                let Some(cover) = baseline.covers_up_to.clone() else {
-                    continue;
-                };
-                if let Some(payload) = self.read_baseline(&baseline.body)? {
-                    readable.push((cover, payload));
+            for (cover, body) in &baselines {
+                if let Some(payload) = self.read_baseline(body)? {
+                    readable.push((cover.clone(), payload));
                 }
             }
             readable.sort_by(|a, b| a.0.cmp(&b.0));
@@ -962,7 +962,6 @@ mod tests {
             position: pos(modified_ms, id),
             body: body(payload),
             max_schema: 1,
-            covers_up_to: None,
         }
     }
 
@@ -1223,13 +1222,15 @@ mod tests {
 
         let (assembled, records) = assemble_events(frames, 1);
         assert_eq!(assembled.len(), 1);
-        let ev = &assembled[0];
-        assert_eq!(ev.covers_up_to, Some(pos(100, "cover")));
+        let Incoming::Baseline { cover, body: got } = &assembled[0] else {
+            panic!("expected a baseline, got {:?}", assembled[0]);
+        };
+        assert_eq!(*cover, pos(100, "cover"));
         // Frames reassembled to the identical body despite reversed delivery.
-        assert_eq!(ev.body, body);
-        // Every frame is tracked under the event's position, not its own.
+        assert_eq!(*got, body);
+        // Every frame is tracked under the event's position (its group), not its own.
         assert_eq!(records.len(), frame_count);
-        assert!(records.iter().all(|(_, p)| *p == ev.position));
+        assert!(records.iter().all(|(_, p)| *p == pos(100, "g")));
     }
 
     #[test]
@@ -1269,10 +1270,20 @@ mod tests {
             Guid::new("g"),
         );
 
-        assert_eq!(assemble_events(make(), 1).0[0].position, expected);
+        // Every frame is tracked under that one position, whatever the order.
+        let positions = |frames| -> Vec<EventPosition> {
+            assemble_events(frames, 1)
+                .1
+                .into_iter()
+                .map(|(_, p)| p)
+                .collect()
+        };
         let mut reversed = make();
         reversed.reverse();
-        assert_eq!(assemble_events(reversed, 1).0[0].position, expected);
+        for got in [positions(make()), positions(reversed)] {
+            assert_eq!(got.len(), count as usize);
+            assert!(got.iter().all(|p| *p == expected));
+        }
     }
 
     #[test]

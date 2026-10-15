@@ -11,7 +11,7 @@
 //! and a schema-versioned [`crate::schema::Body`]. The parts of a split record
 //! add `_{index}` to the base id (see [`batch_record_id`]).
 //!
-//! [`IncomingEvent`] is the assembled shape the engine consumes. `WireEvent`
+//! [`IncomingEvent`] is the assembled domain event the gate consumes. `WireEvent`
 //! and `WirePart` are how a record is serialized and (when too large) framed
 //! for transport. The base64 framing and reassembly of frames lives in the engine.
 
@@ -110,13 +110,9 @@ impl PartialOrd for EventPosition {
     }
 }
 
-/// An incoming event read from the server, reassembled from its transport frames
-/// if it was split, before its body is resolved to a single schema.
-///
-/// The single shape the gate and the baseline path both consume. A baseline is
-/// just an event with a reserved type. A baseline also carries `covers_up_to`:
-/// the point in the global order it stands in for, which advances the floor (its
-/// own `position` is just where the record landed).
+/// An incoming domain event read from the server, reassembled from its transport
+/// frames if it was split, before its body is resolved to a single schema. The
+/// shape the gate consumes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IncomingEvent {
     /// The event type and entity: what the event is, and what it is about.
@@ -129,8 +125,24 @@ pub struct IncomingEvent {
     /// Highest schema version tag the body carries (visible even when this client
     /// can't read that schema).
     pub max_schema: SchemaVersion,
-    /// The covered position, for a baseline; `None` for every other event.
-    pub covers_up_to: Option<EventPosition>,
+}
+
+/// A reassembled record, classified by its event type. On the wire, baselines
+/// and markers are just events with a reserved type; here they are split out.
+#[derive(Debug)]
+pub(crate) enum Incoming {
+    Event(IncomingEvent),
+    /// A baseline: the reducer state as of `cover`, the point in the global order
+    /// it stands in for (which advances the floor).
+    Baseline {
+        cover: EventPosition,
+        body: Body,
+    },
+    /// A `baseline-needed` marker, advertising its emitter's schema.
+    BaselineNeeded {
+        position: EventPosition,
+        schema: SchemaVersion,
+    },
 }
 
 /// A whole logical record, distinguished by `event_type`: a domain event, a
