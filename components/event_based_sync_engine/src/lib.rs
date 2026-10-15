@@ -11,8 +11,10 @@
 //!
 //! Modules: [`event`] (event + gate key + total order), [`schema`] (multi-schema
 //! payload + write/migrate-on-read), [`reducer`] (storage contract),
-//! [`metadata`] (sync bookkeeping persistence), [`engine`] (ties them together
-//! and implements [`sync15::engine::SyncEngine`]).
+//! [`metadata`] (sync bookkeeping persistence; the SQLite impl is in
+//! `metadata_sql`, behind the `sql` feature), [`baseline`] (bounding the event
+//! stream), [`error`], and [`engine`] (ties them together and implements
+//! [`sync15::engine::SyncEngine`]).
 
 #![warn(rust_2018_idioms)]
 

@@ -4,15 +4,15 @@
 
 //! Core event primitives: the event, the per-field gate key, the total order
 //! deciding which of two concurrent events wins, and the on-wire event
-//! representation ([`Wire`], [`WireEvent`], [`WirePart`]).
+//! representation (`Wire`, `WireEvent`, `WirePart`).
 //!
-//! Events are opaque and GUID-keyed. Each has a record id (server key; batches
-//! suffix the base UUID with `_{X}`, see [`batch_record_id`]), a [`GateKey`] (the
-//! caller-defined type plus the entity the event is about), and a
-//! schema-versioned [`crate::schema::Body`].
+//! Events are opaque and GUID-keyed. Each has a record id (the server key), a
+//! [`GateKey`] (the caller-defined type plus the entity the event is about),
+//! and a schema-versioned [`crate::schema::Body`]. The parts of a split record
+//! add `_{index}` to the base id (see [`batch_record_id`]).
 //!
-//! [`IncomingEvent`] is the assembled shape the engine consumes. [`WireEvent`]
-//! and [`WirePart`] are how a record is serialized and (when too large) framed
+//! [`IncomingEvent`] is the assembled shape the engine consumes. `WireEvent`
+//! and `WirePart` are how a record is serialized and (when too large) framed
 //! for transport. The base64 framing and reassembly of frames lives in the engine.
 
 use crate::schema::{Body, SchemaVersion};
@@ -47,8 +47,9 @@ impl GateKey {
 
 /// An event's position in the global server order.
 ///
-/// Newer means larger `modified`, ties broken by record id. Batch operations
-/// share a `modified` and are disambiguated by their `_{X}`-suffixed ids.
+/// Newer means larger `modified`, ties broken by record id. Records in one
+/// upload batch share a `modified`; their ids are immutable and the same for
+/// everyone, so the tie-break gives every client the same order.
 ///
 /// Serializes as `{ "modified_ms", "record_id" }` with explicit integer millis
 /// (not `ServerTimestamp`'s float seconds), so a persisted or on-wire position
