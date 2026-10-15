@@ -41,6 +41,26 @@ dictionary CreditCard {
     i64 times_used;
 };
 
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Reading these never needs the encryption key, so consumers listing cards by name,
+/// last four digits and expiry can do so without forcing the user to authenticate.
+/// See `list_credit_card_candidates()`.
+dictionary CreditCardCandidate {
+    string guid;
+    string cc_name;
+    string cc_number_last_4;
+    boolean has_cvv;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
 /// What you pass to create or update an address.
 dictionary UpdatableAddressFields {
     string name;
@@ -224,6 +244,13 @@ interface Store {
 
     [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
+
+    /// Every stored credit card without its encrypted fields. Unlike
+    /// `get_all_credit_cards` this never touches the key, so listing cannot
+    /// prompt for a primary password; read the one card that needs its
+    /// secrets with `get_credit_card`.
+    [Throws=AutofillApiError]
+    sequence<CreditCardCandidate> list_credit_card_candidates();
 
     [Throws=AutofillApiError]
     i64 count_all_credit_cards();

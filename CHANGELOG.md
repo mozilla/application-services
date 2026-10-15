@@ -40,6 +40,7 @@
 ### Autofill
 
 - Add `Store::credit_cards_bridged_engine()`, exposing the existing credit card sync engine as a bridged engine so Firefox Desktop can drive credit card sync. ([bug 2074008](https://bugzilla.mozilla.org/show_bug.cgi?id=2074008))
+- Added `list_credit_card_candidates()`, returning `CreditCardCandidate`: a card minus its encrypted fields, with `cc_number_last_4` and `has_cvv` in their place. Like `list_candidates()` in logins it never touches the key, so an application can list cards without a primary password prompt and call `get_credit_card()` for the single card whose number or CVV it needs. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
 
 ### Search
 
