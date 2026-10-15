@@ -8,10 +8,10 @@
 //! the per-client sync loop ([`SimClient::sync`]). Each client owns an
 //! [`EventSyncEngine`] backed by a [`MapReducer`] standing in for storage.
 //!
-//! Convergence holds because every `sync()` downloads-then-uploads and
-//! `last_sync` advances monotonically, so each client folds the entire event
-//! stream in one global ascending order; a late joiner folds a baseline plus the
-//! newer events.
+//! Convergence holds because every `sync()` downloads, then uploads, and
+//! `last_sync` only moves forward, so each client folds the events in the same
+//! server order. A late joiner, or a client that fell behind a baseline, folds
+//! that baseline plus the newer events.
 //!
 //! Lives in a subdirectory so cargo treats it as a plain module the scenario
 //! files (`sim_*.rs`) share, not as its own test binary.

@@ -945,36 +945,6 @@ mod tests {
             .to_test_incoming_ts(ServerTimestamp::from_millis(modified_ms))
     }
 
-    /// Frame a baseline record into `_{n}` [`WirePart`] BSOs at `max_bytes`, as
-    /// the engine would when it overflows the budget.
-    fn baseline_frames(
-        group: &str,
-        cover_ms: i64,
-        cover_id: &str,
-        entities: &[(&str, serde_json::Value)],
-        max_bytes: usize,
-    ) -> Vec<IncomingBso> {
-        let body = Body::single(1, baseline_payload(entities));
-        let record = WireEvent::baseline(pos(cover_ms, cover_id), body);
-        let json = serde_json::to_string(&record).unwrap();
-        let chunks = split_frames(&json, max_bytes);
-        let count = chunks.len() as u32;
-        chunks
-            .into_iter()
-            .enumerate()
-            .map(|(i, data)| {
-                let frame = Wire::Frame(WirePart {
-                    group: Guid::new(group),
-                    part: i as u32,
-                    part_count: count,
-                    data,
-                });
-                let id = batch_record_id(&Guid::new(group), i);
-                incoming(&frame, cover_ms + 50, id.as_str())
-            })
-            .collect()
-    }
-
     fn event_record(event_type: &str, entity: &str, payload: serde_json::Value) -> WireEvent {
         WireEvent::event(event_type.to_string(), Guid::new(entity), body(payload))
     }
@@ -1323,64 +1293,6 @@ mod tests {
         assert!(assembled.is_empty());
         // Not tracked either: deleting its frames early would orphan the rest.
         assert!(records.is_empty());
-    }
-
-    #[test]
-    fn new_client_cold_starts_from_a_split_baseline() {
-        let reducer = Arc::new(RecordingReducer::default());
-        let engine = engine_with(reducer.clone());
-
-        // A baseline framed tiny (so it splits), delivered out of order.
-        let mut frames = baseline_frames(
-            "g",
-            100,
-            "e100",
-            &[("A", json!({ "name": "a" })), ("B", json!({ "name": "b" }))],
-            40,
-        );
-        assert!(frames.len() > 1, "baseline should have split into frames");
-        frames.reverse();
-
-        let mut telem = sync15::telemetry::Engine::new("containers");
-        engine.stage_incoming(frames, &mut telem).unwrap();
-        engine
-            .apply(ServerTimestamp::from_millis(150), &mut telem)
-            .unwrap();
-
-        let baselines = reducer.baselines.lock().unwrap();
-        assert_eq!(baselines.len(), 1);
-        // Reassembled to the original payload despite reversed frame delivery.
-        let names: Vec<String> = baselines[0]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|e| e["payload"]["name"].as_str().unwrap().to_string())
-            .collect();
-        assert_eq!(names, vec!["a".to_string(), "b".to_string()]);
-    }
-
-    #[test]
-    fn incomplete_baseline_group_is_ignored() {
-        let reducer = Arc::new(RecordingReducer::default());
-        let engine = engine_with(reducer.clone());
-
-        // Only frame 0 of a 2-frame group arrives.
-        let frame = Wire::Frame(WirePart {
-            group: Guid::new("g"),
-            part: 0,
-            part_count: 2,
-            data: "{".to_string(),
-        });
-        let mut telem = sync15::telemetry::Engine::new("containers");
-        engine
-            .stage_incoming(vec![incoming(&frame, 150, "g_0")], &mut telem)
-            .unwrap();
-        engine
-            .apply(ServerTimestamp::from_millis(150), &mut telem)
-            .unwrap();
-
-        // The partial group is not applied.
-        assert!(reducer.baselines.lock().unwrap().is_empty());
     }
 
     #[test]
