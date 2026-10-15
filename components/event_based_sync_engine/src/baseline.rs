@@ -56,8 +56,8 @@ pub struct BaselineState {
     /// Position covered by the most recent baseline. Events at or below the
     /// floor are superseded and ignored. `None` before any baseline is known.
     pub floor: Option<EventPosition>,
-    /// Newest event position observed; candidate `covers_up_to` for a baseline
-    /// this client might write.
+    /// Newest event or `baseline-needed` marker position observed; candidate
+    /// `covers_up_to` for a baseline this client might write.
     pub newest_event: Option<EventPosition>,
     /// Events observed since the last baseline (drives the cadence).
     pub events_since_baseline: u64,

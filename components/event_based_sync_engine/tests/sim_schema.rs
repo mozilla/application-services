@@ -111,6 +111,8 @@ fn schema_bar_block_resolves_after_timeout() {
         "the timeout override should have produced a baseline"
     );
     assert_eq!(release.names().len(), 3);
+    // Its markers are covered by the baseline too, so only the baseline is left.
+    assert_eq!(server.record_count(), server.baseline_count());
 
     // A fresh schema-1 client cold-starts from that baseline.
     let late = SimClient::new("late", schema_v1(), no_baselines());

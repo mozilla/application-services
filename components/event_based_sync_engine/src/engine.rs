@@ -103,7 +103,8 @@ enum OnComplete {
     Baseline {
         cover: EventPosition,
     },
-    /// A `baseline-needed` marker: nothing to do beyond tracking its id.
+    /// A `baseline-needed` marker: extends the next baseline's cover, so its
+    /// writer deletes it.
     Marker,
 }
 
@@ -561,6 +562,7 @@ impl SyncEngine for EventSyncEngine {
         let mut events: Vec<IncomingEvent> = Vec::new();
         let mut baselines: Vec<IncomingEvent> = Vec::new();
         let mut baseline_needed = false;
+        let mut markers: Vec<EventPosition> = Vec::new();
         // Highest schema advertised by a peer's `baseline-needed` this sync; used
         // to elect the writer once the bar stays blocked past the timeout.
         let mut peer_needed_schema: Option<SchemaVersion> = None;
@@ -569,6 +571,7 @@ impl SyncEngine for EventSyncEngine {
                 baselines.push(ev);
             } else if ev.gate.event_type == BASELINE_NEEDED_EVENT_TYPE {
                 baseline_needed = true;
+                markers.push(ev.position.clone());
                 peer_needed_schema =
                     Some(peer_needed_schema.map_or(ev.max_schema, |m| m.max(ev.max_schema)));
             } else {
@@ -631,6 +634,14 @@ impl SyncEngine for EventSyncEngine {
             state.events_since_baseline = 0;
             state.max_schema_since_baseline = self.schema.current();
             state.bar_blocked_since = None;
+        }
+
+        // A baseline answers the markers before it, so its cover reaches them
+        // and its writer deletes them. They don't count toward the cadence.
+        for pos in markers {
+            if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
+                state.newest_event = Some(max_position(state.newest_event.take(), pos));
+            }
         }
 
         // Gate keys with a queued-but-unuploaded local edit. That edit is
@@ -769,6 +780,7 @@ impl SyncEngine for EventSyncEngine {
             .collect();
         let mut events = Vec::new();
         let mut baselines = Vec::new();
+        let mut markers = Vec::new();
         let mut confirmed = Vec::new();
         for group in complete {
             let done = awaiting.remove(&group).expect("just listed");
@@ -778,7 +790,7 @@ impl SyncEngine for EventSyncEngine {
             match done.on_complete {
                 OnComplete::Event { gate, position_id } => events.push((gate, position_id)),
                 OnComplete::Baseline { cover } => baselines.push(cover),
-                OnComplete::Marker => {}
+                OnComplete::Marker => markers.push(pos),
             }
         }
         self.meta.track_records(&confirmed)?;
@@ -795,6 +807,13 @@ impl SyncEngine for EventSyncEngine {
                 state.events_since_baseline += 1;
                 state.max_schema_since_baseline =
                     state.max_schema_since_baseline.max(self.schema.current());
+                state.newest_event = Some(max_position(state.newest_event.take(), pos));
+            }
+        }
+
+        // Our own markers, like a peer's, are covered by the next baseline.
+        for pos in markers {
+            if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
                 state.newest_event = Some(max_position(state.newest_event.take(), pos));
             }
         }

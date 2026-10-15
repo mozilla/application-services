@@ -5,13 +5,15 @@
 //! Deletion scenarios: a baseline's writer deletes the records it supersedes
 //! from the server, clients that missed those records still converge, and a
 //! writer that never gets to delete leaves its records to the next writer.
+//! `baseline-needed` markers go with the baseline that answers them.
 
 mod support;
 
 use event_based_sync_engine::BaselineConfig;
 use serde_json::json;
 use support::{
-    assert_converged, no_baselines, schema_v1, sync_to_quiescence, FakeServer, Fault, SimClient,
+    assert_converged, no_baselines, schema_v1, schema_v2, sync_to_quiescence, FakeServer, Fault,
+    SimClient,
 };
 
 fn every_three() -> BaselineConfig {
@@ -180,4 +182,27 @@ fn writer_that_loses_its_upload_confirmation_cleans_up_next_time() {
     sync_to_quiescence(&[&a, &b], &mut server);
     assert_converged(&[&a, &b]);
     assert_eq!(b.state().len(), 6);
+}
+
+#[test]
+fn baseline_deletes_the_markers_it_answers() {
+    let mut server = FakeServer::new();
+    // A is the only client meeting the schema bar; it writes only on request.
+    let a = SimClient::new("A", schema_v2(), no_baselines());
+    let b = SimClient::new("B", schema_v1(), every_three());
+
+    a.create(json!({ "name": "one", "icon": "a" }));
+    a.create(json!({ "name": "two", "icon": "b" }));
+    a.create(json!({ "name": "three", "icon": "c" }));
+    sync_to_quiescence(&[&a], &mut server);
+
+    // B is below the bar, so it asks; A answers with a baseline.
+    b.sync(&mut server);
+    assert_eq!(server.baseline_count(), 0);
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    // Only the baseline is left: the marker went with the events.
+    assert_eq!(server.baseline_count(), 1);
+    assert_eq!(server.record_count(), 1);
+    assert_eq!(a.names(), b.names());
 }
