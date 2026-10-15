@@ -33,7 +33,6 @@ private constructor(
    {%- endfor %}
    ) : this(
       _variables = _variables,
-      _prefs = _prefs,
       _defaults = Defaults({% for p in inner.props() %}
       {%- let nm = p.name()|var_name %}{{ nm }} = {{ nm }}{% if !loop.last %}, {% endif %}
       {%- endfor %})
@@ -61,5 +60,3 @@ private constructor(
          )
       )
 {% endmacro %}
-
-{% macro prefs() %}this._prefs{% endmacro %}
