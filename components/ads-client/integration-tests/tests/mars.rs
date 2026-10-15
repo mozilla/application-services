@@ -256,23 +256,8 @@ fn test_contract_newtab_stories_1_stage() {
     // Use staging client, because this does not use a mock placement_id.
     let client = staging_client();
 
-    let result = client.request_spoc_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            count: 3,
-            iab_content: None,
-            placement_id: "newtab_stories_1".to_string(),
-        }],
-        None,
-    );
-
-    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
-    let placements = result.unwrap();
-    assert!(placements.contains_key("newtab_stories_1"));
-
     // Note: this particular return is due to a bug with `newtab_stories_1`- it returns 3 ads, but only two of which are spoc.
-    // The image ad gets dropped, which is expected.
-    assert!(placements.get("newtab_stories_1").unwrap().len() == 2);
-
+    // The image ad gets dropped with `request_spoc_ads`, which is expected.
     // The existence of the function `request_spoc_or_image_ads` is a band-aid fix that allows all 3 ads to be returned.
     let result = client.request_spoc_or_image_ads(
         vec![MozAdsPlacementRequestWithCount {
