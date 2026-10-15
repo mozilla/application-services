@@ -44,21 +44,18 @@ impl AdsStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ffi::telemetry::MozAdsTelemetryWrapper, test_utils::get_example_happy_image_ads};
+    use crate::test_utils::get_example_happy_image_ads;
 
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> =
-            AdsStore::builder("test_store.db").build(MozAdsTelemetryWrapper::noop());
+        let store: Result<AdsStore, _> = AdsStore::builder("test_store.db").build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
-        let store: AdsStore = AdsStore::builder("test_clear.db")
-            .build(MozAdsTelemetryWrapper::noop())
-            .unwrap();
+        let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
         store.holder.store_ad(&placement_id, ad.clone()).unwrap();
@@ -77,9 +74,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store: AdsStore = AdsStore::builder("test_invalidate.db")
-            .build(MozAdsTelemetryWrapper::noop())
-            .unwrap();
+        let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");

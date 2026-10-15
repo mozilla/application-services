@@ -26,7 +26,6 @@ mod mars;
 pub mod request;
 pub mod telemetry;
 
-pub use ffi::telemetry::MozAdsTelemetryWrapper;
 pub use ffi::*;
 
 #[cfg(test)]
@@ -42,7 +41,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: AdsClient<MozAdsTelemetryWrapper>,
+    inner: AdsClient,
 }
 
 #[uniffi::export]

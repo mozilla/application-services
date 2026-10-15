@@ -5,7 +5,7 @@
 
 use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile};
 use crate::http_cache::RequestHash;
-use crate::telemetry::Telemetry;
+use crate::telemetry;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -16,10 +16,7 @@ pub struct AdResponse<A: AdResponseValue> {
 }
 
 impl<A: AdResponseValue> AdResponse<A> {
-    pub fn parse<T: Telemetry>(
-        data: serde_json::Value,
-        telemetry: &T,
-    ) -> Result<AdResponse<A>, serde_json::Error> {
+    pub fn parse(data: serde_json::Value) -> Result<AdResponse<A>, serde_json::Error> {
         let raw: HashMap<String, serde_json::Value> = serde_json::from_value(data)?;
         let mut result = HashMap::new();
 
@@ -30,7 +27,7 @@ impl<A: AdResponseValue> AdResponse<A> {
                     match serde_json::from_value::<A>(item.clone()) {
                         Ok(ad) => ads.push(ad),
                         Err(e) => {
-                            telemetry.record(&e);
+                            telemetry::record_invalid_ad_item(&e);
                         }
                     }
                 }
@@ -114,7 +111,6 @@ impl AdResponseValue for AdTile {
 #[cfg(test)]
 mod tests {
     use crate::ads::{SpocFrequencyCaps, SpocRanking};
-    use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
     use super::*;
     use serde_json::{from_str, json};
@@ -277,8 +273,7 @@ mod tests {
             ]
         });
 
-        let parsed =
-            AdResponse::<AdImage>::parse(raw_ad_response, &MozAdsTelemetryWrapper::noop()).unwrap();
+        let parsed = AdResponse::<AdImage>::parse(raw_ad_response).unwrap();
 
         let expected = AdResponse {
             data: HashMap::from([(
@@ -314,8 +309,7 @@ mod tests {
             "example_placement_2": []
         });
 
-        let parsed =
-            AdResponse::<AdImage>::parse(raw_ad_response, &MozAdsTelemetryWrapper::noop()).unwrap();
+        let parsed = AdResponse::<AdImage>::parse(raw_ad_response).unwrap();
 
         let expected = AdResponse {
             data: HashMap::from([]),
