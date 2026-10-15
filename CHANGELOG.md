@@ -29,6 +29,10 @@
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
 
+### Nimbus
+
+- The `pref-key` annotation for FML feature variables has been removed. ([#7559](https://github.com/mozilla/application-services/pull/7559/))
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨

@@ -1269,6 +1269,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parking_lot",
+ "tracing-subscriber",
  "tracing-support",
  "uniffi",
 ]
