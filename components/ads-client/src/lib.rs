@@ -146,6 +146,29 @@ impl MozAdsClient {
 
     #[handle_error(ComponentError)]
     #[uniffi::method(default(options = None))]
+    pub fn request_spoc_or_image_ads(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+    ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsImageOrSpoc>>> {
+        let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
+        let options = options.unwrap_or_default();
+        let flags = AdRequestFlags::from(&options);
+        let ohttp = options.ohttp;
+        let cache_policy = options.cache_policy.map(CachePolicy::from);
+        let blocks = options.blocks;
+        let response = self
+            .inner
+            .request_spoc_or_image_ads(requests, flags, cache_policy, ohttp, blocks)
+            .map_err(ComponentError::RequestAds)?;
+        Ok(response
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().map(|spoc| spoc.into()).collect()))
+            .collect())
+    }
+
+    #[handle_error(ComponentError)]
+    #[uniffi::method(default(options = None))]
     pub fn request_tile_ads(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
