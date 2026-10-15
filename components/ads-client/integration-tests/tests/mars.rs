@@ -256,7 +256,6 @@ fn test_contract_newtab_stories_1_stage() {
     // Use staging client, because this does not use a mock placement_id.
     let client = staging_client();
 
-    // 
     let result = client.request_spoc_ads(
         vec![MozAdsPlacementRequestWithCount {
             count: 3,
@@ -288,5 +287,4 @@ fn test_contract_newtab_stories_1_stage() {
     let placements = result.unwrap();
     assert!(placements.contains_key("newtab_stories_1"));
     assert!(placements.get("newtab_stories_1").unwrap().len() == 3);
-
 }
