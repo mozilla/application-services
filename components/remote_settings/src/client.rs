@@ -96,6 +96,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         ("main", "regions"),
         ("main", "search-config-icons"),
         ("main", "search-config-v2"),
+        ("main", "search-config-v3"),
         ("main", "search-telemetry-v2"),
         ("main", "summarizer-models-config"),
         ("main", "translations-models"),
