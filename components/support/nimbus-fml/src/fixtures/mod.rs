@@ -54,6 +54,7 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
+            pref_key: None,
             gecko_pref: None,
             string_alias: None,
         }
@@ -63,17 +64,18 @@ impl PropDef {
         nm: &str,
         typ: &TypeRef,
         value: &Value,
-        pref: &str,
-        branch: PrefBranch,
+        pref_key: &str,
+        pref_branch: PrefBranch,
     ) -> Self {
         Self {
             name: nm.to_string(),
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
+            pref_key: None,
             gecko_pref: Some(GeckoPrefDef {
-                pref: pref.into(),
-                branch,
+                pref: pref_key.into(),
+                branch: pref_branch,
             }),
             string_alias: None,
         }
@@ -85,6 +87,7 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: nm.to_string(),
+            pref_key: None,
             gecko_pref: None,
             string_alias: Some(sa.clone()),
         }
@@ -96,6 +99,7 @@ impl PropDef {
             doc: doc.to_string(),
             typ: typ.clone(),
             default: default.clone(),
+            pref_key: None,
             gecko_pref: None,
             string_alias: None,
         }
