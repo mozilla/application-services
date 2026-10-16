@@ -41,6 +41,8 @@ pub struct FakeServer {
     /// the whole batch, so a batch shares a `modified` (exercises the tie-break).
     clock: i64,
     records: HashMap<Guid, (OutgoingBso, ServerTimestamp)>,
+    /// Every record ever uploaded, counting overwrites.
+    uploads: usize,
 }
 
 impl FakeServer {
@@ -68,6 +70,7 @@ impl FakeServer {
             return (self.timestamp(), Vec::new());
         }
         self.clock += 1;
+        self.uploads += bsos.len();
         let ts = ServerTimestamp::from_millis(self.clock);
         let mut ids = Vec::with_capacity(bsos.len());
         for bso in bsos {
@@ -84,6 +87,11 @@ impl FakeServer {
         for id in ids {
             self.records.remove(id);
         }
+    }
+
+    /// Every record ever uploaded, counting overwrites of the same id.
+    pub fn upload_count(&self) -> usize {
+        self.uploads
     }
 
     /// Every record on the server.
@@ -214,6 +222,9 @@ pub enum Fault {
     /// The server commits the upload but the client never hears back, so
     /// `set_uploaded` doesn't run (and nothing after it).
     LoseUploadConfirmation,
+    /// The upload never reaches the server (network error, 412, interrupted
+    /// sync), so nothing is committed and `set_uploaded` doesn't run.
+    UploadFails,
 }
 
 pub struct SimClient {
@@ -301,6 +312,9 @@ impl SimClient {
         self.engine.stage_incoming(incoming, &mut telem).unwrap();
         let outgoing = self.engine.apply(now, &mut telem).unwrap();
         let uploaded = outgoing.len();
+        if fault == Fault::UploadFails {
+            return true;
+        }
         if uploaded > 0 {
             let (ts, ids) = server.upload(outgoing);
             if fault == Fault::LoseUploadConfirmation {
