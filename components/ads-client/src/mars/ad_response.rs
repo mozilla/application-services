@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile};
+use crate::ads::{AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 use crate::http_cache::RequestHash;
 use crate::telemetry;
 use serde::de::DeserializeOwned;
@@ -99,6 +99,22 @@ impl AdResponseValue for AdSpoc {
 
     fn cap_key(&self) -> Option<String> {
         Some(self.caps.cap_key.clone())
+    }
+}
+
+impl AdResponseValue for AdImageOrSpoc {
+    fn callbacks_mut(&mut self) -> &mut AdCallbacks {
+        match self {
+            AdImageOrSpoc::Image(ad) => &mut ad.callbacks,
+            AdImageOrSpoc::Spoc(ad) => &mut ad.callbacks,
+        }
+    }
+
+    fn cap_key(&self) -> Option<String> {
+        match self {
+            AdImageOrSpoc::Image(_ad) => None,
+            AdImageOrSpoc::Spoc(ad) => Some(ad.caps.cap_key.clone()),
+        }
     }
 }
 

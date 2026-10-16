@@ -5,7 +5,9 @@
 
 pub mod error;
 pub mod telemetry;
-use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
+use crate::ads::{
+    AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+};
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
@@ -241,6 +243,12 @@ pub struct MozAdsSpoc {
     pub url: AdsClientUrl,
 }
 
+#[derive(Debug, PartialEq, uniffi::Enum)]
+pub enum MozAdsImageOrSpoc {
+    Image(MozAdsImage),
+    Spoc(MozAdsSpoc),
+}
+
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsSpocFrequencyCaps {
     pub cap_key: String,
@@ -299,6 +307,15 @@ impl From<SpocRanking> for MozAdsSpocRanking {
             item_score: ranking.item_score,
             personalization_models: ranking.personalization_models.unwrap_or_default(),
             priority: ranking.priority,
+        }
+    }
+}
+
+impl From<AdImageOrSpoc> for MozAdsImageOrSpoc {
+    fn from(ad: AdImageOrSpoc) -> Self {
+        match ad {
+            AdImageOrSpoc::Image(ad) => MozAdsImageOrSpoc::Image(ad.into()),
+            AdImageOrSpoc::Spoc(ad) => MozAdsImageOrSpoc::Spoc(ad.into()),
         }
     }
 }
