@@ -28,7 +28,6 @@ pub mod telemetry;
 #[cfg(feature = "stateful")]
 pub mod worker;
 
-pub use ffi::telemetry::MozAdsTelemetryWrapper;
 pub use ffi::*;
 
 #[cfg(feature = "stateful")]
@@ -46,7 +45,7 @@ uniffi::custom_type!(AdsClientUrl, String, {
 });
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Arc<AdsClient<MozAdsTelemetryWrapper>>,
+    inner: Arc<AdsClient>,
     #[cfg(feature = "stateful")]
     _worker: BackgroundWorker,
 }
@@ -164,9 +163,10 @@ impl MozAdsClient {
         let ohttp = options.ohttp;
         let cache_policy = options.cache_policy.map(CachePolicy::from);
         let blocks = options.blocks;
+        let relevance = options.relevance;
         let response = self
             .inner
-            .request_tile_ads(requests, flags, cache_policy, ohttp, blocks)
+            .request_tile_ads(requests, flags, cache_policy, ohttp, blocks, relevance)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }

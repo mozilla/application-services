@@ -7,17 +7,12 @@
 use std::time::Duration;
 
 use crate::mars::Environment;
-use crate::telemetry::Telemetry;
 
-pub struct AdsClientConfig<T>
-where
-    T: Telemetry,
-{
+pub struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
-    pub telemetry: T,
 }
 
 #[derive(Clone, Debug)]

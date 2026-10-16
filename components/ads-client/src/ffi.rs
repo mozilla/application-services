@@ -10,7 +10,6 @@ use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRa
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
@@ -42,6 +41,8 @@ pub struct MozAdsRequestOptions {
     pub flags: HashMap<String, bool>,
     #[uniffi(default = false)]
     pub ohttp: bool,
+    #[uniffi(default)]
+    pub relevance: HashMap<String, f64>, // tiles only
 }
 
 #[derive(Default, uniffi::Record)]
@@ -104,11 +105,10 @@ impl MozAdsClientBuilder {
 
     pub fn build(&self) -> MozAdsClient {
         let mut inner = self.0.lock();
-        let telemetry = inner
-            .telemetry
-            .take()
-            .map(MozAdsTelemetryWrapper::new)
-            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
+        // Taken so the builder does not keep the callback alive.
+        if let Some(callback) = inner.telemetry.take() {
+            telemetry::install(callback);
+        }
         #[cfg(feature = "stateful")]
         let store_set = inner.store_config.is_some();
         let client_config = AdsClientConfig {
@@ -116,7 +116,6 @@ impl MozAdsClientBuilder {
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
-            telemetry: telemetry.clone(),
         };
         #[cfg(feature = "stateful")]
         let worker_sleep_duration = client_config
@@ -496,11 +495,14 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ffi::telemetry::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder};
+    use crate::{
+        telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder,
+    };
     use std::sync::Arc;
 
     #[test]
     fn test_telemetry_not_held_by_builder() {
+        let _lock = telemetry::test_lock();
         // Related to Bug 2064543
         // The builder can hold a reference to the passed telemetry, meaning that if the builder still exists, `shutdown` doesn't drop all references.
 
@@ -526,6 +528,7 @@ mod tests {
 
     #[test]
     fn test_shutdown_telemetry_basic() {
+        let _lock = telemetry::test_lock();
         viaduct_dev::init_backend_dev();
 
         // test with client created from config with no cache
@@ -561,6 +564,7 @@ mod tests {
 
     #[test]
     fn test_shutdown_is_idempotent() {
+        let _lock = telemetry::test_lock();
         viaduct_dev::init_backend_dev();
 
         let builder = Arc::new(MozAdsClientBuilder::new())

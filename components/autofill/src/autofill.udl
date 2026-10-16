@@ -5,16 +5,6 @@ namespace autofill {
     [Throws=AutofillApiError]
     string create_autofill_key();
 
-    /// Utility function to create a StaticKeyManager to be used for the time
-    /// being until support lands for [trait implementation of an UniFFI
-    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
-    /// in UniFFI.
-    KeyManager create_static_key_manager(string key);
-
-    /// Similar to create_static_key_manager above, create a
-    /// ManagedEncryptorDecryptor by passing in a KeyManager
-    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
-
     /// Create a Store with StaticKeyManager by passing in a db path and a
     /// static key
     [Throws=AutofillApiError]
@@ -26,6 +16,7 @@ namespace autofill {
 dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -38,7 +29,28 @@ dictionary CreditCard {
     string guid;
     string cc_name;
     string cc_number;
+    string? cc_cvv = null;
     string cc_number_last_4;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Reading these never needs the encryption key, so consumers listing cards by name,
+/// last four digits and expiry can do so without forcing the user to authenticate.
+/// See `list_credit_card_candidates()`.
+dictionary CreditCardCandidate {
+    string guid;
+    string cc_name;
+    string cc_number_last_4;
+    boolean has_cvv;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -233,6 +245,13 @@ interface Store {
     [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
 
+    /// Every stored credit card without its encrypted fields. Unlike
+    /// `get_all_credit_cards` this never touches the key, so listing cannot
+    /// prompt for a primary password; read the one card that needs its
+    /// secrets with `get_credit_card`.
+    [Throws=AutofillApiError]
+    sequence<CreditCardCandidate> list_credit_card_candidates();
+
     [Throws=AutofillApiError]
     i64 count_all_credit_cards();
 
@@ -358,12 +377,58 @@ interface Store {
     /// DB, so it cannot fail.
     [Self=ByArc]
     AddressesBridgedEngine addresses_bridged_engine();
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing it only assembles structs and never touches
+    /// the DB, so it cannot fail.
+    [Self=ByArc]
+    CreditCardsBridgedEngine credit_cards_bridged_engine();
 };
 
-/// The bridged sync engine for addresses. The canonical docs are in
-/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// The bridged sync engine for addresses, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
 /// NOTE: all timestamps here are milliseconds.
 interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply(i64 server_modified_millis);
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
+};
+
+/// The bridged sync engine for credit cards, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
+/// NOTE: all timestamps here are milliseconds.
+interface CreditCardsBridgedEngine {
     [Throws=AutofillApiError]
     i64 last_sync();
 

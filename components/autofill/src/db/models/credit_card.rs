@@ -14,6 +14,7 @@ use types::Timestamp;
 pub struct UpdatableCreditCardFields {
     pub cc_name: String,
     pub cc_number: String,
+    pub cc_cvv: Option<String>,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     // Credit card types are a fixed set of strings as defined in the link below
@@ -78,6 +79,7 @@ pub struct CreditCard {
     pub guid: String,
     pub cc_name: String,
     pub cc_number: String,
+    pub cc_cvv: Option<String>,
     pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
@@ -93,6 +95,52 @@ pub struct CreditCard {
     pub times_used: i64,
 }
 
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Getting one of these never needs the encryption key, so callers listing
+/// cards by name, last four digits and expiry can do so without forcing the
+/// user to authenticate. Once they know which card they want,
+/// `Store::get_credit_card()` decrypts just that one.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CreditCardCandidate {
+    pub guid: String,
+    pub cc_name: String,
+    pub cc_number_last_4: String,
+    /// Whether a CVV is stored, from the ciphertext being non-empty.
+    pub has_cvv: bool,
+    pub cc_exp_month: i64,
+    pub cc_exp_year: i64,
+    pub cc_type: String,
+
+    pub time_created: i64,
+    pub time_last_used: Option<i64>,
+    pub time_last_modified: i64,
+    pub times_used: i64,
+}
+
+impl From<InternalCreditCard> for CreditCardCandidate {
+    fn from(card: InternalCreditCard) -> Self {
+        // The ciphertexts are dropped unread; only whether a CVV exists is kept.
+        Self {
+            guid: card.guid.to_string(),
+            cc_name: card.cc_name,
+            cc_number_last_4: card.cc_number_last_4,
+            has_cvv: !card.cc_cvv_enc.is_empty(),
+            cc_exp_month: card.cc_exp_month,
+            cc_exp_year: card.cc_exp_year,
+            cc_type: card.cc_type,
+            time_created: u64::from(card.metadata.time_created) as i64,
+            time_last_used: if card.metadata.time_last_used.0 == 0 {
+                None
+            } else {
+                Some(card.metadata.time_last_used.0 as i64)
+            },
+            time_last_modified: u64::from(card.metadata.time_last_modified) as i64,
+            times_used: card.metadata.times_used,
+        }
+    }
+}
+
 pub(crate) fn encrypt_str(encdec: &dyn EncryptorDecryptor, cleartext: &str) -> Result<String> {
     let ciphertext = encdec.encrypt(cleartext.as_bytes().to_vec())?;
     String::from_utf8(ciphertext).map_err(|e| Error::CryptoNotUtf8(format!("encrypting: {e}")))
@@ -101,6 +149,27 @@ pub(crate) fn encrypt_str(encdec: &dyn EncryptorDecryptor, cleartext: &str) -> R
 pub(crate) fn decrypt_str(encdec: &dyn EncryptorDecryptor, ciphertext: &str) -> Result<String> {
     let cleartext = encdec.decrypt(ciphertext.as_bytes().to_vec())?;
     String::from_utf8(cleartext).map_err(|e| Error::CryptoNotUtf8(format!("decrypting: {e}")))
+}
+
+pub(crate) fn encrypt_optional_str(
+    encdec: &dyn EncryptorDecryptor,
+    cleartext: Option<&str>,
+) -> Result<String> {
+    match cleartext {
+        Some(value) if !value.is_empty() => encrypt_str(encdec, value),
+        _ => Ok(String::new()),
+    }
+}
+
+pub(crate) fn decrypt_optional_str(
+    encdec: &dyn EncryptorDecryptor,
+    ciphertext: &str,
+) -> Result<Option<String>> {
+    if ciphertext.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(decrypt_str(encdec, ciphertext)?))
+    }
 }
 
 // Wow - strings are hard! we need the last 4 chars of a string.
@@ -125,10 +194,12 @@ impl InternalCreditCard {
         } else {
             decrypt_str(encdec, &self.cc_number_enc)?
         };
+        let cc_cvv = decrypt_optional_str(encdec, &self.cc_cvv_enc)?;
         Ok(CreditCard {
             guid: self.guid.to_string(),
             cc_name: self.cc_name,
             cc_number,
+            cc_cvv,
             cc_number_last_4: self.cc_number_last_4,
             cc_exp_month: self.cc_exp_month,
             cc_exp_year: self.cc_exp_year,
@@ -153,6 +224,8 @@ pub struct InternalCreditCard {
     pub guid: Guid,
     pub cc_name: String,
     pub cc_number_enc: String,
+    /// Empty when no CVV is stored, like a scrubbed number.
+    pub cc_cvv_enc: String,
     pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
@@ -168,6 +241,7 @@ impl InternalCreditCard {
             guid: Guid::from_string(row.get("guid")?),
             cc_name: row.get("cc_name")?,
             cc_number_enc: row.get("cc_number_enc")?,
+            cc_cvv_enc: row.get("cc_cvv_enc")?,
             cc_number_last_4: row.get("cc_number_last_4")?,
             cc_exp_month: row.get("cc_exp_month")?,
             cc_exp_year: row.get("cc_exp_year")?,

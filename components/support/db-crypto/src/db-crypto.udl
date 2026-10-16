@@ -18,6 +18,16 @@ namespace db_crypto {
     //`text` much match the text you initially passed to `create_canary()`
     [Throws=DbCryptoApiError]
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
+
+    /// Utility function to create a StaticKeyManager to be used for the time
+    /// being until support lands for [trait implementation of an UniFFI
+    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+    /// in UniFFI.
+    KeyManager create_static_key_manager(string key);
+
+    /// Similar to create_static_key_manager above, create a
+    /// ManagedEncryptorDecryptor by passing in a KeyManager
+    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
 };
 
 /// These are the errors returned by our public API.

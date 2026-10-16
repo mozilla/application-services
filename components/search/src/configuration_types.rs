@@ -6,11 +6,41 @@
 //! the search configuration.
 
 use crate::{
-    SearchApplicationName, SearchDeviceType, SearchEngineClassification, SearchUpdateChannel,
-    SearchUrlParam,
+    SearchApplicationName, SearchApplicationNameV3, SearchDeviceType, SearchDeviceTypeV3,
+    SearchEngineClassification, SearchEngineClassificationV3, SearchEnginePartnerDetails,
+    SearchUpdateChannel, SearchUpdateChannelV3, SearchUrlParam,
 };
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
+use std::fmt::Debug;
+
+/// Defines the environment related types that differ between versions of the
+/// search configuration.
+pub(crate) trait ConfigVersion: Clone + Debug + Default {
+    type ApplicationName: DeserializeOwned + PartialEq + Clone + Debug + Default;
+    type UpdateChannel: DeserializeOwned + PartialEq + Clone + Debug + Default;
+    type DeviceType: DeserializeOwned + PartialEq + Clone + Debug + Default;
+}
+
+/// Marker for search-config-v2.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct V2;
+
+impl ConfigVersion for V2 {
+    type ApplicationName = SearchApplicationName;
+    type UpdateChannel = SearchUpdateChannel;
+    type DeviceType = SearchDeviceType;
+}
+
+/// Marker for search-config-v3.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct V3;
+
+impl ConfigVersion for V3 {
+    type ApplicationName = SearchApplicationNameV3;
+    type UpdateChannel = SearchUpdateChannelV3;
+    type DeviceType = SearchDeviceTypeV3;
+}
 
 /// The list of possible submission methods for search engine urls.
 #[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
@@ -106,7 +136,7 @@ pub(crate) struct JSONEngineBase {
     /// A list of aliases for this engine.
     pub aliases: Option<Vec<String>>,
 
-    /// The character set this engine uses for queries. Defaults to 'UTF=8' if not set.
+    /// The character set this engine uses for queries. Defaults to 'UTF-8' if not set.
     pub charset: Option<String>,
 
     /// The classification of search engine according to the main search types
@@ -126,11 +156,45 @@ pub(crate) struct JSONEngineBase {
     pub urls: JSONEngineUrls,
 }
 
+/// Represents the engine base section of the configuration for v3.
+#[derive(Debug, Default, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineBaseV3 {
+    /// A list of aliases for this engine.
+    pub aliases: Option<Vec<String>>,
+
+    /// The character set this engine uses for queries. Defaults to 'UTF-8' if not set.
+    pub charset: Option<String>,
+
+    /// The classification of search engine according to the main search types.
+    #[serde(default)]
+    pub classification: SearchEngineClassificationV3,
+
+    /// The user visible name for the search engine.
+    pub name: String,
+
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
+
+    /// The URLs associated with the search engine.
+    pub urls: JSONEngineUrls,
+
+    /// Whether the search engine has been deprecated. If this is true, then
+    /// the engine will be removed from the configuration soon. The client should
+    /// not display the configuration engine but may copy the engine details to a
+    /// user-installed engine.
+    #[serde(default)]
+    pub deprecated: bool,
+}
+
 /// Specifies details of possible user environments that the engine or variant
 /// applies to.
 #[derive(Debug, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct JSONVariantEnvironment {
+#[serde(rename_all = "camelCase", bound(deserialize = ""))]
+pub(crate) struct JSONVariantEnvironment<V: ConfigVersion> {
     /// Indicates that this section applies to all regions and locales. May be
     /// modified by excluded_regions/excluded_locales.
     #[serde(default)]
@@ -168,11 +232,11 @@ pub(crate) struct JSONVariantEnvironment {
 
     /// A vector of applications that this applies to.
     #[serde(default)]
-    pub applications: Vec<SearchApplicationName>,
+    pub applications: Vec<V::ApplicationName>,
 
     /// A vector of release channels that this section applies to (not set = everywhere).
     #[serde(default)]
-    pub channels: Vec<SearchUpdateChannel>,
+    pub channels: Vec<V::UpdateChannel>,
 
     /// The experiment that this section applies to.
     #[serde(default)]
@@ -187,7 +251,7 @@ pub(crate) struct JSONVariantEnvironment {
     pub max_version: String,
 
     #[serde(default)]
-    pub device_type: Vec<SearchDeviceType>,
+    pub device_type: Vec<V::DeviceType>,
 }
 
 /// Describes an individual variant of a search engine.
@@ -195,7 +259,7 @@ pub(crate) struct JSONVariantEnvironment {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineVariant {
     /// Details of the possible user environments that this variant applies to.
-    pub environment: JSONVariantEnvironment,
+    pub environment: JSONVariantEnvironment<V2>,
 
     /// Indicates the date until which the engine variant or subvariant is considered new
     /// (format: YYYY-MM-DD).
@@ -233,7 +297,7 @@ pub(crate) struct JSONEngineVariant {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineRecord {
-    /// The identiifer for the search engine.
+    /// The identifier for the search engine.
     pub identifier: String,
 
     /// The base information of the search engine, may be extended by the
@@ -246,9 +310,61 @@ pub(crate) struct JSONEngineRecord {
     pub variants: Vec<JSONEngineVariant>,
 }
 
+/// Describes an individual variant of a search engine.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct JSONSpecificDefaultRecord {
+pub(crate) struct JSONEngineVariantV3 {
+    /// Details of the possible user environments that this variant applies to.
+    pub environment: JSONVariantEnvironment<V3>,
+
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
+    /// This search engine is presented as an option that the user may enable.
+    /// If not specified, defaults to false.
+    #[serde(default)]
+    pub optional: bool,
+
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
+
+    /// The urls for this variant.
+    pub urls: Option<JSONEngineUrls>,
+
+    /// This section describes subvariations of this search engine that may occur
+    /// depending on the user's environment. The last subvariant that matches
+    /// the user's environment will be applied to the engine.
+    ///
+    /// Note: sub-variants are only supported in a top-level variant. You cannot
+    /// have nested sub-variants.
+    #[serde(default)]
+    pub sub_variants: Vec<JSONEngineVariantV3>,
+}
+
+/// Represents an individual engine record in the v3 configuration.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineRecordV3 {
+    /// The identifier for the search engine.
+    pub identifier: String,
+
+    /// The base information of the search engine, may be extended by the
+    /// variants.
+    pub base: JSONEngineBaseV3,
+
+    /// Describes variations of this search engine that may occur depending on
+    /// the user's environment. The last variant that matches the user's
+    /// environment will be applied to the engine, subvariants may also be applied.
+    pub variants: Vec<JSONEngineVariantV3>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase", bound(deserialize = ""))]
+pub(crate) struct JSONSpecificDefaultRecord<V: ConfigVersion> {
     /// The identifier of the engine that will be used as the application default
     /// for the associated environment. If the entry is suffixed with a star,
     /// matching is applied on a "starts with" basis.
@@ -262,13 +378,13 @@ pub(crate) struct JSONSpecificDefaultRecord {
     pub default_private: String,
 
     /// The specific environment to match for this record.
-    pub environment: JSONVariantEnvironment,
+    pub environment: JSONVariantEnvironment<V>,
 }
 
 /// Represents the default engines record.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct JSONDefaultEnginesRecord {
+#[serde(rename_all = "camelCase", bound(deserialize = ""))]
+pub(crate) struct JSONDefaultEnginesRecord<V: ConfigVersion> {
     /// The identifier of the engine that will be used as the application default
     /// if no other engines are specified as default.
     pub global_default: String,
@@ -282,14 +398,14 @@ pub(crate) struct JSONDefaultEnginesRecord {
     /// array is ordered, when multiple entries match on environments, the later
     /// entry will override earlier entries.
     #[serde(default)]
-    pub specific_defaults: Vec<JSONSpecificDefaultRecord>,
+    pub specific_defaults: Vec<JSONSpecificDefaultRecord<V>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct JSONEngineOrder {
+#[serde(rename_all = "camelCase", bound(deserialize = ""))]
+pub(crate) struct JSONEngineOrder<V: ConfigVersion> {
     /// The specific environment to match for this record.
-    pub environment: JSONVariantEnvironment,
+    pub environment: JSONVariantEnvironment<V>,
 
     /// The order of engine identifiers for the associated environment. If engines
     /// are present for the user but not included in this list, they will follow
@@ -301,12 +417,12 @@ pub(crate) struct JSONEngineOrder {
 
 /// Represents the engine orders record.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct JSONEngineOrdersRecord {
+#[serde(rename_all = "camelCase", bound(deserialize = ""))]
+pub(crate) struct JSONEngineOrdersRecord<V: ConfigVersion> {
     /// When a user's instance matches the defined environments, the associated
     /// engine order will be applied. The array is ordered, when multiple entries
     /// match on environments, the later entry will override earlier entries.
-    pub orders: Vec<JSONEngineOrder>,
+    pub orders: Vec<JSONEngineOrder<V>>,
 }
 
 /// Represents the available locales record.
@@ -321,11 +437,26 @@ pub(crate) struct JSONAvailableLocalesRecord {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "recordType", rename_all = "camelCase")]
 pub(crate) enum JSONSearchConfigurationRecords {
-    DefaultEngines(JSONDefaultEnginesRecord),
+    DefaultEngines(JSONDefaultEnginesRecord<V2>),
     Engine(Box<JSONEngineRecord>),
-    EngineOrders(JSONEngineOrdersRecord),
+    EngineOrders(JSONEngineOrdersRecord<V2>),
     AvailableLocales(JSONAvailableLocalesRecord),
-    // Include some flexibilty if we choose to add new record types in future.
+    // Include some flexibility if we choose to add new record types in future.
+    // Current versions of the application receiving the configuration will
+    // ignore the new record types.
+    #[serde(other)]
+    Unknown,
+}
+
+/// Represents an individual record in the raw search configuration v3.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "recordType", rename_all = "camelCase")]
+pub(crate) enum JSONSearchConfigurationRecordsV3 {
+    DefaultEngines(JSONDefaultEnginesRecord<V3>),
+    Engine(Box<JSONEngineRecordV3>),
+    EngineOrders(JSONEngineOrdersRecord<V3>),
+    AvailableLocales(JSONAvailableLocalesRecord),
+    // Include some flexibility if we choose to add new record types in future.
     // Current versions of the application receiving the configuration will
     // ignore the new record types.
     #[serde(other)]
@@ -336,4 +467,10 @@ pub(crate) enum JSONSearchConfigurationRecords {
 #[derive(Debug, Deserialize)]
 pub(crate) struct JSONSearchConfiguration {
     pub data: Vec<JSONSearchConfigurationRecords>,
+}
+
+/// Represents the search configuration v3 as received from remote settings.
+#[derive(Debug, Deserialize)]
+pub(crate) struct JSONSearchConfigurationV3 {
+    pub data: Vec<JSONSearchConfigurationRecordsV3>,
 }
