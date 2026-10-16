@@ -21,12 +21,6 @@ fn prod_client() -> ads_client::MozAdsClient {
         .build()
 }
 
-fn staging_client() -> ads_client::MozAdsClient {
-    Arc::new(MozAdsClientBuilder::new())
-        .environment(MozAdsEnvironment::Staging)
-        .build()
-}
-
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_contract_image_prod() {
@@ -90,6 +84,30 @@ fn test_contract_spoc_prod() {
 
     let client = prod_client();
     let result = client.request_spoc_ads(
+        vec![MozAdsPlacementRequestWithCount {
+            count: 3,
+            iab_content: None,
+            placement_id: "mock_spoc_1".to_string(),
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_spoc_1"));
+    assert!(placements.get("mock_spoc_1").unwrap().len() == 3);
+}
+
+// Note: this test does not actually test a mock placement that returns spoc *and* image ads, as no such placement currently exists,
+// and direct staging calls may be stochastic (depends on inventory, etc.).
+// TODO: When such a mock placement exists, add a test for it.
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_contract_spoc_or_image_prod() {
+    init_backend();
+
+    let client = prod_client();
+    let result = client.request_spoc_or_image_ads(
         vec![MozAdsPlacementRequestWithCount {
             count: 3,
             iab_content: None,
@@ -246,30 +264,4 @@ fn test_contract_tile_ohttp_prod() {
         placements.contains_key("mock_tile_1"),
         "OHTTP response should contain mock_tile_1"
     );
-}
-
-#[test]
-#[ignore = "integration test: run manually with -- --ignored"]
-fn test_contract_newtab_stories_1_stage() {
-    init_backend();
-
-    // Use staging client, because this does not use a mock placement_id.
-    let client = staging_client();
-
-    // Note: this particular return is due to a bug with `newtab_stories_1`- it returns 3 ads, but only two of which are spoc.
-    // The image ad gets dropped with `request_spoc_ads`, which is expected.
-    // The existence of the function `request_spoc_or_image_ads` is a band-aid fix that allows all 3 ads to be returned.
-    let result = client.request_spoc_or_image_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            count: 3,
-            iab_content: None,
-            placement_id: "newtab_stories_1".to_string(),
-        }],
-        None,
-    );
-
-    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
-    let placements = result.unwrap();
-    assert!(placements.contains_key("newtab_stories_1"));
-    assert!(placements.get("newtab_stories_1").unwrap().len() == 3);
 }
