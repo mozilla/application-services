@@ -36,6 +36,11 @@
 - Added `list_credit_card_candidates()`, returning `CreditCardCandidate`: a card minus its encrypted fields, with `cc_number_last_4` and `has_cvv` in their place. Like `list_candidates()` in logins it never touches the key, so an application can list cards without a primary password prompt and call `get_credit_card()` for the single card whose number or CVV it needs. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
 - Credit cards can store an optional CVV, encrypted like the number and handled transparently: `UpdatableCreditCardFields.cc_cvv` (cleartext in, defaults to none) and `CreditCard.cc_cvv` (decrypted out). A v6 schema upgrade adds the column; existing rows simply have no CVV. The CVV syncs as a new optional `cc-cvv` payload field; records written by older clients round-trip it through the mirror's unknown-fields handling, so their edits do not drop it. ([bug 2076154](https://bugzilla.mozilla.org/show_bug.cgi?id=2076154))
 
+### Nimbus
+- Disabling experiments or rollouts will submit an event. [#7656](https://github.com/mozilla/application-services/pull/7656)
+- If requesting experiment or rollout participation on Android throws, the getter will return true instead of throwing. This aligns the Android behaviour with iOS. [#7656](https://github.com/mozilla/application-services/pull/7656)
+- Enabling experiments or rollouts while they are already enabled no longer performs an update. [#7656](https://github.com/mozilla/application-services/pull/7656)
+
 ### Search
 
 - Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
