@@ -6,7 +6,7 @@ use crate::{
         AdsClientInner,
     },
     mars::{ad_request::AdPlacementRequest, ReportReason},
-    request::{QueuedRequest, RequestQueue},
+    request::RequestQueue,
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
@@ -53,35 +53,15 @@ impl BackgroundWorker {
         }
     }
 
-    // Add to the background worker's queue an ads request.
-    // These are prioritized and will be batched before sending.
-    pub fn dispatch_ads_request(
-        &self,
-        ads_requests: Vec<AdPlacementRequest>,
-    ) -> Result<(), ComponentError> {
+    // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
+    pub fn dispatch(&self, request : DispatchRequest)  -> Result<(), ComponentError> {
         if self.thread_handle.is_some() {
-            for req in ads_requests {
-                self.request_queue.push_ad_request(req);
-            }
+            self.request_queue.push_request(request);
             Ok(())
         } else {
             Err(BackgroundWorkerError::Closed.into())
         }
-    }
 
-    // Add to the background worker's queue a QueuedRequest (a non-ads request).
-    // (eg: RecordClick, RecordImpression)
-    // These are queued to send after any ads requests.
-    pub fn dispatch_queued_request(
-        &self,
-        queued_request: QueuedRequest,
-    ) -> Result<(), ComponentError> {
-        if self.thread_handle.is_some() {
-            self.request_queue.push_queued_request(queued_request);
-            Ok(())
-        } else {
-            Err(BackgroundWorkerError::Closed.into())
-        }
     }
 }
 

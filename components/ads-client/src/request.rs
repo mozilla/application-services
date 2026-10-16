@@ -7,8 +7,7 @@ use crate::{
     worker::DispatchRequest,
 };
 use std::{
-    collections::{HashMap, VecDeque},
-    sync::Arc,
+    collections::{HashMap, HashSet, VecDeque}, sync::Arc,
 };
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
@@ -64,14 +63,27 @@ impl RequestQueue {
         inner.request_queue.pop_front().map(|c| c.into())
     }
 
-    pub fn push_ad_request(&self, ad_request: AdPlacementRequest) {
-        let mut inner = self.inner.lock();
-        inner
-            .queued_ads
-            .insert(ad_request.placement.clone().into(), ad_request);
+    // Add a `DispatchRequest` to the `RequestQueue` (primary entry point for queuing requests).
+    pub fn push_request(&self, request: DispatchRequest) {
+        // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
+        match request {
+            DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
+            DispatchRequest::RecordImpression { url } => self.push_queued_request(QueuedRequest::RecordImpression { url }),
+            DispatchRequest::RecordClick { url } => self.push_queued_request(QueuedRequest::RecordClick { url }),
+            DispatchRequest::ReportAd { url, reason } => self.push_queued_request(QueuedRequest::ReportAd { url, reason }),
+        }
     }
 
-    pub fn push_queued_request(&self, queued_command: QueuedRequest) {
+    fn push_ad_requests(&self, ad_requests: HashSet<AdPlacementRequest>) {
+        let mut inner = self.inner.lock();
+        for ad_request in ad_requests {
+            inner
+                .queued_ads
+                .insert(ad_request.placement.clone().into(), ad_request);
+        }
+    }
+
+    fn push_queued_request(&self, queued_command: QueuedRequest) {
         let mut inner = self.inner.lock();
         inner.request_queue.push_back(queued_command);
     }
@@ -79,7 +91,7 @@ impl RequestQueue {
 
 // Queue-able command (ReportAd, etc.)
 #[derive(Clone, Debug, PartialEq)]
-pub enum QueuedRequest {
+enum QueuedRequest {
     RecordClick { url: Url },
     RecordImpression { url: Url },
     ReportAd { reason: ReportReason, url: Url },
@@ -116,14 +128,6 @@ mod tests {
         }
     }
 
-    fn example_request_ads(identifier: usize) -> AdPlacementRequest {
-        AdPlacementRequest {
-            content: None,
-            count: 4,
-            placement: format!("test_placement_{identifier}"),
-        }
-    }
-
     fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
         let mut ad_requests = HashSet::new();
         for id in identifiers {
@@ -138,26 +142,26 @@ mod tests {
 
     #[test]
     fn identical_command_comes_out() {
-        let request = example_request_ads(0);
+        let request = example_request_ads_dispatch(&[0]);
         let command = example_request_ads_dispatch(&[0]);
         let queue = RequestQueue::new();
 
-        queue.push_ad_request(request.clone());
+        queue.push_request(request.clone());
         let retrieved_dispatch = queue.next().expect("Request should exist in queue");
         assert_eq!(command, retrieved_dispatch);
     }
 
     #[test]
     fn batch_similar_requests() {
-        let request_0 = example_request_ads(0);
-        let request_1 = example_request_ads(1);
+        let request_0 = example_request_ads_dispatch(&[0]);
+        let request_1 = example_request_ads_dispatch(&[1]);
         let dispatch = example_request_ads_dispatch(&[0, 1]);
         let queue = RequestQueue::new();
 
         // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
-        queue.push_ad_request(request_0.clone());
-        queue.push_ad_request(request_0.clone());
-        queue.push_ad_request(request_1.clone());
+        queue.push_request(request_0.clone());
+        queue.push_request(request_0.clone());
+        queue.push_request(request_1.clone());
 
         let retrieved_dispatch = queue.next().expect("Request should exist in queue");
 
@@ -178,8 +182,8 @@ mod tests {
 
         // Queue enough of this command to go one-over the limit.
         for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
-            let request = example_request_ads(i);
-            queue.push_ad_request(request.clone());
+            let request = example_request_ads_dispatch(&[i]);
+            queue.push_request(request.clone());
         }
 
         let mut retrieved_dispatch_many =
