@@ -13,6 +13,8 @@ pub struct AdsClientConfig {
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
+    #[cfg(feature = "stateful")]
+    pub worker_config: Option<AdsWorkerConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -26,5 +28,10 @@ pub struct AdsCacheConfig {
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
     pub db_path: String,
+}
+
+#[cfg(feature = "stateful")]
+#[derive(Clone, Debug)]
+pub struct AdsWorkerConfig {
     pub batch_interval_duration: Option<Duration>,
 }

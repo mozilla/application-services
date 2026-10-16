@@ -30,9 +30,6 @@ pub mod worker;
 
 pub use ffi::*;
 
-#[cfg(feature = "stateful")]
-use crate::worker::BackgroundWorker;
-
 #[cfg(test)]
 mod test_utils;
 
@@ -46,8 +43,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Arc<AdsClient>,
-    #[cfg(feature = "stateful")]
-    _worker: BackgroundWorker,
 }
 
 #[uniffi::export]

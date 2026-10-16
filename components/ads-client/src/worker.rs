@@ -3,19 +3,14 @@ use url::Url;
 use crate::{
     client::{
         error::{BackgroundWorkerError, ComponentError},
-        AdsClient,
+        AdsClientInner,
     },
     mars::{ad_request::AdPlacementRequest, ReportReason},
     request::{QueuedRequest, RequestQueue},
-    telemetry::Telemetry,
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
-
-// Thread sleep delay to wait for new requests to queue before resolving them.
-// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
-pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
 
 pub struct BackgroundWorker {
     _worker_thread: Option<JoinHandle<()>>,
@@ -23,8 +18,8 @@ pub struct BackgroundWorker {
 }
 
 impl BackgroundWorker {
-    pub fn new<T: Telemetry + Clone + Send + Sync + 'static>(
-        inner_client: Arc<AdsClient<T>>,
+    pub fn new(
+        inner_client: Arc<AdsClientInner>,
         worker_sleep_duration: Duration,
     ) -> BackgroundWorker {
         let request_queue = RequestQueue::new();
@@ -88,8 +83,8 @@ impl BackgroundWorker {
 }
 
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
-fn worker<T: Telemetry + Clone>(
-    inner_client: Arc<AdsClient<T>>,
+fn worker(
+    inner_client: Arc<AdsClientInner>,
     request_queue: RequestQueue,
     sleep_duration: Duration,
 ) {
@@ -129,9 +124,9 @@ pub enum DispatchRequest {
 impl DispatchRequest {
     // Runs a dispatched command synchronously in it's thread.
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
-    pub fn handle_request<T: Telemetry + Clone>(
+    pub fn handle_request(
         self,
-        _ads_client_inner: Arc<AdsClient<T>>,
+        _ads_client_inner: Arc<AdsClientInner>,
     ) -> Result<(), ComponentError> {
         // TODO: Add 'running a request' logic to here.
         error_support::error!("Running a request is currently not set up yet: {self:?}");
