@@ -61,9 +61,20 @@ impl Client {
 
         // For non-OHTTP requests, use the normal backend
         crate::debug!("Processing request via standard backend");
-        get_backend()?
+        let url = request.url.clone();
+        let resp = get_backend()?
             .send_request(request, self.settings.clone())
-            .await
+            .await?;
+        // Record errors for large downloads since these can lead to OOM errors:
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=2072330
+        if resp.body.len() > 50_000_000 {
+            error_support::report_error!(
+                "viaduct-large-download",
+                "url: {url}, size: {}",
+                resp.body.len(),
+            );
+        }
+        Ok(resp)
     }
 
     pub fn send_sync(&self, request: Request) -> Result<Response> {
