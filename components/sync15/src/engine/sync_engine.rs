@@ -188,6 +188,19 @@ pub trait SyncEngine {
     /// dynamically based on payload sizes and counts via the server's advertised limits.
     fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> Result<()>;
 
+    /// Record IDs the engine wants deleted from the server, e.g. ones a newer
+    /// record supersedes. Called after the upload; the sync deletes them and
+    /// reports back through `set_deleted()`. Most engines delete nothing.
+    fn pending_deletions(&self) -> Result<Vec<Guid>> {
+        Ok(Vec::new())
+    }
+
+    /// Indicates that the given record IDs, from `pending_deletions()`, were
+    /// deleted from the server.
+    fn set_deleted(&self, _ids: Vec<Guid>) -> Result<()> {
+        Ok(())
+    }
+
     /// Called once the sync is finished. Not currently called if uploads fail (which
     /// seems sad, but the other batching confusion there needs sorting out first).
     /// Many engines will have nothing to do here, as most "post upload" work should be

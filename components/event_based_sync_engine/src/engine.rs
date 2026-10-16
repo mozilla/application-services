@@ -12,13 +12,17 @@
 //! current schema, and dispatched to the reducer. Local changes are recorded via
 //! [`EventSyncEngine::record_local_event`] and uploaded on the next sync.
 //!
-//! Baselines (see [`crate::baseline`]) bound the event stream: a new client
-//! cold-starts from the newest readable baseline; any client advances its floor
-//! and prunes when it observes one; a client past the cadence writes a new
-//! baseline, or a `baseline-needed` marker if it's below the schema bar. Once
-//! every frame of its baseline is confirmed, the writer deletes the records it
-//! supersedes from the server; a client that falls behind a baseline rebuilds
-//! from it, since the events it missed may already be gone.
+//! Baselines (see [`crate::baseline`]) bound the event stream:
+//!
+//! * a new client cold-starts from the newest readable baseline;
+//! * any client that sees a baseline advances its floor and prunes;
+//! * a client past the cadence writes a new baseline, or a `baseline-needed`
+//!   marker if it's below the schema bar.
+//!
+//! Once a baseline is durable (every frame confirmed, or received whole), the
+//! client deletes the records it supersedes from the server, through
+//! [`SyncEngine::pending_deletions`]. A client that falls behind a baseline
+//! rebuilds from it, since the events it missed may already be gone.
 
 use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
@@ -103,8 +107,8 @@ enum OnComplete {
     Baseline {
         cover: EventPosition,
     },
-    /// A `baseline-needed` marker: extends the next baseline's cover, so its
-    /// writer deletes it.
+    /// A `baseline-needed` marker: extends the next baseline's cover, so it is
+    /// deleted with what that baseline covers.
     Marker,
 }
 
@@ -315,44 +319,6 @@ impl EventSyncEngine {
         Ok((group, bsos))
     }
 
-    /// Record ids superseded by a baseline this client wrote, still to be deleted
-    /// from the server. Call after a sync; delete them with
-    /// `Sync15StorageClient::delete_records`, then report back through
-    /// [`EventSyncEngine::set_deleted`]. Until then they are returned again.
-    pub fn pending_remote_deletions(&self) -> Result<Vec<Guid>> {
-        Ok(match self.meta.baseline_state()?.delete_up_to {
-            Some(cover) => self.meta.records_covered_by(&cover)?,
-            None => Vec::new(),
-        })
-    }
-
-    /// Mark ids from [`EventSyncEngine::pending_remote_deletions`] as deleted
-    /// from the server.
-    pub fn set_deleted(&self, ids: &[Guid]) -> Result<()> {
-        self.meta.forget_records(ids)?;
-        let mut state = self.meta.baseline_state()?;
-        if let Some(cover) = &state.delete_up_to {
-            if self.meta.records_covered_by(cover)?.is_empty() {
-                state.delete_up_to = None;
-                self.meta.set_baseline_state(state)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Delete what [`EventSyncEngine::pending_remote_deletions`] returns from the
-    /// server and mark it done. Run after each sync. Returns how many records
-    /// were deleted.
-    #[cfg(feature = "sync-client")]
-    pub fn delete_superseded(&self, client: &sync15::client::Sync15StorageClient) -> Result<usize> {
-        let ids = self.pending_remote_deletions()?;
-        if !ids.is_empty() {
-            client.delete_records(&self.collection, &ids)?;
-            self.set_deleted(&ids)?;
-        }
-        Ok(ids.len())
-    }
-
     /// Re-apply queued local events on top of a freshly applied baseline, which
     /// replaced local state they had already changed.
     fn replay_outgoing(&self) {
@@ -363,27 +329,6 @@ impl EventSyncEngine {
                 payload: p.payload.clone(),
             });
         }
-    }
-
-    /// Bound the tracked records when a peer's baseline moves the floor off
-    /// `old_floor`. Deleting what the new baseline covers is its writer's job,
-    /// but a writer can vanish or crash before deleting, so keep one extra
-    /// generation: forget only what the *previous* floor covered, and the next
-    /// writer deletes any leftovers. Keep everything while our own delete is
-    /// pending; `set_deleted` forgets those.
-    fn forget_older_generation(
-        &self,
-        old_floor: Option<&EventPosition>,
-        delete_pending: bool,
-    ) -> Result<()> {
-        let Some(old_floor) = old_floor else {
-            return Ok(());
-        };
-        if delete_pending {
-            return Ok(());
-        }
-        let covered = self.meta.records_covered_by(old_floor)?;
-        self.meta.forget_records(&covered)
     }
 
     fn build_baseline_needed_bso(&self) -> Result<OutgoingBso> {
@@ -590,7 +535,7 @@ impl SyncEngine for EventSyncEngine {
         let is_new_client = last_sync.as_millis() == 0 && state.floor.is_none();
         let newest_cover = baselines.iter().map(|(cover, _)| cover.clone()).max();
         // A cover newer than our last sync may stand in for events we never
-        // downloaded, which its writer may already have deleted from the server.
+        // downloaded, which may already be deleted from the server.
         let behind = newest_cover
             .as_ref()
             .is_some_and(|c| c.modified.as_millis() > last_sync.as_millis());
@@ -628,7 +573,9 @@ impl SyncEngine for EventSyncEngine {
         }
         if let Some(cover) = floor_advance {
             self.meta.prune_positions(&cover)?;
-            self.forget_older_generation(state.floor.as_ref(), state.delete_up_to.is_some())?;
+            // A baseline we received is already durable, so what it covers can go
+            // now. Every client that applies it deletes; deleting twice is harmless.
+            state.delete_up_to = Some(cover.clone());
             state.newest_event = Some(max_position(state.newest_event.take(), cover.clone()));
             state.floor = Some(cover);
             state.events_since_baseline = 0;
@@ -637,7 +584,7 @@ impl SyncEngine for EventSyncEngine {
         }
 
         // A baseline answers the markers before it, so its cover reaches them
-        // and its writer deletes them. They don't count toward the cadence.
+        // and they are deleted with it. They don't count toward the cadence.
         for pos in markers {
             if state.floor.as_ref().is_none_or(|f| pos.supersedes(f)) {
                 state.newest_event = Some(max_position(state.newest_event.take(), pos));
@@ -834,6 +781,25 @@ impl SyncEngine for EventSyncEngine {
 
         self.meta.set_baseline_state(state)?;
         self.meta.set_last_sync(new_timestamp)?;
+        Ok(())
+    }
+
+    fn pending_deletions(&self) -> anyhow::Result<Vec<Guid>> {
+        Ok(match self.meta.baseline_state()?.delete_up_to {
+            Some(cover) => self.meta.records_covered_by(&cover)?,
+            None => Vec::new(),
+        })
+    }
+
+    fn set_deleted(&self, ids: Vec<Guid>) -> anyhow::Result<()> {
+        self.meta.forget_records(&ids)?;
+        let mut state = self.meta.baseline_state()?;
+        if let Some(cover) = &state.delete_up_to {
+            if self.meta.records_covered_by(cover)?.is_empty() {
+                state.delete_up_to = None;
+                self.meta.set_baseline_state(state)?;
+            }
+        }
         Ok(())
     }
 

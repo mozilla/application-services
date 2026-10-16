@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Deletion scenarios: a baseline's writer deletes the records it supersedes
-//! from the server, clients that missed those records still converge, and a
-//! writer that never gets to delete leaves its records to the next writer.
-//! `baseline-needed` markers go with the baseline that answers them.
+//! Deletion scenarios: once a baseline is durable, the records it supersedes are
+//! deleted from the server, by its writer or by any client that applies it.
+//! Clients that missed those records still converge, and `baseline-needed`
+//! markers go with the baseline that answers them.
 
 mod support;
 
@@ -122,7 +122,7 @@ fn behind_client_keeps_its_unsynced_edits_through_a_rebuild() {
 }
 
 #[test]
-fn next_writer_deletes_what_a_vanished_writer_left_behind() {
+fn a_client_that_applies_a_baseline_deletes_what_its_writer_left_behind() {
     let mut server = FakeServer::new();
     let a = SimClient::new("A", schema_v1(), every_three());
 
@@ -136,26 +136,15 @@ fn next_writer_deletes_what_a_vanished_writer_left_behind() {
     assert_eq!(server.baseline_count(), 1);
     assert!(server.record_count() > server.baseline_count());
 
-    // B joins, moves on, and writes the next baseline.
-    let b = SimClient::new("B", schema_v1(), every_three());
+    // B cold-starts from A's baseline and deletes what it covers.
+    let b = SimClient::new("B", schema_v1(), no_baselines());
     sync_to_quiescence(&[&b], &mut server);
-    b.create(json!({ "name": "four" }));
-    b.create(json!({ "name": "five" }));
-    b.create(json!({ "name": "six" }));
-    sync_to_quiescence(&[&b], &mut server);
-
-    // B's delete also covers A's leftovers and A's baseline.
-    assert_eq!(server.baseline_count(), 1);
     assert_eq!(server.record_count(), 1);
-
-    let c = SimClient::new("C", schema_v1(), no_baselines());
-    sync_to_quiescence(&[&b, &c], &mut server);
-    assert_converged(&[&b, &c]);
-    assert_eq!(c.state().len(), 6);
+    assert_eq!(b.state().len(), 3);
 }
 
 #[test]
-fn writer_that_loses_its_upload_confirmation_cleans_up_next_time() {
+fn writer_that_loses_its_upload_confirmation_deletes_on_reading_its_baseline() {
     let mut server = FakeServer::new();
     let a = SimClient::new("A", schema_v1(), every_three());
 
@@ -164,24 +153,19 @@ fn writer_that_loses_its_upload_confirmation_cleans_up_next_time() {
     a.create(json!({ "name": "three" }));
     a.sync(&mut server);
     // The baseline commits, but A never learns it did, so it never queues the
-    // delete. Next sync A downloads its own baseline as if a peer wrote it.
+    // delete as its writer.
     a.sync_with(&mut server, Fault::LoseUploadConfirmation);
     assert_eq!(server.baseline_count(), 1);
-    sync_to_quiescence(&[&a], &mut server);
     assert!(server.record_count() > server.baseline_count());
 
-    // A's next baseline deletes everything the lost one should have.
-    a.create(json!({ "name": "four" }));
-    a.create(json!({ "name": "five" }));
-    a.create(json!({ "name": "six" }));
+    // Next sync A downloads its own baseline like a peer's, and deletes then.
     sync_to_quiescence(&[&a], &mut server);
-    assert_eq!(server.baseline_count(), 1);
     assert_eq!(server.record_count(), 1);
 
     let b = SimClient::new("B", schema_v1(), no_baselines());
     sync_to_quiescence(&[&a, &b], &mut server);
     assert_converged(&[&a, &b]);
-    assert_eq!(b.state().len(), 6);
+    assert_eq!(b.state().len(), 3);
 }
 
 #[test]

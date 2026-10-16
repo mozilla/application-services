@@ -311,10 +311,10 @@ impl SimClient {
         if fault == Fault::SkipDeletes {
             return downloaded > 0 || uploaded > 0;
         }
-        let to_delete = self.engine.pending_remote_deletions().unwrap();
+        let to_delete = self.engine.pending_deletions().unwrap();
         if !to_delete.is_empty() {
             server.delete(&to_delete);
-            self.engine.set_deleted(&to_delete).unwrap();
+            self.engine.set_deleted(to_delete.clone()).unwrap();
         }
         downloaded > 0 || uploaded > 0 || !to_delete.is_empty()
     }
