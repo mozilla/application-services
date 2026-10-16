@@ -89,6 +89,13 @@ pub struct AdTile {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum AdImageOrSpoc {
+    Image(AdImage),
+    Spoc(AdSpoc),
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SpocFrequencyCaps {
     pub cap_key: String,
     pub day: u32,

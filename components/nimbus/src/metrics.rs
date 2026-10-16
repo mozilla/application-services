@@ -92,6 +92,10 @@ mod detail {
         fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
 
         fn submit_targeting_context(&self);
+
+        fn record_rollouts_opt_out(&self);
+
+        fn record_studies_opt_out(&self);
     }
 
     #[derive(Clone)]

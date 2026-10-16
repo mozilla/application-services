@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::ads::{AdImage, AdSpoc, AdTile};
+use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
@@ -348,6 +348,36 @@ impl AdsClientInner {
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
         let result = self.request_ads::<AdSpoc>(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            AdRequestRelevance::default(),
+        );
+        result
+            .inspect_err(|e| {
+                telemetry::record_client_error(ClientOperation::RequestAds, e);
+            })
+            .map(|response| {
+                telemetry::record_client_operation(ClientOperation::RequestAds);
+                response.data
+            })
+    }
+
+    // Sometimes, spoc array requests can return multiple types of ads for specific placements.
+    // This allows both types to be returned without error (as instances of the enum `AdImageOrSpoc`)
+    // TODO: This, as well as the other synchronous functions, are to be deprecated
+    // when the stateful client rework is complete.
+    pub fn request_spoc_or_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
+        let result = self.request_ads::<AdImageOrSpoc>(
             ad_placement_requests,
             flags,
             options,
