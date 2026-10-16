@@ -13,12 +13,13 @@ use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
+#[cfg(feature = "stateful")]
+use crate::worker::{self, BackgroundWorker};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
-#[cfg(feature = "stateful")]
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -31,7 +32,18 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+#[cfg(feature = "stateful")]
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
+
 pub struct AdsClient {
+    inner: Arc<AdsClientInner>,
+    #[cfg(feature = "stateful")]
+    _worker: BackgroundWorker,
+}
+
+pub struct AdsClientInner {
     #[cfg(feature = "stateful")]
     ads_store: Arc<Option<AdsStore>>,
     client: MARSClient,
@@ -39,6 +51,139 @@ pub struct AdsClient {
 }
 
 impl AdsClient {
+    pub fn new(client_config: AdsClientConfig) -> Self {
+        #[cfg(feature = "stateful")]
+        let store_exists = client_config.store_config.is_some();
+        #[cfg(feature = "stateful")]
+        let worker_sleep_duration = client_config
+            .worker_config
+            .as_ref()
+            .and_then(|x| x.batch_interval_duration)
+            .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
+        let inner = Arc::new(AdsClientInner::new(client_config));
+
+        #[cfg(feature = "stateful")]
+        let worker = if store_exists {
+            worker::BackgroundWorker::new(inner.clone(), worker_sleep_duration)
+        } else {
+            worker::BackgroundWorker::new_empty()
+        };
+
+        AdsClient {
+            inner,
+            #[cfg(feature = "stateful")]
+            _worker: worker,
+        }
+    }
+
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+        self.inner.clear_cache()
+    }
+
+    #[cfg(test)]
+    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
+        self.inner.get_context_id()
+    }
+
+    pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
+        self.inner.record_click(click_url, ohttp)
+    }
+
+    pub fn record_impression(
+        &self,
+        impression_url: Url,
+        ohttp: bool,
+    ) -> Result<(), RecordImpressionError> {
+        self.inner.record_impression(impression_url, ohttp)
+    }
+
+    pub fn report_ad(
+        &self,
+        report_url: Url,
+        reason: ReportReason,
+        ohttp: bool,
+    ) -> Result<(), ReportAdError> {
+        self.inner.report_ad(report_url, reason, ohttp)
+    }
+
+    pub fn request_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
+        self.inner
+            .request_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn request_spoc_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
+        self.inner
+            .request_spoc_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn request_tile_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        relevance: AdRequestRelevance,
+    ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
+        self.inner.request_tile_ads(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            relevance,
+        )
+    }
+
+    pub fn request_spoc_or_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
+        self.inner
+            .request_spoc_or_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
+    #[cfg(test)]
+    fn request_ads<A>(
+        &self,
+        placements: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        relevance: AdRequestRelevance,
+    ) -> Result<AdResponse<A>, RequestAdsError>
+    where
+        A: AdResponseValue,
+    {
+        self.inner
+            .request_ads(placements, flags, options, ohttp, blocks, relevance)
+    }
+}
+
+impl AdsClientInner {
     pub fn new(client_config: AdsClientConfig) -> Self {
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
@@ -349,7 +494,7 @@ mod tests {
     use super::*;
 
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
-        AdsClient {
+        let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
                 AdsStoreBuilder::new("test_store.db")
@@ -363,6 +508,11 @@ mod tests {
                 false,
                 Box::new(DefaultContextIdCallback),
             ),
+        });
+        AdsClient {
+            inner: inner.clone(),
+            #[cfg(feature = "stateful")]
+            _worker: BackgroundWorker::new(inner.clone(), ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT),
         }
     }
 
@@ -373,6 +523,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -464,6 +616,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 
@@ -502,6 +656,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 

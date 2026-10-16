@@ -8,9 +8,9 @@ pub mod telemetry;
 use crate::ads::{
     AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
-#[cfg(feature = "stateful")]
-use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
+#[cfg(feature = "stateful")]
+use crate::client::config::{AdsStoreConfig, AdsWorkerConfig};
 use crate::client::AdsClient;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
@@ -25,6 +25,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
+use std::time::Duration;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -83,8 +84,11 @@ pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
 struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
     environment: Option<MozAdsEnvironment>,
+    #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    #[cfg(feature = "stateful")]
+    worker_config: Option<MozAdsWorkerConfig>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -111,10 +115,13 @@ impl MozAdsClientBuilder {
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            #[cfg(feature = "stateful")]
+            worker_config: inner.worker_config.clone().map(Into::into),
         };
-        MozAdsClient {
-            inner: AdsClient::new(client_config),
-        }
+
+        let client = AdsClient::new(client_config);
+        let inner = Arc::new(client);
+        MozAdsClient { inner }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
@@ -127,13 +134,24 @@ impl MozAdsClientBuilder {
         self
     }
 
+    pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
+        self.0.lock().telemetry = Some(Arc::from(telemetry));
+        self
+    }
+}
+
+#[cfg(feature = "stateful")]
+#[uniffi::export]
+impl MozAdsClientBuilder {
+    #[cfg(feature = "stateful")]
     pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
         self.0.lock().store_config = Some(store_config);
         self
     }
 
-    pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
-        self.0.lock().telemetry = Some(Arc::from(telemetry));
+    #[cfg(feature = "stateful")]
+    pub fn worker_config(self: Arc<Self>, worker_config: MozAdsWorkerConfig) -> Arc<Self> {
+        self.0.lock().worker_config = Some(worker_config);
         self
     }
 }
@@ -169,6 +187,12 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct MozAdsWorkerConfig {
+    /// Interval rate for batching commands used by the background worker.
+    pub batch_interval_duration: Option<Duration>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -459,6 +483,15 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
+        }
+    }
+}
+
+#[cfg(feature = "stateful")]
+impl From<MozAdsWorkerConfig> for AdsWorkerConfig {
+    fn from(config: MozAdsWorkerConfig) -> Self {
+        Self {
+            batch_interval_duration: config.batch_interval_duration,
         }
     }
 }
