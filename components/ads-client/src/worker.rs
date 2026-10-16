@@ -54,14 +54,13 @@ impl BackgroundWorker {
     }
 
     // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
-    pub fn dispatch(&self, request : DispatchRequest)  -> Result<(), ComponentError> {
+    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), ComponentError> {
         if self.thread_handle.is_some() {
             self.request_queue.push_request(request);
             Ok(())
         } else {
             Err(BackgroundWorkerError::Closed.into())
         }
-
     }
 }
 

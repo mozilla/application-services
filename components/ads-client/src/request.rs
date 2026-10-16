@@ -7,7 +7,8 @@ use crate::{
     worker::DispatchRequest,
 };
 use std::{
-    collections::{HashMap, HashSet, VecDeque}, sync::Arc,
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
 };
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
@@ -68,9 +69,15 @@ impl RequestQueue {
         // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
         match request {
             DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
-            DispatchRequest::RecordImpression { url } => self.push_queued_request(QueuedRequest::RecordImpression { url }),
-            DispatchRequest::RecordClick { url } => self.push_queued_request(QueuedRequest::RecordClick { url }),
-            DispatchRequest::ReportAd { url, reason } => self.push_queued_request(QueuedRequest::ReportAd { url, reason }),
+            DispatchRequest::RecordImpression { url } => {
+                self.push_queued_request(QueuedRequest::RecordImpression { url })
+            }
+            DispatchRequest::RecordClick { url } => {
+                self.push_queued_request(QueuedRequest::RecordClick { url })
+            }
+            DispatchRequest::ReportAd { url, reason } => {
+                self.push_queued_request(QueuedRequest::ReportAd { url, reason })
+            }
         }
     }
 

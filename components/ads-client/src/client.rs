@@ -149,6 +149,18 @@ impl AdsClient {
         )
     }
 
+    pub fn request_spoc_or_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
+        self.inner
+            .request_spoc_or_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
     pub fn shutdown(&self) {
         self.inner.shutdown();
     }
