@@ -112,8 +112,8 @@ impl Body {
 /// Registry of schema migrations and the current/floor versions.
 ///
 /// `up[n]` migrates `n-1 -> n` (used by migrate-on-read); `down[n]` migrates
-/// `n -> n-1` (used by [`SchemaRegistry::write`]). Registering a migration to version `n`
-/// implies the current schema is at least `n`.
+/// `n -> n-1` (used by [`SchemaRegistry::write`]). Migrations are registered in
+/// order, one version at a time, so the chain from `floor` to `current` has no gaps.
 #[derive(Default)]
 pub struct SchemaRegistry {
     current: SchemaVersion,
@@ -135,15 +135,25 @@ impl SchemaRegistry {
     }
 
     /// Register the migration pair that introduces schema `version`, raising the
-    /// current schema to at least `version`.
+    /// current schema to `version`.
     ///
     /// * `up` migrates `version - 1 -> version` (migrate-on-read)
     /// * `down` migrates `version -> version - 1` (write)
+    ///
+    /// # Panics
+    ///
+    /// Unless `version` is exactly `current + 1`. A gap would leave a version no
+    /// migration reaches, and a repeat would replace one; either is a bug in the
+    /// caller's setup, so fail at startup rather than mid-sync.
     pub fn register_migration(&mut self, version: SchemaVersion, up: MigrateFn, down: MigrateFn) {
-        debug_assert!(version > self.floor, "cannot migrate below the floor");
+        assert!(
+            version == self.current + 1,
+            "schema migrations must be registered in order: expected version {}, got {version}",
+            self.current + 1,
+        );
         self.up.insert(version, up);
         self.down.insert(version, down);
-        self.current = self.current.max(version);
+        self.current = version;
     }
 
     pub fn current(&self) -> SchemaVersion {
@@ -235,6 +245,28 @@ mod tests {
             }),
         );
         reg
+    }
+
+    fn identity() -> MigrateFn {
+        Box::new(|_ty, v| v)
+    }
+
+    #[test]
+    #[should_panic(expected = "expected version 2, got 3")]
+    fn registering_with_a_gap_panics() {
+        SchemaRegistry::new(1).register_migration(3, identity(), identity());
+    }
+
+    #[test]
+    #[should_panic(expected = "expected version 3, got 2")]
+    fn registering_a_version_twice_panics() {
+        registry_v2().register_migration(2, identity(), identity());
+    }
+
+    #[test]
+    #[should_panic(expected = "expected version 2, got 1")]
+    fn registering_the_floor_panics() {
+        SchemaRegistry::new(1).register_migration(1, identity(), identity());
     }
 
     #[test]
