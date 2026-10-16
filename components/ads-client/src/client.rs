@@ -511,6 +511,7 @@ mod tests {
         });
         AdsClient {
             inner: inner.clone(),
+            #[cfg(feature = "stateful")]
             _worker: BackgroundWorker::new(inner.clone(), ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT),
         }
     }
