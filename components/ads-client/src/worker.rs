@@ -13,8 +13,11 @@ use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
 pub struct BackgroundWorker {
-    _worker_thread: Option<JoinHandle<()>>,
-    worker_request_queue: Option<RequestQueue>,
+    // Worker thread is not needed to be accessed, but the handle needs to be held by the structure.
+    // If None, no worker thread is present, and attempts to write to the request queue will be rejected
+    // (because no consumer of the request queue will exist)
+    thread_handle: Option<JoinHandle<()>>,
+    request_queue: RequestQueue,
 }
 
 impl BackgroundWorker {
@@ -34,19 +37,19 @@ impl BackgroundWorker {
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
             }).ok()
         else {
-            return BackgroundWorker { _worker_thread: None, worker_request_queue: None }
+            return BackgroundWorker { thread_handle: None, request_queue }
         };
 
         BackgroundWorker {
-            _worker_thread: Some(worker_thread),
-            worker_request_queue: Some(request_queue),
+            thread_handle: Some(worker_thread),
+            request_queue,
         }
     }
 
     pub fn new_empty() -> BackgroundWorker {
         BackgroundWorker {
-            _worker_thread: None,
-            worker_request_queue: None,
+            thread_handle: None,
+            request_queue: RequestQueue::new(),
         }
     }
 
@@ -56,9 +59,9 @@ impl BackgroundWorker {
         &self,
         ads_requests: Vec<AdPlacementRequest>,
     ) -> Result<(), ComponentError> {
-        if let Some(worker_dispatch) = &self.worker_request_queue {
+        if self.thread_handle.is_some() {
             for req in ads_requests {
-                worker_dispatch.push_ad_request(req);
+                self.request_queue.push_ad_request(req);
             }
             Ok(())
         } else {
@@ -73,8 +76,8 @@ impl BackgroundWorker {
         &self,
         queued_request: QueuedRequest,
     ) -> Result<(), ComponentError> {
-        if let Some(worker_dispatch) = &self.worker_request_queue {
-            worker_dispatch.push_queued_request(queued_request);
+        if self.thread_handle.is_some() {
+            self.request_queue.push_queued_request(queued_request);
             Ok(())
         } else {
             Err(BackgroundWorkerError::Closed.into())
