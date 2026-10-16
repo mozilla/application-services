@@ -44,6 +44,7 @@
 - Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
 - `nimbus-fml lint` now always exits with a non-zero status code if un-suppressed lints are repoted. ([#7735](https://github.com/mozilla/application-services/pull/7735))
 - `nimbus-fml lint` no longer distinguishes between errors and warnings during linting. ([#7734](https://github.com/mozilla/application-services/pull/7734))
+- The `pref-key` annotation for FML feature variables has been removed. ([#7753](https://github.com/mozilla/application-services/pull/7753/))
 
 # v161.0 (_2026-11-05_)
 
