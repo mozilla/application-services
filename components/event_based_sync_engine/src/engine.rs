@@ -27,8 +27,8 @@
 use crate::baseline::BaselineConfig;
 use crate::error::{Error, Result};
 use crate::event::{
-    batch_record_id, EventPosition, GateKey, Incoming, IncomingEvent, Wire, WireEvent, WirePart,
-    BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
+    batch_record_id, part_of, EventPosition, GateKey, Incoming, IncomingEvent, Wire, WireEvent,
+    WireHead, WirePart, BASELINE_EVENT_TYPE, BASELINE_NEEDED_EVENT_TYPE,
 };
 use crate::metadata::MetadataStore;
 use crate::reducer::{EventReducer, ResolvedEvent};
@@ -40,15 +40,15 @@ use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{CollectionName, Guid, ServerTimestamp};
 
-/// Bytes reserved for a [`WirePart`]'s envelope fields (`group`, `part`,
-/// `part_count`, field names, quoting) when sizing the `data` slice. Generous
-/// next to any real budget.
-const FRAME_OVERHEAD: usize = 96;
+/// Bytes reserved for a [`WirePart`]'s JSON around its `data` slice
+/// (`{"data":""}`). Generous next to any real budget.
+const FRAME_OVERHEAD: usize = 16;
 
-/// Default byte budget for a single record before it is framed into `_N` parts.
+/// Default byte budget for a single record before it is split into a head and
+/// `_N` body parts.
 pub const DEFAULT_MAX_RECORD_PAYLOAD_BYTES: usize = 256 * 1024;
 
-/// Split `s`'s raw bytes into base64-encoded frame payloads.
+/// Split `s`'s raw bytes into base64-encoded part payloads.
 fn split_frames(s: &str, max_bytes: usize) -> Vec<String> {
     // base64 emits 4 output chars per 3 input bytes
     let chunk = (max_bytes.max(4) / 4) * 3;
@@ -122,14 +122,11 @@ struct StagedRecord {
     raw: RawRecord,
 }
 
-/// Either a complete record or one frame of a split one.
+/// A complete record, the head of a split one, or one of its body parts.
 enum RawRecord {
     Whole(WireEvent),
-    Frame {
-        part: u32,
-        part_count: u32,
-        data: String,
-    },
+    Head(WireHead),
+    Part { index: u32, data: String },
 }
 
 pub struct EventSyncEngine {
@@ -257,8 +254,9 @@ impl EventSyncEngine {
     }
 
     /// Serialize `record` into upload BSOs. If it fits the record budget it ships
-    /// whole under `base`; otherwise its bytes are split and base64-encoded into
-    /// `base_0 ..` [`WirePart`] frames. The engine never inspects the payload.
+    /// whole under `base`; otherwise a [`WireHead`] carrying its header ships
+    /// under `base`, and its serialized body is split and base64-encoded into
+    /// `base_0 ..` [`WirePart`]s. The engine never inspects the body.
     fn frame(&self, record: &WireEvent, base: &Guid) -> Result<Vec<OutgoingBso>> {
         let json = serde_json::to_string(record)?;
         let max = self.max_record_payload_bytes;
@@ -270,23 +268,23 @@ impl EventSyncEngine {
                 payload: json,
             }]);
         }
-        // Each frame's base64 `data` is plain ASCII JSON never re-escapes, so the
-        // whole envelope-adjusted budget is available for it.
+        // Base64 is plain ASCII that JSON never escapes, so `data` can use the
+        // whole budget minus the part's JSON wrapper.
         let data_budget = max.saturating_sub(FRAME_OVERHEAD).max(1);
-        let chunks = split_frames(&json, data_budget);
-        let part_count = chunks.len() as u32;
-        let mut bsos = Vec::with_capacity(chunks.len());
+        let chunks = split_frames(&serde_json::to_string(&record.body)?, data_budget);
+        let head = Wire::Head(WireHead {
+            header: record.header.clone(),
+            part_count: chunks.len() as u32,
+        });
+        let mut bsos = Vec::with_capacity(chunks.len() + 1);
+        bsos.push(OutgoingBso::from_content(
+            OutgoingEnvelope::from(base.clone()),
+            &head,
+        )?);
         for (i, data) in chunks.into_iter().enumerate() {
-            let frame = Wire::Frame(WirePart {
-                group: base.clone(),
-                part: i as u32,
-                part_count,
-                data,
-            });
-            let id = batch_record_id(base, i);
             bsos.push(OutgoingBso::from_content(
-                OutgoingEnvelope::from(id),
-                &frame,
+                OutgoingEnvelope::from(batch_record_id(base, i)),
+                Wire::Part(WirePart { data }),
             )?);
         }
         Ok(bsos)
@@ -403,16 +401,27 @@ fn staged_records(staged: Vec<IncomingBso>) -> Vec<StagedRecord> {
                 modified,
                 raw: RawRecord::Whole(wire),
             }),
-            IncomingKind::Content(Wire::Frame(p)) => parts.push(StagedRecord {
-                id: record_id,
-                group: p.group,
+            IncomingKind::Content(Wire::Head(head)) => parts.push(StagedRecord {
+                id: record_id.clone(),
+                group: record_id,
                 modified,
-                raw: RawRecord::Frame {
-                    part: p.part,
-                    part_count: p.part_count,
-                    data: p.data,
-                },
+                raw: RawRecord::Head(head),
             }),
+            IncomingKind::Content(Wire::Part(p)) => {
+                // A part whose id doesn't name its group and index is malformed.
+                let Some((group, index)) = part_of(&record_id) else {
+                    continue;
+                };
+                parts.push(StagedRecord {
+                    id: record_id,
+                    group,
+                    modified,
+                    raw: RawRecord::Part {
+                        index,
+                        data: p.data,
+                    },
+                })
+            }
             _ => {}
         }
     }
@@ -458,26 +467,24 @@ fn assemble_events(
         // Key the position on the group, so every frame gives the same one.
         let position = EventPosition::new(modified, group);
         records.extend(ids.into_iter().map(|id| (id, position.clone())));
-        out.push(match wire.event_type.as_str() {
+        let WireEvent { header, body } = wire;
+        out.push(match header.event_type.as_str() {
             BASELINE_EVENT_TYPE => {
                 // Its cover is what makes it usable; without one, drop it.
-                let Some(cover) = wire.covers_up_to else {
+                let Some(cover) = header.covers_up_to else {
                     continue;
                 };
-                Incoming::Baseline {
-                    cover,
-                    body: wire.body,
-                }
+                Incoming::Baseline { cover, body }
             }
             BASELINE_NEEDED_EVENT_TYPE => Incoming::BaselineNeeded {
                 position,
-                schema: wire.schema.unwrap_or(current),
+                schema: header.schema.unwrap_or(current),
             },
             _ => Incoming::Event(IncomingEvent {
-                max_schema: wire.body.versions().max().unwrap_or(current),
-                gate: GateKey::new(wire.event_type, wire.entity),
+                max_schema: body.versions().max().unwrap_or(current),
+                gate: GateKey::new(header.event_type, header.entity),
                 position,
-                body: wire.body,
+                body,
             }),
         });
     }
@@ -485,10 +492,10 @@ fn assemble_events(
 }
 
 /// Join one group's staged records into the original [`WireEvent`], or `None` if
-/// the group is an incomplete/inconsistent set of frames or fails to parse.
+/// the group is an incomplete/inconsistent set of head and parts, or fails to
+/// parse.
 fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
-    // A lone whole record stands alone and is used directly; a lone frame or a
-    // larger group falls through to frame reassembly below.
+    // A lone whole record is used directly.
     if let [StagedRecord {
         raw: RawRecord::Whole(_),
         ..
@@ -500,32 +507,33 @@ fn reassemble(mut bucket: Vec<StagedRecord>) -> Option<WireEvent> {
         return Some(wire);
     }
 
-    // Otherwise it is a set of frames: sort by part, require exactly `0..count`,
-    // then base64-decode and concatenate the data and parse the original record.
-    let mut frames: Vec<(u32, u32, String)> = bucket
-        .into_iter()
-        .map(|r| match r.raw {
-            RawRecord::Frame {
-                part,
-                part_count,
-                data,
-            } => Some((part, part_count, data)),
-            RawRecord::Whole(_) => None,
-        })
-        .collect::<Option<_>>()?;
-    frames.sort_by_key(|(part, ..)| *part);
-    let count = frames.first()?.1;
-    if frames.len() as u32 != count {
+    // Otherwise it is a split record: exactly one head, and body parts `0..count`.
+    // Base64-decode and concatenate them, then parse the body once.
+    let mut head = None;
+    let mut body_parts: Vec<(u32, String)> = Vec::new();
+    for r in bucket {
+        match r.raw {
+            RawRecord::Head(h) if head.is_none() => head = Some(h),
+            RawRecord::Part { index, data } => body_parts.push((index, data)),
+            _ => return None,
+        }
+    }
+    let head = head?;
+    if body_parts.len() as u32 != head.part_count {
         return None;
     }
+    body_parts.sort_by_key(|(index, _)| *index);
     let mut joined = Vec::new();
-    for (i, (part, part_count, data)) in frames.into_iter().enumerate() {
-        if part != i as u32 || part_count != count {
+    for (i, (index, data)) in body_parts.into_iter().enumerate() {
+        if index != i as u32 {
             return None;
         }
         joined.extend(BASE64_STANDARD.decode(&data).ok()?);
     }
-    serde_json::from_slice(&joined).ok()
+    Some(WireEvent {
+        header: head.header,
+        body: serde_json::from_slice(&joined).ok()?,
+    })
 }
 
 impl SyncEngine for EventSyncEngine {
@@ -1149,8 +1157,11 @@ mod tests {
             .into_content()
             .content()
             .unwrap();
-        assert_eq!(record.event_type, BASELINE_EVENT_TYPE);
-        let cover = record.covers_up_to.expect("a baseline carries a cover");
+        assert_eq!(record.header.event_type, BASELINE_EVENT_TYPE);
+        let cover = record
+            .header
+            .covers_up_to
+            .expect("a baseline carries a cover");
         assert_eq!(cover, pos(110, "e110"));
     }
 
@@ -1183,37 +1194,42 @@ mod tests {
             .into_content()
             .content()
             .unwrap();
-        assert_eq!(parsed.event_type, BASELINE_NEEDED_EVENT_TYPE);
-        assert_eq!(parsed.schema, Some(1));
+        assert_eq!(parsed.header.event_type, BASELINE_NEEDED_EVENT_TYPE);
+        assert_eq!(parsed.header.schema, Some(1));
     }
 
-    /// Frame `record` into [`StagedRecord`] frames at `max_bytes`, for exercising
-    /// [`assemble_events`] directly.
-    fn frames_of(record: &WireEvent, group: &str, max_bytes: usize) -> Vec<StagedRecord> {
-        let json = serde_json::to_string(record).unwrap();
-        let chunks = split_frames(&json, max_bytes);
-        let count = chunks.len() as u32;
-        chunks
-            .into_iter()
-            .enumerate()
-            .map(|(i, data)| StagedRecord {
-                id: batch_record_id(&Guid::new(group), i),
-                group: Guid::new(group),
-                modified: ServerTimestamp::from_millis(100),
-                raw: RawRecord::Frame {
-                    part: i as u32,
-                    part_count: count,
-                    data,
-                },
-            })
-            .collect()
+    /// Split `record` under `group` the way the engine uploads it at `max_bytes`,
+    /// and read the BSOs back as [`StagedRecord`]s. Record `i` (the head first)
+    /// lands at `modified(i)`.
+    fn split_records(
+        record: &WireEvent,
+        group: &str,
+        max_bytes: usize,
+        modified: impl Fn(usize) -> i64,
+    ) -> Vec<StagedRecord> {
+        let engine = engine_with(Arc::new(RecordingReducer::default()))
+            .with_max_record_payload_bytes(max_bytes);
+        let bsos = engine.frame(record, &Guid::new(group)).unwrap();
+        staged_records(
+            bsos.iter()
+                .enumerate()
+                .map(|(i, b)| b.to_test_incoming_ts(ServerTimestamp::from_millis(modified(i))))
+                .collect(),
+        )
+    }
+
+    fn small_baseline() -> WireEvent {
+        WireEvent::baseline(
+            pos(100, "cover"),
+            Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
+        )
     }
 
     #[test]
-    fn assemble_events_reassembles_frames_in_numeric_order() {
-        // A baseline sliced tiny, so it takes more than ten frames. That is enough
-        // that a plain string sort (rather than numeric) would put `_10` before
-        // `_2` and corrupt the reassembled bytes.
+    fn assemble_events_reassembles_parts_in_numeric_order() {
+        // A baseline sliced tiny, so its body takes more than ten parts. That is
+        // enough that a plain string sort (rather than numeric) would put `_10`
+        // before `_2` and corrupt the reassembled bytes.
         let body = Body::single(
             1,
             baseline_payload(&[
@@ -1224,99 +1240,76 @@ mod tests {
             ]),
         );
         let record = WireEvent::baseline(pos(100, "cover"), body.clone());
-        let mut frames = frames_of(&record, "g", 15);
+        let mut records = split_records(&record, "g", 15, |_| 100);
         assert!(
-            frames.len() > 10,
-            "need >10 frames to exercise numeric ordering, got {}",
-            frames.len()
+            records.len() > 11,
+            "need a head and >10 parts to exercise numeric ordering, got {}",
+            records.len()
         );
-        frames.reverse();
-        let frame_count = frames.len();
+        assert!(matches!(records[0].raw, RawRecord::Head(_)));
+        records.reverse();
+        let record_count = records.len();
 
-        let (assembled, records) = assemble_events(frames, 1);
+        let (assembled, tracked) = assemble_events(records, 1);
         assert_eq!(assembled.len(), 1);
         let Incoming::Baseline { cover, body: got } = &assembled[0] else {
             panic!("expected a baseline, got {:?}", assembled[0]);
         };
         assert_eq!(*cover, pos(100, "cover"));
-        // Frames reassembled to the identical body despite reversed delivery.
+        // Reassembled to the identical body despite reversed delivery.
         assert_eq!(*got, body);
-        // Every frame is tracked under the event's position (its group), not its own.
-        assert_eq!(records.len(), frame_count);
-        assert!(records.iter().all(|(_, p)| *p == pos(100, "g")));
+        // Head and parts are all tracked under the event's position (its group).
+        assert_eq!(tracked.len(), record_count);
+        assert!(tracked.iter().all(|(_, p)| *p == pos(100, "g")));
     }
 
     #[test]
     fn assemble_events_position_uses_max_modified_regardless_of_order() {
-        // Frames of one record can carry different `modified` if they span upload
-        // batches. The assembled position must be deterministic (the max) and
-        // independent of arrival order, or clients diverge.
-        let record = WireEvent::baseline(
-            pos(100, "cover"),
-            Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
-        );
-        let json = serde_json::to_string(&record).unwrap();
-        let chunks = split_frames(&json, 15);
-        let count = chunks.len() as u32;
-        assert!(count > 1, "need multiple frames, got {count}");
+        // The records of a split one can carry different `modified` if they span
+        // upload batches. The assembled position must be deterministic (the max)
+        // and independent of arrival order, or clients diverge.
+        let at = |i: usize| 100 + (i as i64 + 1) * 10;
+        let count = split_records(&small_baseline(), "g", 15, at).len();
+        assert!(count > 2, "need a head and several parts, got {count}");
+        let expected =
+            EventPosition::new(ServerTimestamp::from_millis(at(count - 1)), Guid::new("g"));
 
-        // Each frame gets a distinct `modified`; the newest is 100 + count * 10.
-        let make = || -> Vec<StagedRecord> {
-            chunks
-                .iter()
-                .cloned()
-                .enumerate()
-                .map(|(i, data)| StagedRecord {
-                    id: batch_record_id(&Guid::new("g"), i),
-                    group: Guid::new("g"),
-                    modified: ServerTimestamp::from_millis(100 + (i as i64 + 1) * 10),
-                    raw: RawRecord::Frame {
-                        part: i as u32,
-                        part_count: count,
-                        data,
-                    },
-                })
-                .collect()
-        };
-        let expected = EventPosition::new(
-            ServerTimestamp::from_millis(100 + count as i64 * 10),
-            Guid::new("g"),
-        );
-
-        // Every frame is tracked under that one position, whatever the order.
-        let positions = |frames| -> Vec<EventPosition> {
-            assemble_events(frames, 1)
+        // Every record is tracked under that one position, whatever the order.
+        let positions = |records| -> Vec<EventPosition> {
+            assemble_events(records, 1)
                 .1
                 .into_iter()
                 .map(|(_, p)| p)
                 .collect()
         };
-        let mut reversed = make();
+        let mut reversed = split_records(&small_baseline(), "g", 15, at);
         reversed.reverse();
-        for got in [positions(make()), positions(reversed)] {
-            assert_eq!(got.len(), count as usize);
+        for got in [
+            positions(split_records(&small_baseline(), "g", 15, at)),
+            positions(reversed),
+        ] {
+            assert_eq!(got.len(), count);
             assert!(got.iter().all(|p| *p == expected));
         }
     }
 
     #[test]
-    fn assemble_events_rejects_incomplete_group() {
-        // Two frames, but they claim a group of three.
-        let record = WireEvent::baseline(
-            pos(100, "cover"),
-            Body::single(1, baseline_payload(&[("A", json!({ "x": 1 }))])),
-        );
-        let mut frames = frames_of(&record, "g", 15);
-        frames.truncate(2);
-        for f in &mut frames {
-            if let RawRecord::Frame { part_count, .. } = &mut f.raw {
-                *part_count = 3;
-            }
-        }
-        let (assembled, records) = assemble_events(frames, 1);
+    fn assemble_events_rejects_a_missing_part() {
+        let mut records = split_records(&small_baseline(), "g", 15, |_| 100);
+        records.pop();
+        let (assembled, tracked) = assemble_events(records, 1);
         assert!(assembled.is_empty());
-        // Not tracked either: deleting its frames early would orphan the rest.
-        assert!(records.is_empty());
+        // Not tracked either: deleting its records early would orphan the rest.
+        assert!(tracked.is_empty());
+    }
+
+    #[test]
+    fn assemble_events_rejects_parts_without_their_head() {
+        let mut records = split_records(&small_baseline(), "g", 15, |_| 100);
+        records.remove(0);
+        let (assembled, tracked) = assemble_events(records, 1);
+        assert!(assembled.is_empty());
+        assert!(tracked.is_empty());
     }
 
     #[test]

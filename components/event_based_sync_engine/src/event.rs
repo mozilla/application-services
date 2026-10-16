@@ -4,7 +4,7 @@
 
 //! Core event primitives: the event, the per-field gate key, the total order
 //! deciding which of two concurrent events wins, and the on-wire event
-//! representation (`Wire`, `WireEvent`, `WirePart`).
+//! representation (`Wire`, `WireEvent`, `WireHead`, `WirePart`).
 //!
 //! Events are opaque and GUID-keyed. Each has a record id (the server key), a
 //! [`GateKey`] (the caller-defined type plus the entity the event is about),
@@ -12,8 +12,9 @@
 //! add `_{index}` to the base id (see [`batch_record_id`]).
 //!
 //! [`IncomingEvent`] is the assembled domain event the gate consumes. `WireEvent`
-//! and `WirePart` are how a record is serialized and (when too large) framed
-//! for transport. The base64 framing and reassembly of frames lives in the engine.
+//! is how a record is serialized; one too large for an upload is sent as a
+//! `WireHead` plus `WirePart`s carrying its body. Splitting and reassembly live in
+//! the engine.
 
 use crate::schema::{Body, SchemaVersion};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -145,15 +146,10 @@ pub(crate) enum Incoming {
     },
 }
 
-/// A whole logical record, distinguished by `event_type`: a domain event, a
-/// baseline ([`BASELINE_EVENT_TYPE`]), or a `baseline-needed` marker
-/// ([`BASELINE_NEEDED_EVENT_TYPE`]). Record id and `modified` live in the BSO
-/// envelope; the rest is the payload.
-///
-/// A record too large for one upload is serialized and cut into [`WirePart`]
-/// frames instead. That is pure transport, below this shape.
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct WireEvent {
+/// What a record is and what it is about: everything but its body. Shared by a
+/// whole record ([`WireEvent`]) and the head of a split one ([`WireHead`]).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct WireHeader {
     #[serde(rename = "type")]
     pub(crate) event_type: String,
     /// The entity the event is about. Empty (and omitted) for baselines/markers.
@@ -166,31 +162,51 @@ pub(crate) struct WireEvent {
     /// highest-schema member. Markers only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) schema: Option<SchemaVersion>,
+}
+
+/// A whole logical record, distinguished by `event_type`: a domain event, a
+/// baseline ([`BASELINE_EVENT_TYPE`]), or a `baseline-needed` marker
+/// ([`BASELINE_NEEDED_EVENT_TYPE`]). Record id and `modified` live in the BSO
+/// envelope; the rest is the payload.
+///
+/// A record too large for one upload is sent as a [`WireHead`] plus its body cut
+/// into [`WirePart`]s instead.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct WireEvent {
+    #[serde(flatten)]
+    pub(crate) header: WireHeader,
     /// The schema-versioned payload. Absent on a `baseline-needed` marker.
     #[serde(default, skip_serializing_if = "Body::is_empty")]
     pub(crate) body: Body,
 }
 
-/// One `_{n}` frame of a record too big for a single upload: an opaque,
-/// base64-encoded slice of the serialized [`WireEvent`]. Frames sharing a `group`
-/// reassemble in `part` order, base64-decoding `data`, back into the original
-/// record's bytes. The engine never inspects the payload; encoding lets it cut the
-/// bytes at any offset without minding UTF-8 boundaries.
+/// The head of a record too big for one upload: its header, and how many body
+/// parts follow. The head's record id is the group's base id; its parts are
+/// `{base}_0 ..`.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct WireHead {
+    #[serde(flatten)]
+    pub(crate) header: WireHeader,
+    pub(crate) part_count: u32,
+}
+
+/// One slice of a split record's serialized body, base64 so it can be cut at any
+/// byte offset. Its group and index are in its record id (`{base}_{n}`).
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct WirePart {
-    pub(crate) group: Guid,
-    pub(crate) part: u32,
-    pub(crate) part_count: u32,
     pub(crate) data: String,
 }
 
-/// A record read from the server: either whole, or one frame of a split one.
-/// Untagged, so a whole record stays lean (no wrapper) on the wire.
+/// A record read from the server: whole, the head of a split one, or one of its
+/// body parts. Untagged, so a whole record stays lean (no wrapper) on the wire.
+/// `Head` goes first: its required `part_count` keeps it from matching a whole
+/// record, which would otherwise accept a head too.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum Wire {
+    Head(WireHead),
     Whole(WireEvent),
-    Frame(WirePart),
+    Part(WirePart),
 }
 
 fn empty_guid() -> Guid {
@@ -204,10 +220,12 @@ impl WireEvent {
     /// A domain event.
     pub(crate) fn event(event_type: String, entity: Guid, body: Body) -> Self {
         Self {
-            event_type,
-            entity,
-            covers_up_to: None,
-            schema: None,
+            header: WireHeader {
+                event_type,
+                entity,
+                covers_up_to: None,
+                schema: None,
+            },
             body,
         }
     }
@@ -215,10 +233,12 @@ impl WireEvent {
     /// A baseline covering `covers_up_to`.
     pub(crate) fn baseline(covers_up_to: EventPosition, body: Body) -> Self {
         Self {
-            event_type: BASELINE_EVENT_TYPE.to_string(),
-            entity: empty_guid(),
-            covers_up_to: Some(covers_up_to),
-            schema: None,
+            header: WireHeader {
+                event_type: BASELINE_EVENT_TYPE.to_string(),
+                entity: empty_guid(),
+                covers_up_to: Some(covers_up_to),
+                schema: None,
+            },
             body,
         }
     }
@@ -226,18 +246,28 @@ impl WireEvent {
     /// A `baseline-needed` marker advertising the emitter's schema.
     pub(crate) fn baseline_needed(schema: SchemaVersion) -> Self {
         Self {
-            event_type: BASELINE_NEEDED_EVENT_TYPE.to_string(),
-            entity: empty_guid(),
-            covers_up_to: None,
-            schema: Some(schema),
+            header: WireHeader {
+                event_type: BASELINE_NEEDED_EVENT_TYPE.to_string(),
+                entity: empty_guid(),
+                covers_up_to: None,
+                schema: Some(schema),
+            },
             body: Body::new(),
         }
     }
 }
 
-/// Record id for the `index`th frame of a split record sharing a base id (`_{X}`).
+/// Record id `{base}_{index}` for a body part of the split record `base`.
 pub fn batch_record_id(base: &Guid, index: usize) -> Guid {
     Guid::new(&format!("{}_{}", base.as_str(), index))
+}
+
+/// The base id and index of a body part, from its record id: the inverse of
+/// [`batch_record_id`]. Splits at the last `_`, since a random base id can
+/// contain `_` itself.
+pub(crate) fn part_of(id: &Guid) -> Option<(Guid, u32)> {
+    let (base, index) = id.as_str().rsplit_once('_')?;
+    Some((Guid::new(base), index.parse().ok()?))
 }
 
 #[cfg(test)]
