@@ -29,10 +29,17 @@
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
 - `request_spoc_or_image_ads` is added to return ads that may ambiguously be spocs or images.
+- Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64>.
 
-### Nimbus
+### Autofill
 
-- The `pref-key` annotation for FML feature variables has been removed. ([#7559](https://github.com/mozilla/application-services/pull/7559/))
+- Add `Store::credit_cards_bridged_engine()`, exposing the existing credit card sync engine as a bridged engine so Firefox Desktop can drive credit card sync. ([bug 2074008](https://bugzilla.mozilla.org/show_bug.cgi?id=2074008))
+- Added `list_credit_card_candidates()`, returning `CreditCardCandidate`: a card minus its encrypted fields, with `cc_number_last_4` and `has_cvv` in their place. Like `list_candidates()` in logins it never touches the key, so an application can list cards without a primary password prompt and call `get_credit_card()` for the single card whose number or CVV it needs. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
+- Credit cards can store an optional CVV, encrypted like the number and handled transparently: `UpdatableCreditCardFields.cc_cvv` (cleartext in, defaults to none) and `CreditCard.cc_cvv` (decrypted out). A v6 schema upgrade adds the column; existing rows simply have no CVV. The CVV syncs as a new optional `cc-cvv` payload field; records written by older clients round-trip it through the mirror's unknown-fields handling, so their edits do not drop it. ([bug 2076154](https://bugzilla.mozilla.org/show_bug.cgi?id=2076154))
+
+### Search
+
+- Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
 
 ### Sync15
 
@@ -41,30 +48,11 @@
 
 [Full Changelog](In progress)
 
-## ✨ What's Changed ✨
-
-### Autofill
-
-- Add `Store::credit_cards_bridged_engine()`, exposing the existing credit card sync engine as a bridged engine so Firefox Desktop can drive credit card sync. ([bug 2074008](https://bugzilla.mozilla.org/show_bug.cgi?id=2074008))
-- Added `list_credit_card_candidates()`, returning `CreditCardCandidate`: a card minus its encrypted fields, with `cc_number_last_4` and `has_cvv` in their place. Like `list_candidates()` in logins it never touches the key, so an application can list cards without a primary password prompt and call `get_credit_card()` for the single card whose number or CVV it needs. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
-
-### Search
-
-- Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
-
-### Autofill
-
-- Credit cards can store an optional CVV, encrypted like the number and handled transparently: `UpdatableCreditCardFields.cc_cvv` (cleartext in, defaults to none) and `CreditCard.cc_cvv` (decrypted out). A v6 schema upgrade adds the column; existing rows simply have no CVV. The CVV syncs as a new optional `cc-cvv` payload field; records written by older clients round-trip it through the mirror's unknown-fields handling, so their edits do not drop it. ([bug 2076154](https://bugzilla.mozilla.org/show_bug.cgi?id=2076154))
-
-### Ads-Client
-
-- Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64>.
-
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
 
-## FxA-Client
+### FxA-Client
 
 - When `begin_pairing_flow` or `begin_oauth_flow` is called with an empty list of scopes, the resulting URL will not include the scope URL query parameter.
 
