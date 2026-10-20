@@ -480,7 +480,9 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                         }
                     );
 
+                    let collection = format!("{}/{}", metadata.bucket, self.collection_name);
                     result = signatures::verify_signature(
+                        &collection,
                         timestamp,
                         records,
                         signature.signature.as_bytes(),
@@ -1551,6 +1553,34 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
                     x5u: "http://mocked".into(),
                     // Unknown signature type.
                     mode: "mldsa".into(),
+                },
+                CollectionSignature {
+                    signature: VALID_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
+                },
+            ],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .expect("Valid signature");
+        Ok(())
+    }
+
+    #[test]
+    fn test_legacy_signature_first_and_signature_with_collection_second() -> Result<()> {
+        // This is what the server sends: the legacy signature first (for older clients),
+        // and the signature of the payload that includes the collection second.
+        ensure_initialized();
+        run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[
+                CollectionSignature {
+                    signature: LEGACY_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
                 },
                 CollectionSignature {
                     signature: VALID_SIGNATURE.to_string(),
