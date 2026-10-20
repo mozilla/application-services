@@ -162,10 +162,18 @@ pub fn transition(
             Ok(S::Disconnected)
         }
         (S::Connected, E::CheckAuthorizationStatus) => {
-            // check_authorization_status() failing should leave us in the original state.
+            // On iOS, a failed check must fall back to AuthIssues to prevent the Swift-side
+            // feedback loop: FxAccountManager recovery side effects re-trigger API calls that
+            // post accountAuthException, restarting the cycle indefinitely.
+            // On other platforms, a failed check leaves us in the original state.
+            let error_state = if cfg!(target_os = "ios") {
+                S::AuthIssues
+            } else {
+                S::Connected
+            };
             let active = account
                 .check_authorization_status()
-                .to_state_machine_err(|| S::Connected)?;
+                .to_state_machine_err(|| error_state)?;
             if active {
                 Ok(S::Connected)
             } else {
