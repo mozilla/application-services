@@ -158,8 +158,8 @@ pub(crate) struct WireHeader {
     /// The point in the global order a baseline stands in for. Baselines only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) covers_up_to: Option<EventPosition>,
-    /// Emitter schema on a `baseline-needed` marker, so the fleet can elect its
-    /// highest-schema member. Markers only.
+    /// The sender's schema on a `baseline-needed` marker, so clients can tell
+    /// which of them has the highest schema. Markers only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) schema: Option<SchemaVersion>,
 }

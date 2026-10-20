@@ -452,9 +452,9 @@ fn assemble_events(
     let mut out = Vec::with_capacity(buckets.len());
     let mut records = Vec::new();
     for (group, bucket) in buckets {
-        // The record is complete once its newest frame lands, so key the position
-        // off the max `modified` across the group — deterministic regardless of
-        // frame arrival order, and matching the writer's own gate position.
+        // The record is complete once its newest frame lands, so use the max
+        // `modified` in the group. It doesn't depend on arrival order, and it
+        // matches the writer's own gate position.
         let modified = bucket
             .iter()
             .map(|r| r.modified)
@@ -714,10 +714,10 @@ impl SyncEngine for EventSyncEngine {
                 let cover = state.newest_event.clone().unwrap();
                 let meets_bar = self.schema.current() >= state.max_schema_since_baseline;
 
-                // Timeout override: after the bar has stayed blocked past the timeout, the
+                // Timeout override: once the bar has been blocked long enough, the
                 // highest-schema client still active writes anyway, dropping events
-                // above its schema. Only peers that advertised `baseline-needed`
-                // count; a departed author leaves no marker, so it can't outrank us.
+                // above its schema. Only peers that sent `baseline-needed` count; a
+                // client that left sends no marker, so it can't outrank us.
                 let peer_outranks = peer_needed_schema.is_some_and(|p| p > self.schema.current());
                 let timed_out = matches!(
                     (self.baseline_config.baseline_timeout_ms, state.bar_blocked_since),

@@ -32,10 +32,9 @@ pub type MigrateFn = Box<dyn Fn(&str, serde_json::Value) -> serde_json::Value + 
 /// The multi-schema payload on the wire, e.g. `{ "1": {..}, "2": {..} }`: keys
 /// are schema versions, values the payload in that schema.
 ///
-/// Keyed by `u32` for numeric ordering but serialized with stringified keys.
-/// serde is hand-written because a `BTreeMap<u32, _>` fails to deserialize
-/// inside an internally-tagged enum (buffered keys replay as strings); we parse
-/// the key ourselves to avoid that.
+/// Keyed by `u32` for numeric order, serialized with string keys. The serde
+/// impl is hand-written: a derived `BTreeMap<u32, _>` fails to deserialize
+/// inside an internally-tagged enum, because the keys come back as strings.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Body {
     reps: BTreeMap<SchemaVersion, serde_json::Value>,
