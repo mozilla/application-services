@@ -28,7 +28,7 @@ abspath () { case "${1}" in /*)printf "%s\\n" "${1}";; *)printf "%s\\n" "${PWD}/
 export -f abspath
 
 if ! [[ -x "$(command -v gyp)" ]]; then
-  echo 'Error: gyp needs to be installed and executable. See https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP for install instructions.' >&2
+  echo 'Error: gyp needs to be installed and executable. Install gyp-next (https://github.com/nodejs/gyp-next); see docs/building.md for instructions.' >&2
   exit 1
 fi
 
