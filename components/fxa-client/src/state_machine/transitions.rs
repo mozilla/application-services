@@ -163,9 +163,19 @@ pub fn transition(
         }
         (S::Connected, E::CheckAuthorizationStatus) => {
             // check_authorization_status() failing should leave us in the original state.
+            #[cfg(not(target_os = "ios"))]
             let active = account
                 .check_authorization_status()
                 .to_state_machine_err(|| S::Connected)?;
+
+            // However, this isn't working properly on iOS.
+            // Let's revert for now.
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=2084252
+            #[cfg(target_os = "ios")]
+            let active = account
+                .check_authorization_status()
+                .to_state_machine_err(|| S::AuthIssues)?;
+
             if active {
                 Ok(S::Connected)
             } else {
