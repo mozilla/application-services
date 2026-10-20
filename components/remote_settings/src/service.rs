@@ -285,7 +285,7 @@ impl SyncClient {
             telemetry.report_uptake_success(TELEMETRY_SOURCE_POLL, Some(duration));
             Ok(body)
         } else {
-            let e = Error::response_error(&resp.url, format!("status code: {}", resp.status));
+            let e = Error::response_error(&resp);
             telemetry.report_uptake_error(&e, TELEMETRY_SOURCE_POLL);
             Err(e)
         }

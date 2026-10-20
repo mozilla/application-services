@@ -663,10 +663,7 @@ impl ViaductApiClient {
         if resp.is_success() {
             Ok(resp)
         } else {
-            Err(Error::response_error(
-                &resp.url,
-                format!("status code: {}", resp.status),
-            ))
+            Err(Error::response_error(&resp))
         }
     }
 }
@@ -698,10 +695,7 @@ impl ApiClient for ViaductApiClient {
         if resp.is_success() {
             Ok(resp.json::<ChangesetResponse>()?)
         } else {
-            Err(Error::response_error(
-                &resp.url,
-                format!("status code: {}", resp.status),
-            ))
+            Err(Error::response_error(&resp))
         }
     }
 
