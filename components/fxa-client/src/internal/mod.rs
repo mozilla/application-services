@@ -262,6 +262,10 @@ impl FirefoxAccount {
         self.telemetry = FxaTelemetry::new();
     }
 
+    pub fn on_recovered_from_auth_issues(&mut self) {
+        self.state.on_recovered_from_auth_issues();
+    }
+
     pub fn simulate_network_error(&mut self) {
         self.client.simulate_network_error();
     }
