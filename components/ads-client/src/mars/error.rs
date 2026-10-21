@@ -54,15 +54,17 @@ pub enum FetchAdsError {
     UrlParse(#[from] url::ParseError),
 }
 
+// The response body stays out of the messages: it is arbitrary server text of
+// any length, and these messages end up in telemetry.
 #[derive(Debug, thiserror::Error)]
 pub enum HTTPError {
-    #[error("Bad request ({code}): {message}")]
+    #[error("Bad request ({code}), {} byte body", .message.len())]
     BadRequest { code: u16, message: String },
 
-    #[error("Server error ({code}): {message}")]
+    #[error("Server error ({code}), {} byte body", .message.len())]
     Server { code: u16, message: String },
 
-    #[error("Unexpected error ({code}): {message}")]
+    #[error("Unexpected error ({code}), {} byte body", .message.len())]
     Unexpected { code: u16, message: String },
 }
 
@@ -74,6 +76,7 @@ impl HTTPError {
             return Ok(());
         }
         let error_message = response.text();
+        error_support::warn!("MARS responded {status}: {error_message}");
         let error = match status {
             400 => Self::BadRequest {
                 code: status,
@@ -180,5 +183,12 @@ mod tests {
         assert!(
             matches!(result, Err(HTTPError::Server { code, message }) if code == 500 && message == "Something broke")
         );
+    }
+
+    #[test]
+    fn test_message_leaves_out_the_body() {
+        let response = mock_response(503, "Something broke");
+        let error = HTTPError::check(&response).unwrap_err();
+        assert_eq!(error.to_string(), "Server error (503), 15 byte body");
     }
 }
