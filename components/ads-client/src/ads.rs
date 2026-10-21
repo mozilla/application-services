@@ -95,33 +95,10 @@ pub enum AdImageOrSpoc {
     Spoc(AdSpoc),
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum AdFormat {
-    Rectangle,
-    Spoc,
-    Tile,
-    Billboard,
-    Skyscraper,
-    Leaderboard,
-}
-
-impl AdFormat {
-    pub fn is_image(&self) -> bool {
-        matches!(
-            self,
-            AdFormat::Rectangle
-                | AdFormat::Billboard
-                | AdFormat::Skyscraper
-                | AdFormat::Leaderboard
-        )
-    }
-
-    pub fn is_spoc(&self) -> bool {
-        matches!(self, AdFormat::Spoc)
-    }
-}
-
+// TODO: This is a temporary solution- we check `format` against `spoc`, falling to `image` otherwise.
+// Ideally, we want consolidate `AdImageOrSpoc` to `Ads`, which should either:
+// - list every `format` variant and route it to it's corresponding shape
+// - use a field from MARS that instead describes the shape, rather than the format.
 impl<'de> Deserialize<'de> for AdImageOrSpoc {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -135,21 +112,16 @@ impl<'de> Deserialize<'de> for AdImageOrSpoc {
             .ok_or(D::Error::custom(
                 "`format` field is missing or could not be parsed".to_string(),
             ))?;
-        let format: AdFormat =
-            serde_json::from_str(&format!("\"{format_str}\"")).map_err(D::Error::custom)?;
 
-        if format.is_image() {
-            Ok(AdImageOrSpoc::Image(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            ))
-        } else if format.is_spoc() {
+        if format_str == "spoc" {
             Ok(AdImageOrSpoc::Spoc(
                 serde_json::from_value(value).map_err(D::Error::custom)?,
             ))
         } else {
-            Err(D::Error::custom(format!(
-                "Unrecognized format: {format_str}"
-            )))
+            // Fallback to an image if it's not a spoc.
+            Ok(AdImageOrSpoc::Image(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            ))
         }
     }
 }
