@@ -13,6 +13,7 @@ This log lists the architectural decisions for MADR.
 * [ADR-0007](0007-limit-visits-migration-to-10000.md) - Limit Visits Migrated to Places History in Firefox iOS
 * [ADR-0008](0008-fts-prefix-config.m) - Full Text Search (FTS) prefix configuration
 * [ADR-0009](0009-use-tracing.md) - Replace logging and error reporting infrastructure with tracing.
+* [ADR-0010](0010-ads-client-telemetry-tiers.md) - Split ads-client telemetry into success metrics, expected errors and unexpected errors
 
 
 <!-- adrlogstop -->
