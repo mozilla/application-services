@@ -75,6 +75,7 @@ struct ServerError {
     errno: u16,
     error: String,
     message: Option<String>,
+    details: Option<serde_json::Value>,
 }
 
 impl Error {
@@ -86,13 +87,22 @@ impl Error {
             Ok(ServerError {
                 errno,
                 error,
-                message: Some(server_message),
-            }) => format!("status code: {status} - {error} (errno {errno}): {server_message}"),
-            Ok(ServerError {
-                errno,
-                error,
-                message: None,
-            }) => format!("status code: {status} - {error} (errno {errno})"),
+                message: server_message,
+                details,
+            }) => {
+                let mut message = format!("status code: {status} - {error} (errno {errno})");
+                if let Some(server_message) = server_message {
+                    message.push_str(&format!(": {server_message}"));
+                }
+                // `details` is arbitrary JSON, e.g. a list of validation errors or the id of a
+                // missing record.
+                match details {
+                    None | Some(serde_json::Value::Null) => {}
+                    Some(serde_json::Value::Array(ref a)) if a.is_empty() => {}
+                    Some(details) => message.push_str(&format!(" - details: {details}")),
+                }
+                message
+            }
             Err(_) => format!("status code: {status}"),
         };
         Self::ResponseError {
@@ -154,7 +164,7 @@ mod test {
         );
         assert_eq!(
             Error::response_error(&resp).to_string(),
-            "Error in network response: status code: 400 - Invalid parameters (errno 107): _expected in querystring: Required (https://example.com/v2/)",
+            r#"Error in network response: status code: 400 - Invalid parameters (errno 107): _expected in querystring: Required - details: [{"location":"querystring","name":"_expected","description":"Required"}] (https://example.com/v2/)"#,
         );
     }
 
@@ -167,8 +177,38 @@ mod test {
         );
         assert_eq!(
             Error::response_error(&resp).to_string(),
-            "Error in network response: status code: 404 - Not Found (errno 110) (https://example.com/v2/)",
+            r#"Error in network response: status code: 404 - Not Found (errno 110) - details: {"id":"abc","resource_name":"record"} (https://example.com/v2/)"#,
         );
+    }
+
+    // `details` is optional in the server's error payload.
+    #[test]
+    fn test_response_error_server_error_without_details() {
+        let resp = response(
+            503,
+            r#"{"code": 503, "errno": 201, "error": "Service Unavailable", "message": "Service temporary unavailable due to overloading or maintenance, please retry later."}"#,
+        );
+        assert_eq!(
+            Error::response_error(&resp).to_string(),
+            "Error in network response: status code: 503 - Service Unavailable (errno 201): Service temporary unavailable due to overloading or maintenance, please retry later. (https://example.com/v2/)",
+        );
+    }
+
+    #[test]
+    fn test_response_error_server_error_empty_details() {
+        for details in ["null", "[]"] {
+            let resp = response(
+                400,
+                &format!(
+                    r#"{{"code": 400, "errno": 107, "error": "Invalid parameters", "message": "Bad request", "details": {details}}}"#
+                ),
+            );
+            assert_eq!(
+                Error::response_error(&resp).to_string(),
+                "Error in network response: status code: 400 - Invalid parameters (errno 107): Bad request (https://example.com/v2/)",
+                "details: {details}",
+            );
+        }
     }
 
     // Responses from other hosts, e.g. the attachments CDN.
