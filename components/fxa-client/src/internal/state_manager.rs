@@ -273,6 +273,10 @@ impl StateManager {
         self.flow_store.clear();
     }
 
+    pub fn on_recovered_from_auth_issues(&mut self) {
+        self.persisted_state.logged_out_from_auth_issues = false;
+    }
+
     pub fn get_auth_state(&self) -> FxaRustAuthState {
         if self.persisted_state.logged_out_from_auth_issues {
             FxaRustAuthState::AuthIssues
