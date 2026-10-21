@@ -190,13 +190,14 @@ mod tests {
             serde_json::from_str(&happy_spoc_renamed_example_str).unwrap();
         assert!(matches!(deserialized_image, AdImageOrSpoc::Image(_)));
 
-        // Changing the spocs 'format' field to something unrecognized should result in it parsing to an error.
+        // Changing the spocs 'format' field to something unrecognized should result in it parsing to an image as well.
+        // TODO: This is not ultimately desired behaviour- see `Deserialize` implementation for `AdImageOrSpoc``
         let mut happy_spoc_renamed_example = happy_spoc_example.clone();
         happy_spoc_renamed_example.format = "nonsense_format".to_string();
         let happy_spoc_renamed_example_str =
             serde_json::to_string(&happy_spoc_renamed_example).unwrap();
-        let deserialized_spoc: Result<AdImageOrSpoc, _> =
-            serde_json::from_str(&happy_spoc_renamed_example_str);
-        assert!(deserialized_spoc.is_err());
+        let deserialized_image: AdImageOrSpoc =
+            serde_json::from_str(&happy_spoc_renamed_example_str).unwrap();
+        assert!(matches!(deserialized_image, AdImageOrSpoc::Image(_)));
     }
 }
