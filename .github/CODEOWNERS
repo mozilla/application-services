@@ -1,2 +1,6 @@
 # Round-robin review assignment for the ads-client component
 /components/ads-client/ @mozilla/ads-client-codeowners
+
+# Remote Settings
+/components/remote_settings/ @mozilla/remote-settings-developers-wg
+/examples/remote-settings-cli/ @mozilla/remote-settings-developers-wg
