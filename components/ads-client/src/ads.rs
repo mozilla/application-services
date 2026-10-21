@@ -132,7 +132,9 @@ impl<'de> Deserialize<'de> for AdImageOrSpoc {
         let format_str = value
             .get("format")
             .and_then(|v| v.as_str())
-            .ok_or(D::Error::custom("`format` field is missing or could not be parsed".to_string()))?;
+            .ok_or(D::Error::custom(
+                "`format` field is missing or could not be parsed".to_string(),
+            ))?;
         let format: AdFormat =
             serde_json::from_str(&format!("\"{format_str}\"")).map_err(D::Error::custom)?;
 
@@ -199,7 +201,6 @@ mod tests {
         let happy_image_example_str = serde_json::to_string(&happy_image_example).unwrap();
         let happy_spoc_example_str = serde_json::to_string(&happy_spoc_example).unwrap();
 
-        println!("happy_image_example_str: {}", happy_image_example_str);
         let deserialized_image: AdImageOrSpoc =
             serde_json::from_str(&happy_image_example_str).unwrap();
         assert!(matches!(deserialized_image, AdImageOrSpoc::Image(_)));
