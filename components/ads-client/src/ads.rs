@@ -106,23 +106,12 @@ impl<'de> Deserialize<'de> for AdImageOrSpoc {
     {
         use serde::de::Error;
         let value = <serde_json::Value>::deserialize(deserializer)?;
-        let format_str = value
-            .get("format")
-            .and_then(|v| v.as_str())
-            .ok_or(D::Error::custom(
-                "`format` field is missing or could not be parsed".to_string(),
-            ))?;
-
-        if format_str == "spoc" {
-            Ok(AdImageOrSpoc::Spoc(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            ))
-        } else {
-            // Fallback to an image if it's not a spoc.
-            Ok(AdImageOrSpoc::Image(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            ))
+        match value.get("format").and_then(serde_json::Value::as_str) {
+            Some("spoc") => serde_json::from_value(value).map(Self::Spoc),
+            Some(_) => serde_json::from_value(value).map(Self::Image),
+            None => return Err(D::Error::missing_field("format")),
         }
+        .map_err(D::Error::custom)
     }
 }
 
