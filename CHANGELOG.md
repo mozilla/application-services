@@ -1,4 +1,8 @@
-# v160.0 (In progress)
+# v161.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v160.0 (_2026-10-22_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -51,7 +55,7 @@
 - Better interoperability with clients which choose engines per device: sync IDs are adopted from `meta/syncids` rather than minted, and our declined engines are kept when `meta/global` has no engines or declined engines.
 - A fresh `meta/global` no longer lists declined engines in `engines`.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v159.0...v160.0)
 
 # v159.0 (_2026-10-07_)
 
