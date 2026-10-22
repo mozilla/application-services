@@ -6,8 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::bso::{IncomingBso, IncomingKind, OutgoingBso, OutgoingEnvelope};
 use crate::client::{
-    CollState, CollectionKeys, CollectionUpdate, GlobalState, InfoConfiguration,
-    Sync15StorageClient,
+    CollState, CollectionKeys, CollectionLimits, CollectionUpdate, GlobalState, Sync15StorageClient,
 };
 use crate::client_types::{ClientData, RemoteClient};
 use crate::engine::CollectionRequest;
@@ -28,7 +27,7 @@ const COLLECTION_NAME: &str = "clients";
 struct Driver<'a> {
     command_processor: &'a dyn CommandProcessor,
     interruptee: &'a dyn Interruptee,
-    config: &'a InfoConfiguration,
+    config: CollectionLimits,
     recent_clients: HashMap<String, RemoteClient>,
 }
 
@@ -36,7 +35,7 @@ impl<'a> Driver<'a> {
     fn new(
         command_processor: &'a dyn CommandProcessor,
         interruptee: &'a dyn Interruptee,
-        config: &'a InfoConfiguration,
+        config: CollectionLimits,
     ) -> Driver<'a> {
         Driver {
             command_processor,
@@ -284,8 +283,9 @@ impl Engine<'_> {
             global_state.keys_timestamp,
             root_sync_key,
         )?;
+        let limits = global_state.config.for_collection(COLLECTION_NAME);
         let coll_state = CollState {
-            config: global_state.config.clone(),
+            config: limits,
             last_modified: global_state
                 .collections
                 .get(COLLECTION_NAME)
@@ -296,11 +296,7 @@ impl Engine<'_> {
 
         let inbound = self.fetch_incoming(storage_client, &coll_state)?;
 
-        let mut driver = Driver::new(
-            self.command_processor,
-            self.interruptee,
-            &global_state.config,
-        );
+        let mut driver = Driver::new(self.command_processor, self.interruptee, limits);
 
         let outgoing = driver.sync(inbound, should_refresh_client)?;
         self.recent_clients = driver.recent_clients;
@@ -420,9 +416,9 @@ mod tests {
             .collect(),
         };
 
-        let config = InfoConfiguration::default();
+        let config = CollectionLimits::default();
 
-        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+        let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
         let inbound = inbound_from_clients(json!([{
             "id": "deviceBBBBBB",
@@ -568,9 +564,9 @@ mod tests {
             outgoing_commands: [].iter().cloned().collect(),
         };
 
-        let config = InfoConfiguration::default();
+        let config = CollectionLimits::default();
 
-        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+        let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
         let inbound = inbound_from_clients(json!([{
             "id": "deviceBBBBBB",
@@ -634,9 +630,9 @@ mod tests {
             outgoing_commands: [].iter().cloned().collect(),
         };
 
-        let config = InfoConfiguration::default();
+        let config = CollectionLimits::default();
 
-        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+        let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
         let test_clients = json!([{
             "id": "deviceBBBBBB",
@@ -703,9 +699,9 @@ mod tests {
             outgoing_commands: HashSet::new(),
         };
 
-        let config = InfoConfiguration::default();
+        let config = CollectionLimits::default();
 
-        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+        let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
         let clients = json!([{
             "id": "deviceBBBBBB",

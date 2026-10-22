@@ -58,8 +58,12 @@ impl LimitTracker {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct InfoConfiguration {
+/// The limits which apply to a single collection, as reported by
+/// `info/configuration`. Obtained via [`InfoConfiguration::for_collection`],
+/// which applies any per-collection overrides to the limits at the root of the
+/// response.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CollectionLimits {
     /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
     /// server.
     #[serde(default = "default_max_request_bytes")]
@@ -97,16 +101,66 @@ fn default_max_record_payload_bytes() -> usize {
     256 * 1024
 }
 
-impl Default for InfoConfiguration {
+impl Default for CollectionLimits {
     #[inline]
-    fn default() -> InfoConfiguration {
-        InfoConfiguration {
+    fn default() -> CollectionLimits {
+        CollectionLimits {
             max_request_bytes: default_max_request_bytes(),
             max_record_payload_bytes: default_max_record_payload_bytes(),
             max_post_records: usize::MAX,
             max_post_bytes: usize::MAX,
             max_total_records: usize::MAX,
             max_total_bytes: usize::MAX,
+        }
+    }
+}
+
+/// The per-collection overrides from the `collections` map of
+/// `info/configuration`. Every field is optional; an absent field means "use
+/// the limit from the root of the response".
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CollectionLimitOverrides {
+    pub max_request_bytes: Option<usize>,
+    pub max_post_records: Option<usize>,
+    pub max_post_bytes: Option<usize>,
+    pub max_total_records: Option<usize>,
+    pub max_total_bytes: Option<usize>,
+    pub max_record_payload_bytes: Option<usize>,
+}
+
+impl CollectionLimitOverrides {
+    fn apply_to(&self, d: CollectionLimits) -> CollectionLimits {
+        CollectionLimits {
+            max_request_bytes: self.max_request_bytes.unwrap_or(d.max_request_bytes),
+            max_post_records: self.max_post_records.unwrap_or(d.max_post_records),
+            max_post_bytes: self.max_post_bytes.unwrap_or(d.max_post_bytes),
+            max_total_records: self.max_total_records.unwrap_or(d.max_total_records),
+            max_total_bytes: self.max_total_bytes.unwrap_or(d.max_total_bytes),
+            max_record_payload_bytes: self
+                .max_record_payload_bytes
+                .unwrap_or(d.max_record_payload_bytes),
+        }
+    }
+}
+
+/// The server's `info/configuration` response. The limits at the root apply to
+/// every collection unless the optional `collections` map overrides them.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct InfoConfiguration {
+    #[serde(flatten)]
+    default_limits: CollectionLimits,
+
+    #[serde(default)]
+    collections: HashMap<String, CollectionLimitOverrides>,
+}
+
+impl InfoConfiguration {
+    /// The limits which apply to `collection`: the ones from the root of the
+    /// response with that collection's overrides, if any, applied.
+    pub fn for_collection(&self, collection: &str) -> CollectionLimits {
+        match self.collections.get(collection) {
+            Some(overrides) => overrides.apply_to(self.default_limits),
+            None => self.default_limits,
         }
     }
 }
@@ -232,7 +286,7 @@ where
     OnResponse: PostResponseHandler,
 {
     pub fn new(
-        config: &InfoConfiguration,
+        config: CollectionLimits,
         ts: ServerTimestamp,
         poster: Poster,
         on_response: OnResponse,
@@ -529,12 +583,12 @@ mod test {
         responses: VecDeque<PostResponse>,
         batches: Vec<BatchInfo>,
         cur_batch: Option<BatchInfo>,
-        cfg: InfoConfiguration,
+        cfg: CollectionLimits,
     }
 
     type TestPosterRef = Rc<RefCell<TestPoster>>;
     impl TestPoster {
-        pub fn new<T>(cfg: &InfoConfiguration, responses: T) -> TestPosterRef
+        pub fn new<T>(cfg: CollectionLimits, responses: T) -> TestPosterRef
         where
             T: Into<VecDeque<PostResponse>>,
         {
@@ -543,7 +597,7 @@ mod test {
                 responses: responses.into(),
                 batches: vec![],
                 cur_batch: None,
-                cfg: cfg.clone(),
+                cfg,
             }))
         }
         // Adds &mut
@@ -667,12 +721,12 @@ mod test {
     type MockedPostQueue = PostQueue<TestPosterRef, TestPosterRef>;
 
     fn pq_test_setup(
-        cfg: InfoConfiguration,
+        cfg: CollectionLimits,
         lm: i64,
         resps: Vec<PostResponse>,
     ) -> (MockedPostQueue, TestPosterRef) {
-        let tester = TestPoster::new(&cfg, resps);
-        let pq = PostQueue::new(&cfg, ServerTimestamp(lm), tester.clone(), tester.clone());
+        let tester = TestPoster::new(cfg, resps);
+        let pq = PostQueue::new(cfg, ServerTimestamp(lm), tester.clone(), tester.clone());
         (pq, tester)
     }
 
@@ -751,10 +805,10 @@ mod test {
 
     #[test]
     fn test_pq_basic() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_request_bytes: 1000,
             max_record_payload_bytes: 1000,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -781,9 +835,9 @@ mod test {
 
     #[test]
     fn test_pq_max_request_bytes_no_batch() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_request_bytes: 250,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -829,10 +883,10 @@ mod test {
 
     #[test]
     fn test_pq_max_record_payload_bytes_no_batch() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_record_payload_bytes: 150,
             max_request_bytes: 350,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -867,7 +921,7 @@ mod test {
 
     #[test]
     fn test_pq_single_batch() {
-        let cfg = InfoConfiguration::default();
+        let cfg = CollectionLimits::default();
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
@@ -902,9 +956,9 @@ mod test {
 
     #[test]
     fn test_pq_multi_post_batch_bytes() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_post_bytes: 200,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -951,9 +1005,9 @@ mod test {
 
     #[test]
     fn test_pq_multi_post_batch_records() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_post_records: 3,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -1016,10 +1070,10 @@ mod test {
     #[test]
     #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_records() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_post_records: 3,
             max_total_records: 5,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -1100,10 +1154,10 @@ mod test {
     #[test]
     #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_bytes() {
-        let cfg = InfoConfiguration {
+        let cfg = CollectionLimits {
             max_post_bytes: 300,
             max_total_bytes: 500,
-            ..InfoConfiguration::default()
+            ..CollectionLimits::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(

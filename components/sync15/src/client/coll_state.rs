@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::request::InfoConfiguration;
+use super::request::CollectionLimits;
 use super::{CollectionKeys, GlobalState};
 use crate::KeyBundle;
 use crate::ServerTimestamp;
@@ -14,8 +14,8 @@ use crate::error::{info, trace, warn};
 /// of a single sync.
 #[derive(Debug, Clone)]
 pub struct CollState {
-    // Info about the server configuration/capabilities
-    pub config: InfoConfiguration,
+    // The limits the server reports for this collection.
+    pub config: CollectionLimits,
     // from meta/global, used for XIUS when we POST outgoing record based on this state.
     pub last_modified: ServerTimestamp,
     pub key: KeyBundle,
@@ -81,7 +81,7 @@ impl<'state> LocalCollStateMachine<'state> {
                             )?;
                             let key = coll_keys.key_for_collection(name).clone();
                             let name = engine.collection_name();
-                            let config = self.global_state.config.clone();
+                            let config = self.global_state.config.for_collection(&name);
                             let last_modified = self
                                 .global_state
                                 .collections
