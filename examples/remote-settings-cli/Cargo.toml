@@ -25,5 +25,5 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 url = "2"
 walkdir = "2.4.0"
-zip = "2.1"
+zip = "9"
 sha2 = "^0.10"
