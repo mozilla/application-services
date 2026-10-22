@@ -28,6 +28,7 @@
 
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
+- Error strings passed to `MozAdsTelemetry` are cut to 255 bytes, Glean's string limit ([bug 2047640](https://bugzilla.mozilla.org/show_bug.cgi?id=2047640)).
 - `request_spoc_or_image_ads` is added to return ads that may ambiguously be spocs or images.
 - Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64>.
 
