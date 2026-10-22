@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+use crate::bytesize::ByteSize;
+
 /// Receives the ads client's metrics.
 pub trait Telemetry: Send + Sync {
     fn record_build_cache_error(&self, label: &str, value: String);
@@ -57,12 +59,15 @@ fn with_callback(f: impl FnOnce(&dyn Telemetry)) {
 
 /// Glean drops the end of longer string values and records an
 /// `invalid_overflow` error (bug 2047640).
-const MAX_STRING_BYTES: usize = 255;
+const MAX_STRING_SIZE: ByteSize = ByteSize::b(255);
 
 /// Cuts `value` to fit in a Glean string, on a char boundary.
 fn fit(mut value: String) -> String {
-    if value.len() > MAX_STRING_BYTES {
-        let mut end = MAX_STRING_BYTES;
+    let max = MAX_STRING_SIZE.as_u64() as usize;
+    if value.len() > max {
+        // `str::floor_char_boundary` does this, but needs Rust 1.91 and
+        // mozilla-central still builds with 1.90.
+        let mut end = max;
         while !value.is_char_boundary(end) {
             end -= 1;
         }
@@ -121,7 +126,7 @@ mod tests {
     #[test]
     fn test_fit_cuts_on_a_char_boundary() {
         assert_eq!(fit("short".into()), "short");
-        assert_eq!(fit("a".repeat(300)).len(), MAX_STRING_BYTES);
+        assert_eq!(fit("a".repeat(300)).len() as u64, MAX_STRING_SIZE.as_u64());
         let cut = fit("é".repeat(200));
         assert_eq!(cut.len(), 254);
         assert!(cut.chars().all(|c| c == 'é'));
