@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+use crate::bytesize::ByteSize;
+
 /// Receives the ads client's metrics.
 pub trait Telemetry: Send + Sync {
     fn record_build_cache_error(&self, label: &str, value: String);
@@ -55,12 +57,31 @@ fn with_callback(f: impl FnOnce(&dyn Telemetry)) {
     f(callback.as_ref());
 }
 
+/// Glean drops the end of longer string values and records an
+/// `invalid_overflow` error (bug 2047640).
+const MAX_STRING_SIZE: ByteSize = ByteSize::b(255);
+
+/// Cuts `value` to fit in a Glean string, on a char boundary.
+fn fit(mut value: String) -> String {
+    let max = MAX_STRING_SIZE.as_u64() as usize;
+    if value.len() > max {
+        // `str::floor_char_boundary` does this, but needs Rust 1.91 and
+        // mozilla-central still builds with 1.90.
+        let mut end = max;
+        while !value.is_char_boundary(end) {
+            end -= 1;
+        }
+        value.truncate(end);
+    }
+    value
+}
+
 pub(super) fn build_cache_error(label: &str, value: String) {
-    with_callback(|cb| cb.record_build_cache_error(label, value));
+    with_callback(|cb| cb.record_build_cache_error(label, fit(value)));
 }
 
 pub(super) fn client_error(label: &str, value: String) {
-    with_callback(|cb| cb.record_client_error(label, value));
+    with_callback(|cb| cb.record_client_error(label, fit(value)));
 }
 
 pub(super) fn client_operation_total(label: &str) {
@@ -68,11 +89,11 @@ pub(super) fn client_operation_total(label: &str) {
 }
 
 pub(super) fn deserialization_error(label: &str, value: String) {
-    with_callback(|cb| cb.record_deserialization_error(label, value));
+    with_callback(|cb| cb.record_deserialization_error(label, fit(value)));
 }
 
 pub(super) fn http_cache_outcome(label: &str, value: String) {
-    with_callback(|cb| cb.record_http_cache_outcome(label, value));
+    with_callback(|cb| cb.record_http_cache_outcome(label, fit(value)));
 }
 
 /// Serializes tests that install a callback, since they all share the one
@@ -100,6 +121,15 @@ mod tests {
         }
         fn record_deserialization_error(&self, _label: &str, _value: String) {}
         fn record_http_cache_outcome(&self, _label: &str, _value: String) {}
+    }
+
+    #[test]
+    fn test_fit_cuts_on_a_char_boundary() {
+        assert_eq!(fit("short".into()), "short");
+        assert_eq!(fit("a".repeat(300)).len() as u64, MAX_STRING_SIZE.as_u64());
+        let cut = fit("é".repeat(200));
+        assert_eq!(cut.len(), 254);
+        assert!(cut.chars().all(|c| c == 'é'));
     }
 
     #[test]
