@@ -46,6 +46,10 @@
 - If requesting experiment or rollout participation on Android throws, the getter will return true instead of throwing. This aligns the Android behaviour with iOS. [#7656](https://github.com/mozilla/application-services/pull/7656)
 - Enabling experiments or rollouts while they are already enabled no longer performs an update. [#7656](https://github.com/mozilla/application-services/pull/7656)
 
+### Remote Settings
+
+- Error responses now include the error type, errno, and message from the server's response body, not only the HTTP status code. ([bug 1941569](https://bugzilla.mozilla.org/show_bug.cgi?id=1941569))
+
 ### Search
 
 - Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
