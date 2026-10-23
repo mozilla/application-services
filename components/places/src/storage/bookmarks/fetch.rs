@@ -359,6 +359,37 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<BookmarkData>> 
         .collect())
 }
 
+fn folder_from_row(row: &Row<'_>) -> Result<Folder> {
+    Ok(Folder {
+        guid: row.get("guid")?,
+        parent_guid: row.get("parentGuid")?,
+        position: row.get("position")?,
+        date_added: row.get("dateAdded")?,
+        last_modified: row.get("lastModified")?,
+        title: row.get("title")?,
+        child_guids: None,
+        child_nodes: None,
+    })
+}
+
+pub fn search_folders(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<Folder>> {
+    let scope = db.begin_interrupt_scope()?;
+    Ok(db
+        .query_rows_into_cached::<Vec<Folder>, _, _, _, _>(
+            &SEARCH_FOLDERS_QUERY,
+            &[
+                (":search", &search as &dyn rusqlite::ToSql),
+                (":limit", &limit),
+            ],
+            |row| -> Result<_> {
+                scope.err_if_interrupted()?;
+                folder_from_row(row)
+            },
+        )?
+        .into_iter()
+        .collect())
+}
+
 lazy_static::lazy_static! {
     pub static ref SEARCH_QUERY: String = format!(
         "SELECT
@@ -412,6 +443,43 @@ lazy_static::lazy_static! {
         ORDER BY b.dateAdded DESC
         LIMIT :limit",
         bookmark_type = BookmarkType::Bookmark as u8
+    );
+
+    // We use AUTOCOMPLETE_MATCH for folders too - it's a little overkill, but we
+    // get some of the unicode handling etc for free.
+    pub static ref SEARCH_FOLDERS_QUERY: String = format!(
+        "SELECT
+            b.guid,
+            p.guid AS parentGuid,
+            b.position,
+            b.dateAdded,
+            b.lastModified,
+            -- Note we return null for titles with an empty string.
+            NULLIF(b.title, '') AS title
+        FROM moz_bookmarks b
+        JOIN moz_bookmarks p ON p.id = b.parent
+        WHERE b.type = {folder_type}
+            AND b.guid NOT IN ('{root_guid}', '{menu_guid}', '{mobile_guid}', '{toolbar_guid}', '{unfiled_guid}')
+            AND AUTOCOMPLETE_MATCH(
+                :search, '', IFNULL(b.title, ''),
+                NULL,
+                0, -- visit_count
+                0, -- typed
+                1, -- bookmarked
+                NULL, -- open page count
+                {match_bhvr},
+                {search_bhvr}
+            )
+        LIMIT :limit",
+        folder_type = BookmarkType::Folder as u8,
+        match_bhvr = crate::match_impl::MatchBehavior::Anywhere as u32,
+        search_bhvr = crate::match_impl::SearchBehavior::BOOKMARK.bits(),
+        root_guid = BookmarkRootGuid::Root.as_str(),
+        menu_guid = BookmarkRootGuid::Menu.as_str(),
+        mobile_guid = BookmarkRootGuid::Mobile.as_str(),
+        toolbar_guid = BookmarkRootGuid::Toolbar.as_str(),
+        unfiled_guid = BookmarkRootGuid::Unfiled.as_str(),
+
     );
 }
 
@@ -580,6 +648,56 @@ mod test {
         }
         Ok(())
     }
+
+    #[test]
+    fn test_search_folders() -> Result<()> {
+        let conns = new_mem_connections();
+        insert_json_tree(
+            &conns.write,
+            json!({
+                "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
+                "children": [
+                    {
+                        "guid": "folder1_____",
+                        "title": "my example folder",
+                        "children": [
+                            {
+                                "guid": "bookmark1___",
+                                "url": "https://www.example1.com/",
+                                "title": "example bookmark",
+                            },
+                            {
+                                "guid": "folder2_____",
+                                "title": "another folder",
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            }),
+        );
+        let mut folders = search_folders(&conns.read, "ample", 10)?;
+        folders.sort_by_key(|b| b.guid.as_str().to_string());
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].guid, "folder1_____");
+
+        let mut folders = search_folders(&conns.read, "older", 10)?;
+        folders.sort_by_key(|b| b.guid.as_str().to_string());
+        assert_eq!(folders.len(), 2);
+        assert_eq!(folders[0].guid, "folder1_____");
+        assert_eq!(
+            folders[0].parent_guid,
+            Some(BookmarkRootGuid::Unfiled.as_guid())
+        );
+        assert_eq!(folders[1].guid, "folder2_____");
+        assert_eq!(folders[1].parent_guid, Some(SyncGuid::new("folder1_____")));
+
+        // check we never get the roots.
+        assert_eq!(search_folders(&conns.read, "", 10)?.len(), 2);
+
+        Ok(())
+    }
+
     #[test]
     fn test_fetch_bookmark() -> Result<()> {
         let conns = new_mem_connections();
