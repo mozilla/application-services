@@ -22,19 +22,28 @@ fn select_record_fields(value: &Value) -> Value {
 }
 
 /// Serialize collection data into canonical JSON. This must match the server implementation.
-fn serialize_data(timestamp: u64, records: &[RemoteSettingsRecord]) -> Result<Vec<u8>> {
+fn serialize_data(
+    collection: &str,
+    timestamp: u64,
+    records: &[RemoteSettingsRecord],
+) -> Result<Vec<u8>> {
     let mut sorted_records = records.to_vec();
     sorted_records.sort_by_cached_key(|r| r.id.clone());
-    let serialized = canonical_json::to_string(&json!({
+    let payload = json!({
+        "collection": collection,
         "data": sorted_records.into_iter().map(|r| select_record_fields(&json!(r))).collect::<Vec<Value>>(),
         "last_modified": timestamp.to_string()
-    }))?;
+    });
+    let serialized = canonical_json::to_string(&payload)?;
     let data = format!("Content-Signature:\x00{}", serialized);
     Ok(data.as_bytes().to_vec())
 }
 
-/// Verify that the timestamp and records match the signature in the metadata.
+/// Verify that the collection (as `"{bid}/{cid}"`), timestamp and records match the signature
+/// in the metadata.
+#[allow(clippy::too_many_arguments)]
 pub fn verify_signature(
+    collection: &str,
     timestamp: u64,
     records: &[RemoteSettingsRecord],
     signature: &[u8],
@@ -43,7 +52,7 @@ pub fn verify_signature(
     expected_root_hash: &str,
     expected_leaf_cname: &str,
 ) -> Result<()> {
-    let message = serialize_data(timestamp, records)?;
+    let message = serialize_data(collection, timestamp, records)?;
     // Check that certificate chain is valid at specific date time, and
     // that signature matches the input message.
     contentsignature::verify(
@@ -66,6 +75,7 @@ mod tests {
     #[test]
     fn test_records_canonicaljson_serialization() {
         let bytes = serialize_data(
+            "main/cfr",
             1337,
             &[RemoteSettingsRecord {
                 last_modified: 42,
@@ -77,12 +87,13 @@ mod tests {
         )
         .unwrap();
         let s = String::from_utf8(bytes).unwrap();
-        assert_eq!(s, "Content-Signature:\u{0}{\"data\":[{\"id\":\"bonjour\",\"last_modified\":42,\"foo\":\"bar\"}],\"last_modified\":\"1337\"}");
+        assert_eq!(s, "Content-Signature:\u{0}{\"collection\":\"main/cfr\",\"data\":[{\"foo\":\"bar\",\"id\":\"bonjour\",\"last_modified\":42}],\"last_modified\":\"1337\"}");
     }
 
     #[test]
     fn test_records_canonicaljson_serialization_with_attachment() {
         let bytes = serialize_data(
+            "main/cfr",
             1337,
             &[RemoteSettingsRecord {
                 last_modified: 42,
@@ -100,6 +111,6 @@ mod tests {
         )
         .unwrap();
         let s = String::from_utf8(bytes).unwrap();
-        assert_eq!(s, "Content-Signature:\0{\"data\":[{\"id\":\"bonjour\",\"last_modified\":42,\"attachment\":{\"filename\":\"pix.jpg\",\"mimetype\":\"image/jpeg\",\"location\":\"folder/file.jpg\",\"hash\":\"aabbcc\",\"size\":1234567}}],\"last_modified\":\"1337\"}");
+        assert_eq!(s, "Content-Signature:\0{\"collection\":\"main/cfr\",\"data\":[{\"attachment\":{\"filename\":\"pix.jpg\",\"hash\":\"aabbcc\",\"location\":\"folder/file.jpg\",\"mimetype\":\"image/jpeg\",\"size\":1234567},\"id\":\"bonjour\",\"last_modified\":42}],\"last_modified\":\"1337\"}");
     }
 }
