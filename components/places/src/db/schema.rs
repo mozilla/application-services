@@ -761,6 +761,37 @@ mod tests {
         .expect("should work");
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 1);
 
+        // replacing the row with the same place shouldn't change the count
+        conn.execute_cached(
+            "REPLACE INTO moz_bookmarks_synced
+                (placeId, guid)
+            VALUES
+                (:place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 1);
+
+        // replacing the row with a different place should move the count.
+        let url2 = Url::parse("http://example2.com").expect("valid url");
+        conn.execute_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid2__', :url, hash(:url))",
+            &[(":url", &String::from(url2))],
+        )
+        .expect("should work");
+        let place_id2 = conn.last_insert_rowid();
+
+        conn.execute_cached(
+            "REPLACE INTO moz_bookmarks_synced
+                (placeId, guid)
+            VALUES
+                (:place_id, 'fake_guid___')",
+            &[(":place_id", &place_id2)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
+        assert_eq!(get_foreign_count(&conn, &"fake_guid2__".into()), 1);
+
         // delete it.
         conn.execute_cached(
             "DELETE FROM moz_bookmarks_synced WHERE guid = 'fake_guid___';",
@@ -768,6 +799,7 @@ mod tests {
         )
         .expect("should work");
         assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
+        assert_eq!(get_foreign_count(&conn, &"fake_guid2__".into()), 0);
     }
 
     #[test]
