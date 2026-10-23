@@ -1,16 +1,26 @@
+use parking_lot::Mutex;
 use url::Url;
 
 use crate::{
     ads::PlacementId,
     mars::{ad_request::AdPlacementRequest, ReportReason},
+    worker::DispatchRequest,
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
+};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
 // Structure for storing and queuing and storing `DispatchRequest`s sent to background worker.
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
+#[derive(Clone)]
 pub struct RequestQueue {
+    inner: Arc<Mutex<RequestQueueInner>>,
+}
+
+struct RequestQueueInner {
     queued_ads: HashMap<PlacementId, AdPlacementRequest>,
 
     // The ordered queue of non-AdPlacementRequest commands to iterate through.
@@ -19,70 +29,79 @@ pub struct RequestQueue {
 
 impl RequestQueue {
     pub fn new() -> RequestQueue {
-        RequestQueue {
+        let inner = RequestQueueInner {
             queued_ads: HashMap::new(),
             request_queue: VecDeque::new(),
+        };
+        RequestQueue {
+            inner: Arc::new(Mutex::new(inner)),
         }
     }
 
-    pub fn clear(&mut self) {
-        self.request_queue = VecDeque::new();
-        self.queued_ads = HashMap::new();
+    pub fn clear(&self) {
+        let mut inner = self.inner.lock();
+        inner.request_queue = VecDeque::new();
+        inner.queued_ads = HashMap::new();
     }
 
     // Pops the next available DispatchRequest to be run by the worker.
     // This will prioritize any ad_requests, batched, followed by any queued QueuedRequests (eg: RecordClick, etc)
-    pub fn next(&mut self) -> Option<DispatchRequest> {
+    pub fn next(&self) -> Option<DispatchRequest> {
+        let mut inner = self.inner.lock();
+
         // First, if any ad requests are queued, batch the first `MAXIMUM_ADS_BATCH_COUNT` and resolve those.
-        let num_ads = self.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
-        let mut ad_requests: Vec<_> = self.queued_ads.drain().collect();
+        let num_ads = inner.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
+        let mut ad_requests: Vec<_> = inner.queued_ads.drain().collect();
         if ad_requests.len() > 0 {
             let requeue_requests = ad_requests.split_off(num_ads);
-            self.queued_ads = requeue_requests.into_iter().collect();
+            inner.queued_ads = requeue_requests.into_iter().collect();
             return Some(DispatchRequest::RequestAds {
                 ad_requests: ad_requests.into_iter().map(|(_, v)| v).collect(),
             });
         }
 
         // Otherwise, pop the next queue-able command.
-        self.request_queue.pop_front().map(|c| c.into())
+        inner.request_queue.pop_front().map(|c| c.into())
     }
 
-    pub fn push_ad_request(&mut self, ad_request: AdPlacementRequest) {
-        self.queued_ads
-            .insert(ad_request.placement.clone().into(), ad_request);
+    // Add a `DispatchRequest` to the `RequestQueue` (primary entry point for queuing requests).
+    pub fn push_request(&self, request: DispatchRequest) {
+        // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
+        match request {
+            DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
+            DispatchRequest::RecordImpression { url } => {
+                self.push_queued_request(QueuedRequest::RecordImpression { url })
+            }
+            DispatchRequest::RecordClick { url } => {
+                self.push_queued_request(QueuedRequest::RecordClick { url })
+            }
+            DispatchRequest::ReportAd { url, reason } => {
+                self.push_queued_request(QueuedRequest::ReportAd { url, reason })
+            }
+        }
     }
 
-    pub fn push_queued_request(&mut self, queued_command: QueuedRequest) {
-        self.request_queue.push_back(queued_command);
+    fn push_ad_requests(&self, ad_requests: HashSet<AdPlacementRequest>) {
+        let mut inner = self.inner.lock();
+        for ad_request in ad_requests {
+            inner
+                .queued_ads
+                .insert(ad_request.placement.clone().into(), ad_request);
+        }
+    }
+
+    fn push_queued_request(&self, queued_command: QueuedRequest) {
+        let mut inner = self.inner.lock();
+        inner.request_queue.push_back(queued_command);
     }
 }
 
 // Queue-able command (ReportAd, etc.)
 #[derive(Clone, Debug, PartialEq)]
-pub enum QueuedRequest {
+enum QueuedRequest {
     RecordClick { url: Url },
     RecordImpression { url: Url },
     ReportAd { reason: ReportReason, url: Url },
-}
-
-// Request dispatch enum for passing different instructions to the background worker thread.
-// `RequestAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(Clone, Debug, PartialEq)]
-pub enum DispatchRequest {
-    RecordClick {
-        url: Url,
-    },
-    RecordImpression {
-        url: Url,
-    },
-    ReportAd {
-        reason: ReportReason,
-        url: Url,
-    },
-    RequestAds {
-        ad_requests: HashSet<AdPlacementRequest>,
-    },
 }
 
 impl From<QueuedRequest> for DispatchRequest {
@@ -116,14 +135,6 @@ mod tests {
         }
     }
 
-    fn example_request_ads(identifier: usize) -> AdPlacementRequest {
-        AdPlacementRequest {
-            content: None,
-            count: 4,
-            placement: format!("test_placement_{identifier}"),
-        }
-    }
-
     fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
         let mut ad_requests = HashSet::new();
         for id in identifiers {
@@ -138,43 +149,48 @@ mod tests {
 
     #[test]
     fn identical_command_comes_out() {
-        let request = example_request_ads(0);
+        let request = example_request_ads_dispatch(&[0]);
         let command = example_request_ads_dispatch(&[0]);
-        let mut queue = RequestQueue::new();
+        let queue = RequestQueue::new();
 
-        queue.push_ad_request(request.clone());
+        queue.push_request(request.clone());
         let retrieved_dispatch = queue.next().expect("Request should exist in queue");
         assert_eq!(command, retrieved_dispatch);
     }
 
     #[test]
     fn batch_similar_requests() {
-        let request_0 = example_request_ads(0);
-        let request_1 = example_request_ads(1);
+        let request_0 = example_request_ads_dispatch(&[0]);
+        let request_1 = example_request_ads_dispatch(&[1]);
         let dispatch = example_request_ads_dispatch(&[0, 1]);
-        let mut queue = RequestQueue::new();
+        let queue = RequestQueue::new();
 
         // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
-        queue.push_ad_request(request_0.clone());
-        queue.push_ad_request(request_0.clone());
-        queue.push_ad_request(request_1.clone());
+        queue.push_request(request_0.clone());
+        queue.push_request(request_0.clone());
+        queue.push_request(request_1.clone());
 
         let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+
         assert!(queue.next().is_none());
-        assert!(queue.queued_ads.is_empty());
-        assert!(queue.request_queue.is_empty());
+
+        {
+            let inner = queue.inner.lock();
+            assert!(inner.queued_ads.is_empty());
+            assert!(inner.request_queue.is_empty());
+        }
 
         assert_eq!(dispatch, retrieved_dispatch);
     }
 
     #[test]
     fn split_off_too_many_ads() {
-        let mut queue = RequestQueue::new();
+        let queue = RequestQueue::new();
 
         // Queue enough of this command to go one-over the limit.
         for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
-            let request = example_request_ads(i);
-            queue.push_ad_request(request.clone());
+            let request = example_request_ads_dispatch(&[i]);
+            queue.push_request(request.clone());
         }
 
         let mut retrieved_dispatch_many =
@@ -183,8 +199,11 @@ mod tests {
             queue.next().expect("Second command should exist in queue");
 
         assert!(queue.next().is_none());
-        assert!(queue.queued_ads.is_empty());
-        assert!(queue.request_queue.is_empty());
+        {
+            let inner = queue.inner.lock();
+            assert!(inner.queued_ads.is_empty());
+            assert!(inner.request_queue.is_empty());
+        }
 
         // We do not check for a precise match with sample data here, because HashMap<..>s are unsorted, so which placement gets pushed to the next one is random.
         // It is also irrelevant to the MARS request.
