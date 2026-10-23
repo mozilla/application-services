@@ -22,6 +22,11 @@
 - **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
 - **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext. ([bug 2075563](https://bugzilla.mozilla.org/show_bug.cgi?id=2075563))
 
+### Sync Manager
+
+- `SyncParams.enabled_changes` is replaced by `engine_choices_model`. Pass `EngineChoicesModel.Account(enabledChanges)` to keep the current behaviour (in Kotlin, `EngineChoicesModel` is in `mozilla.appservices.sync15`).
+- `DeviceSettings` has a new optional `enabled_engines` field, not yet used.
+
 ## ✨ What's New ✨
 
 ### Error support
