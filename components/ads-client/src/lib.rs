@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use client::error::ComponentError;
 use error_support::handle_error;
 use mars::error::CallbackRequestError;
-use url::Url as AdsClientUrl;
+pub use url::Url as AdsClientUrl;
 
 use client::AdsClient;
 use http_cache::CachePolicy;
