@@ -91,27 +91,27 @@ pub struct Geoname {
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct GeonameAlternates {
     /// Names for the geoname itself.
-    geoname: AlternateNames,
+    pub geoname: AlternateNames,
     /// Names for the geoname's country. This will be `Some` as long as the
     /// country is also in the ingested data, which should typically be true.
-    country: Option<AlternateNames>,
+    pub country: Option<AlternateNames>,
     /// Names for the geoname's admin divisions. This is parallel to
     /// `Geoname::admin_division_codes`. If there are no names in the ingested
     /// data for an admin division, then it will be absent from this map.
-    admin_divisions: HashMap<u8, AlternateNames>,
+    pub admin_divisions: HashMap<u8, AlternateNames>,
 }
 
 /// A set of names for a single entity.
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct AlternateNames {
     /// The entity's primary name. For a `Geoname`, this is `Geoname::name`.
-    primary: String,
+    pub primary: String,
     /// The entity's name in the language that was ingested according to the
     /// locale in the remote settings context. If none exists and this
     /// `AlternateNames` is for a `Geoname`, then this will be its primary name.
-    localized: Option<String>,
+    pub localized: Option<String>,
     /// The entity's abbreviation, if any.
-    abbreviation: Option<String>,
+    pub abbreviation: Option<String>,
 }
 
 impl Geoname {
