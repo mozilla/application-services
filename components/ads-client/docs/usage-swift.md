@@ -230,7 +230,7 @@ struct MozAdsRequestOptions {
 | ------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `cachePolicy` | `MozAdsRequestCachePolicy?`   | Per-request caching policy. If `nil`, uses the client's default TTL with a `cacheFirst` mode.                                              |
 | `flags`       | `[String: Bool]`              | Request-level flags forwarded verbatim as the `flags` object on the wire. An empty dictionary omits it. e.g. `["contextual_placement": true]`. Defaults to `[:]`. |
-| `ohttp`       | `Bool`                        | Whether to route this request through OHTTP. Defaults to `false`.                                                                          |
+| `ohttp`       | `Bool`                        | Whether to route this request through OHTTP. The context id deletion request that may follow it uses the same setting and is skipped without OHTTP. Defaults to `false`. |
 | `relevance`   | `[String: Double]`            | Per client calculated relevance scores. An empty object omits it.Defaults to `[:]`.                                                          |
 
 ---

@@ -35,6 +35,7 @@
 - Error strings passed to `MozAdsTelemetry` are cut to 255 bytes, Glean's string limit ([bug 2047640](https://bugzilla.mozilla.org/show_bug.cgi?id=2047640)).
 - `request_spoc_or_image_ads` is added to return ads that may ambiguously be spocs or images.
 - Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64>.
+- The `DELETE /v1/delete_user` request for a retired context id is now sent by the ads client right after an ad request, over that request's OHTTP channel, instead of as a direct request from the `context_id` component. When the ad request did not use OHTTP the deletion is skipped and logged, so consumers that do not configure the `ads-client` OHTTP channel no longer send it. No binding API change. ([AC-179](https://mozilla-hub.atlassian.net/browse/AC-179))
 
 ### Autofill
 
