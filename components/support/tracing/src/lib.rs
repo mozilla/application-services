@@ -160,7 +160,7 @@ pub trait EventSink: Send + Sync {
     fn on_event(&self, event: Event);
 }
 
-use serde_json::Value as TracingJsonValue;
+pub use serde_json::Value as TracingJsonValue;
 
 uniffi::custom_type!(TracingJsonValue, String, {
     remote,

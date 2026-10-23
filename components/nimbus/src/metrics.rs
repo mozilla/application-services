@@ -7,7 +7,7 @@ use serde_derive::{Deserialize, Serialize};
 use crate::EnrollmentStatus;
 use crate::enrollment::ExperimentEnrollment;
 #[cfg(feature = "stateful")]
-use crate::enrollment::PreviousGeckoPrefState;
+pub use crate::enrollment::PreviousGeckoPrefState;
 pub use crate::metrics::detail::*;
 
 use crate::enrollment::NotEnrolledReason;
