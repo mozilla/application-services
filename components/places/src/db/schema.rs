@@ -11,10 +11,11 @@ use crate::storage::bookmarks::{
 use crate::types::SyncStatus;
 use rusqlite::Connection;
 use sql_support::ConnExt;
+use types::Timestamp;
 
 use super::db::{Pragma, PragmaGuard};
 
-pub const VERSION: u32 = 20;
+pub const VERSION: u32 = 21;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -340,6 +341,80 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             // Manually call analyze so the planner can start using the indexes immediately
             db.execute("ANALYZE moz_places", [])?;
             db.execute("ANALYZE moz_historyvisits", [])?;
+        }
+        20 => {
+            // Bug 2084607 fixes the failure to remove children recursively,
+            // which left deeper items with a missing parent. We need to delete
+            // those orphans, writing tombstones for any that were synced so
+            // the deletion reaches other devices.
+            //
+            // Also recompute `foreign_count`, which was inflated by `REPLACE INTO
+            // moz_bookmarks_synced` because delete triggers didn't fire
+            // when `recursive_triggers` wasn't enabled.
+            //
+            // (The TEMP triggers that normally write tombstones and maintain
+            // `foreign_count` aren't created until `finish()`, so both are
+            // done explicitly here at the end. Because some bookmarks-only
+            // places could remain with zero foreign_counts, instead of
+            // leaving them to be cleaned up by history, they are explicitly
+            // deleted at the end of this migration.)
+            db.execute_batch(&format!(
+                "CREATE TEMP TABLE orphanedBookmarks(id INTEGER PRIMARY KEY);
+
+                 INSERT INTO orphanedBookmarks(id)
+                 WITH RECURSIVE orphans(id) AS (
+                   SELECT b.id FROM moz_bookmarks b
+                   WHERE b.parent IS NOT NULL
+                     AND NOT EXISTS (SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent)
+                   UNION
+                   SELECT c.id FROM moz_bookmarks c JOIN orphans o ON c.parent = o.id
+                 )
+                 SELECT id FROM orphans;
+
+                 INSERT OR IGNORE INTO moz_bookmarks_deleted(guid, dateRemoved)
+                 SELECT guid, {now} FROM moz_bookmarks
+                 WHERE id IN (SELECT id FROM orphanedBookmarks)
+                   AND syncStatus = {normal};
+
+                 DELETE FROM moz_bookmarks
+                 WHERE id IN (SELECT id FROM orphanedBookmarks);
+
+                 DROP TABLE orphanedBookmarks;
+
+                 CREATE TEMP TABLE placeForeignCounts(
+                   place_id INTEGER PRIMARY KEY,
+                   n INTEGER NOT NULL
+                 );
+
+                 INSERT INTO placeForeignCounts(place_id, n)
+                 SELECT place_id, COUNT(*) FROM (
+                   SELECT fk AS place_id FROM moz_bookmarks WHERE fk NOT NULL
+                   UNION ALL
+                   SELECT placeId FROM moz_bookmarks_synced WHERE placeId NOT NULL
+                   UNION ALL
+                   SELECT place_id FROM moz_keywords
+                   UNION ALL
+                   SELECT place_id FROM moz_tags_relation
+                 )
+                 GROUP BY place_id;
+
+                 UPDATE moz_places SET foreign_count =
+                   IFNULL((SELECT n FROM placeForeignCounts WHERE place_id = moz_places.id), 0)
+                 WHERE foreign_count IS NOT
+                   IFNULL((SELECT n FROM placeForeignCounts WHERE place_id = moz_places.id), 0);
+
+                 DROP TABLE placeForeignCounts;
+
+                 INSERT OR IGNORE INTO moz_places_tombstones (guid)
+                 SELECT guid FROM moz_places
+                 WHERE foreign_count = 0 AND last_visit_date_local = 0 AND last_visit_date_remote = 0
+                   AND sync_status = {normal};
+
+                 DELETE FROM moz_places
+                 WHERE foreign_count = 0 AND last_visit_date_local = 0 AND last_visit_date_remote = 0;",
+                 normal = SyncStatus::Normal as u8,
+                 now = Timestamp::now().as_millis(),
+            ))?;
         }
         // Add more migrations here...
 
@@ -1203,6 +1278,94 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn test_upgrade_schema_20_21() {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V17_DB);
+        db_file.upgrade_to(20);
+
+        // This connection has no TEMP triggers, so we can create the state left
+        // by bug 2084607 directly: orphaned bookmarks and inflated foreign_counts.
+        let db = db_file.open();
+        db.execute_batch(
+            "INSERT INTO moz_places(id, guid, url, foreign_count, last_visit_date_local, sync_status)
+             VALUES (2, 'page_guid_2_', 'https://example.com/2', 5, 0, 2),
+                    (3, 'page_guid_3_', 'https://example.com/3', 4, 1, 2),
+                    (4, 'page_guid_4_', 'https://example.com/4', 3, 0, 1);
+             -- True count for page 1 is 2: bmk_guid____ plus its synced row.
+             UPDATE moz_places SET foreign_count = 7 WHERE id = 1;
+             INSERT INTO moz_bookmarks_synced(guid, placeId) VALUES ('bmk_guid____', 1);
+
+             -- A synced orphan folder containing a synced bookmark, an orphan
+             -- that was never synced, and a synced orphan bookmark.
+             INSERT INTO moz_bookmarks(id, type, parent, position, fk, guid, syncStatus)
+             VALUES (10, 2, 99, 0, NULL, 'orphanFoldr1', 2),
+                    (11, 1, 10, 0, 2, 'orphanBmk__1', 2),
+                    (12, 1, 98, 0, 3, 'orphanBmk__2', 1),
+                    (13, 1, 98, 1, 4, 'orphanBmk__3', 2);",
+        )
+        .unwrap();
+        drop(db);
+
+        db_file.upgrade_to(21);
+        let db = db_file.open();
+
+        let guids = |sql: &str| -> Vec<String> {
+            db.query_rows_and_then(sql, [], |row| -> rusqlite::Result<String> { row.get(0) })
+                .unwrap()
+        };
+        let foreign_count = |id: i64| -> Option<i64> {
+            db.try_query_one(
+                "SELECT foreign_count FROM moz_places WHERE id = :id",
+                &[(":id", &id)],
+                false,
+            )
+            .unwrap()
+        };
+
+        // The orphans and their contents are gone, everything else is untouched.
+        assert_eq!(
+            guids("SELECT guid FROM moz_bookmarks ORDER BY guid"),
+            [
+                "bmk_guid____",
+                "folder_guid_",
+                "root________",
+                "sep_guid____"
+            ]
+        );
+
+        // Only the orphans that had been synced get tombstones.
+        assert_eq!(
+            guids("SELECT guid FROM moz_bookmarks_deleted ORDER BY guid"),
+            ["orphanBmk__1", "orphanBmk__3", "orphanFoldr1"]
+        );
+
+        // foreign_count matches its sources again.
+        assert_eq!(foreign_count(1), Some(2));
+        // Page 3 lost its only reference but still has a visit, so it's kept.
+        assert_eq!(foreign_count(3), Some(0));
+        // Pages 2 and 4 have no references and no visits, so they're removed,
+        // with a history tombstone only for the synced one.
+        assert_eq!(foreign_count(2), None);
+        assert_eq!(foreign_count(4), None);
+        assert_eq!(
+            guids("SELECT guid FROM moz_places_tombstones ORDER BY guid"),
+            ["page_guid_2_"]
+        );
+
+        // Make sure that we didn't corrupt the database.
+        let integrity_ok = db
+            .query_row("PRAGMA integrity_check", [], |row| {
+                Ok(row.get::<_, String>(0)? == "ok")
+            })
+            .unwrap();
+        assert!(integrity_ok);
+        let foreign_keys_ok = db
+            .prepare("PRAGMA foreign_key_check")
+            .and_then(|mut statement| Ok(statement.query([])?.next()?.is_none()))
+            .unwrap();
+        assert!(foreign_keys_ok);
     }
 
     #[test]
