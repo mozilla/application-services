@@ -13,8 +13,6 @@ use crate::mars::ad_response::{AdResponse, AdResponseValue};
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
-#[cfg(feature = "stateful")]
-use crate::worker::{self, BackgroundWorker};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
@@ -32,15 +30,8 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
-// Thread sleep delay to wait for new requests to queue before resolving them.
-// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
-#[cfg(feature = "stateful")]
-pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
-
 pub struct AdsClient {
     inner: Arc<AdsClientInner>,
-    #[cfg(feature = "stateful")]
-    _worker: BackgroundWorker,
 }
 
 pub struct AdsClientInner {
@@ -52,28 +43,8 @@ pub struct AdsClientInner {
 
 impl AdsClient {
     pub fn new(client_config: AdsClientConfig) -> Self {
-        #[cfg(feature = "stateful")]
-        let store_exists = client_config.store_config.is_some();
-        #[cfg(feature = "stateful")]
-        let worker_sleep_duration = client_config
-            .worker_config
-            .as_ref()
-            .and_then(|x| x.batch_interval_duration)
-            .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
         let inner = Arc::new(AdsClientInner::new(client_config));
-
-        #[cfg(feature = "stateful")]
-        let worker = if store_exists {
-            worker::BackgroundWorker::new(inner.clone(), worker_sleep_duration)
-        } else {
-            worker::BackgroundWorker::new_empty()
-        };
-
-        AdsClient {
-            inner,
-            #[cfg(feature = "stateful")]
-            _worker: worker,
-        }
+        AdsClient { inner }
     }
 
     pub fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -511,8 +482,6 @@ mod tests {
         });
         AdsClient {
             inner: inner.clone(),
-            #[cfg(feature = "stateful")]
-            _worker: BackgroundWorker::new(inner.clone(), ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT),
         }
     }
 

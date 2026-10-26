@@ -12,6 +12,10 @@ use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
+
 pub struct BackgroundWorker {
     // Worker thread is not needed to be accessed, but the handle needs to be held by the structure.
     // If None, no worker thread is present, and attempts to write to the request queue will be rejected
@@ -21,10 +25,13 @@ pub struct BackgroundWorker {
 }
 
 impl BackgroundWorker {
+    // Create a new worker to handle fire-and-forget requests.
+    // `worker_sleep`: Batch interval, defaulting to `ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT ms`.
     pub fn new(
         inner_client: Arc<AdsClientInner>,
-        worker_sleep_duration: Duration,
+        worker_sleep: Option<Duration>,
     ) -> BackgroundWorker {
+        let worker_sleep = worker_sleep.unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
         let request_queue = RequestQueue::new();
         let worker_request_queue = request_queue.clone();
 
@@ -32,7 +39,7 @@ impl BackgroundWorker {
         // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone(), worker_sleep_duration)).inspect_err(|err| {
+            .spawn(move || crate::worker::worker(inner_client, worker_request_queue.clone(), worker_sleep)).inspect_err(|err| {
                 // TODO: Replace this log with telemetry.
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
             }).ok()

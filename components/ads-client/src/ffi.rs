@@ -192,7 +192,7 @@ pub struct MozAdsStoreConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsWorkerConfig {
     /// Interval rate for batching commands used by the background worker.
-    pub batch_interval_duration: Option<Duration>,
+    pub batch_interval: Option<Duration>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -491,7 +491,7 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
 impl From<MozAdsWorkerConfig> for AdsWorkerConfig {
     fn from(config: MozAdsWorkerConfig) -> Self {
         Self {
-            batch_interval_duration: config.batch_interval_duration,
+            batch_interval: config.batch_interval,
         }
     }
 }

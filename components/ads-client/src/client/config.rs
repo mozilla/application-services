@@ -33,5 +33,5 @@ pub struct AdsStoreConfig {
 #[cfg(feature = "stateful")]
 #[derive(Clone, Debug)]
 pub struct AdsWorkerConfig {
-    pub batch_interval_duration: Option<Duration>,
+    pub batch_interval: Option<Duration>,
 }
