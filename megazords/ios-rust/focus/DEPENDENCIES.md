@@ -13,7 +13,6 @@ the details of which are reproduced below.
 * [MIT License: core_maths](#mit-license-core_maths)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
-* [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body, http-body-util](#mit-license-http-body-http-body-util)
 * [MIT License: hyper](#mit-license-hyper)
 * [MIT License: hyper-util](#mit-license-hyper-util)
@@ -24,30 +23,29 @@ the details of which are reproduced below.
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: sharded-slab](#mit-license-sharded-slab)
-* [MIT License: slab](#mit-license-slab)
 * [MIT License: smawk](#mit-license-smawk)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio](#mit-license-tokio)
 * [MIT License: tokio-native-tls, tracing, tracing-attributes, tracing-core, tracing-subscriber](#mit-license-tokio-native-tls-tracing-tracing-attributes-tracing-core-tracing-subscriber)
-* [MIT License: tokio-util](#mit-license-tokio-util)
 * [MIT License: tower, tower-layer, tower-service](#mit-license-tower-tower-layer-tower-service)
 * [MIT License: tower-http](#mit-license-tower-http)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle2](#mit-license-weedle2)
+* [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [ISC License: libloading](#isc-license-libloading)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [Zlib License: foldhash](#zlib-license-foldhash)
 * [Unicode-3.0 License: icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locale-icu_locale_core-icu_locale_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_segmenter-icu_segmenter_data-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
-* [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 * [(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident](#(mit-or-apache-20)-and-unicode-30-license-unicode-ident)
 -------------
 ## Mozilla Public License 2.0
 
 The following text applies to code linked from these dependencies:
+[glean-build](https://github.com/mozilla/glean),
 [jexl-eval](https://github.com/mozilla/jexl-rs),
 [jexl-parser](https://github.com/mozilla/jexl-rs),
 [uniffi](https://github.com/mozilla/uniffi-rs),
@@ -475,12 +473,10 @@ The following text applies to code linked from these dependencies:
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [find-msvc-tools](https://github.com/rust-lang/cc-rs),
-[fnv](https://github.com/servo/rust-fnv),
 [form_urlencoded](https://github.com/servo/rust-url),
 [fs-err](https://github.com/andrewhickman/fs-err),
 [futures-channel](https://github.com/rust-lang/futures-rs),
 [futures-core](https://github.com/rust-lang/futures-rs),
-[futures-sink](https://github.com/rust-lang/futures-rs),
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
@@ -505,11 +501,11 @@ The following text applies to code linked from these dependencies:
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
 [libm](https://github.com/rust-lang/libm),
+[linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
-[mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
-[native-tls](https://github.com/sfackler/rust-native-tls),
+[native-tls](https://github.com/rust-native-tls/rust-native-tls),
 [num-traits](https://github.com/rust-num/num-traits),
 [ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
@@ -541,7 +537,6 @@ The following text applies to code linked from these dependencies:
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_spanned](https://github.com/toml-rs/toml),
-[serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
 [shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
@@ -551,8 +546,6 @@ The following text applies to code linked from these dependencies:
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
 [sync_wrapper](https://github.com/Actyx/sync_wrapper),
-[system-configuration-sys](https://github.com/mullvad/system-configuration-rs),
-[system-configuration](https://github.com/mullvad/system-configuration-rs),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
@@ -567,6 +560,8 @@ The following text applies to code linked from these dependencies:
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
+[xshell-macros](https://github.com/matklad/xshell),
+[xshell](https://github.com/matklad/xshell),
 [zeroize](https://github.com/RustCrypto/utils/tree/master/zeroize)
 
 ```
@@ -991,40 +986,6 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: h2
-
-The following text applies to code linked from these dependencies:
-[h2](https://github.com/hyperium/h2)
-
-```
-Copyright (c) 2017 h2 authors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
 ## MIT License: http-body, http-body-util
 
 The following text applies to code linked from these dependencies:
@@ -1324,40 +1285,6 @@ THE SOFTWARE.
 
 ```
 -------------
-## MIT License: slab
-
-The following text applies to code linked from these dependencies:
-[slab](https://github.com/tokio-rs/slab)
-
-```
-Copyright (c) 2019 Carl Lerche
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
 ## MIT License: smawk
 
 The following text applies to code linked from these dependencies:
@@ -1475,40 +1402,6 @@ The following text applies to code linked from these dependencies:
 
 ```
 Copyright (c) 2019 Tokio Contributors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: tokio-util
-
-The following text applies to code linked from these dependencies:
-[tokio-util](https://github.com/tokio-rs/tokio)
-
-```
-Copyright (c) 2022 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1687,6 +1580,36 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: xshell-venv
+
+The following text applies to code linked from these dependencies:
+[xshell-venv](https://github.com/badboy/xshell-venv)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2022 Jan-Erik Rediger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------
@@ -1894,32 +1817,6 @@ The following text applies to code linked from these dependencies:
 
 ```
 This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
-```
--------------
-## (Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs
-
-The following text applies to code linked from these dependencies:
-[encoding_rs](https://github.com/hsivonen/encoding_rs)
-
-```
-encoding_rs is copyright Mozilla Foundation.
-
-Licensed under the Apache License, Version 2.0
-<LICENSE-APACHE or
-https://www.apache.org/licenses/LICENSE-2.0> or the MIT
-license <LICENSE-MIT or https://opensource.org/licenses/MIT>,
-at your option. All files in the project carrying such
-notice may not be copied, modified, or distributed except
-according to those terms.
-
-This crate includes data derived from the data files supplied
-with the WHATWG Encoding Standard, which, when incorporated into
-source code, are licensed under the BSD 3-Clause License
-<LICENSE-WHATWG>.
-
-Test code within encoding_rs is dedicated to the Public Domain when so
-designated (see the individual files for PD/CC0-dedicated sections).
-
 ```
 -------------
 ## (MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident
