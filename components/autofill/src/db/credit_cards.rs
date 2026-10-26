@@ -300,6 +300,9 @@ pub(crate) fn count_all_credit_cards(conn: &Connection) -> Result<i64> {
     Ok(count)
 }
 
+/// Replaces the user-editable fields of `guid`. A `cc_cvv` of `None` keeps
+/// the stored CVV and `Some("")` clears it, so a caller that does not handle
+/// CVVs cannot erase one.
 pub fn update_credit_card(
     conn: &Connection,
     encdec: &dyn EncryptorDecryptor,
@@ -307,13 +310,17 @@ pub fn update_credit_card(
     credit_card: &UpdatableCreditCardFields,
 ) -> Result<()> {
     let cc_number_enc = encrypt_number(encdec, &credit_card.cc_number)?;
-    let cc_cvv_enc = encrypt_optional_str(encdec, credit_card.cc_cvv.as_deref())?;
+    let cc_cvv_enc = match credit_card.cc_cvv.as_deref() {
+        // None binds as NULL, which the COALESCE below turns into "keep".
+        None => None,
+        Some(cc_cvv) => Some(encrypt_optional_str(encdec, Some(cc_cvv))?),
+    };
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
             cc_number_enc               = :cc_number_enc,
-            cc_cvv_enc                  = :cc_cvv_enc,
+            cc_cvv_enc                  = COALESCE(:cc_cvv_enc, cc_cvv_enc),
             cc_number_last_4            = :cc_number_last_4,
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
@@ -400,7 +407,10 @@ pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
 
 pub fn scrub_encrypted_credit_card_data(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute("UPDATE credit_cards_data SET cc_number_enc = ''", [])?;
+    tx.execute(
+        "UPDATE credit_cards_data SET cc_number_enc = '', cc_cvv_enc = ''",
+        [],
+    )?;
     tx.commit()?;
     Ok(())
 }
@@ -434,6 +444,7 @@ pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
             &format!(
                 "UPDATE credit_cards_data
                 SET cc_number_enc = '',
+                    cc_cvv_enc = '',
                     time_created = 0,
                     time_last_used = 0,
                     time_last_modified = 0,
@@ -1199,7 +1210,7 @@ pub(crate) mod tests {
                 UpdatableCreditCardFields {
                     cc_name: "john deer".to_string(),
                     cc_number: "1234567812345678".to_string(),
-                    cc_cvv: None,
+                    cc_cvv: Some("123".to_string()),
                     cc_exp_month: 10,
                     cc_exp_year: 2025,
                     cc_type: "mastercard".to_string(),
@@ -1211,6 +1222,7 @@ pub(crate) mod tests {
         for saved_credit_card in saved_credit_cards.into_iter() {
             let retrieved_credit_card = get_credit_card(&db, &saved_credit_card.guid)?;
             assert_eq!(retrieved_credit_card.cc_number_enc, "");
+            assert_eq!(retrieved_credit_card.cc_cvv_enc, "");
         }
 
         Ok(())
@@ -1229,6 +1241,7 @@ pub(crate) mod tests {
             guid: Guid::random(),
             cc_name: "jane doe".to_string(),
             cc_number_enc: encrypt_str(&foreign_encdec, "2345678923456789")?,
+            cc_cvv_enc: encrypt_str(&foreign_encdec, "123")?,
             cc_number_last_4: "6789".to_string(),
             cc_exp_month: 9,
             cc_exp_year: 2027,
@@ -1247,13 +1260,14 @@ pub(crate) mod tests {
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
                 cc_number: "567812345678123456781".to_string(),
-                cc_cvv: None,
+                cc_cvv: Some("456".to_string()),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
             },
         )?;
         let encrypted_cc_number = credit_card.cc_number_enc.clone();
+        let encrypted_cc_cvv = credit_card.cc_cvv_enc.clone();
 
         let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(&db)?;
         assert_eq!(metrics.total_scrubbed_records, 1);
@@ -1263,9 +1277,15 @@ pub(crate) mod tests {
 
         let retrieved_credit_card = get_credit_card(&db, &undecryptable_credit_card.guid)?;
         assert_eq!(retrieved_credit_card.cc_number_enc, "");
+        assert_eq!(retrieved_credit_card.cc_cvv_enc, "");
+        // Nothing left that the key cannot read, so the card loads again.
+        assert!(retrieved_credit_card
+            .into_external(db.encdec.as_ref())
+            .is_ok());
 
         let retrieved_credit_card2 = get_credit_card(&db, &credit_card.guid)?;
         assert_eq!(retrieved_credit_card2.cc_number_enc, encrypted_cc_number);
+        assert_eq!(retrieved_credit_card2.cc_cvv_enc, encrypted_cc_cvv);
 
         Ok(())
     }
