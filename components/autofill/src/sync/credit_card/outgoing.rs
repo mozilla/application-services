@@ -112,7 +112,10 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::credit_cards::{add_internal_credit_card, tests::test_insert_mirror_record};
+    use crate::db::credit_cards::{
+        add_internal_credit_card, tests::test_insert_mirror_record, update_credit_card,
+    };
+    use crate::db::models::credit_card::{decrypt_str, UpdatableCreditCardFields};
     use crate::db::test::random_key_encryptor;
     use crate::sync::{common::tests::*, test::new_syncable_mem_db, UnknownFields};
     use serde_json::{json, Map, Value};
@@ -333,5 +336,43 @@ mod tests {
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
         );
+    }
+
+    #[test]
+    fn test_outgoing_keeps_cvv_after_update_without_one() {
+        let mut db = new_syncable_mem_db();
+        let co = OutgoingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+        let encdec = co.encdec.as_ref();
+        let mut test_record = test_record('C', encdec);
+        test_record.cc_cvv_enc = encrypt_str(encdec, "123").unwrap();
+        {
+            let tx = db.transaction().expect("should get tx");
+            add_internal_credit_card(&tx, &test_record).unwrap();
+            tx.commit().unwrap();
+        }
+
+        update_credit_card(
+            &db,
+            encdec,
+            &test_record.guid,
+            &UpdatableCreditCardFields {
+                cc_name: "Mr Me A Person".to_string(),
+                cc_number: decrypt_str(encdec, &test_record.cc_number_enc).unwrap(),
+                cc_cvv: None,
+                cc_exp_month: test_record.cc_exp_month,
+                cc_exp_year: test_record.cc_exp_year,
+                cc_type: test_record.cc_type.clone(),
+            },
+        )
+        .unwrap();
+
+        let tx = db.transaction().expect("should get tx");
+        let outgoing = co.fetch_outgoing_records(&tx).unwrap();
+        let bso_payload: Map<String, Value> = serde_json::from_str(&outgoing[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("cc-name").unwrap(), "Mr Me A Person");
+        assert_eq!(entry.get("cc-cvv").unwrap(), "123");
     }
 }

@@ -672,12 +672,44 @@ mod tests {
             .update_credit_card(
                 card.guid.clone(),
                 UpdatableCreditCardFields {
-                    cc_cvv: None,
+                    cc_cvv: Some(String::new()),
                     ..fields
                 },
             )
             .unwrap();
         assert_eq!(store.get_credit_card(card.guid).unwrap().cc_cvv, None);
+    }
+
+    #[test]
+    fn test_update_without_cvv_keeps_it() {
+        ensure_initialized();
+        let store = Store::new_shared_memory("cvv-kept-on-update", test_encdec()).unwrap();
+        let fields = UpdatableCreditCardFields {
+            cc_name: "jane doe".to_string(),
+            cc_number: "4111111111117629".to_string(),
+            cc_cvv: Some("123".to_string()),
+            cc_exp_month: 1,
+            cc_exp_year: 2030,
+            cc_type: "visa".to_string(),
+        };
+        let card = store.add_credit_card(fields.clone()).unwrap();
+
+        // A caller that does not know about CVVs edits other fields.
+        store
+            .update_credit_card(
+                card.guid.clone(),
+                UpdatableCreditCardFields {
+                    cc_name: "jane q doe".to_string(),
+                    cc_exp_year: 2031,
+                    cc_cvv: None,
+                    ..fields
+                },
+            )
+            .unwrap();
+        let updated = store.get_credit_card(card.guid.clone()).unwrap();
+        assert_eq!(updated.cc_name, "jane q doe");
+        assert_eq!(updated.cc_exp_year, 2031);
+        assert_eq!(updated.cc_cvv.as_deref(), Some("123"));
     }
 
     #[test]
