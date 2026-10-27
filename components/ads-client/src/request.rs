@@ -63,11 +63,7 @@ impl RequestQueue {
         }
 
         if let Some(timeout) = timeout {
-            if self
-                .ready_cond
-                .wait_for(&mut waiting, timeout)
-                .timed_out()
-            {
+            if self.ready_cond.wait_for(&mut waiting, timeout).timed_out() {
                 return false;
             }
         } else {
