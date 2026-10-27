@@ -83,6 +83,7 @@ pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
 struct MozAdsClientBuilderInner {
     cache_config: Option<MozAdsCacheConfig>,
     environment: Option<MozAdsEnvironment>,
+    #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
@@ -112,9 +113,10 @@ impl MozAdsClientBuilder {
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
         };
-        MozAdsClient {
-            inner: AdsClient::new(client_config),
-        }
+
+        let client = AdsClient::new(client_config);
+        let inner = Arc::new(client);
+        MozAdsClient { inner }
     }
 
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
@@ -127,13 +129,18 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
-        self.0.lock().store_config = Some(store_config);
-        self
-    }
-
     pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
         self.0.lock().telemetry = Some(Arc::from(telemetry));
+        self
+    }
+}
+
+#[cfg(feature = "stateful")]
+#[uniffi::export]
+impl MozAdsClientBuilder {
+    #[cfg(feature = "stateful")]
+    pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
+        self.0.lock().store_config = Some(store_config);
         self
     }
 }
