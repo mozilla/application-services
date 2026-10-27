@@ -18,9 +18,10 @@ pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 #[derive(Clone)]
 pub struct RequestQueue {
-    // If the `inner` mutex is locked to add data to the queue, the ready_condvar must be notified after data is added.
+    // If the `inner` mutex is locked to add data to the queue, the ready_cond must be notified after data is added.
     inner: Arc<Mutex<RequestQueueInner>>,
-    ready_condvar: Arc<Condvar>,
+    // Condvar is updated if new data is queued to be retrievable by `next()`. Can be waited with: `wait_available`
+    ready_cond: Arc<Condvar>,
 }
 
 struct RequestQueueInner {
@@ -38,11 +39,12 @@ impl RequestQueue {
         };
         RequestQueue {
             inner: Arc::new(Mutex::new(inner)),
-            ready_condvar: Arc::new(Condvar::new()),
+            ready_cond: Arc::new(Condvar::new()),
         }
     }
 
     pub fn clear(&self) {
+        // Get lock and clear data. No need to update 'ready' condvar, as this can't result in more data.
         let mut inner = self.inner.lock();
         inner.request_queue = VecDeque::new();
         inner.queued_ads = HashMap::new();
@@ -62,14 +64,14 @@ impl RequestQueue {
 
         if let Some(timeout) = timeout {
             if self
-                .ready_condvar
+                .ready_cond
                 .wait_for(&mut waiting, timeout)
                 .timed_out()
             {
                 return false;
             }
         } else {
-            self.ready_condvar.wait(&mut waiting);
+            self.ready_cond.wait(&mut waiting);
         }
         waiting.next_available()
     }
@@ -125,7 +127,7 @@ impl RequestQueue {
         }
 
         // Queue was written to, so we notify any threads with `wait_available`.
-        self.ready_condvar.notify_all();
+        self.ready_cond.notify_all();
     }
 
     fn push_queued_request(&self, queued_command: QueuedRequest) {
@@ -133,7 +135,7 @@ impl RequestQueue {
         inner.request_queue.push_back(queued_command);
 
         // Queue was written to, so we notify any threads with `wait_available`.
-        self.ready_condvar.notify_all();
+        self.ready_cond.notify_all();
     }
 }
 
@@ -273,6 +275,15 @@ mod tests {
         let queue = RequestQueue::new();
         let queue_clone = queue.clone();
 
+        // Check immediate result for `wait_available`
+        queue_clone.push_request(DispatchRequest::RecordClick {
+            url: Url::parse("https://example.net").unwrap(),
+        });
+        let available = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(available);
+        assert!(queue.next().is_some());
+
+        // Check result in `wait_available` added by another thread while waiting.
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_secs(1));
             println!("Pushing request.");
@@ -283,9 +294,10 @@ mod tests {
 
         assert_eq!(queue.next(), None);
         println!("Waiting for lock.");
-        let timed_out = queue.wait_available(Some(Duration::from_secs(2)));
-        assert!(!timed_out);
+        let available = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(available);
         assert!(queue.next().is_some());
+        assert!(queue.next().is_none());
     }
 
     #[test]
@@ -293,6 +305,13 @@ mod tests {
         let queue = RequestQueue::new();
         let queue_clone = queue.clone();
 
+        // Check immediate result for `wait_available`
+        queue_clone.push_request(example_request_ads_dispatch(&[1]));
+        let available = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(available);
+        assert!(queue.next().is_some());
+
+        // Check result in `wait_available` added by another thread while waiting.
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_secs(1));
             println!("Pushing request.");
@@ -301,8 +320,19 @@ mod tests {
 
         assert_eq!(queue.next(), None);
         println!("Waiting for lock.");
-        let timed_out = queue.wait_available(Some(Duration::from_secs(2)));
-        assert!(!timed_out);
+        let available = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(available);
         assert!(queue.next().is_some());
+        assert!(queue.next().is_none());
+    }
+
+    #[test]
+    fn waiting_if_available_returns_unavailable() {
+        let queue = RequestQueue::new();
+
+        // Check immediate result for `wait_available`
+        let available = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(!available);
+        assert!(queue.next().is_none());
     }
 }
