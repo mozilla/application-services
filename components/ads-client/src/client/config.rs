@@ -3,9 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#[cfg(feature = "stateful")]
-use std::time::Duration;
-
 use crate::mars::Environment;
 
 pub struct AdsClientConfig {
@@ -13,8 +10,6 @@ pub struct AdsClientConfig {
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
-    #[cfg(feature = "stateful")]
-    pub worker_config: Option<AdsWorkerConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -28,10 +23,4 @@ pub struct AdsCacheConfig {
 #[derive(Clone, Debug)]
 pub struct AdsStoreConfig {
     pub db_path: String,
-}
-
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug)]
-pub struct AdsWorkerConfig {
-    pub batch_interval: Option<Duration>,
 }

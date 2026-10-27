@@ -492,8 +492,6 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            #[cfg(feature = "stateful")]
-            worker_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -585,8 +583,6 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            #[cfg(feature = "stateful")]
-            worker_config: None,
         };
         let client = AdsClient::new(config);
 
@@ -625,8 +621,6 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            #[cfg(feature = "stateful")]
-            worker_config: None,
         };
         let client = AdsClient::new(config);
 

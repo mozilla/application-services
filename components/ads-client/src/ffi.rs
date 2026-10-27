@@ -8,9 +8,9 @@ pub mod telemetry;
 use crate::ads::{
     AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
-use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 #[cfg(feature = "stateful")]
-use crate::client::config::{AdsStoreConfig, AdsWorkerConfig};
+use crate::client::config::AdsStoreConfig;
+use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
@@ -25,7 +25,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
-use std::time::Duration;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -87,8 +86,6 @@ struct MozAdsClientBuilderInner {
     #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
-    #[cfg(feature = "stateful")]
-    worker_config: Option<MozAdsWorkerConfig>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -115,8 +112,6 @@ impl MozAdsClientBuilder {
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
-            #[cfg(feature = "stateful")]
-            worker_config: inner.worker_config.clone().map(Into::into),
         };
 
         let client = AdsClient::new(client_config);
@@ -146,12 +141,6 @@ impl MozAdsClientBuilder {
     #[cfg(feature = "stateful")]
     pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
         self.0.lock().store_config = Some(store_config);
-        self
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn worker_config(self: Arc<Self>, worker_config: MozAdsWorkerConfig) -> Arc<Self> {
-        self.0.lock().worker_config = Some(worker_config);
         self
     }
 }
@@ -187,12 +176,6 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
-}
-
-#[derive(Clone, uniffi::Record)]
-pub struct MozAdsWorkerConfig {
-    /// Interval rate for batching commands used by the background worker.
-    pub batch_interval: Option<Duration>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
@@ -483,15 +466,6 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
-        }
-    }
-}
-
-#[cfg(feature = "stateful")]
-impl From<MozAdsWorkerConfig> for AdsWorkerConfig {
-    fn from(config: MozAdsWorkerConfig) -> Self {
-        Self {
-            batch_interval: config.batch_interval,
         }
     }
 }
