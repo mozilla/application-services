@@ -363,6 +363,19 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
+        self.exec_request_and_inspect_response(req, require_success, |_| {})
+    }
+
+    fn exec_request_and_inspect_response<T, I>(
+        &self,
+        req: Request,
+        require_success: bool,
+        mut inspect_response: I,
+    ) -> error::Result<Sync15ClientResponse<T>>
+    where
+        for<'a> T: serde::de::Deserialize<'a>,
+        I: FnMut(&Response),
+    {
         trace!(
             "request: {} {} ({:?})",
             req.method,
@@ -371,6 +384,7 @@ impl Sync15StorageClient {
         );
         let resp = req.send()?;
 
+        inspect_response(&resp);
         let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
         match result {
             Sync15ClientResponse::Success { .. } => Ok(result),
@@ -392,8 +406,14 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        let url = build_collection_request_url(Url::parse(&self.tsc.api_endpoint()?)?, r)?;
-        self.exec_request(self.build_request(method, url)?, false)
+        let url = build_collection_request_url(Url::parse(&self.tsc.api_endpoint()?)?, &r)?;
+        self.exec_request_and_inspect_response(self.build_request(method, url)?, false, |resp| {
+            // Record errors for large downloads since these can lead to OOM errors:
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=2072330
+            if resp.body.len() >= 50_000_000 {
+                error_support::report_error!("sync-large-download", "{r:?}");
+            }
+        })
     }
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
@@ -481,11 +501,11 @@ impl BatchPoster for PostWrapper<'_> {
     }
 }
 
-fn build_collection_url(mut base_url: Url, collection: CollectionName) -> error::Result<Url> {
+fn build_collection_url(mut base_url: Url, collection: &str) -> error::Result<Url> {
     base_url
         .path_segments_mut()
         .map_err(|_| Error::UnacceptableUrl("Storage server URL is not a base".to_string()))?
-        .extend(&["storage", &collection]);
+        .extend(&["storage", collection]);
 
     // This is strange but just accessing query_pairs_mut makes you have
     // a trailing question mark on your url. I don't think anything bad
@@ -497,7 +517,7 @@ fn build_collection_url(mut base_url: Url, collection: CollectionName) -> error:
     Ok(base_url)
 }
 
-fn build_collection_request_url(mut base_url: Url, r: CollectionRequest) -> error::Result<Url> {
+fn build_collection_request_url(mut base_url: Url, r: &CollectionRequest) -> error::Result<Url> {
     let mut pairs = base_url.query_pairs_mut();
     if r.full {
         pairs.append_pair("full", "1");
@@ -525,7 +545,7 @@ fn build_collection_request_url(mut base_url: Url, r: CollectionRequest) -> erro
     }
     pairs.finish();
     drop(pairs);
-    build_collection_url(base_url, r.collection)
+    build_collection_url(base_url, &r.collection)
 }
 
 #[cfg(feature = "sync-client")]
@@ -539,7 +559,7 @@ fn build_collection_post_url(mut base_url: Url, r: CollectionPost) -> error::Res
     }
     pairs.finish();
     drop(pairs);
-    build_collection_url(base_url, r.collection)
+    build_collection_url(base_url, &r.collection)
 }
 
 #[cfg(test)]
@@ -573,13 +593,13 @@ mod test {
         let base = Url::parse("https://example.com/sync").unwrap();
 
         let empty =
-            build_collection_request_url(base.clone(), CollectionRequest::new("foo".into()))
+            build_collection_request_url(base.clone(), &CollectionRequest::new("foo".into()))
                 .unwrap();
         assert_eq!(empty.as_str(), "https://example.com/sync/storage/foo");
 
         let idreq = build_collection_request_url(
             base.clone(),
-            CollectionRequest::new("wutang".into())
+            &CollectionRequest::new("wutang".into())
                 .full()
                 .ids(&["rza", "gza"]),
         )
@@ -591,7 +611,7 @@ mod test {
 
         let complex = build_collection_request_url(
             base,
-            CollectionRequest::new("specific".into())
+            &CollectionRequest::new("specific".into())
                 .full()
                 .limit(10, RequestOrder::Oldest)
                 .older_than(ServerTimestamp(9_876_540))
