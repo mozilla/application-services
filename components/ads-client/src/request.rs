@@ -1,4 +1,4 @@
-use parking_lot::Mutex;
+use parking_lot::{Condvar, Mutex};
 use url::Url;
 
 use crate::{
@@ -9,6 +9,7 @@ use crate::{
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
+    time::Duration,
 };
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
@@ -17,7 +18,9 @@ pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 #[derive(Clone)]
 pub struct RequestQueue {
+    // If the `inner` mutex is locked to add data to the queue, the ready_condvar must be notified after data is added.
     inner: Arc<Mutex<RequestQueueInner>>,
+    ready_condvar: Arc<Condvar>,
 }
 
 struct RequestQueueInner {
@@ -35,6 +38,7 @@ impl RequestQueue {
         };
         RequestQueue {
             inner: Arc::new(Mutex::new(inner)),
+            ready_condvar: Arc::new(Condvar::new()),
         }
     }
 
@@ -42,6 +46,32 @@ impl RequestQueue {
         let mut inner = self.inner.lock();
         inner.request_queue = VecDeque::new();
         inner.queued_ads = HashMap::new();
+    }
+
+    // Wait for queue to have data retrievable by `next()`, with an optional timeout.
+    // Uses a condvar internally to ensure a thread can wait with minimal CPU usage.
+    // If multiple threads call `wait_available`, all will be notified on availability (so, competing threads may not all receive data from `next()`)
+    // Returns `true` if data is available to be queried by `next()`, and false otherwise (eg: if timeout is reached)
+    pub fn wait_available(&self, timeout: Option<Duration>) -> bool {
+        let mut waiting = self.inner.lock();
+
+        // Return immediately if data is currently available
+        if waiting.next_available() {
+            return true;
+        }
+
+        if let Some(timeout) = timeout {
+            if self
+                .ready_condvar
+                .wait_for(&mut waiting, timeout)
+                .timed_out()
+            {
+                return false;
+            }
+        } else {
+            self.ready_condvar.wait(&mut waiting);
+        }
+        waiting.next_available()
     }
 
     // Pops the next available DispatchRequest to be run by the worker.
@@ -65,6 +95,7 @@ impl RequestQueue {
     }
 
     // Add a `DispatchRequest` to the `RequestQueue` (primary entry point for queuing requests).
+    // If new helper functions are added, they must include a convdvar notification.
     pub fn push_request(&self, request: DispatchRequest) {
         // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
         match request {
@@ -82,17 +113,33 @@ impl RequestQueue {
     }
 
     fn push_ad_requests(&self, ad_requests: HashSet<AdPlacementRequest>) {
+        if ad_requests.is_empty() {
+            return;
+        }
+
         let mut inner = self.inner.lock();
         for ad_request in ad_requests {
             inner
                 .queued_ads
                 .insert(ad_request.placement.clone().into(), ad_request);
         }
+
+        // Queue was written to, so we notify any threads with `wait_available`.
+        self.ready_condvar.notify_all();
     }
 
     fn push_queued_request(&self, queued_command: QueuedRequest) {
         let mut inner = self.inner.lock();
         inner.request_queue.push_back(queued_command);
+
+        // Queue was written to, so we notify any threads with `wait_available`.
+        self.ready_condvar.notify_all();
+    }
+}
+
+impl RequestQueueInner {
+    pub fn next_available(&self) -> bool {
+        !self.queued_ads.is_empty() || !self.request_queue.is_empty()
     }
 }
 
@@ -116,7 +163,8 @@ impl From<QueuedRequest> for DispatchRequest {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, time::Duration};
+    use url::Url;
 
     use crate::request::{
         AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT,
@@ -218,5 +266,43 @@ mod tests {
         let retrieved_dispatch_overflow_ads = extract_request_ads(&mut retrieved_dispatch_overflow)
             .expect("Example DispatchRequest should be RequestAds variant");
         assert_eq!(retrieved_dispatch_overflow_ads.len(), 1);
+    }
+
+    #[test]
+    fn waiting_if_available_returns_successfully_push_queued_request() {
+        let queue = RequestQueue::new();
+        let queue_clone = queue.clone();
+
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(1));
+            println!("Pushing request.");
+            queue_clone.push_request(DispatchRequest::RecordClick {
+                url: Url::parse("https://example.net").unwrap(),
+            });
+        });
+
+        assert_eq!(queue.next(), None);
+        println!("Waiting for lock.");
+        let timed_out = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(!timed_out);
+        assert!(queue.next().is_some());
+    }
+
+    #[test]
+    fn waiting_if_available_returns_successfully_push_ad_request() {
+        let queue = RequestQueue::new();
+        let queue_clone = queue.clone();
+
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(1));
+            println!("Pushing request.");
+            queue_clone.push_request(example_request_ads_dispatch(&[1]));
+        });
+
+        assert_eq!(queue.next(), None);
+        println!("Waiting for lock.");
+        let timed_out = queue.wait_available(Some(Duration::from_secs(2)));
+        assert!(!timed_out);
+        assert!(queue.next().is_some());
     }
 }

@@ -75,18 +75,17 @@ impl BackgroundWorker {
 fn worker(
     inner_client: Arc<AdsClientInner>,
     request_queue: RequestQueue,
-    sleep_duration: Duration,
+    batch_duration: Duration,
 ) {
     loop {
-        // Get lock and extract next request. Lock is not held over the duration of the request but immediately dropped.
-        let next_request = request_queue.next();
-
-        if let Some(request) = next_request {
-            // TODO: Request should be logged via telemetry here.
-            let _ = request.handle_request(inner_client.clone());
-        } else {
-            // If the queue is empty, we have a very short pause with no locks to allow it to be written to.
-            std::thread::sleep(sleep_duration);
+        let available = request_queue.wait_available(None);
+        if available {
+            // If data is available to be polled, we wait for the batching duration, to allow accumulation, then poll.
+            std::thread::sleep(batch_duration);
+            if let Some(request) = request_queue.next() {
+                // TODO: Request should be logged via telemetry here.
+                let _ = request.handle_request(inner_client.clone());
+            }
         }
     }
 }
