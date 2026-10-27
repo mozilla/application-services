@@ -205,13 +205,19 @@ pub enum MozAdsReportReason {
     Inappropriate,
     NotInterested,
     SeenTooManyTimes,
+    Scam,
+    Misleading,
+    Offensive,
 }
 
 impl From<MozAdsReportReason> for ReportReason {
     fn from(reason: MozAdsReportReason) -> Self {
         match reason {
             MozAdsReportReason::Inappropriate => ReportReason::Inappropriate,
+            MozAdsReportReason::Misleading => ReportReason::Misleading,
             MozAdsReportReason::NotInterested => ReportReason::NotInterested,
+            MozAdsReportReason::Offensive => ReportReason::Offensive,
+            MozAdsReportReason::Scam => ReportReason::Scam,
             MozAdsReportReason::SeenTooManyTimes => ReportReason::SeenTooManyTimes,
         }
     }

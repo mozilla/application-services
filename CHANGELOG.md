@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
+
 ## Breaking Changes
 
 ### Autofill
