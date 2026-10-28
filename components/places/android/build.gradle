@@ -50,6 +50,5 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
 }
 
-ext.configureUniFFIBindgen("places")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

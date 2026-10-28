@@ -5,6 +5,5 @@ android {
     namespace 'org.mozilla.appservices.{{ kotlin_module_name }}'
 }
 
-ext.configureUniFFIBindgen("{{ crate_name }}")
 ext.dependsOnTheMegazord()
 ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
