@@ -12,6 +12,13 @@ use parking_lot::Mutex;
 /// `rotated` under its own lock and without the request's OHTTP flag, so
 /// `AdsClient` drains the queue in `request_ads` and sends the deletions itself.
 ///
+/// In practice the queue holds at most one id per flush: `rotated` only fires
+/// from the `request` call inside `request_ads`, and a rotation resets the
+/// context id's creation timestamp, so two rotations are at least
+/// `DEFAULT_ROTATION_DAYS` apart. It is a `Vec` rather than an `Option` only
+/// because the `ContextIdCallback` contract does not promise that, and a `Vec`
+/// never drops an id.
+///
 /// Clones share one queue. `persist` is a no-op because the ads client does
 /// not persist its context id.
 #[derive(Clone, Debug, Default)]
@@ -23,7 +30,7 @@ impl ContextIdDeletionQueue {
         self.0.lock().is_empty()
     }
 
-    pub fn take_all(&self) -> Vec<String> {
+    pub fn drain(&self) -> Vec<String> {
         std::mem::take(&mut *self.0.lock())
     }
 }
@@ -42,7 +49,7 @@ mod tests {
     use context_id::ContextIdCallback;
 
     #[test]
-    fn test_rotated_ids_are_queued_until_taken() {
+    fn test_rotated_ids_are_queued_until_drained() {
         let queue = ContextIdDeletionQueue::default();
         assert!(queue.is_empty());
 
@@ -51,11 +58,11 @@ mod tests {
         assert!(!queue.is_empty());
 
         assert_eq!(
-            queue.take_all(),
+            queue.drain(),
             vec!["old-1".to_string(), "old-2".to_string()]
         );
         assert!(queue.is_empty());
-        assert!(queue.take_all().is_empty());
+        assert!(queue.drain().is_empty());
     }
 
     #[test]
@@ -70,6 +77,6 @@ mod tests {
         let queue = ContextIdDeletionQueue::default();
         let callback = queue.clone();
         callback.rotated("old".to_string());
-        assert_eq!(queue.take_all(), vec!["old".to_string()]);
+        assert_eq!(queue.drain(), vec!["old".to_string()]);
     }
 }
