@@ -42,6 +42,20 @@ pub enum DeleteUserError {
     Request(#[from] viaduct::ViaductError),
 }
 
+impl DeleteUserError {
+    /// Fixed category recorded in `ads_client.client_error`. The `Display`
+    /// form carries the MARS response body, which must not reach telemetry.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::HTTPError(HTTPError::BadRequest { .. }) => "http_bad_request",
+            Self::HTTPError(HTTPError::Server { .. }) => "http_server_error",
+            Self::HTTPError(HTTPError::Unexpected { .. }) => "http_unexpected",
+            Self::Json(_) => "json_error",
+            Self::Request(_) => "request_error",
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum FetchAdsError {
     #[error("Error building ad request: {0}")]

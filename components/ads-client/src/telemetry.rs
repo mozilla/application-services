@@ -39,6 +39,7 @@ pub(crate) use backend::{install, uninstall};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClientOperation {
     New,
+    DeleteUser,
     RecordClick,
     RecordImpression,
     ReportAd,
@@ -49,6 +50,7 @@ impl ClientOperation {
     fn label(self) -> &'static str {
         match self {
             Self::New => "new",
+            Self::DeleteUser => "delete_user",
             Self::RecordClick => "record_click",
             Self::RecordImpression => "record_impression",
             Self::ReportAd => "report_ad",

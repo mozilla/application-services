@@ -427,17 +427,23 @@ impl AdsClientInner {
     }
 
     /// Best-effort: sends each retired id's deletion over OHTTP, or skips it when
-    /// the ad request did not use OHTTP. Failures are logged and not retried.
+    /// the ad request did not use OHTTP. Outcomes are recorded as the
+    /// `delete_user` client operation; failures are not retried.
     fn flush_context_id_deletions(&self, retired_context_ids: Vec<String>, ohttp: bool) {
+        if retired_context_ids.is_empty() {
+            return;
+        }
+        if !ohttp {
+            error_support::info!(
+                "Skipping {} context id deletion request(s): the ad request did not use OHTTP",
+                retired_context_ids.len()
+            );
+            return;
+        }
         for old_context_id in retired_context_ids {
-            if !ohttp {
-                error_support::info!(
-                    "Skipping context id deletion request: the ad request did not use OHTTP"
-                );
-                continue;
-            }
-            if let Err(e) = self.client.delete_user(&old_context_id, true) {
-                error_support::warn!("Context id deletion request failed: {e}");
+            match self.client.delete_user(&old_context_id, true) {
+                Ok(()) => telemetry::record_client_operation(ClientOperation::DeleteUser),
+                Err(e) => telemetry::record_client_error(ClientOperation::DeleteUser, &e.kind()),
             }
         }
     }
@@ -461,7 +467,7 @@ impl AdsClientInner {
         };
         // Take the retired ids now so they are flushed with this call's OHTTP flag.
         // A concurrent call may take them first; nothing is ever sent outside OHTTP.
-        let retired_context_ids = self.context_id_deletion_queue.take_all();
+        let retired_context_ids = self.context_id_deletion_queue.drain();
 
         let cache_policy = options.unwrap_or_default();
         let result = self.client.fetch_ads::<A>(
@@ -495,6 +501,23 @@ mod tests {
     };
 
     use super::*;
+
+    /// Captures `client_error` records so tests can assert what the flush
+    /// reported without a network.
+    #[derive(Clone, Default)]
+    struct RecordingTelemetry {
+        errors: Arc<parking_lot::Mutex<Vec<(String, String)>>>,
+    }
+
+    impl telemetry::Telemetry for RecordingTelemetry {
+        fn record_build_cache_error(&self, _label: &str, _value: String) {}
+        fn record_client_error(&self, label: &str, value: String) {
+            self.errors.lock().push((label.to_string(), value));
+        }
+        fn record_client_operation_total(&self, _label: &str) {}
+        fn record_deserialization_error(&self, _label: &str, _value: String) {}
+        fn record_http_cache_outcome(&self, _label: &str, _value: String) {}
+    }
 
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
         new_with_mars_client_at(client, 0).0
@@ -568,9 +591,14 @@ mod tests {
     #[test]
     fn test_rotation_flush_runs_even_when_fetch_fails() {
         viaduct_dev::init_backend_dev();
+        let _lock = telemetry::test_lock();
+        let recording = RecordingTelemetry::default();
+        telemetry::install(recording.clone());
 
         // OHTTP without a configured channel: preflight succeeds, the ad fetch fails,
-        // and the queue is still drained without sending a deletion.
+        // and the queue is still drained. The deletion is attempted over OHTTP, fails
+        // closed, and is recorded under the `delete_user` label; nothing is sent in
+        // plaintext.
         let preflight_mock = mockito::mock("GET", "/ads-preflight")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -601,6 +629,15 @@ mod tests {
         preflight_mock.assert();
         delete_mock.assert();
         assert!(queue.is_empty());
+        assert!(
+            recording
+                .errors
+                .lock()
+                .iter()
+                .any(|(label, value)| label == "delete_user" && value == "request_error"),
+            "the failed OHTTP deletion should be recorded as a delete_user client error"
+        );
+        telemetry::uninstall();
     }
 
     #[test]
