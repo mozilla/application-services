@@ -271,7 +271,7 @@ mod tests {
         let store = create_test_store();
         let placement = PlacementId::new("mock_spoc_1");
         let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
-            .into_kind(crate::ads::Ad::into_spoc)
+            .into_kind::<AdSpoc>()
             .into_values()
             .flatten()
             .collect();
@@ -288,7 +288,7 @@ mod tests {
         let store = create_test_store();
         let placement = PlacementId::new("mock_spoc_1");
         let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
-            .into_kind(crate::ads::Ad::into_spoc)
+            .into_kind::<AdSpoc>()
             .into_values()
             .flatten()
             .collect();

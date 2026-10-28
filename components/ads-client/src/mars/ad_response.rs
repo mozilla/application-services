@@ -82,16 +82,20 @@ impl AdResponse {
 
     /// Keeps the ads `kind` accepts, dropping placements left with none. Ads of
     /// another kind are recorded like ads that don't parse.
-    pub fn into_kind<A>(
-        self,
-        kind: impl Fn(Ad) -> Result<A, UnexpectedAdKind>,
-    ) -> HashMap<String, Vec<A>> {
+    pub fn into_kind<A>(self) -> HashMap<String, Vec<A>>
+    where
+        A: TryFrom<Ad, Error = UnexpectedAdKind>,
+    {
         self.data
             .into_iter()
             .filter_map(|(placement, ads)| {
                 let ads: Vec<A> = ads
                     .into_iter()
-                    .filter_map(|ad| kind(ad).inspect_err(telemetry::record_invalid_ad_item).ok())
+                    .filter_map(|ad| {
+                        A::try_from(ad)
+                            .inspect_err(telemetry::record_invalid_ad_item)
+                            .ok()
+                    })
                     .collect();
                 (!ads.is_empty()).then_some((placement, ads))
             })
@@ -99,11 +103,11 @@ impl AdResponse {
     }
 
     /// The first ad `kind` accepts, for each placement that has one.
-    pub fn take_first<A>(
-        self,
-        kind: impl Fn(Ad) -> Result<A, UnexpectedAdKind>,
-    ) -> HashMap<String, A> {
-        self.into_kind(kind)
+    pub fn take_first<A>(self) -> HashMap<String, A>
+    where
+        A: TryFrom<Ad, Error = UnexpectedAdKind>,
+    {
+        self.into_kind()
             .into_iter()
             .map(|(placement, mut ads)| (placement, ads.remove(0)))
             .collect()
@@ -112,7 +116,7 @@ impl AdResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::ads::{AdCallbacks, AdImage, AdSpoc, SpocFrequencyCaps, SpocRanking};
+    use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
 
     use super::*;
     use crate::telemetry::Telemetry;
@@ -368,7 +372,7 @@ mod tests {
         );
         data.insert("placement_3".to_string(), vec![]);
 
-        let result = AdResponse::from(data).take_first(Ad::into_image);
+        let result = AdResponse::from(data).take_first::<AdImage>();
 
         assert_eq!(result.len(), 2);
         assert!(result.contains_key("placement_1"));
@@ -419,7 +423,7 @@ mod tests {
         let request_hash = RequestHash::from("abc123def456");
         response.enrich_callbacks(&request_hash);
 
-        let ads = response.into_kind(Ad::into_image);
+        let ads = response.into_kind::<AdImage>();
         let ads = &ads["mock_tile_1"];
 
         // request_hash added to click and impression
@@ -519,7 +523,7 @@ mod tests {
         let request_hash = RequestHash::from("abc123def456");
         response.enrich_callbacks(&request_hash);
 
-        let ads = response.into_kind(Ad::into_spoc);
+        let ads = response.into_kind::<AdSpoc>();
         let ads = &ads["tile1"];
 
         assert!(ads[0]
@@ -559,7 +563,7 @@ mod tests {
         let request_hash = RequestHash::from("abc123def456");
         response.enrich_callbacks(&request_hash);
 
-        let ads = response.into_kind(Ad::into_image);
+        let ads = response.into_kind::<AdImage>();
         let ad = &ads["mock_tile_1"][0];
         assert!(ad.callbacks.report.is_none());
         // click/impression still get request_hash
@@ -596,7 +600,7 @@ mod tests {
         let recording = RecordingTelemetry::default();
         telemetry::install(recording.clone());
 
-        let tiles = get_example_happy_image_response().into_kind(Ad::into_tile);
+        let tiles = get_example_happy_image_response().into_kind::<AdTile>();
         telemetry::uninstall();
 
         assert!(tiles.is_empty());

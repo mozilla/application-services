@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::ads::{Ad, AdImage, AdImageOrSpoc, AdSpoc, AdTile};
+use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
@@ -315,7 +315,7 @@ impl AdsClientInner {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
             })?;
         telemetry::record_client_operation(ClientOperation::RequestAds);
-        Ok(response.take_first(Ad::into_image))
+        Ok(response.take_first::<AdImage>())
     }
 
     // relevance is not implemented for spocs, using an empty HashMap.
@@ -341,7 +341,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.into_kind(Ad::into_spoc)
+                response.into_kind::<AdSpoc>()
             })
     }
 
@@ -371,7 +371,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.into_kind(Ad::into_image_or_spoc)
+                response.into_kind::<AdImageOrSpoc>()
             })
     }
 
@@ -398,7 +398,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.take_first(Ad::into_tile)
+                response.take_first::<AdTile>()
             })
     }
 

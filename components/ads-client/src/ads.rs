@@ -133,35 +133,6 @@ impl Ad {
         }
     }
 
-    pub fn into_image(self) -> Result<AdImage, UnexpectedAdKind> {
-        match self {
-            Ad::Image(ad) => Ok(ad),
-            other => Err(other.unexpected("an image")),
-        }
-    }
-
-    pub fn into_image_or_spoc(self) -> Result<AdImageOrSpoc, UnexpectedAdKind> {
-        match self {
-            Ad::Image(ad) => Ok(AdImageOrSpoc::Image(ad)),
-            Ad::Spoc(ad) => Ok(AdImageOrSpoc::Spoc(ad)),
-            other => Err(other.unexpected("an image or a spoc")),
-        }
-    }
-
-    pub fn into_spoc(self) -> Result<AdSpoc, UnexpectedAdKind> {
-        match self {
-            Ad::Spoc(ad) => Ok(ad),
-            other => Err(other.unexpected("a spoc")),
-        }
-    }
-
-    pub fn into_tile(self) -> Result<AdTile, UnexpectedAdKind> {
-        match self {
-            Ad::Tile(ad) => Ok(ad),
-            other => Err(other.unexpected("a tile")),
-        }
-    }
-
     fn unexpected(&self, expected: &'static str) -> UnexpectedAdKind {
         let format = match self {
             Ad::Image(ad) => &ad.format,
@@ -181,6 +152,39 @@ impl Ad {
 pub struct UnexpectedAdKind {
     expected: &'static str,
     format: String,
+}
+
+impl TryFrom<Ad> for AdImage {
+    type Error = UnexpectedAdKind;
+
+    fn try_from(ad: Ad) -> Result<Self, Self::Error> {
+        match ad {
+            Ad::Image(ad) => Ok(ad),
+            other => Err(other.unexpected("an image")),
+        }
+    }
+}
+
+impl TryFrom<Ad> for AdSpoc {
+    type Error = UnexpectedAdKind;
+
+    fn try_from(ad: Ad) -> Result<Self, Self::Error> {
+        match ad {
+            Ad::Spoc(ad) => Ok(ad),
+            other => Err(other.unexpected("a spoc")),
+        }
+    }
+}
+
+impl TryFrom<Ad> for AdTile {
+    type Error = UnexpectedAdKind;
+
+    fn try_from(ad: Ad) -> Result<Self, Self::Error> {
+        match ad {
+            Ad::Tile(ad) => Ok(ad),
+            other => Err(other.unexpected("a tile")),
+        }
+    }
 }
 
 impl From<AdImage> for Ad {
@@ -206,6 +210,18 @@ impl From<AdTile> for Ad {
 pub enum AdImageOrSpoc {
     Image(AdImage),
     Spoc(AdSpoc),
+}
+
+impl TryFrom<Ad> for AdImageOrSpoc {
+    type Error = UnexpectedAdKind;
+
+    fn try_from(ad: Ad) -> Result<Self, Self::Error> {
+        match ad {
+            Ad::Image(ad) => Ok(AdImageOrSpoc::Image(ad)),
+            Ad::Spoc(ad) => Ok(AdImageOrSpoc::Spoc(ad)),
+            other => Err(other.unexpected("an image or a spoc")),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
