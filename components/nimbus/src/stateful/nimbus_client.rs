@@ -406,7 +406,7 @@ impl NimbusClient {
         Ok(())
     }
 
-    pub(crate) fn is_fetch_enabled(&self) -> Result<bool> {
+    pub fn is_fetch_enabled(&self) -> Result<bool> {
         let db = self.db()?;
         let reader = db.read()?;
         let enabled = db
