@@ -51,7 +51,11 @@ pub struct HttpCache {
 
 impl HttpCache {
     pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(db_path.as_ref())
+        HttpCacheBuilder::new(Some(db_path.as_ref()))
+    }
+
+    pub fn builder_memory() -> HttpCacheBuilder {
+        HttpCacheBuilder::new(None::<String>)
     }
 
     pub fn clear(&self) -> Result<(), open_database::Error> {

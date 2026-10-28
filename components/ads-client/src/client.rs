@@ -167,27 +167,34 @@ impl AdsClientInner {
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
-        let http_cache = client_config.cache_config.and_then(|cache_cfg| {
-            let default_cache_ttl = Duration::from_secs(
-                cache_cfg
-                    .default_cache_ttl_seconds
-                    .unwrap_or(DEFAULT_TTL_SECONDS),
-            );
-            let max_cache_size =
-                ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
+        let http_cache = client_config
+            .cache_config
+            .and_then(|cache_cfg| {
+                let default_cache_ttl = Duration::from_secs(
+                    cache_cfg
+                        .default_cache_ttl_seconds
+                        .unwrap_or(DEFAULT_TTL_SECONDS),
+                );
+                let max_cache_size =
+                    ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry::record_build_cache_error(&e);
-                    None
+                match HttpCache::builder(cache_cfg.db_path)
+                    .max_size(max_cache_size)
+                    .default_ttl(default_cache_ttl)
+                    .build()
+                {
+                    Ok(cache) => Some(cache),
+                    Err(e) => {
+                        telemetry::record_build_cache_error(&e);
+                        None
+                    }
                 }
-            }
-        });
+            })
+            .unwrap_or_else(|| {
+                // If no `cache_config` is provided, use an in-memory db with default parameters.
+                // TODO: Remove this unwrap, this is a temporary measure.
+                HttpCache::builder_memory().build().unwrap()
+            });
 
         #[cfg(feature = "stateful")]
         let ads_store =
@@ -509,7 +516,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let http_cache_mem = HttpCache::builder_memory()
+            .build()
+            .expect("Should be able to create in-memory db");
+        let mars_client = MARSClient::new(Environment::Test, http_cache_mem);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_image_ads(
@@ -534,7 +544,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let http_cache_mem = HttpCache::builder_memory()
+            .build()
+            .expect("Should be able to create in-memory db");
+        let mars_client = MARSClient::new(Environment::Test, http_cache_mem);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_spoc_ads(
@@ -559,7 +572,10 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let http_cache_mem = HttpCache::builder_memory()
+            .build()
+            .expect("Should be able to create in-memory db");
+        let mars_client = MARSClient::new(Environment::Test, http_cache_mem);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_tile_ads(
@@ -654,7 +670,10 @@ mod tests {
     #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let http_cache_mem = HttpCache::builder_memory()
+            .build()
+            .expect("Should be able to create in-memory db");
+        let mars_client = MARSClient::new(Environment::Test, http_cache_mem);
         let ads_client = new_with_mars_client(mars_client);
 
         let base_url = mockito::server_url();
@@ -685,7 +704,7 @@ mod tests {
         let cache = HttpCache::builder("test_record_click_invalidates_cache")
             .build()
             .unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache));
+        let mars_client = MARSClient::new(Environment::Test, cache);
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();

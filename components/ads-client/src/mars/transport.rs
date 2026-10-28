@@ -17,18 +17,16 @@ use crate::{
 const OHTTP_CHANNEL_ID: &str = "ads-client";
 
 pub struct MARSTransport {
-    http_cache: Option<HttpCache>,
+    http_cache: HttpCache,
 }
 
 impl MARSTransport {
-    pub fn new(http_cache: Option<HttpCache>) -> Self {
+    pub fn new(http_cache: HttpCache) -> Self {
         Self { http_cache }
     }
 
     pub fn clear_cache(&self) -> Result<(), open_database::Error> {
-        if let Some(cache) = self.http_cache.as_ref() {
-            cache.clear()?;
-        }
+        self.http_cache.clear();
         Ok(())
     }
 
@@ -44,9 +42,7 @@ impl MARSTransport {
         &self,
         request_hash: &RequestHash,
     ) -> Result<(), open_database::Error> {
-        if let Some(cache) = self.http_cache.as_ref() {
-            cache.invalidate_by_hash(request_hash)?;
-        }
+        self.http_cache.invalidate_by_hash(request_hash)?;
         Ok(())
     }
 
@@ -57,24 +53,16 @@ impl MARSTransport {
         ohttp: bool,
     ) -> Result<Response, TransportError> {
         let client = Self::client_for(ohttp)?;
-        if let Some(cache) = self.http_cache.as_ref() {
-            let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
-            for outcome in &outcomes {
-                telemetry::record_http_cache_outcome(outcome);
-            }
-            HTTPError::check(&response)?;
-            Ok(response)
-        } else {
-            let response = client.send_sync(request.into())?;
-            HTTPError::check(&response)?;
-            Ok(response)
+        let (response, outcomes) = self.http_cache.send_with_policy(&client, request, policy)?;
+        for outcome in &outcomes {
+            telemetry::record_http_cache_outcome(outcome);
         }
+        HTTPError::check(&response)?;
+        Ok(response)
     }
 
     pub fn shutdown_db(&self) {
-        if let Some(cache) = self.http_cache.as_ref() {
-            cache.shutdown_db();
-        }
+        self.http_cache.shutdown_db();
     }
 
     fn client_for(ohttp: bool) -> Result<Client, viaduct::ViaductError> {
