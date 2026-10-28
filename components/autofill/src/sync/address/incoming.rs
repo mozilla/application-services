@@ -244,9 +244,14 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         })
     }
 
-    /// Returns a local record that has the same values as the given incoming record (with the exception
-    /// of the `guid` values which should differ) that will be used as a local duplicate record for
-    /// syncing.
+    /// Returns a local record that has the same values as the given incoming record, but a different
+    /// `guid`, that will be used as a local duplicate record for syncing.
+    ///
+    /// Only records that aren't already on the server are candidates, which means their guid is in
+    /// neither the mirror nor the incoming staging table. After the mirror is reset (a sync reset, or
+    /// a migration into a fresh database), a local record that is already on the server isn't in the
+    /// mirror, and its guid can match that of another record being downloaded; the staging table is
+    /// what excludes it then.
     fn get_local_dupe(
         &self,
         tx: &Transaction<'_>,
@@ -264,6 +269,12 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                 AND guid NOT IN (
                     SELECT guid
                     FROM addresses_mirror
+                )
+                -- a record being downloaded is already on the server, even when
+                -- the mirror has been reset or not yet written for this sync.
+                AND guid NOT IN (
+                    SELECT guid
+                    FROM temp.addresses_sync_staging
                 )
                 -- and sql can check the field values.
                 AND name == :name
@@ -590,5 +601,149 @@ mod tests {
         let record = test_record('C');
         let bso = record.clone().into_test_incoming_bso();
         do_test_staged_to_mirror(&ai, &tx, record, bso, "addresses_mirror");
+    }
+
+    // Plans and applies the staged records in the order of `guids`, which must
+    // list every staged guid; `fetch_incoming_states` has no defined order.
+    fn apply_staged(
+        ai: &IncomingAddressesImpl,
+        tx: &Transaction<'_>,
+        guids: &[char],
+    ) -> Result<()> {
+        let mut states = ai.fetch_incoming_states(tx)?;
+        assert_eq!(states.len(), guids.len());
+        states.sort_by_key(|state| {
+            guids
+                .iter()
+                .position(|&g| state.incoming.envelope.id.as_str() == expand_test_guid(g))
+                .expect("every staged guid should be listed")
+        });
+        for state in states {
+            let action = crate::sync::plan_incoming(ai, tx, state)?;
+            crate::sync::apply_incoming_action(ai, tx, action)?;
+        }
+        ai.finish_incoming(tx)
+    }
+
+    fn record_with_guid(content_from: char, guid: char) -> InternalAddress {
+        InternalAddress {
+            guid: SyncGuid::new(&expand_test_guid(guid)),
+            ..test_record(content_from)
+        }
+    }
+
+    // A local record that isn't in the mirror, but whose guid is also being
+    // downloaded, is already on the server and must not be taken as the dupe
+    // of a different incoming record with the same content. This is the state
+    // a sync reset or an import into a fresh database leaves behind.
+    fn do_test_incoming_identical_to_unmirrored_local(apply_order: &[char]) {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = IncomingAddressesImpl {};
+
+        add_internal_address(&tx, &record_with_guid('C', 'D')).expect("should insert");
+        ai.stage_incoming(
+            &tx,
+            vec![
+                record_with_guid('C', 'D').into_test_incoming_bso(),
+                record_with_guid('C', 'A').into_test_incoming_bso(),
+            ],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ai, &tx, apply_order).expect("should apply");
+
+        assert!(get_address(&tx, &expand_test_guid('D').into()).is_ok());
+        assert!(get_address(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    #[test]
+    fn test_incoming_identical_to_unmirrored_local_applied_first() {
+        do_test_incoming_identical_to_unmirrored_local(&['D', 'A']);
+    }
+
+    #[test]
+    fn test_incoming_identical_to_unmirrored_local_applied_last() {
+        do_test_incoming_identical_to_unmirrored_local(&['A', 'D']);
+    }
+
+    // Deleting a record that isn't in the mirror leaves no tombstone, so the
+    // next sync sees it as missing locally while its identical twin is still
+    // held.
+    #[test]
+    fn test_incoming_identical_after_unmirrored_delete() {
+        let mut db = new_syncable_mem_db();
+        {
+            let tx = db.transaction().expect("should get tx");
+            add_internal_address(&tx, &record_with_guid('C', 'D')).expect("should insert");
+            add_internal_address(&tx, &record_with_guid('C', 'A')).expect("should insert");
+            tx.commit().expect("should commit");
+        }
+        crate::db::addresses::delete_address(&db, &expand_test_guid('A').into())
+            .expect("should delete");
+
+        let tx = db.transaction().expect("should get tx");
+        let ai = IncomingAddressesImpl {};
+        ai.stage_incoming(
+            &tx,
+            vec![
+                record_with_guid('C', 'A').into_test_incoming_bso(),
+                record_with_guid('C', 'D').into_test_incoming_bso(),
+            ],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ai, &tx, &['A', 'D']).expect("should apply");
+
+        assert!(get_address(&tx, &expand_test_guid('D').into()).is_ok());
+        assert!(get_address(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    // A record inserted earlier in the same sync isn't in the mirror yet, and
+    // must not be taken as the dupe of a later incoming record.
+    #[test]
+    fn test_several_identical_incoming() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = IncomingAddressesImpl {};
+
+        ai.stage_incoming(
+            &tx,
+            vec![
+                record_with_guid('C', 'A').into_test_incoming_bso(),
+                record_with_guid('C', 'B').into_test_incoming_bso(),
+                record_with_guid('C', 'D').into_test_incoming_bso(),
+            ],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ai, &tx, &['A', 'B', 'D']).expect("should apply");
+
+        for guid in ['A', 'B', 'D'] {
+            assert!(get_address(&tx, &expand_test_guid(guid).into()).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_incoming_identical_to_unuploaded_local() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = IncomingAddressesImpl {};
+
+        add_internal_address(&tx, &record_with_guid('C', 'L')).expect("should insert");
+        ai.stage_incoming(
+            &tx,
+            vec![record_with_guid('C', 'A').into_test_incoming_bso()],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ai, &tx, &['A']).expect("should apply");
+
+        assert!(get_address(&tx, &expand_test_guid('L').into()).is_err());
+        assert!(get_address(&tx, &expand_test_guid('A').into()).is_ok());
     }
 }

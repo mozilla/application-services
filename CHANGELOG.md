@@ -8,6 +8,12 @@
 
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
 
+### Autofill
+
+- Fixed a crash or a silently dropped address or credit card when syncing after a sync reset or a migration into a new database: a local record that was also being downloaded could be taken as the duplicate of another incoming record with the same contents. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+
 ## Breaking Changes
 
 ### Autofill

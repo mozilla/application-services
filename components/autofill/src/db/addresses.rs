@@ -173,16 +173,6 @@ pub(crate) fn update_address_with_meta(
     let tx = conn.unchecked_transaction()?;
 
     let address = internal_address_from_meta(fields, &meta);
-    // Checked up front because `update_internal_address` asserts on the number
-    // of rows changed rather than returning an error.
-    let exists: bool = tx.query_row(
-        "SELECT EXISTS(SELECT 1 FROM addresses_data WHERE guid = :guid)",
-        rusqlite::named_params! { ":guid": address.guid },
-        |row| row.get(0),
-    )?;
-    if !exists {
-        return Err(Error::NoSuchRecord(address.guid.to_string()));
-    }
     update_internal_address(
         &tx,
         &address,
@@ -358,9 +348,9 @@ pub(crate) fn update_internal_address(
             ":guid": address.guid,
         },
     )?;
-    // Something went badly wrong if we are asking to update a row that doesn't
-    // exist, or somehow we updated more than 1!
-    assert_eq!(rows_changed, 1);
+    if rows_changed == 0 {
+        return Err(Error::NoSuchRecord(address.guid.to_string()));
+    }
     Ok(())
 }
 
