@@ -7,15 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use url::Url;
 
-/// The ads held for one placement. A placement only ever serves one kind of ad.
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum Ads {
-    Images(Vec<AdImage>),
-    Spocs(Vec<AdSpoc>),
-    Tiles(Vec<AdTile>),
-}
-
 /// Identification of placement sent and returned from MARS (eg: `mock_spoc_1`)
 #[cfg(feature = "stateful")]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

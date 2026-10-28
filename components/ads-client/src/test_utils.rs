@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use url::Url;
 use url_macro::url;
 
-use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
 #[cfg(feature = "stateful")]
-use crate::ads::{Ads, PlacementId};
+use crate::ads::{Ad, PlacementId};
+use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
 use crate::mars::{
     ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
     ad_response::AdResponse,
@@ -30,12 +30,12 @@ impl MozAdsTelemetry for NoopMozAdsTelemetry {
 }
 
 #[cfg(feature = "stateful")]
-pub fn get_example_happy_image_ads(placement_id: &str) -> (PlacementId, Ads) {
+pub fn get_example_happy_image_ads(placement_id: &str) -> (PlacementId, Vec<Ad>) {
     let images = get_example_happy_image_response()
-        .into_kind::<AdImage>()
+        .data
         .remove("example_placement_1")
         .expect("example image response has example_placement_1");
-    (PlacementId::new(placement_id), Ads::Images(images))
+    (PlacementId::new(placement_id), images)
 }
 
 pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
