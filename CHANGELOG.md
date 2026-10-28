@@ -7,6 +7,7 @@
 ### Ads-Client
 
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
+- The `DELETE /v1/delete_user` request for a retired context id is now sent by the ads client right after an ad request, over that request's OHTTP channel, instead of as a direct request from the `context_id` component. When the ad request did not use OHTTP the deletion is skipped and logged, so consumers that do not configure the `ads-client` OHTTP channel no longer send it. No binding API change. ([AC-179](https://mozilla-hub.atlassian.net/browse/AC-179))
 
 ### Autofill
 
