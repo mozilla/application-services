@@ -164,9 +164,9 @@ pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
                     code: _,
                     extended_code,
                 },
-                Some(msg),
+                Some(_),
             ),
-        )) => format!("{0} ({1})", msg, extended_code),
+        )) => format!("{0} ({1})", error, extended_code),
         _ => error.to_string(),
     };
     backend::build_cache_error(label.as_str(), value);
