@@ -120,7 +120,7 @@ mod tests {
 
     use super::*;
     use crate::telemetry::Telemetry;
-    use crate::test_utils::get_example_happy_image_response;
+    use crate::test_utils::{get_example_happy_image_response, get_example_happy_uatile_response};
     use parking_lot::Mutex;
     use serde_json::{from_str, json};
     use std::sync::Arc;
@@ -386,6 +386,54 @@ mod tests {
         let second_ad = result.get("placement_2").unwrap();
         assert_eq!(second_ad.alt_text, Some("Third ad".to_string()));
         assert_eq!(second_ad.block_key, "key3");
+    }
+
+    #[test]
+    fn test_empty_ad_response() {
+        let empty = || AdResponse {
+            data: HashMap::new(),
+        };
+
+        let mut response = empty();
+        response.enrich_callbacks(&RequestHash::from("abc123def456"));
+        assert_eq!(response, empty());
+
+        assert!(empty().into_kind::<AdImage>().is_empty());
+        assert!(empty().take_first::<AdImage>().is_empty());
+    }
+
+    #[test]
+    fn test_into_kind_drops_placements_left_empty() {
+        let image = get_example_happy_image_response()
+            .data
+            .remove("example_placement_1")
+            .unwrap()
+            .remove(0);
+        let tile = get_example_happy_uatile_response()
+            .data
+            .remove("example_placement_1")
+            .unwrap()
+            .remove(0);
+        let response = || AdResponse {
+            data: HashMap::from([
+                ("empty".to_string(), vec![]),
+                ("tile".to_string(), vec![tile.clone()]),
+                (
+                    "tile_then_image".to_string(),
+                    vec![tile.clone(), image.clone()],
+                ),
+            ]),
+        };
+
+        let images = response().into_kind::<AdImage>();
+        assert_eq!(images.len(), 1);
+        assert_eq!(images["tile_then_image"].len(), 1);
+
+        // `take_first` never sees a placement without an image, and skips the
+        // tile ahead of one.
+        let mut first = response().take_first::<AdImage>();
+        assert_eq!(first.len(), 1);
+        assert_eq!(Ad::from(first.remove("tile_then_image").unwrap()), image);
     }
 
     #[test]

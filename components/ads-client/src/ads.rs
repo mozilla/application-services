@@ -238,7 +238,7 @@ pub struct AdCallbacks {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ads::Ad,
+        ads::{Ad, AdImageOrSpoc},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response,
@@ -273,6 +273,41 @@ mod tests {
         assert!(matches!(spoc, Ad::Spoc(_)));
         let tile: Ad = serde_json::from_value(first_ad_json(tile)).unwrap();
         assert!(matches!(tile, Ad::Tile(_)));
+    }
+
+    #[test]
+    fn ad_image_or_spoc_takes_images_and_spocs_but_not_tiles() {
+        let image = get_example_happy_image_response()
+            .data
+            .into_values()
+            .next()
+            .unwrap();
+        let spoc = get_example_happy_spoc_response()
+            .data
+            .into_values()
+            .next()
+            .unwrap();
+        let tile = get_example_happy_uatile_response()
+            .data
+            .into_values()
+            .next()
+            .unwrap();
+
+        let image: Ad = serde_json::from_value(first_ad_json(image)).unwrap();
+        assert!(matches!(
+            AdImageOrSpoc::try_from(image),
+            Ok(AdImageOrSpoc::Image(_))
+        ));
+        let spoc: Ad = serde_json::from_value(first_ad_json(spoc)).unwrap();
+        assert!(matches!(
+            AdImageOrSpoc::try_from(spoc),
+            Ok(AdImageOrSpoc::Spoc(_))
+        ));
+        let tile: Ad = serde_json::from_value(first_ad_json(tile)).unwrap();
+        assert_eq!(
+            AdImageOrSpoc::try_from(tile).unwrap_err().to_string(),
+            "Expected an image or a spoc, got an ad with format `tile`"
+        );
     }
 
     #[test]
