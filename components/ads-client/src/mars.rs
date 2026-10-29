@@ -43,7 +43,7 @@ pub struct MARSClient {
 }
 
 impl MARSClient {
-    pub fn new(environment: Environment, http_cache: HttpCache) -> Self {
+    pub fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
