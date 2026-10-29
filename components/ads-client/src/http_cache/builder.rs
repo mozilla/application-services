@@ -27,6 +27,9 @@ const IN_MEMORY_DB_PATH: &str = ":memory:";
 pub enum HttpCacheBuilderError {
     #[error("Database error: {0}")]
     Database(#[from] open_database::Error),
+    // TODO: Remove this once memory dbs confirmed to be OK.
+    #[error("Database (memory) error: {0}")]
+    DatabaseMemory(open_database::Error),
     #[error("Database path cannot be empty")]
     EmptyDbPath,
     #[error(
@@ -56,7 +59,7 @@ pub struct HttpCacheBuilder {
 }
 
 impl HttpCacheBuilder {
-    // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in memory.
+    // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in-memory.
     pub fn new(db_path: Option<impl Into<PathBuf>>) -> Self {
         Self {
             db_path: db_path.map(|x| x.into()),
@@ -66,6 +69,8 @@ impl HttpCacheBuilder {
         }
     }
 
+    // Attempt to build the HttpCache. If a file path exists and can be built successfully, we build
+    // a FS sqlite database. Otherwise, we fall back to memory.
     pub fn build(&mut self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
@@ -121,7 +126,7 @@ impl HttpCacheBuilder {
                 // Attempt to open initial connection, resolving an error if needed.
                 let conn = db.lock();
                 if let Some(e) = conn.err() {
-                    telemetry::record_ads_store_error(&AdsStoreBuilderError::from(e));
+                    telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e));
                 } else {
                     return Ok(db);
                 }
@@ -138,7 +143,8 @@ impl HttpCacheBuilder {
         self.is_memory = true;
 
         // Attempt to open initial connection, resolving an error if needed.
-        let _ = memory_db.lock()?;
+        // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
+        let _ = memory_db.lock().map_err(|e| HttpCacheBuilderError::DatabaseMemory(e))?;
 
         Ok(memory_db)
     }

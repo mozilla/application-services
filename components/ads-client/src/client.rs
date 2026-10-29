@@ -187,6 +187,11 @@ impl AdsClientInner {
                     None
                 }
             }
+        }).or_else(|| {
+            // If no `cache_config` is provided, create an in-memory db with default parameters.
+            // TODO: the `build` function should be infallible, and no error would be needed here.
+            // (true for both memory and FS, because FS would default to memory)
+            HttpCache::builder_memory().build().inspect_err(|e| telemetry::record_build_cache_error(&e) ).ok()
         });
 
         #[cfg(feature = "stateful")]
