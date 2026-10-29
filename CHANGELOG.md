@@ -20,6 +20,11 @@
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
 
+## ✨ What's New ✨
+
+### Sync15
+- Added support for per collection limit overrides from the server
+
 # v160.0 (_2026-10-22_)
 
 ## ⚠️ Breaking Changes ⚠️
