@@ -48,6 +48,9 @@
 
 ## ✨ What's Changed ✨
 
+### Glean
+- Updated to v71.0.0 ([#7688](https://github.com/mozilla/application-services/pull/7688))
+
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
 - Error strings passed to `MozAdsTelemetry` are cut to 255 bytes, Glean's string limit ([bug 2047640](https://bugzilla.mozilla.org/show_bug.cgi?id=2047640)).
