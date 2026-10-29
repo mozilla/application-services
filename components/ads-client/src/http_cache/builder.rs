@@ -52,7 +52,7 @@ pub struct HttpCacheBuilder {
     default_ttl: Option<Duration>,
     max_size: Option<ByteSize>,
     // Flag for whether this db is built in-memory
-    // This is set by an error in `open_connection`, or with `in_memory`.
+    // This is set by an error in `open_connection`, or with `build_memory`.
     is_memory: bool,
 }
 

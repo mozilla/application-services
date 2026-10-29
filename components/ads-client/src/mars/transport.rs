@@ -70,6 +70,7 @@ impl MARSTransport {
             Ok(response)
         }
     }
+
     pub fn shutdown_db(&self) {
         if let Some(cache) = self.http_cache.as_ref() {
             cache.shutdown_db();
