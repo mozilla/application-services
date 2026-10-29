@@ -153,6 +153,7 @@ pub fn record_client_error(operation: ClientOperation, error: &impl Display) {
 pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
     let label = match error {
         HttpCacheBuilderError::Database(_) => BuildCacheErrorLabel::DatabaseError,
+        HttpCacheBuilderError::DatabaseMemory(_) => BuildCacheErrorLabel::DatabaseError,
         HttpCacheBuilderError::EmptyDbPath => BuildCacheErrorLabel::EmptyDbPath,
         HttpCacheBuilderError::InvalidMaxSize { .. } => BuildCacheErrorLabel::InvalidMaxSize,
         HttpCacheBuilderError::InvalidTtl { .. } => BuildCacheErrorLabel::InvalidTtl,

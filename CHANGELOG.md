@@ -7,6 +7,7 @@
 ### Ads-Client
 
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
+- Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
 
 ### Autofill
 
