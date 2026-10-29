@@ -157,7 +157,19 @@ pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
         HttpCacheBuilderError::InvalidMaxSize { .. } => BuildCacheErrorLabel::InvalidMaxSize,
         HttpCacheBuilderError::InvalidTtl { .. } => BuildCacheErrorLabel::InvalidTtl,
     };
-    backend::build_cache_error(label.as_str(), error.to_string());
+    let value = match error {
+        HttpCacheBuilderError::Database(sql_support::open_database::Error::SqlError(
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error {
+                    code: _,
+                    extended_code,
+                },
+                Some(msg),
+            ),
+        )) => format!("{0} ({1})", msg, extended_code),
+        _ => error.to_string(),
+    };
+    backend::build_cache_error(label.as_str(), value);
 }
 
 // By design: a free function, so recording a metric is one call from anywhere.
@@ -201,4 +213,41 @@ pub fn record_invalid_ad_item(error: &impl Display) {
         DeserializationErrorLabel::InvalidAdItem.as_str(),
         error.to_string(),
     );
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_record_build_cache_error_includes_extended_sqlite_error_code() {
+        // lock and set up test telemetry
+        let _test_lock = backend::test_lock();
+        let recording = backend::RecordingTelemetry::default();
+        backend::install(recording.clone());
+
+        let error_code = 4874;
+        let error_without_message =
+            HttpCacheBuilderError::Database(sql_support::open_database::Error::SqlError(
+                rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(error_code), None),
+            ));
+        let error_with_message = HttpCacheBuilderError::Database(
+            sql_support::open_database::Error::SqlError(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(error_code),
+                Some("Some obscure description".to_string()),
+            )),
+        );
+
+        record_build_cache_error(&error_without_message);
+        record_build_cache_error(&error_with_message);
+
+        let records_lock = recording.build_cache_errors.lock();
+        let records = records_lock.get("database_error").unwrap();
+        assert_ne!(records[0], records[1]);
+        assert!(records[0].contains(&error_code.to_string()));
+        assert!(records[1].contains(&error_code.to_string()));
+
+        // tear down test telemetry, locks drops out of scope
+        backend::uninstall();
+    }
 }
