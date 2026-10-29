@@ -4,7 +4,6 @@
 
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
-use crate::ads_store::builder::AdsStoreBuilderError;
 use crate::bytesize::ByteSize;
 use crate::http_cache::HttpCache;
 use crate::telemetry;
@@ -118,7 +117,7 @@ impl HttpCacheBuilder {
         if !cfg!(test) && !self.is_memory {
             if let Some(db_path) = &self.db_path {
                 let db = LazyDb::new(
-                    &db_path,
+                    db_path,
                     OpenFlags::default(),
                     HttpCacheConnectionInitializer {},
                 );
@@ -144,7 +143,9 @@ impl HttpCacheBuilder {
 
         // Attempt to open initial connection, resolving an error if needed.
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        let _ = memory_db.lock().map_err(|e| HttpCacheBuilderError::DatabaseMemory(e))?;
+        let _ = memory_db
+            .lock()
+            .map_err(HttpCacheBuilderError::DatabaseMemory)?;
 
         Ok(memory_db)
     }

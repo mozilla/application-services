@@ -167,32 +167,38 @@ impl AdsClientInner {
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
-        let http_cache = client_config.cache_config.and_then(|cache_cfg| {
-            let default_cache_ttl = Duration::from_secs(
-                cache_cfg
-                    .default_cache_ttl_seconds
-                    .unwrap_or(DEFAULT_TTL_SECONDS),
-            );
-            let max_cache_size =
-                ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
+        let http_cache = client_config
+            .cache_config
+            .and_then(|cache_cfg| {
+                let default_cache_ttl = Duration::from_secs(
+                    cache_cfg
+                        .default_cache_ttl_seconds
+                        .unwrap_or(DEFAULT_TTL_SECONDS),
+                );
+                let max_cache_size =
+                    ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry::record_build_cache_error(&e);
-                    None
+                match HttpCache::builder(cache_cfg.db_path)
+                    .max_size(max_cache_size)
+                    .default_ttl(default_cache_ttl)
+                    .build()
+                {
+                    Ok(cache) => Some(cache),
+                    Err(e) => {
+                        telemetry::record_build_cache_error(&e);
+                        None
+                    }
                 }
-            }
-        }).or_else(|| {
-            // If no `cache_config` is provided, create an in-memory db with default parameters.
-            // TODO: the `build` function should be infallible, and no error would be needed here.
-            // (true for both memory and FS, because FS would default to memory)
-            HttpCache::builder_memory().build().inspect_err(|e| telemetry::record_build_cache_error(&e) ).ok()
-        });
+            })
+            .or_else(|| {
+                // If no `cache_config` is provided, create an in-memory db with default parameters.
+                // TODO: the `build` function should be infallible, and no error would be needed here.
+                // (true for both memory and FS, because FS would default to memory)
+                HttpCache::builder_memory()
+                    .build()
+                    .inspect_err(telemetry::record_build_cache_error)
+                    .ok()
+            });
 
         #[cfg(feature = "stateful")]
         let ads_store =
