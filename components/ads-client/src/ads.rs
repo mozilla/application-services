@@ -88,17 +88,6 @@ pub enum Ad {
     Tile(AdTile),
 }
 
-/// The `format` IDs MARS sends: the IAB sizes are images, `spoc` and `tile`
-/// have their own shapes.
-const FORMATS: &[&str] = &[
-    "billboard",
-    "leaderboard",
-    "rectangle",
-    "skyscraper",
-    "spoc",
-    "tile",
-];
-
 impl<'de> Deserialize<'de> for Ad {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -112,7 +101,7 @@ impl<'de> Deserialize<'de> for Ad {
             }
             Some("spoc") => serde_json::from_value(value).map(Self::Spoc),
             Some("tile") => serde_json::from_value(value).map(Self::Tile),
-            Some(format) => return Err(D::Error::unknown_variant(format, FORMATS)),
+            Some(format) => return Err(D::Error::custom(format!("Unknown ad format `{format}`"))),
             None => return Err(D::Error::missing_field("format")),
         }
         .map_err(D::Error::custom)
@@ -348,9 +337,7 @@ mod tests {
 
         image["format"] = "nonsense_format".into();
         let err = serde_json::from_value::<Ad>(image.clone()).unwrap_err();
-        assert!(err
-            .to_string()
-            .starts_with("unknown variant `nonsense_format`"));
+        assert_eq!(err.to_string(), "Unknown ad format `nonsense_format`");
 
         image.as_object_mut().unwrap().remove("format");
         assert!(serde_json::from_value::<Ad>(image).is_err());
