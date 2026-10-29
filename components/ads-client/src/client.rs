@@ -9,7 +9,7 @@ use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
-use crate::mars::ad_response::{AdResponse, AdResponseValue};
+use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
@@ -137,7 +137,7 @@ impl AdsClient {
     }
 
     #[cfg(test)]
-    fn request_ads<A>(
+    fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -145,10 +145,7 @@ impl AdsClient {
         ohttp: bool,
         blocks: Vec<String>,
         relevance: AdRequestRelevance,
-    ) -> Result<AdResponse<A>, RequestAdsError>
-    where
-        A: AdResponseValue,
-    {
+    ) -> Result<AdResponse, RequestAdsError> {
         self.inner
             .request_ads(placements, flags, options, ohttp, blocks, relevance)
     }
@@ -306,7 +303,7 @@ impl AdsClientInner {
         blocks: Vec<String>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(
+            .request_ads(
                 ad_placement_requests,
                 flags,
                 options,
@@ -318,7 +315,7 @@ impl AdsClientInner {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
             })?;
         telemetry::record_client_operation(ClientOperation::RequestAds);
-        Ok(response.take_first())
+        Ok(response.take_first::<AdImage>())
     }
 
     // relevance is not implemented for spocs, using an empty HashMap.
@@ -330,7 +327,7 @@ impl AdsClientInner {
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdSpoc>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -344,7 +341,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.data
+                response.into_kind::<AdSpoc>()
             })
     }
 
@@ -360,7 +357,7 @@ impl AdsClientInner {
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdImageOrSpoc>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -374,7 +371,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.data
+                response.into_kind::<AdImageOrSpoc>()
             })
     }
 
@@ -387,7 +384,7 @@ impl AdsClientInner {
         blocks: Vec<String>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads::<AdTile>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -401,7 +398,7 @@ impl AdsClientInner {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.take_first()
+                response.take_first::<AdTile>()
             })
     }
 
@@ -416,7 +413,7 @@ impl AdsClientInner {
         self.client.shutdown_db();
     }
 
-    fn request_ads<A>(
+    fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -424,10 +421,7 @@ impl AdsClientInner {
         ohttp: bool,
         blocks: Vec<String>,
         relevance: AdRequestRelevance,
-    ) -> Result<AdResponse<A>, RequestAdsError>
-    where
-        A: AdResponseValue,
-    {
+    ) -> Result<AdResponse, RequestAdsError> {
         let context_id = if relevance.is_empty() {
             Some(self.get_context_id()?)
         } else {
@@ -435,7 +429,7 @@ impl AdsClientInner {
         };
 
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+        let (mut response, request_hash) = self.client.fetch_ads(
             context_id,
             flags,
             placements,
@@ -725,7 +719,7 @@ mod tests {
         ads_client.record_click(callback_url, false).unwrap();
 
         ads_client
-            .request_ads::<AdImage>(
+            .request_ads(
                 make_happy_placement_requests(),
                 AdRequestFlags::default(),
                 Some(CachePolicy::default()),

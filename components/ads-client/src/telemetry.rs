@@ -194,9 +194,9 @@ pub fn record_http_cache_outcome(outcome: &CacheOutcome) {
     backend::http_cache_outcome(label.as_str(), value);
 }
 
-/// Records an ad item we could not deserialize against
-/// `ads_client.deserialization_error`.
-pub fn record_invalid_ad_item(error: &serde_json::Error) {
+/// Records an ad item we skipped, because it did not deserialize or is not
+/// the kind of ad asked for, against `ads_client.deserialization_error`.
+pub fn record_invalid_ad_item(error: &impl Display) {
     backend::deserialization_error(
         DeserializationErrorLabel::InvalidAdItem.as_str(),
         error.to_string(),
