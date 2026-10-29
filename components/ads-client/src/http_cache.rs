@@ -47,6 +47,7 @@ pub struct HttpCache {
     default_ttl: Duration,
     max_size: ByteSize,
     store: HttpCacheStore,
+    is_memory: bool,
 }
 
 impl HttpCache {
@@ -56,6 +57,10 @@ impl HttpCache {
 
     pub fn builder_memory() -> HttpCacheBuilder {
         HttpCacheBuilder::new(None::<String>)
+    }
+
+    pub fn is_memory(&self) -> bool {
+        self.is_memory
     }
 
     pub fn clear(&self) -> Result<(), open_database::Error> {

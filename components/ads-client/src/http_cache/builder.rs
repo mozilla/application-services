@@ -53,7 +53,6 @@ pub struct HttpCacheBuilder {
     max_size: Option<ByteSize>,
     // Flag for whether this db is built in-memory
     // This is set by an error in `open_connection`, or with `in_memory`.
-    // TODO: may not be needed?
     is_memory: bool,
 }
 
@@ -82,6 +81,7 @@ impl HttpCacheBuilder {
             default_ttl,
             max_size,
             store,
+            is_memory: self.is_memory,
         })
     }
 
@@ -98,6 +98,7 @@ impl HttpCacheBuilder {
             default_ttl,
             max_size,
             store,
+            is_memory: self.is_memory,
         })
     }
 
@@ -155,7 +156,7 @@ impl HttpCacheBuilder {
             .db_path
             .as_ref()
             .map(|p| p.to_string_lossy().trim().is_empty())
-            .unwrap_or(true)
+            .unwrap_or(false)
         {
             return Err(HttpCacheBuilderError::EmptyDbPath);
         }
