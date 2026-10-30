@@ -41,9 +41,6 @@ junit6 = "6.0.3"
 mockito = "5.23.0"
 robolectric = "4.16.1"
 
-# Miscellaneous Gradle plugins
-gradle-download-task = "5.7.0"
-
 [libraries]
 # AGP
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "android-gradle-plugin" }
@@ -89,5 +86,4 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
-gradle-download-task = { id = "de.undercouch.download", version.ref = "gradle-download-task" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
