@@ -112,43 +112,24 @@ impl HttpCacheBuilder {
         self
     }
 
+    // Opens the filesystem db if possible, falling back to a memory db otherwise.
     fn open_connection(
         &mut self,
     ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
         if !cfg!(test) && !self.is_memory {
             if let Some(db_path) = &self.db_path {
-                let db = LazyDb::new(
-                    db_path,
-                    OpenFlags::default(),
-                    HttpCacheConnectionInitializer {},
-                );
-
-                // Attempt to open initial connection, resolving an error if needed.
-                let conn = db.lock();
-                if let Some(e) = conn.err() {
-                    telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e));
-                } else {
-                    return Ok(db);
+                match open_db(db_path) {
+                    Ok(db) => return Ok(db),
+                    Err(e) => telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e)),
                 }
             }
         }
 
         // If we cannot instantiate a filesystem db, cfg!(test) == true, or is_memory == true, we fall back to a memory db.
         // We set is_memory to true in case it was not already.
-        let memory_db = LazyDb::new(
-            Path::new(IN_MEMORY_DB_PATH),
-            OpenFlags::default(),
-            HttpCacheConnectionInitializer {},
-        );
         self.is_memory = true;
-
-        // Attempt to open initial connection, resolving an error if needed.
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        let _ = memory_db
-            .lock()
-            .map_err(HttpCacheBuilderError::DatabaseMemory)?;
-
-        Ok(memory_db)
+        open_db(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
@@ -183,6 +164,17 @@ impl HttpCacheBuilder {
 
         Ok(())
     }
+}
+
+// Opens the db at `path`, eagerly opening the initial connection so failures surface here.
+fn open_db(path: &Path) -> Result<LazyDb<HttpCacheConnectionInitializer>, open_database::Error> {
+    let db = LazyDb::new(
+        path,
+        OpenFlags::default(),
+        HttpCacheConnectionInitializer {},
+    );
+    let _ = db.lock()?;
+    Ok(db)
 }
 
 #[cfg(test)]
