@@ -801,6 +801,8 @@ mod detail {
         pub exposures: Vec<FeatureExposureExtraDef>,
         pub malformeds: Vec<MalformedFeatureConfigExtraDef>,
         pub submit_targeting_context_calls: u64,
+        pub rollouts_opt_out_events: u64,
+        pub studies_opt_out_events: u64,
     }
 
     impl TestMetrics {
@@ -866,6 +868,16 @@ mod detail {
         fn submit_targeting_context(&self) {
             let mut state = self.state.lock().unwrap();
             state.submit_targeting_context_calls += 1;
+        }
+
+        fn record_rollouts_opt_out(&self) {
+            let mut state = self.state.lock().unwrap();
+            state.rollouts_opt_out_events += 1
+        }
+
+        fn record_studies_opt_out(&self) {
+            let mut state = self.state.lock().unwrap();
+            state.studies_opt_out_events += 1
         }
     }
 }

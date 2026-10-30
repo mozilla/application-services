@@ -12,7 +12,7 @@ default = []
 # `key4.db` (wrapped with a key derived from the primary password, if set).
 # Used on Desktop to integrate with the existing NSS key store and primary
 # password flow.
-keydb = ["nss-as/keydb", "dep:async-trait", "dep:futures"]
+keydb = ["nss-as/keydb", "db-crypto/keydb", "dep:async-trait", "dep:futures"]
 # Allows logins with empty passwords to be imported. Used on Desktop during
 # migration to accept existing logins that have empty passwords.
 allow_empty_passwords = []
@@ -34,6 +34,7 @@ perform_additional_origin_fixups = []
 fixup_invalid_guids = []
 
 [dependencies]
+types = { path = "../support/types" }
 sync15 = { path = "../sync15" }
 serde = "1"
 serde_derive = "1"
@@ -50,12 +51,13 @@ rusqlite = { version = "0.37.0", features = ["limits", "unlock_notify"] }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "2"
 anyhow = "1.0"
-uniffi = { version = "0.31" }
+uniffi = { version = "0.32" }
 async-trait = { version = "0.1", optional = true }
 futures = { version = "0.3", optional = true, features = ["executor"] }
+db-crypto = { path = "../support/db-crypto", default-features = false }
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"] }
+uniffi = { version = "0.32", features = ["build"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }

@@ -11,10 +11,11 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{warn, Error, InvalidPlaceInfo, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
+use crate::glean_metrics;
 use crate::types::{SyncStatus, UnknownFields, VisitType};
 use interrupt_support::SqlInterruptScope;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
@@ -229,13 +230,6 @@ impl TopFrecentSiteInfo {
     }
 }
 
-#[derive(Debug)]
-pub struct RunMaintenanceMetrics {
-    pub pruned_visits: bool,
-    pub db_size_before: u32,
-    pub db_size_after: u32,
-}
-
 /// Run maintenance on the places DB (prune step)
 ///
 /// The `run_maintenance_*()` functions are intended to be run during idle time and will take steps
@@ -247,22 +241,15 @@ pub struct RunMaintenanceMetrics {
 /// than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.
 ///
 /// prune_limit is the maximum number of visits to prune if the database is over db_size_limit
-pub fn run_maintenance_prune(
-    conn: &PlacesDb,
-    db_size_limit: u32,
-    prune_limit: u32,
-) -> Result<RunMaintenanceMetrics> {
+pub fn run_maintenance_prune(conn: &PlacesDb, db_size_limit: u32, prune_limit: u32) -> Result<()> {
     let db_size_before = conn.get_db_size()?;
     let should_prune = db_size_limit > 0 && db_size_before > db_size_limit;
     if should_prune {
         history::prune_older_visits(conn, prune_limit)?;
     }
-    let db_size_after = conn.get_db_size()?;
-    Ok(RunMaintenanceMetrics {
-        pruned_visits: should_prune,
-        db_size_before,
-        db_size_after,
-    })
+    glean_metrics::places_manager::db_size_after_maintenance
+        .accumulate((conn.get_db_size()? / 1024) as i64);
+    Ok(())
 }
 
 /// Run maintenance on the places DB (vacuum step)
@@ -272,16 +259,7 @@ pub fn run_maintenance_prune(
 /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
 /// it supports a stop-watch style API, not recording specific values).
 pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
-    let auto_vacuum_setting: u32 = conn.conn_ext_query_one("PRAGMA auto_vacuum")?;
-    if auto_vacuum_setting == 2 {
-        // Ideally, we run an incremental vacuum to delete 2 pages
-        conn.execute_one("PRAGMA incremental_vacuum(2)")?;
-    } else {
-        // If auto_vacuum=incremental isn't set, configure it and run a full vacuum.
-        warn!("run_maintenance_vacuum: Need to run a full vacuum to set auto_vacuum=incremental");
-        conn.execute_one("PRAGMA auto_vacuum=incremental")?;
-        conn.execute_one("VACUUM")?;
-    }
+    sql_support::maintenance::vacuum(conn)?;
     Ok(())
 }
 

@@ -3,11 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    component_config::SyncEngine,
     config::{Application, ReleaseChannel, TeamConfig, Unit},
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
-        FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel,
-        ScaleDistribution, Target, TextPanel, TimeSeriesPanel, Transformation,
+        FieldConfigCustom, FieldConfigDefaults, FieldConfigOverride, FieldConfigOverrideMatcher,
+        GridPos, LogOptions, LogPanel, Panel, ScaleDistribution, Target, TextPanel,
+        TimeSeriesPanel, Transformation,
     },
     sql::Query,
     util::{Join, UrlBuilder},
@@ -176,6 +178,7 @@ fn overview_panel(
     metric: SyncMetric,
 ) -> Panel {
     if application == Application::Ios && channel == ReleaseChannel::Nightly {
+        // iOs doesn't have a nightly
         return TextPanel {
             content: "## N/A".into(),
             mode: "markdown".into(),
@@ -185,6 +188,9 @@ fn overview_panel(
     }
 
     let column_name = metric.column_name();
+    let all_engines = all_engines(config);
+    let all_engine_literals: Vec<String> = all_engines.iter().map(|e| format!("'{e}'")).collect();
+
     let query = Query {
         select: vec![
             "TIMESTAMP(submission_date) as time".into(),
@@ -201,11 +207,23 @@ fn overview_panel(
                 Application::Android => "application = 'firefox-android'",
             }
             .into(),
-            engine_where_clause(config),
+            format!("engine_name IN ({})", all_engine_literals.join(", ")),
         ],
         order_by: Some("time".into()),
         ..Query::default()
     };
+
+    let mut color_overrides = vec![];
+    for engine in all_engines.iter() {
+        // Use the SyncEngine discriminant to keep colors consistent across all panels (SYNC-5459)
+        color_overrides.push(FieldConfigOverride {
+            matcher: FieldConfigOverrideMatcher {
+                id: "byName".into(),
+                options: engine.to_string(),
+            },
+            properties: vec![engine.dashboard_color()],
+        });
+    }
 
     Panel::from(TimeSeriesPanel {
         title: application.display_name(channel),
@@ -230,6 +248,7 @@ fn overview_panel(
                 custom: metric.field_config_custom(),
                 unit: metric.unit(),
             },
+            overrides: color_overrides,
         },
         transformations: vec![
             Transformation::PartitionByValues {
@@ -282,6 +301,7 @@ fn details_dash_count_panel(title: &str, metric: SyncMetric) -> Panel {
                 custom: metric.field_config_custom(),
                 unit: metric.unit(),
             },
+            ..FieldConfig::default()
         },
         ..TimeSeriesPanel::default()
     }
@@ -394,7 +414,7 @@ WHERE
             .iter()
             .flat_map(|c| c.sync_engines())
             // filter out desktop-only engines
-            .filter(|c| **c != "rust-logins")
+            .filter(|c| **c != SyncEngine::RustLogins)
             .flat_map(|engine_name| {
                 [
                     format!(
@@ -443,16 +463,16 @@ fn sync_legacy_dashboard_panel() -> Panel {
     .into()
 }
 
-fn engine_where_clause(config: &TeamConfig) -> String {
+fn all_engines(config: &TeamConfig) -> Vec<SyncEngine> {
     let mut engines: Vec<_> = config
         .components
         .iter()
         .flat_map(|c| c.sync_engines())
-        .map(|e| format!("'{e}'"))
+        .cloned()
         .collect();
     engines.sort_unstable();
     engines.dedup();
-    format!("engine_name IN ({})", engines.join(", "))
+    engines
 }
 
 /// Subquery that combines the desktop and mobile ETL tables

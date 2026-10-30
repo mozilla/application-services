@@ -12,7 +12,7 @@ use anyhow::Result;
 use clap::Parser;
 use commands::{
     CliCmd, GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
-    PrintChannelsCmd, ValidateCmd,
+    LintCmd, PrintChannelsCmd, ValidateCmd,
 };
 
 use std::{collections::BTreeMap, ffi::OsString, path::Path};
@@ -39,6 +39,8 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         }
         CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
         CliCmd::Validate(params) => workflows::validate(params)?,
+        CliCmd::Lint(params) => workflows::lint(params)?,
+        CliCmd::ListLints => workflows::list_lints()?,
         CliCmd::PrintChannels(params) => workflows::print_channels(params)?,
         CliCmd::PrintInfo(params) => workflows::print_info(params)?,
     };
@@ -68,6 +70,7 @@ where
         cli::Command::Validate(cmd) => {
             CliCmd::Validate(create_validate_command_from_cli(&cmd, cwd)?)
         }
+        cli::Command::Lint(cmd) => create_lint_command_from_cli(&cmd, cwd)?,
         cli::Command::Channels(cmd) => {
             CliCmd::PrintChannels(create_print_channels_from_cli(&cmd, cwd)?)
         }
@@ -174,6 +177,26 @@ fn create_validate_command_from_cli(cmd: &cli::Validate, cwd: &Path) -> Result<V
     let manifest = cmd.input.clone();
     let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     Ok(ValidateCmd { manifest, loader })
+}
+
+fn create_lint_command_from_cli(cmd: &cli::Lint, cwd: &Path) -> Result<CliCmd> {
+    if cmd.list {
+        return Ok(CliCmd::ListLints);
+    }
+
+    // clap has already checked that there is an input file if we're not listing.
+    let manifest = cmd.input.clone().unwrap_or_default();
+    let loader = create_loader(&manifest, &cmd.loader_info, cwd)?;
+
+    Ok(CliCmd::Lint(LintCmd {
+        manifest,
+        loader,
+        allow: cmd.allow.clone(),
+        deny: cmd.deny.clone(),
+        error_on_warning: cmd.error_on_warning,
+        include_imports: cmd.include_imports,
+        as_json: cmd.json,
+    }))
 }
 
 fn create_print_channels_from_cli(cmd: &cli::Channels, cwd: &Path) -> Result<PrintChannelsCmd> {

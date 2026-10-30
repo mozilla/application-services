@@ -7,7 +7,7 @@ use serde_derive::{Deserialize, Serialize};
 use crate::EnrollmentStatus;
 use crate::enrollment::ExperimentEnrollment;
 #[cfg(feature = "stateful")]
-use crate::enrollment::PreviousGeckoPrefState;
+pub use crate::enrollment::PreviousGeckoPrefState;
 pub use crate::metrics::detail::*;
 
 use crate::enrollment::NotEnrolledReason;
@@ -92,6 +92,10 @@ mod detail {
         fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
 
         fn submit_targeting_context(&self);
+
+        fn record_rollouts_opt_out(&self);
+
+        fn record_studies_opt_out(&self);
     }
 
     #[derive(Clone)]

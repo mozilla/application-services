@@ -99,8 +99,9 @@ pub(super) fn common_change_guid(
             ":new_guid": new_guid,
         },
     )?;
-    // something's gone badly wrong if this didn't affect exactly 1 row.
-    assert_eq!(nrows, 1);
+    if nrows == 0 {
+        return Err(Error::NoSuchRecord(old_guid.to_string()));
+    }
 
     // If there is also a corresponding mirror row (e.g forking situations), update aswell
     conn.execute(

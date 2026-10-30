@@ -14,6 +14,8 @@ pub(crate) enum CliCmd {
     GenerateSingleFileManifest(GenerateSingleFileManifestCmd),
     FetchFile(LoaderConfig, String),
     Validate(ValidateCmd),
+    Lint(LintCmd),
+    ListLints,
     PrintChannels(PrintChannelsCmd),
     PrintInfo(PrintInfoCmd),
 }
@@ -46,6 +48,16 @@ pub(crate) struct GenerateSingleFileManifestCmd {
 pub(crate) struct ValidateCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
+}
+
+pub(crate) struct LintCmd {
+    pub(crate) manifest: String,
+    pub(crate) loader: LoaderConfig,
+    pub(crate) allow: Vec<String>,
+    pub(crate) deny: Vec<String>,
+    pub(crate) error_on_warning: bool,
+    pub(crate) include_imports: bool,
+    pub(crate) as_json: bool,
 }
 
 pub(crate) struct PrintChannelsCmd {

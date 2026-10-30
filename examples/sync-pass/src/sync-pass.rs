@@ -7,8 +7,10 @@
 
 use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
-use logins::encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
-use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
+use db_crypto::{
+    DbCryptoApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator,
+};
+use logins::{Login, LoginEntry, LoginStore, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -296,24 +298,28 @@ fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
 struct MyPrimaryPasswordAuthenticator {}
 #[async_trait]
 impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
-    async fn get_primary_password(&self) -> Result<String, LoginsApiError> {
+    async fn get_primary_password(&self) -> Result<String, DbCryptoApiError> {
         let password = prompt_password("primary password").unwrap_or_default();
         Ok(password)
     }
 
-    async fn on_authentication_success(&self) -> Result<(), LoginsApiError> {
+    async fn on_authentication_success(&self) -> Result<(), DbCryptoApiError> {
         println!("success");
         Ok(())
     }
 
-    async fn on_authentication_failure(&self) -> Result<(), LoginsApiError> {
+    async fn on_authentication_failure(&self) -> Result<(), DbCryptoApiError> {
         println!("this did not work, please try again:");
         Ok(())
     }
 }
 
 fn open_database(db_path: &str) -> Result<LoginStore> {
-    let key_manager = NSSKeyManager::new(Arc::new(MyPrimaryPasswordAuthenticator {}));
+    let key_name: &str = "as-logins-key";
+    let key_manager = NSSKeyManager::new(
+        key_name.to_string(),
+        Arc::new(MyPrimaryPasswordAuthenticator {}),
+    );
     let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(key_manager)));
     let store = LoginStore::new(db_path, encdec)?;
     Ok(store)
@@ -364,7 +370,7 @@ fn do_sync(
 #[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 
     let matches = clap::Command::new("sync_pass_sql")
         .about("CLI login syncing tool")

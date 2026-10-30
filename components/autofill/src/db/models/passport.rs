@@ -6,6 +6,7 @@
 use super::Metadata;
 use rusqlite::Row;
 use sync_guid::Guid;
+use types::Timestamp;
 
 // What you pass to create or update a passport.
 #[derive(Debug, Clone, Default)]
@@ -100,9 +101,9 @@ impl InternalPassport {
             expiry_date_day: row.get("expiry_date_day")?,
             expiry_date_year: row.get("expiry_date_year")?,
             metadata: Metadata {
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
+                time_created: row.get::<_, Timestamp>("time_created")?.sanitized(),
+                time_last_used: row.get::<_, Timestamp>("time_last_used")?.sanitized(),
+                time_last_modified: row.get::<_, Timestamp>("time_last_modified")?.sanitized(),
                 times_used: row.get("times_used")?,
                 sync_change_counter: row.get("sync_change_counter")?,
             },

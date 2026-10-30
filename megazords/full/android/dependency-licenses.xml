@@ -73,10 +73,6 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Apache License 2.0: android-tzdata</name>
-    <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: android_system_properties</name>
     <url>https://github.com/nical/android_system_properties/blob/main/LICENSE-APACHE</url>
   </license>
@@ -90,6 +86,10 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: askama_derive</name>
+    <url>https://github.com/askama-rs/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_macros</name>
     <url>https://github.com/askama-rs/askama/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
@@ -226,7 +226,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: glob</name>
-    <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/glob/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: hashbrown</name>
@@ -306,7 +306,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: log</name>
-    <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/log/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: minimal-lexical</name>
@@ -674,7 +674,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>BSD-2-Clause License: arrayref</name>
-    <url>https://github.com/droundy/arrayref/blob/master/LICENSE</url>
+    <url>https://github.com/droundy/arrayref/blob/main/LICENSE</url>
   </license>
   <license>
     <name>BSD-3-Clause License: bindgen</name>

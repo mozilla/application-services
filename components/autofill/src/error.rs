@@ -71,14 +71,26 @@ pub enum Error {
     #[error("Crypto Error: {0}")]
     CryptoError(#[from] jwcrypto::JwCryptoError),
 
-    #[error("Missing local encryption key")]
-    MissingEncryptionKey,
+    #[error("Encryption Error: {0}")]
+    EncryptionError(#[from] db_crypto::DbCryptoApiError),
+
+    #[error("Crypto data is not valid UTF-8: {0}")]
+    CryptoNotUtf8(String),
 
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
 
     #[error("The store is closed")]
     DatabaseClosed,
+}
+
+impl From<sql_support::path::Error> for Error {
+    fn from(e: sql_support::path::Error) -> Self {
+        match e {
+            sql_support::path::Error::IllegalDatabasePath(path) => Error::IllegalDatabasePath(path),
+            sql_support::path::Error::IoError(e) => Error::IoError(e),
+        }
+    }
 }
 
 // Define how our internal errors are handled and converted to external errors
@@ -131,10 +143,15 @@ impl GetErrorHandling for Error {
             })
             .report_error("autofill-crypto-error"),
 
-            Self::MissingEncryptionKey => ErrorHandling::convert(AutofillApiError::CryptoError {
-                reason: "Missing encryption key".to_string(),
+            Self::EncryptionError(e) => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: e.to_string(),
             })
-            .report_error("autofill-missing-encryption-key"),
+            .report_error("autofill-encryption-error"),
+
+            Self::CryptoNotUtf8(reason) => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: reason.clone(),
+            })
+            .report_error("autofill-crypto-not-utf8"),
 
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })

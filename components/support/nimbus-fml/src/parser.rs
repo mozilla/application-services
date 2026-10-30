@@ -175,11 +175,21 @@ impl Parser {
 
         let imports = self.merge_import_block_list(&parent.imports, &child.imports)?;
 
+        // The child's features are about to become the parent's, so its suppressions
+        // have to come with them.
+        let mut no_lint = parent.no_lint.clone();
+        for name in &child.no_lint {
+            if !no_lint.contains(name) {
+                no_lint.push(name.clone());
+            }
+        }
+
         let merged = ManifestFrontEnd {
             features,
             types: Types { enums, objects },
             legacy_types: None,
             imports,
+            no_lint,
             ..parent
         };
 

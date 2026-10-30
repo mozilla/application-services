@@ -19,6 +19,8 @@
 //! * [`Login`] - A [`LoginEntry`] plus DB record information.  This includes the GUID and metadata
 //!   like time_last_used.
 //! * [`EncryptedLogin`] -- A Login above with the username/password data encrypted.
+//! * [`LoginCandidate`] -- A [`Login`] without the username/password, for callers who want to
+//!   filter on the cleartext fields before asking for the encryption key.
 //! * [`LoginFields`], [`SecureLoginFields`], [`LoginMeta`] -- These group the common fields in the
 //!   structs above.
 //!
@@ -212,10 +214,10 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - replacing missing or negative values with the current time
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
-//!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
 //! - `time_last_used`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
@@ -235,10 +237,10 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - removing negative values
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
-//!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
 //! - `time_password_changed`: A lower bound on the time that the `password` field was last changed, in integer
@@ -260,6 +262,7 @@
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - removing negative values
+//!   - replacing values outside the range a JS `Date` can represent with 0
 //!
 //!   **XXX TODO:**
 //!   - test that we prevent this timestamp from moving backwards.
@@ -278,7 +281,8 @@
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!   fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
-use crate::{encryption::EncryptorDecryptor, error::*};
+use crate::{error::*, util::sanitize_timestamp};
+use db_crypto::EncryptorDecryptor;
 use rusqlite::Row;
 use serde_derive::*;
 use sync_guid::Guid;
@@ -356,6 +360,23 @@ pub struct LoginMeta {
     pub time_last_used: i64,
     pub times_used: i64,
     pub time_last_breach_alert_dismissed: Option<i64>,
+}
+
+impl LoginMeta {
+    /// Clamp every timestamp into `[0, now]`.
+    ///
+    /// This runs on both read and write - so that a corrupt timestamp does not break.
+    pub(crate) fn sanitize_timestamps(self) -> Self {
+        Self {
+            time_created: sanitize_timestamp(self.time_created),
+            time_password_changed: sanitize_timestamp(self.time_password_changed),
+            time_last_used: sanitize_timestamp(self.time_last_used),
+            time_last_breach_alert_dismissed: self
+                .time_last_breach_alert_dismissed
+                .map(sanitize_timestamp),
+            ..self
+        }
+    }
 }
 
 /// A login together with meta fields, handed over to the store API; ie a login persisted
@@ -714,7 +735,60 @@ impl EncryptedLogin {
         // XXX - we used to perform a fixup here, but that seems heavy-handed
         // and difficult - we now only do that on add/insert when we have the
         // encryption key.
-        Ok(login)
+        //
+        // Timestamps are the exception: they need no key, and a corrupt one read back out of
+        // the database breaks consumers hard enough to be worth fixing on every read (bug
+        // 2066257).
+        Ok(EncryptedLogin {
+            meta: login.meta.sanitize_timestamps(),
+            ..login
+        })
+    }
+}
+
+/// A login stored in the database, minus the encrypted fields.
+///
+/// Getting one of these never needs the encryption key, so callers which only match on the
+/// cleartext fields (eg, `origin`) can do so without forcing the user to authenticate.  Once
+/// they know which logins they want, `LoginStore::get_many()` decrypts just those.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct LoginCandidate {
+    // meta fields
+    pub id: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+
+    // breach alerts
+    pub time_last_breach_alert_dismissed: Option<i64>,
+
+    // login fields
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_field: String,
+    pub password_field: String,
+}
+
+impl From<EncryptedLogin> for LoginCandidate {
+    fn from(login: EncryptedLogin) -> Self {
+        // Note the `sec_fields` are simply dropped - we never look at the key.
+        let EncryptedLogin { meta, fields, .. } = login;
+        Self {
+            id: meta.id,
+            time_created: meta.time_created,
+            time_password_changed: meta.time_password_changed,
+            time_last_used: meta.time_last_used,
+            times_used: meta.times_used,
+            time_last_breach_alert_dismissed: meta.time_last_breach_alert_dismissed,
+
+            origin: fields.origin,
+            form_action_origin: fields.form_action_origin,
+            http_realm: fields.http_realm,
+            username_field: fields.username_field,
+            password_field: fields.password_field,
+        }
     }
 }
 
@@ -913,10 +987,11 @@ impl ValidateAndFixup for LoginEntry {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use crate::encryption::test_utils::encrypt_struct;
+    use crate::test_utils::encrypt_struct;
 
     // Factory function to make a new login
     //

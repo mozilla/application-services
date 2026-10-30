@@ -28,6 +28,12 @@ pub struct EnrolledExperiment {
     pub is_rollout: bool,
 }
 
+#[cfg_attr(test, derive(Debug, Eq, PartialEq))]
+pub struct EnrollmentSlugs {
+    pub slug: String,
+    pub branch_slug: String,
+}
+
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `test_lib_bw_compat.rs`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]

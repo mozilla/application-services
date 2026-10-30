@@ -9,7 +9,7 @@ use super::token;
 use crate::bso::{IncomingBso, IncomingEncryptedBso, OutgoingBso, OutgoingEncryptedBso};
 use crate::engine::{CollectionPost, CollectionRequest};
 use crate::error::{self, Error, ErrorResponse, debug, info, trace, warn};
-use crate::record_types::MetaGlobalRecord;
+use crate::record_types::{MetaGlobalRecord, SyncIdsRecord};
 use crate::{CollectionName, Guid, ServerTimestamp};
 use serde_json::Value;
 use std::str::FromStr;
@@ -133,6 +133,9 @@ pub trait SetupStorageClient {
     fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>>;
     fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>>;
     fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<IncomingEncryptedBso>>;
+    /// Fetches `meta/syncids`. A successful response with `None` means the
+    /// payload couldn't be parsed.
+    fn fetch_sync_ids(&self) -> error::Result<Sync15ClientResponse<Option<SyncIdsRecord>>>;
 
     fn put_meta_global(
         &self,
@@ -241,6 +244,36 @@ impl SetupStorageClient for Sync15StorageClient {
 
     fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<IncomingEncryptedBso>> {
         self.relative_storage_request(Method::Get, "storage/crypto/keys")
+    }
+
+    fn fetch_sync_ids(&self) -> error::Result<Sync15ClientResponse<Option<SyncIdsRecord>>> {
+        let got: Sync15ClientResponse<IncomingBso> =
+            self.relative_storage_request(Method::Get, "storage/meta/syncids")?;
+        Ok(match got {
+            Sync15ClientResponse::Success {
+                record,
+                last_modified,
+                route,
+                status,
+            } => {
+                // Unlike meta/global, a record we can't parse is not fatal - it
+                // just means we've nothing to adopt.
+                let record = match serde_json::from_str(&record.payload) {
+                    Ok(r) => Some(r),
+                    Err(e) => {
+                        warn!("Ignoring meta/syncids which failed to parse: {}", e);
+                        None
+                    }
+                };
+                Sync15ClientResponse::Success {
+                    record,
+                    last_modified,
+                    route,
+                    status,
+                }
+            }
+            Sync15ClientResponse::Error(e) => Sync15ClientResponse::Error(e),
+        })
     }
 
     fn put_meta_global(

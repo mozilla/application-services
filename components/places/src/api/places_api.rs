@@ -6,12 +6,12 @@ use crate::bookmark_sync::BookmarksSyncEngine;
 use crate::db::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::history_sync::HistorySyncEngine;
-use crate::util::normalize_path;
 use error_support::handle_error;
 use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
+use sql_support::path::normalize_database_path;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -138,7 +138,7 @@ pub struct PlacesApi {
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
     pub fn new(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
-        let db_name = normalize_path(db_name)?;
+        let db_name = normalize_database_path(db_name)?;
         Self::new_or_existing(db_name)
     }
 

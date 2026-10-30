@@ -47,12 +47,12 @@ impl From<&Response> for CacheControl {
 }
 
 impl CacheControl {
-    pub fn should_cache(&self) -> bool {
-        !self.no_store
-    }
-
     pub fn max_age_duration(&self) -> Option<Duration> {
         self.max_age.map(Duration::from_secs)
+    }
+
+    pub fn should_cache(&self) -> bool {
+        !self.no_store
     }
 }
 

@@ -115,6 +115,15 @@ pub enum Error {
     InvalidMetadataObservation(#[from] InvalidMetadataObservation),
 }
 
+impl From<sql_support::path::Error> for Error {
+    fn from(e: sql_support::path::Error) -> Self {
+        match e {
+            sql_support::path::Error::IllegalDatabasePath(path) => Error::IllegalDatabasePath(path),
+            sql_support::path::Error::IoError(e) => Error::IoError(e),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidPlaceInfo {
     #[error("No url specified")]

@@ -4,16 +4,12 @@
 */
 
 use crate::mars::Environment;
-use crate::telemetry::Telemetry;
 
-pub struct AdsClientConfig<T>
-where
-    T: Telemetry,
-{
+pub struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
-    pub context_id_provider: Option<Box<dyn super::ContextIdProvider>>,
     pub environment: Environment,
-    pub telemetry: T,
+    #[cfg(feature = "stateful")]
+    pub store_config: Option<AdsStoreConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -21,4 +17,10 @@ pub struct AdsCacheConfig {
     pub db_path: String,
     pub default_cache_ttl_seconds: Option<u64>,
     pub max_size_mib: Option<u64>,
+}
+
+#[cfg(feature = "stateful")]
+#[derive(Clone, Debug)]
+pub struct AdsStoreConfig {
+    pub db_path: String,
 }

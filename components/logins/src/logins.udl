@@ -3,32 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 namespace logins {
-    /// We expose the crypto primitives on the namespace
-
-    /// Create a new, random, encryption key.
-    [Throws=LoginsApiError]
-    string create_key();
-
-    /// Create a "canary" string, which can be used to test if the encryption
-    //key is still valid for the logins data
-    [Throws=LoginsApiError]
-    string create_canary([ByRef]string text, [ByRef]string encryption_key);
-
-    /// Check that key is still valid using the output of `create_canary`.
-    //`text` much match the text you initially passed to `create_canary()`
-    [Throws=LoginsApiError]
-    boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
-
-    /// Utility function to create a StaticKeyManager to be used for the time
-    /// being until support lands for [trait implementation of an UniFFI
-    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
-    /// in UniFFI.
-    KeyManager create_static_key_manager(string key);
-
-    /// Similar to create_static_key_manager above, create a
-    /// ManagedEncryptorDecryptor by passing in a KeyManager
-    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
-
     /// Create a LoginStore with StaticKeyManager by passing in a db path and a
     /// static key
     LoginStore create_login_store_with_static_key_manager(string path, string key);
@@ -98,6 +72,28 @@ dictionary Login {
     string username;
 };
 
+/// A login stored in the database, minus the encrypted fields.
+///
+/// Reading these never needs the encryption key, so consumers which filter on the cleartext
+/// fields can do so without forcing the user to authenticate. See `list_candidates()`.
+dictionary LoginCandidate {
+    // meta fields
+    string id;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+    // breach fields
+    i64? time_last_breach_alert_dismissed;
+
+    // login fields
+    string origin;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
+};
+
 /// Metrics tracking deletion of logins that cannot be decrypted, see `delete_undecryptable_records_for_remote_replacement`
 /// for more details
 dictionary LoginsDeletionMetrics {
@@ -148,28 +144,11 @@ interface LoginsApiError {
     UnexpectedLoginsApiError(string reason);
 };
 
-[Trait, WithForeign]
-interface EncryptorDecryptor {
-    [Throws=LoginsApiError]
-    bytes encrypt(bytes cleartext);
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
 
-    [Throws=LoginsApiError]
-    bytes decrypt(bytes ciphertext);
-};
-
-[Trait, WithForeign]
-interface KeyManager {
-    [Throws=LoginsApiError]
-    bytes get_key();
-};
-
-interface StaticKeyManager {
-    constructor(string key);
-};
-
-interface ManagedEncryptorDecryptor {
-    constructor(KeyManager key_manager);
-};
+[External = "db_crypto"]
+typedef trait_with_foreign KeyManager;
 
 interface LoginStore {
     [Throws=LoginsApiError]
@@ -292,6 +271,19 @@ interface LoginStore {
     [Throws=LoginsApiError]
     sequence<Login> list();
 
+    /// Like `list()`, but without the encrypted fields - and so without needing the encryption
+    /// key. Resolve the ids you're interested in with `get_many()`.
+    [Throws=LoginsApiError]
+    sequence<LoginCandidate> list_candidates();
+
+    /// Like `list_candidates()`, but only the logins whose origin is one of `origins`, or whose
+    /// host is one of `domains` or a subdomain of one. Meant as a pre-filter for consumers with
+    /// their own origin matching: the result is a superset of what they match, as long as
+    /// `domains` holds the base domain (eTLD+1, which the caller computes) of every host they
+    /// accept subdomains of.
+    [Throws=LoginsApiError]
+    sequence<LoginCandidate> list_candidates_by_origin(sequence<string> origins, sequence<string> domains);
+
     [Throws=LoginsApiError]
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
@@ -303,6 +295,11 @@ interface LoginStore {
 
     [Throws=LoginsApiError]
     Login? get([ByRef] string id);
+
+    /// Get and decrypt the logins with the given ids. Ids which don't exist are skipped, as are
+    /// logins which fail to decrypt.
+    [Throws=LoginsApiError]
+    sequence<Login> get_many(sequence<string> ids);
 
     /// Run maintenance on the DB
     ///

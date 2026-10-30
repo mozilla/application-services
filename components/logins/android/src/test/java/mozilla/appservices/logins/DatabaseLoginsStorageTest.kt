@@ -6,6 +6,9 @@ package mozilla.appservices.logins
 
 import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.RustComponentsInitializer
+import mozilla.appservices.db_crypto.KeyManager
+import mozilla.appservices.db_crypto.createKey
+import mozilla.appservices.db_crypto.createStaticKeyManager
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals

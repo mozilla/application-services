@@ -22,12 +22,12 @@
 ///     server.
 ///   - After we sync, we move all records from loginsL to loginsM, overwriting any previous data.
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::*;
 use crate::schema;
 use crate::sync::SyncStatus;
 use crate::util;
+use db_crypto::EncryptorDecryptor;
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use lazy_static::lazy_static;
 use rusqlite::{
@@ -84,8 +84,7 @@ impl LoginDb {
 
     #[cfg(test)]
     pub fn open_in_memory() -> Self {
-        let encdec: Arc<dyn EncryptorDecryptor> =
-            crate::encryption::test_utils::TEST_ENCDEC.clone();
+        let encdec: Arc<dyn EncryptorDecryptor> = crate::test_utils::TEST_ENCDEC.clone();
         Self::with_connection(Connection::open_in_memory().unwrap(), encdec).unwrap()
     }
 
@@ -194,6 +193,27 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
+    /// Like `get_all()`, but only the logins with the given guids.  Guids we don't have a login
+    /// for are simply absent from the result, so this can return fewer rows than it was given
+    /// ids.  As with `get_all()` the order of the rows is whatever the query gives us - in
+    /// particular it is not the order of `ids`.
+    pub fn get_many(&self, ids: &[String]) -> Result<Vec<EncryptedLogin>> {
+        let mut logins = Vec::with_capacity(ids.len());
+        sql_support::each_chunk(ids, |chunk, _| -> Result<()> {
+            logins.extend(self.db.query_rows_and_then(
+                &format!(
+                    "SELECT * FROM ({}) WHERE guid IN ({})",
+                    &*GET_ALL_SQL,
+                    sql_support::repeat_sql_values(chunk.len())
+                ),
+                rusqlite::params_from_iter(chunk),
+                EncryptedLogin::from_row,
+            )?);
+            Ok(())
+        })?;
+        Ok(logins)
+    }
+
     pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         // We first parse the input string as a host so it is normalized.
         let base_host = match Host::parse(base_domain) {
@@ -214,35 +234,106 @@ impl LoginDb {
         let rows = stmt
             .query_and_then([], EncryptedLogin::from_row)?
             .filter(|r| {
-                let login = r
-                    .as_ref()
-                    .ok()
-                    .and_then(|login| Url::parse(&login.fields.origin).ok());
-                let this_host = login.as_ref().and_then(|url| url.host());
-                match (&base_host, this_host) {
-                    (Host::Domain(base), Some(Host::Domain(look))) => {
-                        // a fairly long-winded way of saying
-                        // `login.fields.origin == base_domain ||
-                        //  login.fields.origin.ends_with('.' + base_domain);`
-                        let mut rev_input = base.chars().rev();
-                        let mut rev_host = look.chars().rev();
-                        loop {
-                            match (rev_input.next(), rev_host.next()) {
-                                (Some(ref a), Some(ref b)) if a == b => continue,
-                                (None, None) => return true, // exactly equal
-                                (None, Some(ref h)) => return *h == '.',
-                                _ => return false,
-                            }
-                        }
-                    }
-                    // ip addresses must match exactly.
-                    (Host::Ipv4(base), Some(Host::Ipv4(look))) => *base == look,
-                    (Host::Ipv6(base), Some(Host::Ipv6(look))) => *base == look,
-                    // all "mismatches" in domain types are false.
-                    _ => false,
-                }
+                r.as_ref()
+                    .is_ok_and(|login| origin_is_on_host(&login.fields.origin, &base_host))
             });
         rows.collect::<Result<_>>()
+    }
+
+    /// The logins whose origin is one of `origins`, or whose host is one of `domains` or a
+    /// subdomain of one.
+    ///
+    /// This is a cheap pre-filter for consumers doing their own origin matching (eg, Desktop's
+    /// `LoginHelper.isOriginMatching()`): as long as the consumer passes every origin it would
+    /// accept, plus the base domain of each host it would accept a subdomain of, the result is a
+    /// superset of what it's looking for, and it only needs to run its own matching over those.
+    ///
+    /// `origins` are compared exactly, after the same normalization `add()` does.  `domains` are
+    /// parsed as a host, and IP addresses only ever match exactly.  Unparseable entries in either
+    /// list are skipped.  As with `get_all()`, the order of the rows is whatever the query gives us.
+    pub fn get_by_origins_or_domains(
+        &self,
+        origins: &[String],
+        domains: &[String],
+    ) -> Result<Vec<EncryptedLogin>> {
+        let mut origin_params = Vec::with_capacity(origins.len());
+        for origin in origins {
+            match LoginEntry::validate_and_fixup_origin(origin) {
+                Ok(fixed) => {
+                    // Rows written before a fixup was introduced may still hold the raw string,
+                    // so look for that too.
+                    if let Some(fixed) = fixed {
+                        origin_params.push(fixed);
+                    }
+                    origin_params.push(origin.clone());
+                }
+                // don't log the input string as it's PII.
+                Err(e) => warn!(
+                    "get_by_origins_or_domains was passed an invalid origin: {}",
+                    e
+                ),
+            }
+        }
+        let mut hosts = Vec::with_capacity(domains.len());
+        for domain in domains {
+            match Host::parse(domain) {
+                Ok(host) => hosts.push(host),
+                Err(e) => warn!(
+                    "get_by_origins_or_domains was passed an invalid domain: {}",
+                    e
+                ),
+            }
+        }
+        if origin_params.is_empty() && hosts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Narrow things down in SQL, so we never read, let alone decode, the rows which obviously
+        // don't match.  The `LIKE`s only look at the tail of the origin, both with and without a
+        // port, so they also let through eg `https://notexample.com` for `example.com`; and `LIKE`
+        // ignores case and treats `_` as a wildcard.  We weed all that out below by matching the
+        // parsed host exactly.
+        let mut params: Vec<String> = Vec::with_capacity(origin_params.len() + 2 * hosts.len());
+        let mut conditions = Vec::with_capacity(1 + 2 * hosts.len());
+        if !origin_params.is_empty() {
+            conditions.push(format!(
+                "origin IN ({})",
+                (1..=origin_params.len())
+                    .map(|i| format!("?{i}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+            params.extend(origin_params.iter().cloned());
+        }
+        for host in &hosts {
+            for pattern in [format!("%{host}"), format!("%{host}:%")] {
+                params.push(pattern);
+                conditions.push(format!("origin LIKE ?{}", params.len()));
+            }
+        }
+        let conditions = conditions.join(" OR ");
+        let sql = format!(
+            "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0 AND ({conditions})
+             UNION ALL
+             SELECT {common_cols} FROM loginsM WHERE is_overridden = 0 AND ({conditions})",
+            common_cols = schema::COMMON_COLS,
+        );
+        let rows = self
+            .db
+            .query_rows_and_then(
+                &sql,
+                rusqlite::params_from_iter(&params),
+                EncryptedLogin::from_row,
+            )?
+            .into_iter()
+            .filter(|login| {
+                origin_params.contains(&login.fields.origin)
+                    || hosts
+                        .iter()
+                        .any(|host| origin_is_on_host(&login.fields.origin, host))
+            })
+            .collect();
+        Ok(rows)
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<EncryptedLogin>> {
@@ -627,6 +718,9 @@ impl LoginDb {
             // Keep `meta.id` in sync with the (possibly regenerated) guid; it is used
             // as the stored/envelope id and when encrypting `sec_fields` below.
             entry_with_meta.meta.id = guid.to_string();
+            // Timestamps come from the application here, so they are as
+            // untrusted as the rest of the entry.
+            entry_with_meta.meta = entry_with_meta.meta.sanitize_timestamps();
             match self.fixup_and_check_for_dupes(&guid, entry_with_meta.entry) {
                 Ok(new_entry) => {
                     let sec_fields = SecureLoginFields {
@@ -1122,6 +1216,34 @@ impl LoginDb {
     }
 }
 
+/// Whether the host of `origin` is `base`, or - for domains - a subdomain of it.
+fn origin_is_on_host(origin: &str, base: &Host) -> bool {
+    let url = Url::parse(origin).ok();
+    let this_host = url.as_ref().and_then(|url| url.host());
+    match (base, this_host) {
+        (Host::Domain(base), Some(Host::Domain(look))) => {
+            // a fairly long-winded way of saying
+            // `login.fields.origin == base_domain ||
+            //  login.fields.origin.ends_with('.' + base_domain);`
+            let mut rev_input = base.chars().rev();
+            let mut rev_host = look.chars().rev();
+            loop {
+                match (rev_input.next(), rev_host.next()) {
+                    (Some(ref a), Some(ref b)) if a == b => continue,
+                    (None, None) => return true, // exactly equal
+                    (None, Some(ref h)) => return *h == '.',
+                    _ => return false,
+                }
+            }
+        }
+        // ip addresses must match exactly.
+        (Host::Ipv4(base), Some(Host::Ipv4(look))) => *base == look,
+        (Host::Ipv6(base), Some(Host::Ipv6(look))) => *base == look,
+        // all "mismatches" in domain types are false.
+        _ => false,
+    }
+}
+
 lazy_static! {
     static ref GET_ALL_SQL: String = format!(
         "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0
@@ -1181,8 +1303,8 @@ lazy_static! {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use crate::encryption::test_utils::decrypt_struct;
     use crate::login::test_utils::enc_login;
+    use crate::test_utils::decrypt_struct;
     use crate::SecureLoginFields;
     use sync15::ServerTimestamp;
 
@@ -1353,8 +1475,8 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::db::test_utils::{get_local_guids, get_mirror_guids};
-    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::sync::merge::LocalLogin;
+    use crate::test_utils::TEST_ENCDEC;
     use nss_as::ensure_initialized;
     use std::{thread, time};
 
@@ -1385,6 +1507,51 @@ mod tests {
 
         // one with a username, 1 without.
         assert_eq!(db.get_all().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_get_many() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let mut added = Vec::new();
+        for origin in ["https://a.example.com", "https://b.example.com"] {
+            added.push(
+                db.add(LoginEntry {
+                    origin: origin.into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test".into(),
+                    password: "sekret".into(),
+                    ..LoginEntry::default()
+                })
+                .expect("should be able to add login"),
+            );
+        }
+        let ids = added.iter().map(|l| l.meta.id.clone()).collect::<Vec<_>>();
+
+        // Neither `get_many()` nor `get_all()` promises an order, so compare them sorted.
+        let by_origin = |logins: Vec<EncryptedLogin>| {
+            let mut logins = logins;
+            logins.sort_by(|l, r| l.fields.origin.cmp(&r.fields.origin));
+            logins
+        };
+
+        // Asking for every id gives us exactly what `get_all()` does.
+        assert_eq!(
+            by_origin(db.get_many(&ids).unwrap()),
+            by_origin(db.get_all().unwrap())
+        );
+
+        // A subset gives us just that subset...
+        assert_eq!(db.get_many(&ids[1..]).unwrap(), added[1..]);
+
+        // ...and ids we don't have a login for are absent rather than an error.
+        assert_eq!(
+            db.get_many(&[ids[0].clone(), "no-such-guid".to_string()])
+                .unwrap(),
+            added[..1]
+        );
+        assert_eq!(db.get_many(&[]).unwrap(), Vec::new());
     }
 
     #[test]
@@ -1610,6 +1777,84 @@ mod tests {
             .expect("should get a record");
 
         assert_eq!(fetched.meta, meta);
+    }
+
+    /// A record with absurd `timeCreated` used to make every subsequent read of
+    /// the whole store fail, which emptied about:logins and broke sync on every
+    /// device the record reached. Reading must heal it instead. Bug 2066257.
+    #[test]
+    fn test_get_heals_corrupt_timestamp_already_in_db() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(LoginEntry {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "user".into(),
+                password: "password".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        // Corrupt the row behind the store's back, the way a version without this fix - or a
+        // sync peer talking to one - would have left it.
+        const CORRUPT: i64 = 18446744071857664;
+        db.execute(
+            "UPDATE loginsL
+             SET timeCreated = :corrupt,
+                 timePasswordChanged = :corrupt,
+                 timeLastUsed = :corrupt,
+                 timeLastBreachAlertDismissed = :corrupt,
+                 local_modified = -1
+             WHERE guid = :guid",
+            named_params! { ":corrupt": CORRUPT, ":guid": &login.meta.id },
+        )
+        .unwrap();
+
+        let fetched = [
+            db.get_by_id(&login.meta.id).unwrap().unwrap(),
+            db.get_all().unwrap().pop().unwrap(),
+        ];
+        for fetched in fetched {
+            assert_eq!(fetched.meta.time_created, 0);
+            assert_eq!(fetched.meta.time_password_changed, 0);
+            assert_eq!(fetched.meta.time_last_used, 0);
+            assert_eq!(fetched.meta.time_last_breach_alert_dismissed, Some(0));
+        }
+    }
+
+    /// The store must not accept a timestamp it cannot hand back out again.
+    #[test]
+    fn test_add_with_meta_repairs_absurd_timestamps() {
+        ensure_initialized();
+
+        let db = LoginDb::open_in_memory();
+        let guid = Guid::random();
+        let added = db
+            .add_with_meta(LoginEntryWithMeta {
+                entry: LoginEntry {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user".into(),
+                    password: "password".into(),
+                    ..Default::default()
+                },
+                meta: LoginMeta {
+                    id: guid.to_string(),
+                    time_created: 18446744071857664,
+                    time_password_changed: i64::MAX,
+                    time_last_used: -1,
+                    times_used: 1,
+                    time_last_breach_alert_dismissed: Some(i64::MAX),
+                },
+            })
+            .unwrap();
+
+        assert_eq!(added.meta.time_created, 0);
+        assert_eq!(added.meta.time_password_changed, 0);
+        assert_eq!(added.meta.time_last_used, 0);
+        assert_eq!(added.meta.time_last_breach_alert_dismissed, Some(0));
     }
 
     #[test]
@@ -1863,6 +2108,15 @@ mod tests {
         let mut sorted = expected.to_owned();
         sorted.sort_unstable();
         assert_eq!(sorted, results);
+
+        // Passing it as a domain to `get_by_origins_or_domains()` must give the same answer.
+        let mut results = origins_of(db.get_by_origins_or_domains(&[], &[query.into()]).unwrap());
+        results.sort_unstable();
+        assert_eq!(sorted, results);
+    }
+
+    fn origins_of(logins: Vec<EncryptedLogin>) -> Vec<String> {
+        logins.into_iter().map(|l| l.fields.origin).collect()
     }
 
     fn check_good_bad(
@@ -1958,6 +2212,157 @@ mod tests {
             vec!["https://[0:0:0:0:0:0:1:1]", "https://example.com"],
             vec!["[::1]", "[0:0:0:0:0:0:0:1]"],
             vec!["[0:0:0:0:0:0:1:2]"],
+        );
+    }
+
+    fn db_with_origins(origins: &[&str]) -> LoginDb {
+        let db = LoginDb::open_in_memory();
+        for origin in origins {
+            db.add(LoginEntry {
+                origin: (*origin).into(),
+                http_realm: Some("realm".into()),
+                password: "test".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        }
+        db
+    }
+
+    fn check_origins_or_domains(
+        db: &LoginDb,
+        origins: &[&str],
+        domains: &[&str],
+        expected: &[&str],
+    ) {
+        let origins: Vec<String> = origins.iter().map(|s| (*s).into()).collect();
+        let domains: Vec<String> = domains.iter().map(|s| (*s).into()).collect();
+        let mut results = origins_of(db.get_by_origins_or_domains(&origins, &domains).unwrap());
+        results.sort_unstable();
+        let mut expected = expected.to_owned();
+        expected.sort_unstable();
+        assert_eq!(expected, results);
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains() {
+        ensure_initialized();
+        let db = db_with_origins(&[
+            "https://example.com",
+            "http://example.com",
+            "https://example.com:8443",
+            "https://www.example.com",
+            "https://notexample.com",
+            "https://example_com",
+            "https://other.org",
+            "https://www.other.org",
+        ]);
+        // Nothing asked for, nothing found.
+        check_origins_or_domains(&db, &[], &[], &[]);
+        // Origins match exactly: no other schemes, ports or subdomains.
+        check_origins_or_domains(&db, &["https://example.com"], &[], &["https://example.com"]);
+        check_origins_or_domains(
+            &db,
+            &["https://example.com", "http://example.com"],
+            &[],
+            &["https://example.com", "http://example.com"],
+        );
+        // Domains match the host and its subdomains, with any scheme or port - but not a host
+        // which merely ends with the same characters, nor one `LIKE` would take `_` for a `.`.
+        check_origins_or_domains(
+            &db,
+            &[],
+            &["example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+            ],
+        );
+        // Both at once, and a login matching both is only returned once.
+        check_origins_or_domains(
+            &db,
+            &["https://www.other.org", "https://example.com"],
+            &["example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+                "https://www.other.org",
+            ],
+        );
+        check_origins_or_domains(
+            &db,
+            &[],
+            &["other.org", "example.com"],
+            &[
+                "https://example.com",
+                "http://example.com",
+                "https://example.com:8443",
+                "https://www.example.com",
+                "https://other.org",
+                "https://www.other.org",
+            ],
+        );
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_normalizes() {
+        ensure_initialized();
+        let db = db_with_origins(&["https://example.com", "https://www.example.com"]);
+        // The origins are normalized like `add()` does, and the domains like a host.
+        check_origins_or_domains(
+            &db,
+            &["https://EXAMPLE.com/some/path"],
+            &[],
+            &["https://example.com"],
+        );
+        check_origins_or_domains(&db, &[], &["WWW.Example.COM"], &["https://www.example.com"]);
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_invalid() {
+        ensure_initialized();
+        let db = db_with_origins(&["https://example.com"]);
+        check_origins_or_domains(&db, &["invalid origin"], &["invalid domain"], &[]);
+        // Invalid entries are skipped, not fatal.
+        check_origins_or_domains(
+            &db,
+            &["invalid origin", "https://example.com"],
+            &["invalid domain"],
+            &["https://example.com"],
+        );
+    }
+
+    #[test]
+    fn test_get_by_origins_or_domains_local_and_mirror() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        // Only local, only in the mirror, and a local change overriding the mirror.
+        test_utils::insert_login(&db, "local", Some("pw"), None);
+        test_utils::insert_login(&db, "mirror", None, Some("pw"));
+        test_utils::insert_login(&db, "both", Some("new-pw"), Some("old-pw"));
+        test_utils::insert_login(&db, "deleted", Some("pw"), None);
+        db.delete("deleted").unwrap();
+
+        let mut ids: Vec<String> = db
+            .get_by_origins_or_domains(&[], &["example.com".into()])
+            .unwrap()
+            .into_iter()
+            .map(|l| l.meta.id)
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, ["both", "local", "mirror"]);
+
+        let both = db
+            .get_by_origins_or_domains(&["https://both.example.com".into()], &[])
+            .unwrap();
+        assert_eq!(both.len(), 1);
+        assert_eq!(
+            both[0].decrypt_fields(&*TEST_ENCDEC).unwrap().password,
+            "new-pw"
         );
     }
 

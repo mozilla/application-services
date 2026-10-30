@@ -2,10 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::db::{LoginDb, LoginsDeletionMetrics};
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
+use crate::login::{
+    BulkResultEntry, EncryptedLogin, Login, LoginCandidate, LoginEntry, LoginEntryWithMeta,
+};
 use crate::LoginsSyncEngine;
+use db_crypto::EncryptorDecryptor;
 use parking_lot::Mutex;
 use sql_support::run_maintenance;
 use std::path::Path;
@@ -120,6 +122,43 @@ impl LoginStore {
         })
     }
 
+    /// List all logins without decrypting them.
+    ///
+    /// Unlike `list()` this never touches the encryption key, so consumers which only need the
+    /// cleartext fields to decide which logins they care about can filter without forcing the
+    /// user to authenticate.  Feed the ids of the matches to `get_many()`.
+    #[handle_error(Error)]
+    pub fn list_candidates(&self) -> ApiResult<Vec<LoginCandidate>> {
+        Ok(self
+            .lock_db()?
+            .get_all()?
+            .into_iter()
+            .map(LoginCandidate::from)
+            .collect())
+    }
+
+    /// Like `list_candidates()`, but only the logins whose origin is one of `origins`, or whose
+    /// host is one of `domains` or a subdomain of one.
+    ///
+    /// This is meant as a pre-filter for consumers who have their own origin matching rules:
+    /// pass every origin you would accept (eg, the `http://` variant too if you allow scheme
+    /// upgrades) and the base domain of each host you would accept subdomains of, then run your
+    /// own matching over the result.  Working out the base domain is up to the caller, since
+    /// this component has no copy of the Public Suffix List.
+    #[handle_error(Error)]
+    pub fn list_candidates_by_origin(
+        &self,
+        origins: Vec<String>,
+        domains: Vec<String>,
+    ) -> ApiResult<Vec<LoginCandidate>> {
+        Ok(self
+            .lock_db()?
+            .get_by_origins_or_domains(&origins, &domains)?
+            .into_iter()
+            .map(LoginCandidate::from)
+            .collect())
+    }
+
     #[handle_error(Error)]
     pub fn count(&self) -> ApiResult<i64> {
         self.lock_db()?.count_all()
@@ -146,6 +185,20 @@ impl LoginStore {
             },
             Err(err) => Err(err),
         }
+    }
+
+    /// Get the logins with the given ids, decrypting them.
+    ///
+    /// This is the other half of `list_candidates()`: having filtered on the cleartext fields,
+    /// only pay for decrypting the logins which actually matched.  Ids we don't have a login for
+    /// are skipped; a login we can't decrypt fails the call, as it does for `list()`.
+    #[handle_error(Error)]
+    pub fn get_many(&self, ids: Vec<String>) -> ApiResult<Vec<Login>> {
+        let db = self.lock_db()?;
+        db.get_many(&ids)?
+            .into_iter()
+            .map(|login| login.decrypt(db.encdec.as_ref()))
+            .collect()
     }
 
     #[handle_error(Error)]
@@ -389,8 +442,10 @@ impl Default for RunMaintenanceOptions {
 mod tests {
     use super::*;
     use crate::util;
+    use db_crypto::{create_key, KeyManager, ManagedEncryptorDecryptor};
     use nss_as::ensure_initialized;
     use std::cmp::Reverse;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::SystemTime;
 
     fn assert_logins_equiv(a: &LoginEntry, b: &Login) {
@@ -417,8 +472,8 @@ mod tests {
             form_action_origin: Some("https://www.example.com".into()),
             username_field: "user_input".into(),
             password_field: "pass_input".into(),
-            username: "coolperson21".into(),
-            password: "p4ssw0rd".into(),
+            username: "user".into(),
+            password: "password".into(),
             ..Default::default()
         };
 
@@ -573,6 +628,180 @@ mod tests {
         assert!(store.db.lock().is_none());
     }
 
+    /// A `KeyManager` which counts how often it was asked for the key, so we can prove
+    /// `list_candidates()` never asks.
+    struct CountingKeyManager {
+        key: String,
+        calls: AtomicUsize,
+    }
+
+    impl KeyManager for CountingKeyManager {
+        fn get_key(&self) -> db_crypto::ApiResult<Vec<u8>> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(self.key.as_bytes().into())
+        }
+    }
+
+    fn store_with_encdec(encdec: Arc<dyn EncryptorDecryptor>) -> LoginStore {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        LoginStore::new_from_db(LoginDb::with_connection(conn, encdec).unwrap())
+    }
+
+    fn test_entry(origin: &str, username: &str) -> LoginEntry {
+        LoginEntry {
+            origin: origin.into(),
+            http_realm: Some("Some Realm".into()),
+            username: username.into(),
+            password: "p4ssw0rd".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_list_candidates_does_not_need_the_key() {
+        ensure_initialized();
+
+        let key_manager = Arc::new(CountingKeyManager {
+            key: create_key().unwrap(),
+            calls: AtomicUsize::new(0),
+        });
+        let store = store_with_encdec(Arc::new(ManagedEncryptorDecryptor::new(
+            key_manager.clone(),
+        )));
+
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let b = store
+            .add(test_entry("https://www.b.com", "b-user"))
+            .unwrap();
+
+        // Adding needed the key; listing the candidates must not.
+        assert!(key_manager.calls.load(Ordering::SeqCst) > 0);
+        key_manager.calls.store(0, Ordering::SeqCst);
+
+        let mut candidates = store.list_candidates().unwrap();
+        assert_eq!(key_manager.calls.load(Ordering::SeqCst), 0);
+
+        candidates.sort_by(|l, r| l.origin.cmp(&r.origin));
+        assert_eq!(candidates.len(), 2);
+        for (candidate, login) in candidates.iter().zip([&a, &b]) {
+            assert_eq!(candidate.id, login.id);
+            assert_eq!(candidate.origin, login.origin);
+            assert_eq!(candidate.http_realm, login.http_realm);
+            assert_eq!(candidate.form_action_origin, login.form_action_origin);
+            assert_eq!(candidate.username_field, login.username_field);
+            assert_eq!(candidate.password_field, login.password_field);
+            assert_eq!(candidate.times_used, login.times_used);
+            assert_eq!(candidate.time_created, login.time_created);
+            assert_eq!(candidate.time_last_used, login.time_last_used);
+            assert_eq!(candidate.time_password_changed, login.time_password_changed);
+            assert_eq!(
+                candidate.time_last_breach_alert_dismissed,
+                login.time_last_breach_alert_dismissed
+            );
+        }
+    }
+
+    #[test]
+    fn test_list_candidates_by_origin() {
+        ensure_initialized();
+
+        let key_manager = Arc::new(CountingKeyManager {
+            key: create_key().unwrap(),
+            calls: AtomicUsize::new(0),
+        });
+        let store = store_with_encdec(Arc::new(ManagedEncryptorDecryptor::new(
+            key_manager.clone(),
+        )));
+
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let sub_a = store
+            .add(test_entry("https://login.sub.a.com", "sub-a-user"))
+            .unwrap();
+        let b = store.add(test_entry("http://b.com", "b-user")).unwrap();
+        store
+            .add(test_entry("https://www.c.com", "c-user"))
+            .unwrap();
+        key_manager.calls.store(0, Ordering::SeqCst);
+
+        let mut ids: Vec<String> = store
+            .list_candidates_by_origin(vec!["http://b.com".into()], vec!["a.com".into()])
+            .unwrap()
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
+        ids.sort_unstable();
+        let mut expected = vec![a.id, sub_a.id, b.id];
+        expected.sort_unstable();
+        assert_eq!(ids, expected);
+
+        // Like `list_candidates()`, this must not need the key.
+        assert_eq!(key_manager.calls.load(Ordering::SeqCst), 0);
+
+        assert!(store
+            .list_candidates_by_origin(vec![], vec![])
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_get_many() {
+        ensure_initialized();
+
+        let store = LoginStore::new_in_memory();
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let b = store
+            .add(test_entry("https://www.b.com", "b-user"))
+            .unwrap();
+        store
+            .add(test_entry("https://www.c.com", "c-user"))
+            .unwrap();
+
+        assert_eq!(store.get_many(vec![]).unwrap(), vec![]);
+
+        // Ids we don't know about are skipped rather than being an error.  Note the results come
+        // back in the db's order, not the order of the ids we asked for.
+        let mut got = store
+            .get_many(vec![b.id.clone(), "no-such-guid".to_string(), a.id.clone()])
+            .unwrap();
+        got.sort_by(|l, r| l.origin.cmp(&r.origin));
+        assert_eq!(got, vec![a, b]);
+    }
+
+    #[test]
+    fn test_get_many_with_an_undecryptable_login() {
+        ensure_initialized();
+
+        let store = LoginStore::new_in_memory();
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let b = store
+            .add(test_entry("https://www.b.com", "b-user"))
+            .unwrap();
+
+        store
+            .lock_db()
+            .unwrap()
+            .db
+            .execute(
+                "UPDATE loginsL SET secFields = 'not-a-ciphertext' WHERE guid = ?",
+                [&b.id],
+            )
+            .unwrap();
+
+        // As with `list()`, one login we can't read fails the whole call.
+        assert!(matches!(
+            store.get_many(vec![a.id.clone(), b.id]),
+            Err(LoginsApiError::UnexpectedLoginsApiError { .. })
+        ));
+    }
+
     #[test]
     fn test_delete_undecryptable_records_for_remote_replacement() {
         ensure_initialized();
@@ -605,13 +834,13 @@ mod tests_keydb {
 
     #[async_trait]
     impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
-        async fn get_primary_password(&self) -> ApiResult<String> {
+        async fn get_primary_password(&self) -> db_crypto::ApiResult<String> {
             Ok(self.password.clone())
         }
-        async fn on_authentication_success(&self) -> ApiResult<()> {
+        async fn on_authentication_success(&self) -> db_crypto::ApiResult<()> {
             Ok(())
         }
-        async fn on_authentication_failure(&self) -> ApiResult<()> {
+        async fn on_authentication_failure(&self) -> db_crypto::ApiResult<()> {
             Ok(())
         }
     }
@@ -629,7 +858,10 @@ mod tests_keydb {
         let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
-        let key_manager = NSSKeyManager::new(Arc::new(primary_password_authenticator));
+        let key_manager = NSSKeyManager::new(
+            crate::KEY_NAME.to_string(),
+            Arc::new(primary_password_authenticator),
+        );
         let encdec = ManagedEncryptorDecryptor::new(Arc::new(key_manager));
         let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
             .expect("store from fixtures");

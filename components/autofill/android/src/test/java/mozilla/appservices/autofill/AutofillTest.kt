@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import mozilla.appservices.RustComponentsInitializer
 import mozilla.appservices.autofill.Store
+import mozilla.appservices.autofill.createAutofillStoreWithStaticKeyManager
+import mozilla.appservices.autofill.createKey
 import mozilla.appservices.syncmanager.SyncManager
 import org.junit.Assert
 import org.junit.Rule
@@ -20,8 +23,12 @@ class AutofillTest {
     val dbFolder = TemporaryFolder()
 
     fun createTestStore(): Store {
+        RustComponentsInitializer.init()
         val dbPath = dbFolder.newFile()
-        return Store(dbpath = dbPath.absolutePath)
+        return createAutofillStoreWithStaticKeyManager(
+            path = dbPath.absolutePath,
+            key = createKey(),
+        )
     }
 
     @Test

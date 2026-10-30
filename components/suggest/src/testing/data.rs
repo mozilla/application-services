@@ -21,7 +21,8 @@ pub fn los_pollos_amp() -> JsonValue {
         "icon": "los-pollos-favicon",
         "impression_url": "https://example.com/impression_url",
         "click_url": "https://example.com/click_url",
-        "score": 0.3
+        "score": 0.3,
+        "suggestion_id": "11111111-1111-1111-1111-111111111111"
     })
 }
 
@@ -53,6 +54,7 @@ pub fn los_pollos_suggestion(
         score: 0.3,
         full_keyword: full_keyword.to_string(),
         fts_match_info,
+        suggestion_id: "11111111-1111-1111-1111-111111111111".into(),
     }
 }
 
@@ -67,7 +69,8 @@ pub fn good_place_eats_amp() -> JsonValue {
         "url": "https://www.lasagna.restaurant",
         "icon": "good-place-eats-favicon",
         "impression_url": "https://example.com/impression_url",
-        "click_url": "https://example.com/click_url"
+        "click_url": "https://example.com/click_url",
+        "suggestion_id": "22222222-2222-2222-2222-222222222222"
     })
 }
 
@@ -99,6 +102,7 @@ pub fn good_place_eats_suggestion(
         raw_click_url: "https://example.com/click_url".into(),
         score: 0.2,
         fts_match_info,
+        suggestion_id: "22222222-2222-2222-2222-222222222222".into(),
     }
 }
 

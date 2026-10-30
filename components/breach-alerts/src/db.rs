@@ -10,11 +10,11 @@ use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
 use sql_support::open_database::open_database_with_flags;
+use sql_support::path::normalize_database_path;
 use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use url::Url;
 
 /// The inner database connection state, allowing graceful close handling.
 pub enum BreachAlertsDbInner {
@@ -30,7 +30,7 @@ pub struct BreachAlertsDb {
 impl BreachAlertsDb {
     /// Create a new, or fetch an already open, BreachAlertsDb backed by a file on disk.
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
-        let db_path = normalize_path(db_path)?;
+        let db_path = normalize_database_path(db_path)?;
         Self::new_named(db_path)
     }
 
@@ -147,61 +147,6 @@ pub fn delete_meta(db: &Connection, key: &str) -> Result<()> {
     db.conn()
         .execute_cached("DELETE FROM meta WHERE key = :key", &[(":key", &key)])?;
     Ok(())
-}
-
-// Utilities for working with paths.
-// (From places_utils - ideally these would be shared, but the use of
-// ErrorKind values makes that non-trivial.
-
-/// `Path` is basically just a `str` with no validation, and so in practice it
-/// could contain a file URL. Rusqlite takes advantage of this a bit, and says
-/// `AsRef<Path>` but really means "anything sqlite can take as an argument".
-///
-/// Swift loves using file urls (the only support it has for file manipulation
-/// is through file urls), so it's handy to support them if possible.
-fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
-    p.as_ref()
-        .to_str()
-        .and_then(|s| Url::parse(s).ok())
-        .and_then(|u| {
-            if u.scheme() == "file" {
-                u.to_file_path().ok()
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| p.as_ref().to_owned())
-}
-
-/// As best as possible, convert `p` into an absolute path, resolving
-/// all symlinks along the way.
-///
-/// If `p` is a file url, it's converted to a path before this.
-fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
-    let path = unurl_path(p);
-    if let Ok(canonical) = path.canonicalize() {
-        return Ok(canonical);
-    }
-    // It probably doesn't exist yet. This is an error, although it seems to
-    // work on some systems.
-    //
-    // We resolve this by trying to canonicalize the parent directory, and
-    // appending the requested file name onto that. If we can't canonicalize
-    // the parent, we return an error.
-    //
-    // Also, we return errors if the path ends in "..", if there is no
-    // parent directory, etc.
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| Error::IllegalDatabasePath(path.clone()))?;
-
-    let parent = path
-        .parent()
-        .ok_or_else(|| Error::IllegalDatabasePath(path.clone()))?;
-
-    let mut canonical = parent.canonicalize()?;
-    canonical.push(file_name);
-    Ok(canonical)
 }
 
 // Helpers for tests

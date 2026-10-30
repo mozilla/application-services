@@ -16,6 +16,7 @@ members = [
     #"components/example/cli",
     "components/filter_adult",
     "components/fxa-client",
+    "components/fxcontainers",
     "components/init_rust_components",
     "components/logins",
     "components/merino",
@@ -28,6 +29,7 @@ members = [
     "components/search",
     "components/suggest",
     "components/suggest/suggest-bench",
+    "components/support/db-crypto",
     "components/support/error",
     "components/support/error/tests",
     "components/support/find-places-db",
@@ -53,7 +55,7 @@ members = [
     "components/support/url-macro",
     "components/support/url-macro/tests",
     "components/support/viaduct-dev",
-    "components/support/viaduct-hyper",
+    "components/support/viaduct-backend-rust",
     "components/sync_manager",
     "components/sync15",
     "components/tabs",
@@ -114,6 +116,7 @@ default-members = [
     "components/crashtest",
     "components/event_based_sync_engine",
     "components/fxa-client",
+    "components/fxcontainers",
     "components/init_rust_components",
     "components/logins",
     "components/nimbus",
@@ -164,9 +167,9 @@ lto = "thin"
 
 [patch.crates-io]
 # uniffi is using an experimental ffi based on 0.31.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
-uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
+uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
 # dummy crates for m-c integration hacks.
 mozilla-central-workspace-hack = { path = "monorepo-hacks/workspace-hack" }
 mozbuild = { path = "monorepo-hacks/mozbuild" }

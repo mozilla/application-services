@@ -36,6 +36,15 @@ pub enum Error {
     DatabaseConnectionClosed,
 }
 
+impl From<sql_support::path::Error> for Error {
+    fn from(e: sql_support::path::Error) -> Self {
+        match e {
+            sql_support::path::Error::IllegalDatabasePath(path) => Error::IllegalDatabasePath(path),
+            sql_support::path::Error::IoError(e) => Error::IoError(e),
+        }
+    }
+}
+
 /// Result for the public API.
 pub type ApiResult<T> = std::result::Result<T, BreachAlertsApiError>;
 

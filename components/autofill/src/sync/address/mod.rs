@@ -15,6 +15,7 @@ use super::{
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
 use crate::sync_merge_field_check;
+use db_crypto::EncryptorDecryptor;
 use incoming::IncomingAddressesImpl;
 use name_utils::{split_name, NameParts};
 use outgoing::OutgoingAddressesImpl;
@@ -41,9 +42,8 @@ pub(super) struct AddressesEngineStorageImpl {}
 impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     fn get_incoming_impl(
         &self,
-        enc_key: &Option<String>,
+        _encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>>> {
-        assert!(enc_key.is_none());
         Ok(Box::new(IncomingAddressesImpl {}))
     }
 
@@ -57,9 +57,8 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
 
     fn get_outgoing_impl(
         &self,
-        enc_key: &Option<String>,
+        _encdec: &Arc<dyn EncryptorDecryptor>,
     ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalAddress>>> {
-        assert!(enc_key.is_none());
         Ok(Box::new(OutgoingAddressesImpl {}))
     }
 }
@@ -132,9 +131,9 @@ impl InternalAddress {
             tel: p.entry.tel,
             email: p.entry.email,
             metadata: Metadata {
-                time_created: p.entry.time_created,
-                time_last_used: p.entry.time_last_used,
-                time_last_modified: p.entry.time_last_modified,
+                time_created: p.entry.time_created.sanitized(),
+                time_last_used: p.entry.time_last_used.sanitized(),
+                time_last_modified: p.entry.time_last_modified.sanitized(),
                 times_used: p.entry.times_used,
                 sync_change_counter: 0,
             },
@@ -243,4 +242,28 @@ fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
     local_record_data.metadata.sync_change_counter = 1;
 
     local_record_data
+}
+
+/// Surface 3: the sync server is a source we cannot refuse. A record whose
+/// timestamps are not representable dates must be repaired on the way in, not
+/// stored and then allowed to win every "latest wins" merge.
+#[test]
+fn test_from_payload_sanitizes_out_of_range_timestamps() {
+    let mut payload = InternalAddress {
+        street_address: "123 Main Street".to_string(),
+        ..Default::default()
+    }
+    .into_payload()
+    .unwrap();
+
+    // the value from bug 2066257, a u64-reinterpreted negative, and one just
+    // past the largest date a JS `Date` can hold.
+    payload.entry.time_created = Timestamp(18446744071857664);
+    payload.entry.time_last_used = Timestamp(u64::MAX);
+    payload.entry.time_last_modified = Timestamp(types::MAX_DATE_MS as u64 + 1);
+
+    let address = InternalAddress::from_payload(payload).unwrap();
+    assert_eq!(address.metadata.time_created.as_millis(), 0);
+    assert_eq!(address.metadata.time_last_used.as_millis(), 0);
+    assert_eq!(address.metadata.time_last_modified.as_millis(), 0);
 }

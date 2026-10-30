@@ -14,9 +14,9 @@ the details of which are reproduced below.
 * [MIT License: extend](#mit-license-extend)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
-* [MIT License: h2](#mit-license-h2)
-* [MIT License: http-body](#mit-license-http-body)
+* [MIT License: http-body, http-body-util](#mit-license-http-body-http-body-util)
 * [MIT License: hyper](#mit-license-hyper)
+* [MIT License: hyper-util](#mit-license-hyper-util)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
@@ -24,14 +24,13 @@ the details of which are reproduced below.
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: sharded-slab](#mit-license-sharded-slab)
-* [MIT License: slab](#mit-license-slab)
 * [MIT License: smawk](#mit-license-smawk)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio](#mit-license-tokio)
 * [MIT License: tokio-native-tls, tracing, tracing-attributes, tracing-core, tracing-subscriber](#mit-license-tokio-native-tls-tracing-tracing-attributes-tracing-core-tracing-subscriber)
-* [MIT License: tokio-util](#mit-license-tokio-util)
-* [MIT License: tower-service](#mit-license-tower-service)
+* [MIT License: tower, tower-layer, tower-service](#mit-license-tower-tower-layer-tower-service)
+* [MIT License: tower-http](#mit-license-tower-http)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle2](#mit-license-weedle2)
@@ -450,8 +449,10 @@ The following text applies to code linked from these dependencies:
 [anyhow](https://github.com/dtolnay/anyhow),
 [askama](https://github.com/askama-rs/askama),
 [askama_derive](https://github.com/askama-rs/askama),
+[askama_macros](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
 [async-trait](https://github.com/dtolnay/async-trait),
+[atomic-waker](https://github.com/smol-rs/atomic-waker),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -481,12 +482,10 @@ The following text applies to code linked from these dependencies:
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [find-msvc-tools](https://github.com/rust-lang/cc-rs),
-[fnv](https://github.com/servo/rust-fnv),
 [form_urlencoded](https://github.com/servo/rust-url),
 [fs-err](https://github.com/andrewhickman/fs-err),
 [futures-channel](https://github.com/rust-lang/futures-rs),
 [futures-core](https://github.com/rust-lang/futures-rs),
-[futures-sink](https://github.com/rust-lang/futures-rs),
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
@@ -497,7 +496,6 @@ The following text applies to code linked from these dependencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
-[httpdate](https://github.com/pyfisch/httpdate),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
 [iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
@@ -505,6 +503,7 @@ The following text applies to code linked from these dependencies:
 [idna_adapter](https://github.com/hsivonen/idna_adapter),
 [indexmap](https://github.com/indexmap-rs/indexmap),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
+[ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
@@ -514,9 +513,8 @@ The following text applies to code linked from these dependencies:
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
-[native-tls](https://github.com/sfackler/rust-native-tls),
+[native-tls](https://github.com/rust-native-tls/rust-native-tls),
 [num-traits](https://github.com/rust-num/num-traits),
-[num_cpus](https://github.com/seanmonstar/num_cpus),
 [ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
@@ -536,9 +534,11 @@ The following text applies to code linked from these dependencies:
 [regex-automata](https://github.com/rust-lang/regex/tree/master/regex-automata),
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
+[reqwest](https://github.com/seanmonstar/reqwest),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
+[rustls-pki-types](https://github.com/rustls/pki-types),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
@@ -559,6 +559,7 @@ The following text applies to code linked from these dependencies:
 [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
+[sync_wrapper](https://github.com/Actyx/sync_wrapper),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
@@ -574,7 +575,8 @@ The following text applies to code linked from these dependencies:
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
 [xshell-macros](https://github.com/matklad/xshell),
-[xshell](https://github.com/matklad/xshell)
+[xshell](https://github.com/matklad/xshell),
+[zeroize](https://github.com/RustCrypto/utils/tree/master/zeroize)
 
 ```
                               Apache License
@@ -1026,47 +1028,14 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: h2
+## MIT License: http-body, http-body-util
 
 The following text applies to code linked from these dependencies:
-[h2](https://github.com/hyperium/h2)
-
-```
-Copyright (c) 2017 h2 authors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: http-body
-
-The following text applies to code linked from these dependencies:
+[http-body-util](https://github.com/hyperium/http-body),
 [http-body](https://github.com/hyperium/http-body)
 
 ```
-Copyright (c) 2019 Hyper Contributors
+Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1100,7 +1069,35 @@ The following text applies to code linked from these dependencies:
 [hyper](https://github.com/hyperium/hyper)
 
 ```
-Copyright (c) 2014-2021 Sean McArthur
+Copyright (c) 2014-2026 Sean McArthur
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+-------------
+## MIT License: hyper-util
+
+The following text applies to code linked from these dependencies:
+[hyper-util](https://github.com/hyperium/hyper-util)
+
+```
+Copyright (c) 2023-2025 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1330,40 +1327,6 @@ THE SOFTWARE.
 
 ```
 -------------
-## MIT License: slab
-
-The following text applies to code linked from these dependencies:
-[slab](https://github.com/tokio-rs/slab)
-
-```
-Copyright (c) 2019 Carl Lerche
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-```
--------------
 ## MIT License: smawk
 
 The following text applies to code linked from these dependencies:
@@ -1446,31 +1409,27 @@ The following text applies to code linked from these dependencies:
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
-Copyright (c) 2023 Tokio Contributors
+MIT License
 
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
+Copyright (c) Tokio Contributors
 
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------
@@ -1512,13 +1471,15 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio-util
+## MIT License: tower, tower-layer, tower-service
 
 The following text applies to code linked from these dependencies:
-[tokio-util](https://github.com/tokio-rs/tokio)
+[tower-layer](https://github.com/tower-rs/tower),
+[tower-service](https://github.com/tower-rs/tower),
+[tower](https://github.com/tower-rs/tower)
 
 ```
-Copyright (c) 2022 Tokio Contributors
+Copyright (c) 2019 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1546,13 +1507,13 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tower-service
+## MIT License: tower-http
 
 The following text applies to code linked from these dependencies:
-[tower-service](https://github.com/tower-rs/tower)
+[tower-http](https://github.com/tower-rs/tower-http)
 
 ```
-Copyright (c) 2019 Tower Contributors
+Copyright (c) 2019-2021 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated

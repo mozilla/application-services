@@ -333,6 +333,7 @@ impl<'a> SuggestDao<'a> {
                       amp.iab_category,
                       amp.impression_url,
                       amp.click_url,
+                      amp.moz_suggestion_id,
                       i.data AS icon,
                       i.mimetype AS icon_mimetype
                     FROM
@@ -368,6 +369,7 @@ impl<'a> SuggestDao<'a> {
                             raw_click_url,
                             score,
                             fts_match_info: None,
+                            suggestion_id: row.get("moz_suggestion_id")?,
                         })
                     },
                 )
@@ -422,6 +424,7 @@ impl<'a> SuggestDao<'a> {
                       amp.iab_category,
                       amp.impression_url,
                       amp.click_url,
+                      amp.moz_suggestion_id,
                       i.data AS icon,
                       i.mimetype AS icon_mimetype
                     FROM
@@ -463,6 +466,7 @@ impl<'a> SuggestDao<'a> {
                             raw_click_url,
                             score,
                             fts_match_info: Some(match_info),
+                            suggestion_id: row.get("moz_suggestion_id")?,
                         })
                     },
                 )
@@ -1436,9 +1440,10 @@ impl<'conn> AmpInsertStatement<'conn> {
                  iab_category,
                  impression_url,
                  click_url,
-                 icon_id
+                 icon_id,
+                 moz_suggestion_id
              )
-             VALUES(?, ?, ?, ?, ?, ?, ?)
+             VALUES(?, ?, ?, ?, ?, ?, ?, ?)
              ",
         )?))
     }
@@ -1453,6 +1458,7 @@ impl<'conn> AmpInsertStatement<'conn> {
                 &amp.impression_url,
                 &amp.click_url,
                 &amp.icon_id,
+                &amp.suggestion_id,
             ))
             .with_context("amp insert")?;
         Ok(())

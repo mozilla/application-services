@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 45;
+pub const VERSION: u32 = 46;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -108,6 +108,7 @@ CREATE TABLE amp_custom_details(
     impression_url TEXT NOT NULL,
     click_url TEXT NOT NULL,
     icon_id TEXT NOT NULL,
+    moz_suggestion_id TEXT NOT NULL,
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
 
@@ -831,6 +832,26 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                     DROP TRIGGER IF EXISTS fakespot_ai;
                     DROP TABLE IF EXISTS fakespot_custom_details;
                     DROP TABLE IF EXISTS fakespot_fts;
+                    ",
+                )?;
+                Ok(())
+            }
+            45 => {
+                clear_database(tx)?;
+                tx.execute_batch(
+                    "
+                    DROP TABLE amp_custom_details;
+                    CREATE TABLE amp_custom_details(
+                        suggestion_id INTEGER PRIMARY KEY,
+                        advertiser TEXT NOT NULL,
+                        block_id INTEGER NOT NULL,
+                        iab_category TEXT NOT NULL,
+                        impression_url TEXT NOT NULL,
+                        click_url TEXT NOT NULL,
+                        icon_id TEXT NOT NULL,
+                        moz_suggestion_id TEXT NOT NULL,
+                        FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+                    );
                     ",
                 )?;
                 Ok(())

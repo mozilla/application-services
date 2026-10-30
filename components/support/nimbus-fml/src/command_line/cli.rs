@@ -33,6 +33,9 @@ pub enum Command {
     /// Validate an FML configuration and all of its channels.
     Validate(Validate),
 
+    /// Check an FML configuration against the Nimbus feature design lints.
+    Lint(Lint),
+
     /// Print out all the channels to stdout, as JSON or one-per-line
     Channels(Channels),
 
@@ -117,6 +120,40 @@ pub struct Validate {
 
     #[command(flatten)]
     pub loader_info: LoaderInfo,
+}
+
+#[derive(Args)]
+pub struct Lint {
+    /// Sets the input file to use
+    #[arg(value_name = "INPUT", required_unless_present = "list")]
+    pub input: Option<String>,
+
+    #[command(flatten)]
+    pub loader_info: LoaderInfo,
+
+    /// Switch a lint off for this run. May be repeated.
+    #[arg(long, value_name = "LINT")]
+    pub allow: Vec<String>,
+
+    /// Turn a lint into an error for this run. May be repeated.
+    #[arg(long, value_name = "LINT")]
+    pub deny: Vec<String>,
+
+    /// Exit with an error if there are any warnings.
+    #[arg(long)]
+    pub error_on_warning: bool,
+
+    /// Also lint the features of imported manifests.
+    #[arg(long)]
+    pub include_imports: bool,
+
+    /// If present, then print the findings as JSON.
+    #[arg(long)]
+    pub json: bool,
+
+    /// Print the available lints and exit.
+    #[arg(long)]
+    pub list: bool,
 }
 
 #[derive(Args)]

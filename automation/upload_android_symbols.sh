@@ -22,5 +22,6 @@ if [ ! -d "${SYMBOLS_DIR}" ]; then
     exit 1
 fi
 
-pip3 install --user -r automation/symbols-generation/requirements.txt
-python3 automation/symbols-generation/upload_symbols.py "${SYMBOLS_DIR}" -t "$PWD/.symbols_upload_token"
+python3 -m venv upload-android-symbols-venv
+upload-android-symbols-venv/bin/pip3 install -r automation/symbols-generation/requirements.txt
+upload-android-symbols-venv/bin/python3 automation/symbols-generation/upload_symbols.py "${SYMBOLS_DIR}" -t "$PWD/.symbols_upload_token"

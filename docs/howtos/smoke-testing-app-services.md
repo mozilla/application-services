@@ -11,9 +11,11 @@ Run `pip3 install -r automation/requirements.txt` to install the required Python
 
 You can easily run a smoke test against iOS and Fenix by running the following:
 
-`./automation/build_against_all.py --firefox-dir ../firefox --action build-without-testing --allow-clears`
+`./automation/build_against_all.py --firefox-dir ../firefox --as-commit [HEX] --action build-without-testing --allow-clears`
 
 - In this case, `firefox-dir` must point to a bootstrapped and working installation of `mozilla-central` ([see instructions here](https://firefox-source-docs.mozilla.org/contributing/contribution_quickref.html)). It is used for the compilation and test of the Android and HNT builds.
+
+- `--as-commit [HEX]` must refer to an existing `application-services` commit to be vendored. You should make this `application-services` commit first. This will only apply to the vendor for the Desktop run- the Fenix run and iOS run can be build using local uncommitted code.
 
 - The `--action` argument can be either `build-without-testing` or `run-tests`.
 

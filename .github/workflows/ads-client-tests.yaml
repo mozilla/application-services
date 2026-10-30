@@ -42,3 +42,13 @@ jobs:
           NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
           NSS_STATIC: 1
         run: cargo test -p ads-client-integration-tests -- --ignored
+      - name: Run ads-client unit tests with feature flag enabled
+        env:
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1
+        run: cargo test -p ads-client --features stateful
+      - name: Run ads-client integration tests against MARS staging with feature flag enabled
+        env:
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1
+        run: cargo test -p ads-client-integration-tests --features stateful -- --ignored

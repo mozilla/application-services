@@ -4,10 +4,8 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{
-    encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager},
-    ApiResult as LoginResult, Login, LoginEntry, LoginStore,
-};
+use db_crypto::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
+use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
 use std::sync::Arc;
 use std::{collections::hash_map::RandomState, collections::HashMap};
 

@@ -8,8 +8,7 @@ use crate::api::matcher::{self, search_frecent, SearchParams};
 pub use crate::api::places_api::places_api_new;
 pub use crate::error::{warn, Result};
 pub use crate::error::{ApiResult, PlacesApiError};
-#[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-use crate::glean_metrics::places_manager;
+use crate::glean_metrics;
 pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
 use crate::storage;
@@ -20,7 +19,6 @@ pub use crate::storage::history_metadata::{
     HistoryMetadataObservation, HistoryMetadataPageMissingBehavior,
     NoteHistoryMetadataObservationOptions,
 };
-pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
@@ -54,39 +52,6 @@ pub type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
 pub type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
 pub use crate::storage::bookmarks::fetch::BookmarkData;
 
-uniffi::custom_type!(Url, String, {
-    remote,
-    try_lift: |val| {
-        match Url::parse(val.as_str()) {
-            Ok(url) => Ok(url),
-            Err(e) => Err(PlacesApiError::UrlParseFailed {
-                reason: e.to_string(),
-            }
-            .into()),
-        }
-    },
-    lower: |obj| obj.into(),
-});
-
-uniffi::custom_type!(PlacesTimestamp, i64, {
-    remote,
-    try_lift: |val| Ok(PlacesTimestamp(val as u64)),
-    lower: |obj| obj.as_millis() as i64,
-});
-
-uniffi::custom_type!(VisitTransitionSet, i32, {
-    try_lift: |val| {
-        Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
-    },
-    lower: |obj| VisitTransitionSet::into_u16(obj) as i32,
-});
-
-uniffi::custom_type!(Guid, String, {
-    remote,
-    try_lift: |val| Ok(Guid::new(val.as_str())),
-    lower: |obj| obj.into(),
-});
-
 // Check for multiple write connections open at the same time
 //
 // One potential cause of #5040 is that Fenix is somehow opening multiiple write connections to
@@ -113,9 +78,6 @@ pub struct PlacesConnection {
 
 impl PlacesConnection {
     pub fn new(db: PlacesDb) -> Self {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::connection_initialized.add(1);
-
         Self {
             interrupt_handle: db.new_interrupt_handle(),
             db: Mutex::new(db),
@@ -384,55 +346,45 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
-    pub fn run_maintenance_prune(
-        &self,
-        db_size_limit: u32,
-        prune_limit: u32,
-    ) -> ApiResult<RunMaintenanceMetrics> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_prune_time_temp.start();
+    pub fn run_maintenance(&self, options: PlacesRunMaintenanceOptions) -> ApiResult<()> {
+        let timer_id = glean_metrics::places_manager::run_maintenance_time.start();
+
+        self.run_maintenance_prune(options.db_size_limit, options.prune_limit)?;
+        self.run_maintenance_vacuum()?;
+        self.run_maintenance_optimize()?;
+        self.run_maintenance_checkpoint()?;
+
+        glean_metrics::places_manager::run_maintenance_time.stop_and_accumulate(timer_id);
+
+        Ok(())
+    }
+
+    fn run_maintenance_prune(&self, db_size_limit: u32, prune_limit: u32) -> Result<()> {
+        let timer_id = glean_metrics::places_manager::run_maintenance_prune_time.start();
         let res =
             self.with_conn(|conn| storage::run_maintenance_prune(conn, db_size_limit, prune_limit));
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_prune_time_temp.stop_and_accumulate(timer_id);
-
+        glean_metrics::places_manager::run_maintenance_prune_time.stop_and_accumulate(timer_id);
         res
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_vacuum(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_vacuum_time_temp.start();
+    fn run_maintenance_vacuum(&self) -> Result<()> {
+        let timer_id = glean_metrics::places_manager::run_maintenance_vacuum_time.start();
         let res = self.with_conn(storage::run_maintenance_vacuum);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_vacuum_time_temp.stop_and_accumulate(timer_id);
-
+        glean_metrics::places_manager::run_maintenance_vacuum_time.stop_and_accumulate(timer_id);
         res
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_optimize(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_optimize_time_temp.start();
-        let res = self.with_conn(storage::run_maintenance_optimize);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_optimize_time_temp.stop_and_accumulate(timer_id);
-
-        res
+    fn run_maintenance_optimize(&self) -> Result<()> {
+        let timer_id = glean_metrics::places_manager::run_maintenance_optimize_time.start();
+        self.with_conn(storage::run_maintenance_optimize)?;
+        glean_metrics::places_manager::run_maintenance_optimize_time.stop_and_accumulate(timer_id);
+        Ok(())
     }
 
-    #[handle_error(crate::Error)]
-    pub fn run_maintenance_checkpoint(&self) -> ApiResult<()> {
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        let timer_id = places_manager::run_maintenance_chk_pnt_time_temp.start();
+    fn run_maintenance_checkpoint(&self) -> Result<()> {
+        let timer_id = glean_metrics::places_manager::run_maintenance_chk_pnt_time.start();
         let res = self.with_conn(storage::run_maintenance_checkpoint);
-
-        #[cfg(all(feature = "glean-sym", any(target_os = "android", target_os = "ios")))]
-        places_manager::run_maintenance_chk_pnt_time_temp.stop_and_accumulate(timer_id);
-
+        glean_metrics::places_manager::run_maintenance_chk_pnt_time.stop_and_accumulate(timer_id);
         res
     }
 
@@ -621,6 +573,11 @@ pub struct SearchResult {
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
 pub struct Dummy {
     pub md: Option<Vec<HistoryMetadata>>,
+}
+
+pub struct PlacesRunMaintenanceOptions {
+    pub db_size_limit: u32,
+    pub prune_limit: u32,
 }
 
 #[cfg(test)]

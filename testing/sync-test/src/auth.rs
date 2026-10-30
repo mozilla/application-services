@@ -4,16 +4,14 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use cli_support::fxa_creds::CliFxa;
+use db_crypto::{create_key, EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager};
 use fxa_client::{Device, FxaConfig, FxaServer};
-use logins::encryption::{
-    create_key, EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager,
-};
 use logins::LoginStore;
 use std::collections::{hash_map::RandomState, HashMap};
 use std::sync::Arc;
 use sync15::{
     client::{SetupStorageClient, Sync15StorageClient},
-    DeviceType,
+    DeviceType, EngineChoicesModel,
 };
 use sync_manager::{
     manager::SyncManager, DeviceSettings, SyncEngineSelection, SyncParams, SyncReason,
@@ -33,6 +31,7 @@ pub struct TestClient {
     // XXX do this more generically...
     pub autofill_store: Arc<AutofillStore>,
     autofill_db_name: String,
+    pub key: String,
     pub logins_store: Arc<LoginStore>,
     pub encdec: Arc<dyn EncryptorDecryptor>,
     pub tabs_store: Arc<TabsStore>,
@@ -74,8 +73,12 @@ impl TestClient {
         Ok(Self {
             cli,
             device,
-            autofill_store: Arc::new(AutofillStore::new_shared_memory(autofill_db_name.as_str())?),
+            autofill_store: Arc::new(AutofillStore::new_shared_memory(
+                autofill_db_name.as_str(),
+                encdec.clone(),
+            )?),
             autofill_db_name,
+            key,
             logins_store: Arc::new(LoginStore::new(":memory:", encdec.clone())?),
             encdec,
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
@@ -99,7 +102,7 @@ impl TestClient {
             engines: SyncEngineSelection::Some {
                 engines: engines.to_vec(),
             },
-            enabled_changes: HashMap::new(),
+            engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
@@ -107,6 +110,7 @@ impl TestClient {
                 fxa_device_id: self.device.id.clone(),
                 name: self.device.display_name.clone(),
                 kind: self.device.device_type,
+                enabled_engines: vec![],
             },
         };
         let result = self.sync_manager.sync(params)?;
@@ -141,7 +145,7 @@ impl TestClient {
             engines: SyncEngineSelection::Some {
                 engines: engines.to_vec(),
             },
-            enabled_changes: HashMap::new(),
+            engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
@@ -149,6 +153,7 @@ impl TestClient {
                 fxa_device_id: self.device.id.clone(),
                 name: self.device.display_name.clone(),
                 kind: self.device.device_type,
+                enabled_engines: vec![],
             },
         };
         let result = self.sync_manager.sync(params)?;
@@ -171,9 +176,26 @@ impl TestClient {
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
-        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(&self.autofill_db_name)?);
+        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(
+            &self.autofill_db_name,
+            self.encdec.clone(),
+        )?);
         self.logins_store = Arc::new(LoginStore::new(":memory:", self.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
+        Ok(())
+    }
+
+    /// Reopen the autofill store with a different encryption key, simulating
+    /// a device whose key changed.
+    pub fn set_autofill_key(&mut self, key: String) -> Result<()> {
+        let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
+            StaticKeyManager::new(key.clone()),
+        )));
+        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(
+            &self.autofill_db_name,
+            encdec,
+        )?);
+        self.key = key;
         Ok(())
     }
 }

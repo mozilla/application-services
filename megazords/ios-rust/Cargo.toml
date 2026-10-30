@@ -11,7 +11,7 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
-viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
 fxa-client = { path = "../../components/fxa-client" }
@@ -23,7 +23,8 @@ places = { path = "../../components/places" }
 remote_settings = { path = "../../components/remote_settings", features=["telemetry-submission"] }
 suggest = { path = "../../components/suggest" }
 sync15 = { path = "../../components/sync15" }
-error-support = { path = "../../components/support/error" }
+db-crypto = { path = "../../components/support/db-crypto" }
+error-support = { path = "../../components/support/error", features = ["glean-sym"] }
 tracing-support = { path = "../../components/support/tracing" }
 sync_manager = { path = "../../components/sync_manager" }
 as-ohttp-client = { path = "../../components/as-ohttp-client" }
@@ -33,3 +34,4 @@ merino = { path = "../../components/merino" }
 context_id = { path = "../../components/context_id" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
+glean-sym = { version = "71", features = ["active"] }

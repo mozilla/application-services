@@ -83,6 +83,7 @@ fn count_panel(
                 },
                 unit,
             },
+            ..FieldConfig::default()
         },
         transformations: vec![
             Transformation::PartitionByValues {

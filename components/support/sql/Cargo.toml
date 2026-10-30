@@ -19,6 +19,10 @@ tempfile = "3.1.0"
 text-table = { path = "../text-table", optional = true }
 parking_lot = ">=0.11,<=0.12"
 rusqlite = { version = "0.37.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
+url = "2.1"
+
+[target.'cfg(target_os = "android")'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 error-support = { path = "../error", features = ["testing"] }

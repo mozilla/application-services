@@ -1,6 +1,210 @@
-# v156.0 (In progress)
+# v161.0 (In progress)
 
 [Full Changelog](In progress)
+
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
+- Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
+
+### Autofill
+
+- Fixed a crash or a silently dropped address or credit card when syncing after a sync reset or a migration into a new database: a local record that was also being downloaded could be taken as the duplicate of another incoming record with the same contents. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+
+## Breaking Changes
+
+### Autofill
+
+- **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
+
+# v160.0 (_2026-10-22_)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Viaduct
+
+- Moved the Rust-based backend away from `hyper` back to `reqwest`.
+  The new crate name is `viaduct-backend-rust`.
+  iOS will need to replace `viaductInitBackendHyper()` with `viductInitBackendRust()`
+
+### Db-Crypto, Logins, Autofill
+
+- `create_static_key_manager()` and `create_managed_encdec()` moved from `logins` and `autofill` to `db-crypto`, since both components defining them caused duplicate definitions in Swift.
+  Kotlin consumers need to import them from `mozilla.appservices.db_crypto` instead of `mozilla.appservices.logins` / `mozilla.appservices.autofill`. ([bug 2080807](https://bugzilla.mozilla.org/show_bug.cgi?id=2080807))
+
+### Autofill
+
+- **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
+- **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext. ([bug 2075563](https://bugzilla.mozilla.org/show_bug.cgi?id=2075563))
+
+### Sync Manager
+
+- `SyncParams.enabled_changes` is replaced by `engine_choices_model`. Pass `EngineChoicesModel.Account(enabledChanges)` to keep the current behaviour (in Kotlin, `EngineChoicesModel` is in `mozilla.appservices.sync15`).
+- `DeviceSettings` has a new optional `enabled_engines` field, not yet used.
+
+## ✨ What's New ✨
+
+### Error support
+
+- Wired up the error ping on iOS using glean-sym.
+
+## ✨ What's Changed ✨
+
+### Glean
+- Updated to v71.0.0 ([#7688](https://github.com/mozilla/application-services/pull/7688))
+
+### Ads-Client
+- Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.
+- Error strings passed to `MozAdsTelemetry` are cut to 255 bytes, Glean's string limit ([bug 2047640](https://bugzilla.mozilla.org/show_bug.cgi?id=2047640)).
+- `request_spoc_or_image_ads` is added to return ads that may ambiguously be spocs or images.
+- Added support for relevance scores ([AC-205](https://mozilla-hub.atlassian.net/browse/AC-205)) ([AC-206](https://mozilla-hub.atlassian.net/browse/AC-206)) Accepts a HashMap<String, f64>.
+
+### Autofill
+
+- Add `Store::credit_cards_bridged_engine()`, exposing the existing credit card sync engine as a bridged engine so Firefox Desktop can drive credit card sync. ([bug 2074008](https://bugzilla.mozilla.org/show_bug.cgi?id=2074008))
+- Added `list_credit_card_candidates()`, returning `CreditCardCandidate`: a card minus its encrypted fields, with `cc_number_last_4` and `has_cvv` in their place. Like `list_candidates()` in logins it never touches the key, so an application can list cards without a primary password prompt and call `get_credit_card()` for the single card whose number or CVV it needs. ([bug 2080209](https://bugzilla.mozilla.org/show_bug.cgi?id=2080209))
+- Credit cards can store an optional CVV, encrypted like the number and handled transparently: `UpdatableCreditCardFields.cc_cvv` (cleartext in, defaults to none) and `CreditCard.cc_cvv` (decrypted out). A v6 schema upgrade adds the column; existing rows simply have no CVV. The CVV syncs as a new optional `cc-cvv` payload field; records written by older clients round-trip it through the mirror's unknown-fields handling, so their edits do not drop it. ([bug 2076154](https://bugzilla.mozilla.org/show_bug.cgi?id=2076154))
+
+### Nimbus
+- Disabling experiments or rollouts will submit an event. [#7656](https://github.com/mozilla/application-services/pull/7656)
+- If requesting experiment or rollout participation on Android throws, the getter will return true instead of throwing. This aligns the Android behaviour with iOS. [#7656](https://github.com/mozilla/application-services/pull/7656)
+- Enabling experiments or rollouts while they are already enabled no longer performs an update. [#7656](https://github.com/mozilla/application-services/pull/7656)
+
+### Remote Settings
+
+- Error responses now include the error type, errno, and message from the server's response body, not only the HTTP status code. ([bug 1941569](https://bugzilla.mozilla.org/show_bug.cgi?id=1941569))
+
+### Search
+
+- Added APIs to `SearchEngineSelector` for a new `search-config-v3` collection.
+
+### Sync15
+
+- Better interoperability with clients which choose engines per device: sync IDs are adopted from `meta/syncids` rather than minted, and our declined engines are kept when `meta/global` has no engines or declined engines.
+- A fresh `meta/global` no longer lists declined engines in `engines`.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v159.0...v160.0)
+
+# v159.0 (_2026-10-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
+
+### FxA-Client
+
+- When `begin_pairing_flow` or `begin_oauth_flow` is called with an empty list of scopes, the resulting URL will not include the scope URL query parameter.
+
+### Db-Crypto
+
+- `NSSKeyManager::get_key()` fails with `NSSAuthenticationError` rather than `MissingKey` when the token is not authenticated, and `ManagedEncryptorDecryptor` no longer reports a missing key for a key manager that never got as far as an answer: `NSSUninitialized`, `NSSAuthenticationError`, `AuthenticationError` and `AuthenticationCanceled` are passed on as they are. A key store that could not be reached says nothing about whether the key is there, so the application can authenticate again and retry, or honour the cancelled prompt, instead of treating the key as gone. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
+- A locked NSS token is no longer reported as an empty key store. `get_aes256_key()` fails with `TokenNotAuthenticated` instead of returning `None` when the key database could not be searched. A logout racing `NSSKeyManager::get_key()` can no longer make an existing key look absent and have a replacement generated in its place. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
+- `get_or_create_aes256_key()` holds the token lock across the lookup and the key creation it can lead to, so two callers can no longer both find no key and both create one under the same name. ([bug 2067678](https://bugzilla.mozilla.org/show_bug.cgi?id=2067678))
+
+### Tracing Support
+
+- Export `SimpleEventFilter`, the filter `simple_event_layer()` uses to select events from this crate's logging macros. Other layers in the same subscriber can now skip those events with `SimpleEventFilter.not()` instead of copying the filter. Firefox needs this to forward Rust `tracing` events to Gecko logging and the profiler without handling application-services events twice. ([bug 1652558](https://bugzilla.mozilla.org/show_bug.cgi?id=1652558))
+
+# v158.0 (_2026-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v157.0...v158.0)
+
+### Ads-Client
+
+- Removed the `MozAdsContextIdProvider` callback interface and the `context_id_provider()` builder method. Wiring it up from Firefox Desktop crashed off the main thread ([Bug 2062806](https://bugzilla.mozilla.org/show_bug.cgi?id=2062806)) and nothing else used it, so the ads client now always uses its embedded `ContextIDComponent`. ([AC-99](https://mozilla-hub.atlassian.net/browse/AC-99))
+- Fixed a panic on the OHTTP request path when the MARS `/v1/ads-preflight` response carries a non-ASCII or CRLF geo location or user agent. The request now fails instead. No binding API change.
+- `url` and `image_url` on the image, spoc and tile ad types are now parsed URLs rather than strings. A malformed URL in a MARS response now fails the request instead of being passed through to the caller. The binding types are unchanged.
+
+### Glean
+
+- Updated to v70.0.0 ([#7598](https://github.com/mozilla/application-services/pull/7598))
+
+### Logins
+
+- Add `LoginStore::list_candidates_by_origin(origins, domains)`, a narrower `list_candidates()` returning only the logins whose origin is one of `origins`, or whose host is one of `domains` or a subdomain of one. Consumers with their own origin matching rules can use it as a pre-filter instead of reading every login; the caller works out the base domains, since this component has no copy of the Public Suffix List. ([bug 2069438](https://bugzilla.mozilla.org/show_bug.cgi?id=2069438))
+
+### Nimbus
+
+- `nimbus-cli`'s `start-server` now runs on `axum` 0.8 (and so `hyper` 1.x) instead of `axum` 0.6 / `hyper` 0.14, which removes the `h2` 0.3 flagged by RUSTSEC-2026-0258 from its own dependencies. No change to the server's behaviour or its URLs. ([bug 2071060](https://bugzilla.mozilla.org/show_bug.cgi?id=2071060))
+
+# v157.0 (_2026-09-10_)
+
+## ✨ What's Changed ✨
+
+### Autofill
+
+- Added credit card equivalents of the address bulk-import API, for applications migrating a credit card collection into this store: `add_credit_card_with_meta()`, `add_many_credit_cards_with_meta()`, `update_credit_card_with_meta()`, `add_many_credit_card_tombstones()` and `delete_all_credit_cards()`. These take the guid, timestamps and sync change counter from the caller, so a migrated record keeps the identity it already had. `cc_number_enc` is stored exactly as supplied and is not checked against the store's key, matching `add_credit_card()`. ([bug 2068982](https://bugzilla.mozilla.org/show_bug.cgi?id=2068982))
+- Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter the store: on the metadata an application supplies to the bulk-import APIs, on every read out of the local database, and on incoming sync payloads. This matches the treatment logins received in [bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257) and covers addresses, credit cards and passports. ([bug 2068982](https://bugzilla.mozilla.org/show_bug.cgi?id=2068982))
+
+### Logins
+
+- Timestamps outside the range a JS `Date` can represent are now reported as 0 wherever they enter or leave the store: on the metadata an application supplies to `add_with_meta()`, on every read out of the local database, and on incoming sync payloads, similar to what Desktop does. ([bug 2066257](https://bugzilla.mozilla.org/show_bug.cgi?id=2066257))
+- Refactor the database encryption support into a new support crate `db-crypto`, which provides all the same functions and traits as were previously available in `logins::encryption` module. However, this leads to two breaking changes: the functionality has been moved into a new `db_crypto` UniFFI namespace, and the error type has changed from `LoginsApiError` to `DbCryptoApiError`. ([#7542](https://github.com/mozilla/application-services/pull/7542))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v156.0...v157.0)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Autofill
+
+- **BREAKING**: `Store::new()` now takes an `EncryptorDecryptor`, which the store hands to the database and which is used for every encrypted column, and `scrub_undecryptable_credit_card_data_for_remote_replacement()` no longer takes an encryption key. Credit-card encryption moved to the shared `db-crypto` crate. `encrypt_string()` and `decrypt_string()` are unchanged. The key passed to the sync manager via `local_encryption_keys` is accepted but ignored.
+
+## ✨ What's Changed ✨
+
+### Containers
+
+- Created a new component, `fxcontainers`, holding the list of Firefox containers and the format they are stored in.
+- The component also stores the containers an enterprise policy owns: `create_for_policy()`, `policy_identities()`, `policy_identity()` and `remove_policy_identity()`. Which URLs load in one of them stays with the embedder.
+
+### Autofill
+
+- `update_address()` now sets `time_last_modified` to the time of the update, matching `update_credit_card()` and `update_passport()`.
+
+### Ads-Client
+
+- Added `blocks: Vec<String>` to `ffi::MozAdsRequestOptions`, `AdsClient::request*_ads`, `MARSClient::fetch_ads`, `mars::AdRequest`, and `mars::AdRequest::try_new`. This is serialized and passed to MARS so that it can remove blocks server-side.
+- `shutdown` no longer requires a full `AdsClient` lock (at the cost of no longer shutting down the sqlite db), and telemetry is no longer cloned in the `MozAdsClientBuilder` functions.
+- Adds `AdsStore`, a durable sqlite structure for storing ads, which will allow for a stateful refactor of the ads-client.
+
+- Added `MozAdsEnvironment::Custom(url::Url)` and `Environment::Custom(url::Url)` variants for connecting to arbitrary MARS backend servers (used primarily in local development).
+
+### sql_support
+
+- All databases are initialized with `PRAGMA auto_vacuum=incremental`.
+  This avoids having to do a full vacuum on the first `sql_support::run_maintenance` call.
+  (https://bugzilla.mozilla.org/show_bug.cgi?id=2064759)
+
+### Nimbus
+
+- Add `nimbus-fml lint`, which checks a manifest against feature design lints covering metadata, descriptions, naming, and feature shape. Findings are warnings and don't affect code generation; `--error-on-warning` fails the run, for CI. A `no-lint` list on a feature or at the top of a manifest excuses it from the lints it names, so older versions of `nimbus-fml` will reject a manifest that uses one. `nimbus-fml validate` no longer reports feature metadata warnings; run `nimbus-fml lint` for those. ([Bug 2053531](https://bugzilla.mozilla.org/show_bug.cgi?id=2053531))
+
+### Remote Settings
+
+- Added an optional `distribution` field to `RemoteSettingsContext`, exposed as `env.distribution` in JEXL `filter_expression`s so records can be targeted at specific distributions (e.g. partner repacks). ([Bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+
+# v156.0 (_2026-08-27_)
+
+## ✨ What's Changed ✨
+
+### Nimbus
+
+- A new API has been added to get the list of enrolled experiments and rollouts without instantiating a NimbusClient: `get_active_enrollments()`. ([#7560](https://github.com/mozilla/application-services/pull/7560))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v155.0...v156.0)
+
+## ✨ What's Changed ✨
+
+### Logins
+
+- Add `LoginStore::list_candidates()` and `LoginStore::get_many()`, a pair of read APIs for consumers which filter logins on their unencrypted fields. `list_candidates()` returns a `LoginCandidate` per stored login - everything `Login` has except the secure fields (`username`/`password`), so searching by `origin`, `httpRealm` or `formActionOrigin` no longer forces a primary password prompt. `get_many()` then decrypts just the logins which matched. `list()` is unchanged, for callers who really do want every login in cleartext.
+
+## ⚠️ Breaking Changes ⚠️
+
+### Suggest
+
+- `Suggestion.Amp` gained a new `suggestionId` field: a unique identifier for the sponsored suggestion assigned by the ingestion pipeline, deserialized from the `suggestion_id` field of the remote settings AMP data. ([#7554](https://github.com/mozilla/application-services/pull/7554))
 
 # v155.0 (_2026-08-13_)
 
@@ -23,8 +227,9 @@
 - `add_with_meta()` / `add_many_with_meta()` now reject a login whose guid is invalid for the sync server (empty, longer than 64 chars, or containing a comma / non-printable byte) instead of persisting it and later crashing the sync uploader with "record's ID is invalid". The new `fixup_invalid_guids` feature regenerates such guids on import rather than rejecting them. ([Bug 2056116](https://bugzilla.mozilla.org/show_bug.cgi?id=2056116))
 
 ### Fxa Client
+
 - The `CheckAuthorizationStatus` and `Disconnect` events are now valid from all states except `Uninitialized`.
-In the cases where the failed before, they're now no-ops.
+  In the cases where the failed before, they're now no-ops.
 
 ### Logins
 
@@ -35,8 +240,9 @@ In the cases where the failed before, they're now no-ops.
 - `NimbusClient::get_available_firefox_labs()` now includes detailed debug level logging for each processed lab. ([#7482](https://github.com/mozilla/application-services/pull/7482))
 
 ### Remote Settings
+
 - Replacing v1 routes with v2 routes, removing added v2 routes ([#7492](https://github.com/mozilla/application-services/pull/7339))
-- Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518)) 
+- Verify signature of imported data when `.get()` is called with `sync_if_empty: true` ([#7518](https://github.com/mozilla/application-services/pull/7518))
 - Do not quote `_since` values with the v2 API ([#7523](https://github.com/mozilla/application-services/pull/7523))
 
 ### Sync Manager
@@ -66,15 +272,16 @@ In the cases where the failed before, they're now no-ops.
 ## ✨ What's New ✨
 
 ### Glean
+
 - Updated to v68.0.0 ([#7438](https://github.com/mozilla/application-services/issues/7438))
 
 ### Logins
 
 - Add `LoginStore.bridgedEngine()`, which exposes the logins sync engine to Desktop's Sync. ([bug 2049263](https://bugzilla.mozilla.org/show_bug.cgi?id=2049263))
 - Add `LoginStore.delete_all()`, which deletes all logins
-and `delete_all_axcept_fxa()`, which deletes all logins preserving the FxA session-credentials login
-and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
-([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
+  and `delete_all_axcept_fxa()`, which deletes all logins preserving the FxA session-credentials login
+  and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that preserves the FxA session-credentials login
+  ([#7467](https://github.com/mozilla/application-services/pull/7467)) ([Bug 2053557](https://bugzilla.mozilla.org/show_bug.cgi?id=2053557))
 
 ## 🔧 What's Fixed 🔧
 
@@ -98,9 +305,10 @@ and `LoginStore.wipe_local_except_fxa()`, a variant of `wipe_local()` that prese
 - `setExperimentsLocally()` is no longer exposed by NimbusInterface. ([#7426](https://bugzilla.mozilla.org/show_bug.cgi?id=2048051))
 
 ### Viaduct
+
 - init_backend and `viaduct_init_backend_hyper` no longer throw an error if they're called multiple times.
-Instead, we report the error via the Rust components error ping.
-This is a breaking change for iOS, since the functions no longer throw.
+  Instead, we report the error via the Rust components error ping.
+  This is a breaking change for iOS, since the functions no longer throw.
 - Renamed the Android package to `mozilla.appservices.viaduct`
 
 ## 🔧 What's Fixed 🔧
@@ -141,24 +349,29 @@ This is a breaking change for iOS, since the functions no longer throw.
 - **BREAKING**: Removed deprecated checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()`. They are not in use by desktop and mobile.
 
 ### Remote-Settings
-* Removed legacy remote-settings client
-* Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
+
+- Removed legacy remote-settings client
+- Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
 
 ## ✨ What's New ✨
 
 ### Ads Client
-* HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. The resolved TTL is capped at 7 days as a safety net against misconfigured server values. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
+
+- HTTP cache TTL is now resolved by priority — explicit per-request TTL (if any) wins, otherwise the response's `Cache-Control: max-age` is used, otherwise the configured `default_ttl`. The resolved TTL is capped at 7 days as a safety net against misconfigured server values. Previously the layer took the minimum of all three, which effectively ignored the server's `max-age` signal.
 
 ### Breach Alerts
-* New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
+
+- New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
 
 ### Logins
-* `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
-* Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
+
+- `run_maintenance()` now optionally deletes undecryptable logins (https://bugzilla.mozilla.org/show_bug.cgi?id=2007416)
+- Exposes `add_many()` through kotlin (https://bugzilla.mozilla.org/show_bug.cgi?id=2039737)
 
 ### Remote Settings
-* Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
-* Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
+
+- Add uptake telemetry support ([#7288](https://github.com/mozilla/application-services/pull/7288))
+- Add v2 routes ([#7339](https://github.com/mozilla/application-services/pull/7339))
 
 ## ✨ What's Changed ✨
 
@@ -169,6 +382,7 @@ This is a breaking change for iOS, since the functions no longer throw.
 # v151.0 (_2026-04-20_)
 
 ## ⚠️ Breaking Changes ⚠️
+
 - It is now enforced by `nimbus-fml` that feature variables using gecko-pref must be have `type: Option<T>`, for `T` in `Boolean`, `Int`, and `String`.
 - `nimbus-fml` commands now all have a `--lax-gecko-pref-validation` flag to bypass the above restriction, as well as the restriction that `gecko-pref` and `default` are mutually exclusive.
 - The `FmlLoaderConfig` now has a `lax_gecko_pref_validation` field to allow `FmlClient` consumers (i.e., Experimenter) to opt-in to lax validation.
@@ -177,26 +391,32 @@ This is a breaking change for iOS, since the functions no longer throw.
 ## ✨ What's New ✨
 
 ### Ads Client
+
 - Add per-request OHTTP support via the `ohttp` flag on `MozAdsRequestOptions` and `MozAdsCallbackOptions`. When enabled, individual MARS requests are routed through viaduct's OHTTP layer with automatic preflight for geo/user-agent override headers.
 
 ### Logins
+
 - New `allow_empty_passwords` feature flag to allow storing logins with empty passwords. This feature is intended to be enabled on desktop during the migration.
 - Add `ignore_form_action_origin_validation_errors` feature flag that allows logins with non-URL `form_action_origin` values (e.g. "email", "UserCode") to be imported without error. URL normalization for valid URLs is still applied.
 - Add `perform_additional_origin_fixups` feature flag that repairs `origin` values which fail URL parsing (bare domains, FireFTP quirks, bare `https:` / `https://`, etc.) into parseable URLs instead of rejecting them. Scoped to the `origin` field only; `form_action_origin` keeps the stricter behavior, but can be disabled via `ignore_form_action_origin_validation_errors`. Intended to be enabled on desktop during migration to salvage legacy/addon-generated entries.
 
 ### Merino Client
+
 - Added a client for the merino suggest endpoint
 - Added a `suggest` subcommand to `merino-cli` for locally testing the suggest endpoint.
 
 ### Places
+
 - Adds ability to insert a tree of bookmarks with `insertBookmarkTree`.
 
 ## ✨ What's Changed ✨
 
 ### Merino Client
+
 - `merino-cli` now supports subcommands: `recommendations` for curated recommendations and `suggest` for the suggest endpoint.
 
 ### Breach Alerts
+
 - New component: `breach-alerts` for storing and retrieving breach alert dismissals by breach ID.
 
 [Full Changelog](In progress)
@@ -204,24 +424,28 @@ This is a breaking change for iOS, since the functions no longer throw.
 # v150.0 (_2026-03-23_)
 
 # General
+
 - `error-support` breadcrumbs now include the timestamp.
 
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus
-* The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
-* In Kotlin expose `GleanMetrics.Pings.nimbusTargetingContext` as `Nimbus.Pings.nimbusTargetingContext` for downstream tests. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
-* `recordEventOrThrow()` now returns `Deferred<Unit>` instead of `Job`. Callers must use `.await()` (instead of `.join()`) to observe exceptions thrown during event recording.
-* It is now enforced via `nimbus-fml validate` that feature variables do not use both `gecko-pref` and `default` for the same variable.
+
+- The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
+- In Kotlin expose `GleanMetrics.Pings.nimbusTargetingContext` as `Nimbus.Pings.nimbusTargetingContext` for downstream tests. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
+- `recordEventOrThrow()` now returns `Deferred<Unit>` instead of `Job`. Callers must use `.await()` (instead of `.join()`) to observe exceptions thrown during event recording.
+- It is now enforced via `nimbus-fml validate` that feature variables do not use both `gecko-pref` and `default` for the same variable.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v149.0...v150.0)
 
 ### Ads Client
+
 - Added `rotation_days` parameter to `MozAdsClientBuilder` to allow embedders to configure the context ID rotation period. ([#7262](https://github.com/mozilla/application-services/pull/7262))
 - Added `reason` parameter to `report_ad` to comply with the MARS `/v1/t` tracking endpoint spec. Accepted values: `inappropriate`, `not_interested`, `seen_too_many_times`.
 - Added `MozAdsContextIdProvider` callback interface and `context_id_provider()` builder method, allowing embedders (e.g. HNT) to supply an externally managed context ID. When a provider is set the embedded `ContextIDComponent` is not created. Mobile consumers that do not set a provider are unaffected. ([AC-95](https://mozilla-hub.atlassian.net/browse/AC-95))
 
 ### Logins
+
 - **BREAKING**: Removed `time_of_last_breach` field from `LoginMeta` and `Login`. This can be derived from Remote Settings during runtime instead.
 - **BREAKING**: Removed `record_breach(id, timestamp)` API method.
 - **BREAKING**: Removed `is_potentially_breached(id)` API method.
@@ -232,157 +456,184 @@ This is a breaking change for iOS, since the functions no longer throw.
 ## ✨ What's New ✨
 
 ### Remote Settings
-* Add multi-signature support ([#7270](https://github.com/mozilla/application-services/pull/7270))
+
+- Add multi-signature support ([#7270](https://github.com/mozilla/application-services/pull/7270))
 
 ## ✨ What's Changed ✨
 
 ### Merino Client
-* Updated response to reflect the updated API response ([#7289](https://github.com/mozilla/application-services/pull/7289))
+
+- Updated response to reflect the updated API response ([#7289](https://github.com/mozilla/application-services/pull/7289))
 
 # v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️
 
 ### General
-* Updated UniFFI to 0.31 ([#7140](https://github.com/mozilla/application-services/issues/7140))
+
+- Updated UniFFI to 0.31 ([#7140](https://github.com/mozilla/application-services/issues/7140))
 
 ### Glean
-* Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
+
+- Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
 
 ### Nimbus
-* Added `eval_jexl_debug()` method to `NimbusTargetingHelper` interface for CLI testing and debugging. Evaluates JEXL expressions and returns debug results as JSON. Consumers implementing this interface must add the new method.
-([#7156](https://github.com/mozilla/application-services/pull/7156))
-([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
-* Update Cirrus `MetricsHandler` interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
-([#14280](https://github.com/mozilla/experimenter/pull/14280))
-* Move `nimbus_events.enrollment_status` to new `nimbus-targeting-context` ping, and add Nimbus `MetricsHandler` interface method `submit_targeting_context` to submit the ping. Consumers implementing this interface must add the new method. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
-* Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
+
+- Added `eval_jexl_debug()` method to `NimbusTargetingHelper` interface for CLI testing and debugging. Evaluates JEXL expressions and returns debug results as JSON. Consumers implementing this interface must add the new method.
+  ([#7156](https://github.com/mozilla/application-services/pull/7156))
+  ([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
+- Update Cirrus `MetricsHandler` interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
+  ([#14280](https://github.com/mozilla/experimenter/pull/14280))
+- Move `nimbus_events.enrollment_status` to new `nimbus-targeting-context` ping, and add Nimbus `MetricsHandler` interface method `submit_targeting_context` to submit the ping. Consumers implementing this interface must add the new method. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
+- Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
 
 ### Error support
-* Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
-We don't believe this should affect any consumers, since they're were already using the
-`tracing-logging` feature and were either also using `tracing-reporting` or not handling error
-reporting at all.
-* Reworked `register_event_sink` signature to allow it to register an event sink for muliple targets at once.
-* Reworked `unregister_event_sink`.  It now inputs the return value from `register_event_sink`.
-* Removed `register_min_level_event_sink` and `unregister_min_level_event_sink`.
-Use the new `register_event_sink` instead.
+
+- Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
+  We don't believe this should affect any consumers, since they're were already using the
+  `tracing-logging` feature and were either also using `tracing-reporting` or not handling error
+  reporting at all.
+- Reworked `register_event_sink` signature to allow it to register an event sink for muliple targets at once.
+- Reworked `unregister_event_sink`. It now inputs the return value from `register_event_sink`.
+- Removed `register_min_level_event_sink` and `unregister_min_level_event_sink`.
+  Use the new `register_event_sink` instead.
 
 ### Logins
-* Opened count method on logins for Android. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
+
+- Opened count method on logins for Android. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
 
 ### Autofill
-* Added count methods for credit cards and addresses. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
+
+- Added count methods for credit cards and addresses. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
 
 ## ✨ What's New ✨
 
 ### Ads Client
-* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
-* Try to reset cache database schema on connection initialization failure.
-* Reset cache on context ID rotation.
-* Enable staging environment support for all platforms (previously feature-gated)
-* Temporarily disable cache invalidation on click and impression recording (will be re-enabled behind Nimbus experiment)
-* Enable automatic context_id rotation every 3 days
-* **BREAKING**: Removed `cycle_context_id()` API method - context_id rotation is now automatic
-* Modified HTTP cache to ignore `context_id` field in request bodies when generating cache keys, preventing unnecessary cache invalidation on rotation
+
+- Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
+- Try to reset cache database schema on connection initialization failure.
+- Reset cache on context ID rotation.
+- Enable staging environment support for all platforms (previously feature-gated)
+- Temporarily disable cache invalidation on click and impression recording (will be re-enabled behind Nimbus experiment)
+- Enable automatic context_id rotation every 3 days
+- **BREAKING**: Removed `cycle_context_id()` API method - context_id rotation is now automatic
+- Modified HTTP cache to ignore `context_id` field in request bodies when generating cache keys, preventing unnecessary cache invalidation on rotation
 
 ### Android
-* Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
+
+- Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
 
 ### FxA Client
-* Support for the token exchange API, which we plan to use for getting access tokens for Relay.
-([#7179](https://github.com/mozilla/application-services/pull/7179)).
-* Removed `SwiftKeychainWrapper` logic. ([#7150](https://github.com/mozilla/application-services/pull/7150))
+
+- Support for the token exchange API, which we plan to use for getting access tokens for Relay.
+  ([#7179](https://github.com/mozilla/application-services/pull/7179)).
+- Removed `SwiftKeychainWrapper` logic. ([#7150](https://github.com/mozilla/application-services/pull/7150))
 
 ### Logins
+
 - Added `runMaintenance` API to `DatabaseLoginsStorage`
 
 ### Nimbus
-* Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
-* Added `eval-jexl` command to nimbus-cli for evaluating JEXL targeting expressions against the app context. Useful for testing and debugging targeting expressions on iOS and Android.
-([#7160](https://github.com/mozilla/application-services/pull/7160))
-* Added Android support for eval-jexl functionality through the `NimbusTargetingHelper.evalJexl()` method, enabling JEXL expression evaluation on Android with full targeting context support.
-([#7163](https://github.com/mozilla/application-services/pull/7163))
-* Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
-([#7173](https://github.com/mozilla/application-services/pull/7173))
-* Added `recordEventOrThrow()` method to Nimbus Android SDK, allowing callers to catch database errors when recording events. Unlike `recordEvent()`, this method does not suppress exceptions, enabling error handling in consumers like Fenix.
+
+- Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
+- Added `eval-jexl` command to nimbus-cli for evaluating JEXL targeting expressions against the app context. Useful for testing and debugging targeting expressions on iOS and Android.
+  ([#7160](https://github.com/mozilla/application-services/pull/7160))
+- Added Android support for eval-jexl functionality through the `NimbusTargetingHelper.evalJexl()` method, enabling JEXL expression evaluation on Android with full targeting context support.
+  ([#7163](https://github.com/mozilla/application-services/pull/7163))
+- Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
+  ([#7173](https://github.com/mozilla/application-services/pull/7173))
+- Added `recordEventOrThrow()` method to Nimbus Android SDK, allowing callers to catch database errors when recording events. Unlike `recordEvent()`, this method does not suppress exceptions, enabling error handling in consumers like Fenix.
 
 ### Logins
+
 - Added `runMaintenance` API to `DatabaseLoginsStorage`
 - Add password reuse detection for breach alerts: Database schema upgraded to version 4 with new `breachesL` table storing encrypted breached passwords. New APIs `are_potentially_vulnerable_passwords()` (batch check) and `is_potentially_vulnerable_password()` (single check) enable cross-domain password reuse detection.
 - Add `record_potentially_vulnerable_passwords()` API for bulk-inserting breached passwords into the breach database. This is used during import operations (`add_many_with_meta()`) to automatically populate the breach database with passwords from logins with known breaches.
 - Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
 
 ### Ads-Client
-* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
+
+- Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
 
 ### Relay
 
-* Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
+- Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
 
 ### Viaduct
-* Support setting default user-agent headers.
+
+- Support setting default user-agent headers.
 
 ### Error support
-* Added the `RustComponentsErrorTelemetry.submitErrorPing` method to allow Android consumers to submit rust components error pings.
+
+- Added the `RustComponentsErrorTelemetry.submitErrorPing` method to allow Android consumers to submit rust components error pings.
 
 ## 🔧 What's Fixed 🔧
 
 ### Remote Settings
-* Removed potential deadlock (https://bugzilla.mozilla.org/show_bug.cgi?id=2012955)
+
+- Removed potential deadlock (https://bugzilla.mozilla.org/show_bug.cgi?id=2012955)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v148.0...v149.0)
 
 # v148.0 (_2026-01-12_)
 
 ### Logins
+
 - Add breach alert support, including a database migration to version 3,
-new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
-and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
+  new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
+  and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v147.0...v148.0)
 
 ## ⚠️ Breaking Changes ⚠️
 
 ### Fxa Client
-- Removed the optional `ttl` paramater to `get_access_token`.  In practice, no consumers were using this.
+
+- Removed the optional `ttl` paramater to `get_access_token`. In practice, no consumers were using this.
 
 ## ✨ What's New ✨
 
 ### Ads Client
+
 - Add agnostic telemetry support (compatible with Glean)
 
 ### Fxa Client
-- Added optional `use_cache` paramater to `get_access_token`.  Set this to `false` to force
-requesting a new token.
+
+- Added optional `use_cache` paramater to `get_access_token`. Set this to `false` to force
+  requesting a new token.
 
 # v147.0 (_2025-12-07_)
 
 ### Relay
+
 - Added `fetch_profile()` method to check premium subscription status via `has_premium` field ([#7113](https://github.com/mozilla/application-services/pull/7113))
 
 ### Nimbus
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Removed unused `home_directory` field from AppContext. Both Kotlin and Swift sides were passing null values and it wasn't used anywhere. ([#7085](https://github.com/mozilla/application-services/pull/7085)) ([#30782](https://github.com/mozilla-mobile/firefox-ios/pull/30782))
 
 ### `rc_crypto`
+
 - Thread-safety improvements for PKCS-token-dependent methods by introducing a
-global mutex. Refactored key unpacking logic and removed redundant code;
-includes some breaking API changes, but since the keydb feature is not yet in
-use, these do not affect existing consumers.
+  global mutex. Refactored key unpacking logic and removed redundant code;
+  includes some breaking API changes, but since the keydb feature is not yet in
+  use, these do not affect existing consumers.
 - `get_aes256_key` now returns a `Result<Option<Key>>` to distinguish missing
-keys from errors
+  keys from errors
 - `get_or_create_aes256_key` only creates a key when none exists.
 - When the keydb feature is enabled, `ensure_nss_initialized` is disabled in
-favor of `ensure_nss_initialized_with_profile_dir`.
+  favor of `ensure_nss_initialized_with_profile_dir`.
 
 ### Logins
+
 - `create_login_store_with_nss_keymanager` returns an `ApiResult` now, instead
-of just panicking.
+  of just panicking.
 - fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
 
 ### Places
+
 - `places::storage::history_metadata::get_most_recent_search_entries()` was added to fetch the most recent search entries in history metadata. ([#7104](https://github.com/mozilla/application-services/pull/7104))
 - `places::storage::history_metadata::delete_all_metadata_for_search()` was added to delete the search terms in history metadata. ([#7101](https://github.com/mozilla/application-services/pull/7101))
 
@@ -393,28 +644,34 @@ of just panicking.
 ## ✨ What's New ✨
 
 ### Ads Client
+
 - Add support for three ad types: Image, Spoc (Sponsored Content), and UA Tile
 
 ### Autofill
+
 - Adds a migration to migrate users to use subregion codes over fully qualified strings. ([bug 1993388](https://bugzilla.mozilla.org/show_bug.cgi?id=1993388))
 - Added credit card verification logic ([#7047](https://github.com/mozilla/application-services/pull/7047)).
 
 ### Relay
+
 - Added Remote Settings integration to determine site eligibility for displaying Relay UI. The new `RelayRemoteSettingsClient` fetches allowlist/denylist data, and `should_show_relay()` provides subdomain-aware domain matching to decide when to show Relay email mask suggestions. ([#7039](https://github.com/mozilla/application-services/pull/7039))
 
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded NDK from r28c to r29. ([#7014](https://github.com/mozilla/application-services/pull/7014))
 
 ### Glean
+
 - Updated to v66.0.0 ([#7025](https://github.com/mozilla/application-services/issues/7025))
 
 ### Nimbus
+
 - The `participation` field is no longer required in the Cirrus
-`EnrollmentRequest` type. Instead, when users opt-out, the client application
-should no longer send enrollment requests to Cirrus.
-([#7030](https://github.com/mozilla/application-services/pull/7030))
+  `EnrollmentRequest` type. Instead, when users opt-out, the client application
+  should no longer send enrollment requests to Cirrus.
+  ([#7030](https://github.com/mozilla/application-services/pull/7030))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v145.0...v146.0)
 
@@ -423,9 +680,11 @@ should no longer send enrollment requests to Cirrus.
 ## ✨ What's New ✨
 
 ### Swift
+
 - Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963))
 
 ### Ads Client
+
 - Added the Ads Client component to the Megazord.
 - Updated the ApiError enum to AdsClientApiError to avoid naming collision.
 - The `context_id` is now generated and rotated via the existing eponym component crate.
@@ -435,20 +694,24 @@ should no longer send enrollment requests to Cirrus.
 - Support for multiple ads request (with count)
 
 ### Relay
+
 - **⚠️ Breaking Change:** The error handling for the Relay component has been refactored for stronger forward compatibility and more transparent error reporting in Swift and Kotlin via UniFFI.
 - API and network errors from the Relay server are now converted to a single `RelayApiError::Api { status, code, detail }` variant, exposing the HTTP status code, a machine-readable error code (if present), and a human-readable detail message.
 - Downstream client apps can now handle server errors based on both the `status` and `error_code` fields directly, without additional changes to the Rust component - even as server-side error codes evolve.
 - **Consumers must update their error handling code to match the new `Api { status, code, detail }` shape.**
 
 ### Places
+
 - `places::storage::history_metadata::get_most_recent(limit: i32)` was added to get most recent history metadata limited to a number. ([#7002](https://github.com/mozilla/application-services/pull/7002))
 
 ### FxA Client
+
 - Expose `getAttachedClients` from the uniffi layer in the Android wrapper.
 
 ## 🦊 What's Changed 🦊
 
 ### Docs
+
 - Updated the components strategy doc to better reflect the current state of application services. ([#6991](https://github.com/mozilla/application-services/pull/6991))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v144.0...v145.0)
@@ -458,38 +721,46 @@ should no longer send enrollment requests to Cirrus.
 ## ✨ What's New ✨
 
 ### OHTTP Client
+
 - The `as-ohttp-client` component is being reintroduced to allow firefox-ios to
-optionally submit Glean pings over OHTTP.
+  optionally submit Glean pings over OHTTP.
 
 ## 🦊 What's Changed 🦊
 
 ### Suggest
+
 - Switched from `unicode-normalization` and `unicase` to ICU4X. (And updated the lock file from ICU4X 1.5 to ICU4X 2.0.)
 
 ### Android
+
 - Bumped the minimum SDK version to 26 (Android 8). ([#6926](https://github.com/mozilla/application-services/pull/6926)
 
 ### Glean
+
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v143.0...v144.0)
 
 ## Nimbus CLI
+
 - Support for Firefox for Android and Focus via the new
-[mozilla-firefox](https://github.com/mozilla-firefox/firefox) repository.
+  [mozilla-firefox](https://github.com/mozilla-firefox/firefox) repository.
 
 # v143.0 (_2025-08-18_)
 
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded NDK from r28b to r28c. ([#6848](https://github.com/mozilla/application-services/pull/6848))
 
 ### Logins
+
 - Updated logins verification telemetry so it can be used in iOS([#6832](https://github.com/mozilla/application-services/pull/6832))
 - Updated insert statement to allow updating previously deleted logins via `add_with_meta`.
 
 ### Webext-Storage
+
 - Added `get_keys()` method ([bug 1978718](https://bugzilla.mozilla.org/show_bug.cgi?id=1978718))
 
 ### Search
@@ -503,6 +774,7 @@ optionally submit Glean pings over OHTTP.
 - Added namespacing by `suggestion_type` to dismissals of dynamic suggestions ([bug 1983587](https://bugzilla.mozilla.org/show_bug.cgi?id=1983587))
 
 ### RC Crypto
+
 - Fix NSS bindings for key management
 
 ### Mozilla Ads Client
@@ -514,6 +786,7 @@ optionally submit Glean pings over OHTTP.
 # v142.0 (_2025-07-21_)
 
 ### Logins
+
 - expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
 - change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
 - return Result in PrimaryPasswordAuthenticator callbacks (again a breaking change, but not yet used by anyone)
@@ -522,18 +795,20 @@ optionally submit Glean pings over OHTTP.
 - extend LoginStore `shutdown()` to also remove the encdec
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Updated the Nimbus API Stage URL
 - Updated the Nimbus SDK to support setting Gecko preferences ([#6826](https://github.com/mozilla/application-services/pull/6826)).
 
 ### Nimbus FML && CLI
+
 - handle http status codes when fetching feature manifests from GitHub.
 
 ### Search
 
 - `SearchEngineUrls` now has an optional `visual_search` field, supporting
-visual search endpoints in engine configs.
+  visual search endpoints in engine configs.
 - `SearchEngineUrl` now has an optional `display_name` field, which is useful if
-a URL corresponds to a brand name distinct from the engine's brand name.
+  a URL corresponds to a brand name distinct from the engine's brand name.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v141.0...v142.0)
 
@@ -542,31 +817,38 @@ a URL corresponds to a brand name distinct from the engine's brand name.
 ## ✨ What's New ✨
 
 ### Filter Adult
+
 - Added the first version of a component for checking if base domains exist in a
-list of base domains for adult websites.
+  list of base domains for adult websites.
 
 ### Relay
+
 - Added the first version of a component for using Firefox Relay.
 
 ### Logins
+
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 - add `delete_many(ids)` for batch deletion within a single transaction
 - Add `count()`, `count_by_origin()` and `count_by_form_action_origin()` methods
 
 ### Sync Manager
+
 - Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
 
 ## 🦊 What's Changed 🦊
 
 ### Nimbus FML ⛅️🔬🔭🔧
+
 - Updated Nimbus FML to support pref key+branch being set on feature properties (#[6788](https://github.com/mozilla/application-services/pull/6788)).
 
 ### Context ID
+
 - The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
 - The `ContextIDComponent` constructor can now synchronously invoke the rotation callback when it receives an invalid timestamp from callers; in such cases, it falls back to the current timestamp and forces an ID rotation.
 - `rotate_context_id` is no longer public since consumers can use `force_rotation` instead.
 
 ### Glean
+
 - Updated to v64.4.0 ([#6795](https://github.com/mozilla/application-services/pull/6795))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v140.0...v141.0)
@@ -576,28 +858,34 @@ list of base domains for adult websites.
 ## ⚠️ Breaking Changes ⚠️
 
 ### Android
+
 - Added `RustComponentsInitializer.kt` to `init_rust_components`.
 
 ### Context ID
+
 - Added the first version of a component for managing and rotating context IDs
-sent to MARS / Merino.
+  sent to MARS / Merino.
 
 #### BREAKING CHANGE
+
 - Removed `Megazord.kt` and moved the contents to the new `RustComponentsInitializer.kt`.
 
 ## 🦊 What's Changed 🦊
 
 ### Remote Settings
-- `RemoteSettingsService::sync` is now more efficient.  It checks the remote settings changes
-endpoint and only syncs collections that have been modified since the last sync.
+
+- `RemoteSettingsService::sync` is now more efficient. It checks the remote settings changes
+  endpoint and only syncs collections that have been modified since the last sync.
 
 ### Logins
+
 - add logins store api methods for bulk insert and meta insert, intended to be used during migration and CSV import on desktop:
 - `fn add_with_record(&self, entry_with_record: LoginEntryWithRecordFields)`: add a login together with metadata
 - `fn add_many(&self, entries: Vec<LoginEntry>)`: add multiple logins with single transaction
 - `fn add_many_with_records(&self, entries_with_records: Vec<LoginEntryWithRecordFields>)`: add multiple logins with metadata within single transaction
 
 ### Glean
+
 - Updated to v64.3.1 ([#6755](https://github.com/mozilla/application-services/pull/6755)/[#6762](https://github.com/mozilla/application-services/pull/6762))
 - Reverted the JNA dependency version back to 5.14.0 due Android 5/6 crashes. ([#6762](https://github.com/mozilla/application-services/pull/6762))
 
@@ -610,7 +898,7 @@ endpoint and only syncs collections that have been modified since the last sync.
 ### Search
 
 - The `SearchEngineSelector::filter_engine_configuration` will now sort any
-unordered engines by name rather than identifier.
+  unordered engines by name rather than identifier.
 - Added `is_new_until` field to the SearchEngineDefinition struct. This optional field represents the date in YYYY-MM-DD format until which a search engine variant or subvariant is considered "new".
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v139.0...v140.0)
@@ -620,21 +908,25 @@ unordered engines by name rather than identifier.
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 - Updated to a newer version of Android Components (`139.0.20250417022706`).
 - Upgraded NDK from r28 to r28b. ([#6723](https://github.com/mozilla/application-services/pull/6723))
 
 ### Glean
+
 - Updated to v64.1.1 ([#6649](https://github.com/mozilla/application-services/pull/6649))/([#6723](https://github.com/mozilla/application-services/pull/6723))
 
 ### Logins
+
 - New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
-Given a `PrimaryPasswordAuthenticator` implementation, the NSS keystore is used
-to store and retrieve the login encryption key. These features are only
-available when the Logins component is compiled with the `keydb` feature.
-([#6571](https://github.com/mozilla/application-services/pull/6571))
+  Given a `PrimaryPasswordAuthenticator` implementation, the NSS keystore is used
+  to store and retrieve the login encryption key. These features are only
+  available when the Logins component is compiled with the `keydb` feature.
+  ([#6571](https://github.com/mozilla/application-services/pull/6571))
 
 ### Sync Pass Example
+
 The `sync-pass` example has been adapted to use the NSSKeyManager. The example
 program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
@@ -646,13 +938,15 @@ text, the list view has been slimmed down and a detail view has been added.
 - Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
 
 ### Remote Settings
+
 - The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
-This integrates better with JS, which expects all IO to happen inside async functions.
+  This integrates better with JS, which expects all IO to happen inside async functions.
 - Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
 
 ## ⚠️ Breaking Changes ⚠️
 
 ### Remote Settings
+
 - Several methods `RemoteSettingsService` are now infallible, which is a breaking change for Swift code.
 - `RelevancyStore` constructor
 - `RemoteSettingsService` constructor
@@ -661,8 +955,9 @@ This integrates better with JS, which expects all IO to happen inside async func
 - `SuggestStore` constructor
 
 ### OHTTP Client
+
 - The now-unused `as-ohttp-client` component is now removed. It was previously
-only used by firefox-ios but no longer is.
+  only used by firefox-ios but no longer is.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v138.0...v139.0)
 
@@ -671,25 +966,30 @@ only used by firefox-ios but no longer is.
 ## ⚠️ Breaking Changes ⚠️
 
 ### Remote Settings
-- Removed fields from `RemoteSettingsContext`.  The goal is to create a common set of fields between
-the Rust and Desktop clients.  Consumers will need to update their code to stop sending these
-fields.  Also, all fileds now default to `None/null/nil`.
+
+- Removed fields from `RemoteSettingsContext`. The goal is to create a common set of fields between
+  the Rust and Desktop clients. Consumers will need to update their code to stop sending these
+  fields. Also, all fileds now default to `None/null/nil`.
 - Made `RemoteSettingsContext::form_factor` and `RemoteSettingsContext::country` top-level fields.
 
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
 
 ### `nss`
+
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
 
 #### BREAKING CHANGE:
+
 Components need to call `nss::ensure_initialized()` before using any component
 that depends on NSS. Applications can depend on the `init_rust_components`
 component to handle initialization.
 
 ### `rc_crypto`
+
 - `ensure_initialized()` now returns a Result
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v137.0...v138.0)
@@ -699,34 +999,42 @@ component to handle initialization.
 ## ✨ What's New ✨
 
 ### Merino
+
 - added a client for merino curated recommendations endpoint
 
 ## 🦊 What's Changed 🦊
 
 ### `init_rust_components`
+
 - new component to provide Rust initialization routines, initially aimed at initializing NSS
 
 - Our dependency on `rusqlite` was updated from 0.31.0 to 0.33.0. This crate uses `libsqlite3-sys`, and was also upgraded from 0.28.0 to 0.31.0. If you are using `libsqlite3-sys` in other parts of your dependency tree, you may have to upgrade it manually to continue compiling.
 
 ### Android
+
 - Upgraded NDK from r27c to r28. ([#6588](https://github.com/mozilla/application-services/pull/6588))
 
 ### Glean
+
 - Updated to v63.1.0 ([#6584](https://github.com/mozilla/application-services/pull/6584))
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Enable enrollment status telemetry ([#6606](https://github.com/mozilla/application-services/pull/6606))
-[Full Changelog](https://github.com/mozilla/application-services/compare/v136.0...v137.0)
+  [Full Changelog](https://github.com/mozilla/application-services/compare/v136.0...v137.0)
 
 # v136.0 (_2025-02-03_)
 
 ### Logins
+
 The Logins component has been rewritten to use a newly introduced `EncryptorDecryptor` trait.
 
 #### BREAKING CHANGE
+
 The LoginsStore constructor and several API methods have been changed:
 
 The signatures of the constructors are extended as follows:
+
 ```
 pub fn new(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self>
 pub fn new_from_db(db: LoginDb, encdec: Arc<dyn EncryptorDecryptor>) -> Self
@@ -734,6 +1042,7 @@ pub fn new_in_memory(encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self>
 ```
 
 The methods do not require an encryption key argument anymore, and return `Login` objects instead of `EncryptedLogin`:
+
 ```
 pub fn list(&self) -> ApiResult<Vec<Login>>
 pub fn get(&self, id: &str) -> ApiResult<Option<Login>>
@@ -745,6 +1054,7 @@ pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login>
 ```
 
 New LoginsStore methods:
+
 ```
 // Checking whether the database contains logins (does not utilize the `EncryptorDecryptor`):
 is_empty(&self) -> ApiResult<bool>
@@ -754,12 +1064,14 @@ has_logins_by_base_domain(&self, base_domain: &str) -> ApiResult<bool>
 
 The crypto primitives `encrypt`, `decrypt`, `encrypt_struct` and `decrypt_struct` are not exposed anymore via UniFFI, as well as `EncryptedLogin` will not be exposed anymore. In addition we also do not expose the structs `RecordFields`, `LoginFields` and `SecureLoginFields` anymore.
 
-
 ##### SyncEngine
+
 The logins sync engine has been adapted for above EncryptorDecryptor trait and therefore does not support a `set_local_encryption_key` method anymore.
 
 ##### Flattened Login Struct
+
 The flattened Login struct now does not expose internal structuring to the consumer:
+
 ```
 Login {
 // record fields
@@ -783,14 +1095,17 @@ string username;
 ```
 
 ### `rc_crypto`
+
 - New low level bindings for dealing with primary password.
 - New feature flag `keydb` in `rc_crypto/nss`, which enables NSS key persistence: `ensure_initialized_with_profile_dir(path: impl AsRef<Path>)` initializes NSS with a profile directory and appropriate flags to persist keys (and certificates) in its internal PKCS11 software implementation. This function must be called first; if `ensure_initialized` is called before, it will fail.
 - New methods for dealing with primary password and key persistence, available within the `keydb` feature:
+
 * `authentication_with_primary_password_is_needed()`: checks whether a primary password is set and needs to be authenticated
 * `authenticate_with_primary_password(primary_password: &str)`: method for authenticate NSS key store against a user-provided primary password
 * `get_or_create_aes256_key(name: &str)`: retrieve a key by `name` from the internal NSS key store. If none exists, create one, persist, and return.
 
 ### Remote Settings
+
 - Added support of content signatures verification ([#6534](https://github.com/mozilla/application-services/pull/6534))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v135.0...v136.0)
@@ -800,22 +1115,27 @@ string username;
 ## ✨ What's New ✨
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Updated `getLocaleTag` to be publicly accessible ([#6510](https://github.com/mozilla/application-services/pull/6510))
 
 ## 🦊 What's Changed 🦊
 
 ### Glean
+
 - Updated to v63.0.0 ([bug 1933939](https://bugzilla.mozilla.org/show_bug.cgi?id=1933939))
 
 ### Places
+
 - `PlacesConnection::get_visited()` no longer considers unvisited-but-bookmarked pages to be visited, matching the behavior of both `get_visited_urls_in_range()` and Desktop ([#6527](https://github.com/mozilla/application-services/pull/6527)).
 
 ### `rc_crypto`
+
 - New low level bindings for functions for key generation with persistence, for listing persisted keys, and for wrapping and unwrapping to get at the key material of stored keys.
 
 ## ⚠️ Breaking Changes ⚠️
 
 ## Webext-Storage
+
 - Exposed the bridged engine logic for use in desktop ([#6473](https://github.com/mozilla/application-services/pull/6473)).
 - This updated the signature of the `bridged_engine` function technically making this PR a breaking change though an imminent desktop patch will remove references to function calls with the old signature.
 
@@ -826,38 +1146,45 @@ string username;
 ## ✨ What's New ✨
 
 ### Relevancy
+
 - Added init, select and update methods for Thompson Sampling (multi-armed bandit)
 
 ## 🦊 What's Changed 🦊
 
 ### Glean
+
 - Updated to v62.0.0 ([bug 1928630](https://bugzilla.mozilla.org/show_bug.cgi?id=1928630))
 
 ### FxA Client
+
 - Updated the iOS `sendToDevice` function to return the `closeTab` call's result when applicable. ([#6448](https://github.com/mozilla/application-services/pull/6448))
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Added a standalone method to calculate targeting context attributes that are based on values in the Nimbus persistence layer ([#6493](https://github.com/mozilla/application-services/pull/6493))
 
 ### Places
+
 - `PlacesConnection.noteHistoryMetadataObservation{ViewTime, DocumentType}()`
-(Android) and `PlacesWriteConnection.noteHistoryMetadataObservation()` (iOS)
-now take an optional `NoteHistoryMetadataObservationOptions` argument. The
-new `if_page_missing` option specifies what to do if the page for the
-observation doesn't exist in the history database.
-([#6443](https://github.com/mozilla/application-services/pull/6443))
+  (Android) and `PlacesWriteConnection.noteHistoryMetadataObservation()` (iOS)
+  now take an optional `NoteHistoryMetadataObservationOptions` argument. The
+  new `if_page_missing` option specifies what to do if the page for the
+  observation doesn't exist in the history database.
+  ([#6443](https://github.com/mozilla/application-services/pull/6443))
 
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Added methods to `RecordedContext` for retrieving event queries and setting their values back to the foreign object ([#6322](https://github.com/mozilla/application-services/pull/6322)).
 
 ### Places
+
 - If an entry for a page doesn't exist in the history database, any
-history observations for that page will no longer be recorded by default.
-To revert to the old behavior, and automatically insert an entry for
-the page before recording the observation, set the new `if_page_missing`
-option to `HistoryMetadataPageMissingBehavior::InsertPage`.
+  history observations for that page will no longer be recorded by default.
+  To revert to the old behavior, and automatically insert an entry for
+  the page before recording the observation, set the new `if_page_missing`
+  option to `HistoryMetadataPageMissingBehavior::InsertPage`.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v133.0...v134.0)
 
@@ -866,17 +1193,20 @@ option to `HistoryMetadataPageMissingBehavior::InsertPage`.
 ## ⚠️ Breaking Changes ⚠️
 
 ### Remote Settings
-- Updated Error hierarchy.  We don't need to update consumer code because the only consumer was
-Android and it only caught exceptions using the base RemoteSettingsException class.
-- Updated `RemoteSettingsServer::url()` to include the `v1/` path.  This makes the API match the JS
-version.  This only affects Rust consumers, since this function is not exposed via UniFFI.
+
+- Updated Error hierarchy. We don't need to update consumer code because the only consumer was
+  Android and it only caught exceptions using the base RemoteSettingsException class.
+- Updated `RemoteSettingsServer::url()` to include the `v1/` path. This makes the API match the JS
+  version. This only affects Rust consumers, since this function is not exposed via UniFFI.
 
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded NDK from r27 to r27c. ([#6432](https://github.com/mozilla/application-services/pull/6432))
 
 ### Glean
+
 - Updated to v61.2.0 ([#6410](https://github.com/mozilla/application-services/pull/6410))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v132.0...v133.0)
@@ -888,11 +1218,12 @@ version.  This only affects Rust consumers, since this function is not exposed v
 ### General
 
 - Simplified the process of adding a new component by adding a tool that can autogenerate the
-initial UniFFI/bindings code.
+  initial UniFFI/bindings code.
 
 ## 🦊 What's Changed 🦊
 
 ### Glean
+
 - Updated to v61.1.0 ([#6397](https://github.com/mozilla/application-services/pull/6397))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v131.0...v132.0)
@@ -902,13 +1233,15 @@ initial UniFFI/bindings code.
 ## 🦊 What's Changed 🦊
 
 ### Glean
+
 - Updated to v61.0.0 ([#6348](https://github.com/mozilla/application-services/pull/6348))
 
 ### Nimbus CLI
+
 - Support for Firefox for Android and Focus v126+ (via gecko-dev).
-Fixed a bug where manifests for Firefox for Android v110 were not available, due
-to being fetched from the wrong repository
-([#6347](https://github.com/mozilla/application-services/pull/6347))
+  Fixed a bug where manifests for Firefox for Android v110 were not available, due
+  to being fetched from the wrong repository
+  ([#6347](https://github.com/mozilla/application-services/pull/6347))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v130.0...v131.0)
 
@@ -917,19 +1250,23 @@ to being fetched from the wrong repository
 ## ✨ What's New ✨
 
 ### Suggest
+
 - Added support for Fakespot suggestions.
 - Added support for recording metrics
-- Removed the `SuggestIngestionConstraints::max_suggestions` field.  No consumers were using this.
+- Removed the `SuggestIngestionConstraints::max_suggestions` field. No consumers were using this.
 
 ## 🦊 What's Changed 🦊
 
 ### Android
+
 - Upgraded NDK from r26c to r27. ([#6305](https://github.com/mozilla/application-services/pull/6305))
 
 ### Glean
+
 - Updated to v60.4.0 ([#6320](https://github.com/mozilla/application-services/pull/6320))
 
 ### Nimbus FML
+
 - The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v129.0...v130.0)
@@ -939,14 +1276,17 @@ to being fetched from the wrong repository
 ## ⚠️ Breaking Changes ⚠️
 
 ### Suggest
-- Removed the deprecated `remote_settings_config` method.  No consumers were using this.
+
+- Removed the deprecated `remote_settings_config` method. No consumers were using this.
 
 ## ✨ What's New ✨
 
 ### Glean
+
 - Updated to v60.3.0 ([#6279](https://github.com/mozilla/application-services/pull/6279))
 
 ### Suggest
+
 - Added the `SuggestStoreBuilder.remote_settings_bucket_name` as a way to specify the bucket name.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v128.0...v129.0)
@@ -956,6 +1296,7 @@ to being fetched from the wrong repository
 ## 🦊 What's Changed 🦊
 
 ### Glean
+
 - Updated to v60.1.0 ([#6241](https://github.com/mozilla/application-services/pull/6241))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v127.0...v128.0)
@@ -965,9 +1306,11 @@ to being fetched from the wrong repository
 ## 🦊 What's Changed 🦊
 
 ### General
+
 - Updated minimum Python version to 3.8 ([#5961](https://github.com/mozilla/application-services/pull/5961)).
 
 ### Glean
+
 - Updated to v60.0.0 ([#6209](https://github.com/mozilla/application-services/pull/6209))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v126.0...v127.0)
@@ -989,17 +1332,21 @@ to being fetched from the wrong repository
 - The long-deprecated `rc_log` crate has been removed.
 
 ### Android
+
 - Upgraded NDK from r25c to r26c. ([#6134](https://github.com/mozilla/application-services/pull/6134))
 
 ### Glean
+
 - Updated to v58.1.0 ([#6150](https://github.com/mozilla/application-services/pull/6150)/[#6163](https://github.com/mozilla/application-services/pull/6163))
 
 ### Suggest
+
 - Improved full keyword display for AMP suggestions
 - `SuggestStoreBuilder.cache_path` is now deprecated because we no longer use the cache path.
 - `SuggestStoreBuilder.remote_settings_config` is deprecated in favor of `remote_settings_server`, because `remote_settings_config` forced consumers that wanted to override the Remote Settings server to also specify the bucket and collection names.
 
 ### Remote Settings
+
 - `RemoteSettingsConfig.server_url` is deprecated in favor of `server`, which is a `RemoteSettingsServer` instead of a string.
 - The new `RemoteSettingsServer` type specifies the Remote Settings server to use.
 
@@ -1010,31 +1357,37 @@ to being fetched from the wrong repository
 ## ✨ What's New ✨
 
 ### FxA Client
+
 - Added a new API `setUserData` that sets the user's session token, to prevent session token duplication and allow User Agent applications to support a signed in, but not verified state. ([#6111](https://github.com/mozilla/application-services/pull/6111))
 
 ## 🦊 What's Changed 🦊
 
 ### Webext-Storage
+
 - Uniffied the webext-storage component in preparation for desktop integration ([#6057](https://github.com/mozilla/application-services/pull/6057)).
 
 ### Remote Settings
+
 - The Remote Settings UniFFI bindings have been changed. The
-`RemoteSettingsConfig` dictionary has had its field re-ordered to [fix code
-generation for the Python
-bindings](https://bugzilla.mozilla.org/show_bug.cgi?id=1874030). This also
-affects the Swift bindings, since Swift enforces argument ordering.
+  `RemoteSettingsConfig` dictionary has had its field re-ordered to [fix code
+  generation for the Python
+  bindings](https://bugzilla.mozilla.org/show_bug.cgi?id=1874030). This also
+  affects the Swift bindings, since Swift enforces argument ordering.
 
 ### Suggest
+
 - Added more error variants to `SuggestApiError`
 - Added `SuggestStoreBuilder` to create `SuggestStore` instances.
-- `SuggestStore` now stores a data path.  This is the path to the SQLite database that should
-persist when the cache is cleared.
+- `SuggestStore` now stores a data path. This is the path to the SQLite database that should
+  persist when the cache is cleared.
 
 ### Autofill
+
 - Replace `*-name` fields with a single `name` field for addresses.
 - Prevented outgoing syncs of scrubbed credit card records ([#6143](https://github.com/mozilla/application-services/pull/6143)).
 
 ## What's Fixed
+
 - It was possible for sync to apply a tombstone for places while a bookmark was still in the database. This would have resulted in foreign constraint SQLite error.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v123.0...v124.0)
@@ -1056,20 +1409,26 @@ persist when the cache is cleared.
 ## 🦊 What's Changed 🦊
 
 ### Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
 - Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
 
 ### Nimbus SDK ⛅️🔬🔭
+
 - Moved the `days_since_install` calculation to closer to where it's needed ([#6042](https://github.com/mozilla/application-services/pull/6042)).
 - This means that the Nimbus SDK can run for longer and the JEXL evaluator still is accurate.
 
 ### Logins
+
 - Logins now correctly handle the following sync conflict resolution:
 - When the client locally deleted a login, and before it synced another client modified the same login, the client will recover the login
 
 ### Tabs
+
 - RemoteTabRecord now has an `inactive` boolean with a default value of false ([#6026](https://github.com/mozilla/application-services/pull/6026/)).
-Mobile platforms can populate this to indicate if the tab is "inactive" allowing other devices to treat them specially (eg, group them together, hide them by default, etc.)
+  Mobile platforms can populate this to indicate if the tab is "inactive" allowing other devices to treat them specially (eg, group them together, hide them by default, etc.)
+
 ### Push
+
 - verifyConnection now returns an empty list when there are no subscriptions (which is typical when a device first starts up).
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v122.0...v123.0)
@@ -1092,8 +1451,9 @@ Bumped the version of rusqlite/libsqlite3-sys, meaning the bundled sqlite versio
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Removed the `metrics_params` arguments from `begin_oauth_flow` and `begin_pairing_flow`.
-This is technically a breaking change, but no consumers were using these optional params so it shouldn't cause any issues downstream.
+  This is technically a breaking change, but no consumers were using these optional params so it shouldn't cause any issues downstream.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v121.0...v122.0)
 
@@ -1122,14 +1482,15 @@ This is technically a breaking change, but no consumers were using these optiona
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
+
 - `wipe_local` and `prune_destructively` have been removed from history API. `delete_everything` or `run_maintenance_*` methods should be used instead.
 
 ## FxA-Client
 
 ### 🦊 What's Changed 🦊
 
-- Added the `LocalDevice` struct, tracks the server's knowledge of the local device.  Many
-device-related methods now return this.
+- Added the `LocalDevice` struct, tracks the server's knowledge of the local device. Many
+  device-related methods now return this.
 - Check for missing sync scoped keys and return an error if they're not present
 - Began implementing functionality to track the authorization state
 - Added methods to simulate auth errors
@@ -1154,23 +1515,25 @@ device-related methods now return this.
 ## Rust log forwarder
 
 ### 🦊 What's Changed 🦊
+
 - Exposed rust-log-forwarder for iOS ([#5840](https://github.com/mozilla/application-services/pull/5840)).
 - Fixed rust-log-forwarder bindings for Focus iOS ([5858](https://github.com/mozilla/application-services/pull/5858)).
 
 ## Suggest
+
 ### ✨ What's New ✨
 
 - Edits to AMO provider keyword matching to match keyword prefix
 
 ### ⚠️ Breaking Changes ⚠️
 
-* The `include_sponsored` and `include_non_sponsored` Boolean options in `SuggestionQuery` have been replaced with a `providers` list. Consumers must now explicitly pass the providers they want to query ([#5867](https://github.com/mozilla/application-services/pull/5867)).
+- The `include_sponsored` and `include_non_sponsored` Boolean options in `SuggestionQuery` have been replaced with a `providers` list. Consumers must now explicitly pass the providers they want to query ([#5867](https://github.com/mozilla/application-services/pull/5867)).
+
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
 
 - VisitTransition has been renamed to VisitType to match Desktop and reduce the amount of conversions needed in consumer APIs.
-
 
 ### ✨ What's New ✨
 
@@ -1235,6 +1598,7 @@ device-related methods now return this.
 # v118.0 (_2023-08-28_)
 
 ## General
+
 ### 🦊 What's Changed 🦊
 
 - Backward-incompatible changes to the Suggest database schema to accommodate custom details for providers ([#5745](https://github.com/mozilla/application-services/pull/5745)) and future suggestion types ([#5766](https://github.com/mozilla/application-services/pull/5766)). This only affects prototyping, because we aren't consuming Suggest in any of our products yet.
@@ -1251,6 +1615,7 @@ device-related methods now return this.
 - Initial users of this are a new `nimbus-experimenter` megazord and the existing `cirrus` megazord.
 
 ## Rust log forwarder
+
 ### 🦊 What's Changed 🦊
 
 - Renamed `Logger` to `AppServicesLogger` to avoid a name conflict on Swift.
@@ -1322,6 +1687,7 @@ device-related methods now return this.
 ## General
 
 ### 🦊 What's Changed 🦊
+
 - Android: The JVM compatibility target is now version 17 ([#5651](https://github.com/mozilla/application-services/pull/5651))
 - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
 
@@ -1378,7 +1744,9 @@ device-related methods now return this.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v114.0...v115.0)
 
 ## Push
+
 ### ⚠️ Breaking Changes ⚠️
+
 - The constructor for the Push Manager has changed. ([#5389](https://github.com/mozilla/application-services/pull/5389))
 - Push manager now takes only one argument, a Push Configuration object
 - Push manager no longer takes in the registration_id (token) in construction
@@ -1424,7 +1792,9 @@ device-related methods now return this.
 - Updated the FML downloader plugin to correctly download the release artifacts from the GitHub release
 
 ## FxA Client
+
 ### ⚠️ Breaking Changes ⚠️
+
 - Changes `handlePushMessage` API so that it now returns exactly one event associated with the push message. ([#5556](https://github.com/mozilla/application-services/pull/5556))
 - This API does not attempt to retrieve any missing tabs.
 - Users of this API can use it to display the notification, but should use `pollDeviceCommands` after to capture the commands.
@@ -1440,6 +1810,7 @@ device-related methods now return this.
 ## General
 
 ### ✨ What's New ✨
+
 - Updated the version system to follow the Firefox major version
 - Implemented nightly builds
 
@@ -1457,7 +1828,7 @@ device-related methods now return this.
 
 ### 🦊 What's Changed 🦊
 
-- Added support for sync payload evolution in history.  If other clients sync history records / visits with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
+- Added support for sync payload evolution in history. If other clients sync history records / visits with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
 
 # v97.5.1 (_2023-04-17_)
 
@@ -1466,6 +1837,7 @@ device-related methods now return this.
 ## General
 
 ### ✨ What's New ✨
+
 - Fixing the objcopy path when building the megazord ([#5154](https://github.com/mozilla/application-services/pull/5154)).
 
 # v97.5.0 (_2023-04-17_)
@@ -1481,11 +1853,13 @@ device-related methods now return this.
 ## Nimbus ⛅️🔬🔭
 
 ### 🦊 What's Changed 🦊
+
 - Refactor the `EnrollmentEvolver` in preparation for a larger refactor to split out the `stateful` feature. ([#5374](https://github.com/mozilla/application-services/pull/5374)).
 - Added a `stateful` cargo feature and added appropriate feature flag attributes ([#5448](https://github.com/mozilla/application-services/pull/5448)).
 - This does not functionally change build processes, as the `stateful` feature is now the default feature for the `nimbus-sdk` library.
 - Changed the ordering around for optional arguments for Python compatibility ([#5460](https://github.com/mozilla/application-services/pull/5460)).
 - This does not change Kotlin or Swift APIs, but affects code that uses the uniffi generated FFI for `record_event` and `record_past_event` directly.
+
 ### ✨ What's New ✨
 
 - Added more testing tools for the `NimbusEventStore`, for iOS and Android ([#5477](https://github.com/mozilla/application-services/pull/5477))
@@ -1494,6 +1868,7 @@ device-related methods now return this.
 ## Sync Manager
 
 ### 🦊 What's Changed 🦊
+
 - Added the sync telemetry reporting logic to replace the temp metrics in iOS. ([#5479](https://github.com/mozilla/application-services/pull/5479))
 
 # v97.4.1 (_2023-04-04_)
@@ -1503,8 +1878,9 @@ device-related methods now return this.
 ## Places
 
 ### 🦊 What's Changed 🦊
+
 - Added a workaround for a database migration issue that was breaking places for some nightly users
-(https://github.com/mozilla/application-services/issues/5464)
+  (https://github.com/mozilla/application-services/issues/5464)
 
 # v97.4.0 (_2023-04-03_)
 
@@ -1525,7 +1901,7 @@ device-related methods now return this.
 
 ### 🦊 What's Changed 🦊
 
-- Added support for sync payload evolution in bookmarks.  If other clients sync bookmark records with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
+- Added support for sync payload evolution in bookmarks. If other clients sync bookmark records with fields that we don't know about, we store that data as JSON and send it back when it's synced next.
 
 ## Nimbus ⛅️🔬🔭
 
@@ -1545,15 +1921,18 @@ device-related methods now return this.
 ## General
 
 ### 🦊 What's Changed 🦊
+
 - Android: The JVM compatibility target is now version 11 ([#5401](https://github.com/mozilla/application-services/issues/5401))
 - _NOTE: This is technically a breaking change, but all existing downstream projects have already made the necessary changes._
 
 ## Nimbus ⛅️🔬🔭
 
 ### 🦊 What's Changed 🦊
+
 - Fix Nimbus gradle plugin source file and task dependency issues ([#5421](https://github.com/mozilla/application-services/pull/5421))
 
 ### ✨ What's New ✨
+
 - Added new testing tooling `HardcodeNimbusFeatures` to aid UI and integration tests ([#5393](https://github.com/mozilla/application-services/pull/5393))
 
 # v97.1.0 (_2023-02-24_)
@@ -1566,24 +1945,27 @@ device-related methods now return this.
 
 - The Tabs engine now trims the payload to be under the max the server will accept ([#5376](https://github.com/mozilla/application-services/pull/5376))
 
-
 ## Sync Manager
 
 ### 🦊 What's Changed 🦊
 
 - Exposing the Sync Manager component to iOS by addressing the existing naming collisions, adding logic to process the telemetry
-data returned in the component's `sync` function, and adding the component to the iOS megazord ([#5359](https://github.com/mozilla/application-services/pull/5359)).
+  data returned in the component's `sync` function, and adding the component to the iOS megazord ([#5359](https://github.com/mozilla/application-services/pull/5359)).
 
 # v97.0.0 (_2023-02-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.4.0...v97.0.0)
 
 ## Nimbus ⛅️🔬🔭
+
 ### 🦊 What's Changed 🦊
+
 - Updated the Nimbus Gradle Plugin to fix a number of issues after migrating it to this repository ([#5348](https://github.com/mozilla/application-services/pull/5348))
 - Good fences: protected calls out to the error reporter with a `try`/`catch` ([#5366](https://github.com/mozilla/application-services/pull/5366))
 - Updated the Nimbus FML CLI to only import the R class if it will be used by a feature property ([#5361](https://github.com/mozilla/application-services/pull/5361))
+
 ### ⚠️ Breaking Changes ⚠️
+
 - Android and iOS: Several errors have been moved to an internal support library and will no longer be reported as top-level Nimbus errors. They should still be accessible through `NimbusError.ClientError`. They are: `RequestError`, `ResponseError`, and `BackoffError`. ([#5369](https://github.com/mozilla/application-services/pull/5369))
 
 # v96.4.0 (_2023-01-30_)
@@ -1603,6 +1985,7 @@ The Tabs engine is now more efficient in how it fetches its records:
 ## Nimbus ⛅️🔬🔭
 
 ### 🦊 What's Changed 🦊
+
 - Added `GleanMetrics.NimbusHealth` metrics for measuring duration of `apply_pending_experiments` and `fetch_experiments`. ([#5344](https://github.com/mozilla/application-services/pull/5344))
 
 # v96.3.0 (_2023-01-18_)
@@ -1610,11 +1993,15 @@ The Tabs engine is now more efficient in how it fetches its records:
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.1...v96.3.0)
 
 ## Places
+
 ### What's changed
+
 - Removes old iOS bookmarks migration code. The function `migrateBookmarksFromBrowserDb` no longer exists. ([#5276](https://github.com/mozilla/application-services/pull/5276))
 
 ## Nimbus ⛅️🔬🔭
+
 ### What's New
+
 - iOS: added a `Bundle.fallbackTranslationBundle()` method. ([#5314](https://github.com/mozilla/application-services/pull/5314))
 - Moved the Nimbus Gradle Plugin into application-services and updated its functionality to support local development. ([#5173](https://github.com/mozilla/application-services/pull/5173))
 
@@ -1623,7 +2010,9 @@ The Tabs engine is now more efficient in how it fetches its records:
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.2.0...v96.2.1)
 
 ## Places
+
 ### What's changed
+
 - Limited the number of visits to migrate for History to 10,000 visits. ([#5310](https://github.com/mozilla/application-services/pull/5310))
 
 # v96.2.0 (_2023-01-03_)
@@ -1633,20 +2022,24 @@ The Tabs engine is now more efficient in how it fetches its records:
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
+
 - Fixed an issue where the NimbusQueues protocol was missing from the NimbusApi ([#5298](https://github.com/mozilla/application-services/pull/5298))
 
 ### ✨ What's New ✨
+
 - Added `eventLastSeen` query to the event store and jexl transforms ([#5297](https://github.com/mozilla/application-services/pull/5297))
 - Introduced the `NimbusBuilder` for Swift ([#5307](https://github.com/mozilla/application-services/pull/5307))
 
 ## Tabs
 
 ### What's Changed
+
 - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
 
 ## Autofill
 
 ### 🦊 What's Changed 🦊
+
 - Exposed autofill api to iOS consumer and resolved `createKey` function conflict with the Logins component.
 
 # v96.1.3 (_2022-12-08_)
@@ -1656,6 +2049,7 @@ The Tabs engine is now more efficient in how it fetches its records:
 ## Tabs
 
 ### What's Changed
+
 - Fixed a regression causing failure to read old tabs databases ([#5286](https://github.com/mozilla/application-services/pull/5286))
 
 # v96.1.2 (_2022-12-07_)
@@ -1663,35 +2057,44 @@ The Tabs engine is now more efficient in how it fetches its records:
 [Full Changelog](https://github.com/mozilla/application-services/compare/v96.1.1...v96.1.2)
 
 ## Logins
+
 ### What's changed
+
 - Removes Fennec migration code. The function `importMultiple` no longer exists. ([#5268](https://github.com/mozilla/application-services/pull/5268))
 
 ## Nimbus
 
 ### What's Changed
+
 - Event store date comparison logic update to be entirely relative ([#5265](https://github.com/mozilla/application-services/pull/5265))
 - Updates event store to initialize all dates at the start of the current year ([#5279](https://github.com/mozilla/application-services/pull/5279))
 - Adds new Kotlin/Swift methods to clear the event store ([#5279](https://github.com/mozilla/application-services/pull/5279))
 - Adds Swift methods to wait for operation queues to finish ([#5279](https://github.com/mozilla/application-services/pull/5279))
 
 ## Places
+
 ### What's changed
+
 - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
-The following functions no longer exist:
+  The following functions no longer exist:
 - `importBookmarksFromFennec`
 - `importPinnedSitesFromFennec`
 - `importVisitsFromFennec`
 
 ## Viaduct
+
 ### What's New
+
 - Allow viaduct to make requests to the android emulator's host address via
-a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
-([#5270](https://github.com/mozilla/application-services/pull/5270))
+  a new viaduct_allow_android_emulator_loopback() (in Rust)/allowAndroidEmulatorLoopback() (in Kotlin)
+  ([#5270](https://github.com/mozilla/application-services/pull/5270))
 
 ## Tabs
+
 ### What's changes
+
 - The ClientRemoteTabs struct/interface now has a last_modified field which is the time
-when the device last uploaded the tabs.
+  when the device last uploaded the tabs.
 
 # v96.1.1 (_2022-12-01_)
 
@@ -1700,23 +2103,26 @@ when the device last uploaded the tabs.
 ## autofill
 
 ### What's Changed
+
 - Fixed a bug where `scrub_encrypted_data()` didn't update the last sync time, which prevented the scrubbed CC data
-from being fixed.
-- Don't report sentry errors when we try to decrypt the empty string.  This happens when the consumer tries to decript
-a CC number after `scrub_encrypted_data()` is called.
+  from being fixed.
+- Don't report sentry errors when we try to decrypt the empty string. This happens when the consumer tries to decript
+  a CC number after `scrub_encrypted_data()` is called.
 
 ## logins
 
 ### What's Changed
--  Don't report `Origin is Malformed` errors to Sentry.  This is a known issue stemming from FF Desktop sending us
-URLs without a scheme.  See #5233 for details.
+
+- Don't report `Origin is Malformed` errors to Sentry. This is a known issue stemming from FF Desktop sending us
+  URLs without a scheme. See #5233 for details.
 
 ## places
 
 ### What's Changed
+
 - Switch to using incremental vacuums for maintenance, which should speed up the process.
-- Don't report places `relative URL without a base` to Sentry.  This is a known issue caused by Fenix sending us URLs
-with an invalid scheme (see #5235)
+- Don't report places `relative URL without a base` to Sentry. This is a known issue caused by Fenix sending us URLs
+  with an invalid scheme (see #5235)
 
 # v96.1.0 (_2022-11-29_)
 
@@ -1725,12 +2131,15 @@ with an invalid scheme (see #5235)
 ## FxA Client
 
 ### What's new
+
 - Exposed a new function for swift consumers `resetPersistedState`
 - `resetPersistedState` can be used to refresh the account manager to reflect the latest persisted state.
 - `resetPersistedState` should be called in between a different account manager instance persisting the state, and the current account manager persisting state
 - For example, the Notification Service in iOS creates its own instance of the account manager, changes its state (by changing the index of the last retrieved send tab)
 - The main account manager held by the application should call` resetPersistedState` before calling any other method that might change its state. This way it can retrieve the most up to date index that the Notification Services persisted.
+
 ### What's changed
+
 - The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibility of ensuring each push gets a UI element to the caller.
 
 # v96.0.1 (_2022-11-18_)
@@ -1740,14 +2149,19 @@ with an invalid scheme (see #5235)
 ## Logins
 
 ### What's Changed
-- Updated the URL redaction code to remove potential PII leak.  Version `96.0.0` should not be used by downstream clients.
+
+- Updated the URL redaction code to remove potential PII leak. Version `96.0.0` should not be used by downstream clients.
 
 ## Nimbus
+
 ### What's changed
+
 - Add methods to Kotlin and Swift to call the record event method on the nimbus client ([#5244](https://github.com/mozilla/application-services/pull/5244))
 
 ## FxA Client
+
 ### What's changed
+
 - The devices retrieved from the devices list are now only the devices that have been accessed in 21 days. This should help remove duplicates and idle devices for users. ([#4984](https://github.com/mozilla/application-services/pull/4984))
 
 # v96.0.0 (_2022-11-16_)
@@ -1757,39 +2171,45 @@ with an invalid scheme (see #5235)
 ## ⛅️🔬🔭 Nimbus
 
 ### ✨ What's New ✨
+
 - `active_experiments` is available to JEXL as a set containing slugs of all enrolled experiments ([#5227](https://github.com/mozilla/application-services/pull/5227))
 - Added Behavioral Targeting/Display Triggers accessible from JEXL for experiments and messages ([#5226](https://github.com/mozilla/application-services/pull/5226), [#5228](https://github.com/mozilla/application-services/pull/5228))
 - Android only: added a new `NimbusBuilder` method to unify Fenix and Focus startup sequences. ([5239](https://github.com/mozilla/application-services/pull/5239))
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Changed the type of `customTargetingAttributes` in `NimbusAppSettings` to a `JSONObject`. The change will be breaking only for Android. ([#5229](https://github.com/mozilla/application-services/pull/5229))
 - Android only: Removed the `initialize()` methods in favor of `NimbusBuilder` class. ([5239](https://github.com/mozilla/application-services/pull/5239))
 
 ## Logins
 
 ### What's Changed
+
 - Include a redacted version of the URL in the Sentry error report when we see a login with an invalid origin field.
-- Made it so `InvalidDatabaseFile` errors aren't reported to Sentry.  These occurs when a non-existent path is passed
-to `migrateLoginsWithMetrics()`, which happens about 1-2 times a day.  This is very low volume, the code is going
-away soon, and we have a plausible theory that these happen when Fenix is killed after the migration but before
-`SQL_CIPHER_MIGRATION` is stored.
+- Made it so `InvalidDatabaseFile` errors aren't reported to Sentry. These occurs when a non-existent path is passed
+  to `migrateLoginsWithMetrics()`, which happens about 1-2 times a day. This is very low volume, the code is going
+  away soon, and we have a plausible theory that these happen when Fenix is killed after the migration but before
+  `SQL_CIPHER_MIGRATION` is stored.
 
 ## Places
 
 ### What's Changed
+
 - Report a Sentry breadcrumb when we fail to parse URLs, with a redacted version of the URL.
 
 ## JwCrypto
 
 ### What's Changed
+
 - Log a breadcrumb with a redacted version of the crypto key when it has an invalid form (before throwing
-DeserializationError)
+  DeserializationError)
 
 # v95.0.1 (_2022-11-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v95.0.0...v95.0.1)
 
 # General
+
 - Added function to unset the app-services error reporter
 
 # v95.0.0 (_2022-10-28_)
@@ -1797,35 +2217,40 @@ DeserializationError)
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.3.2...v95.0.0)
 
 ## General
+
 ### What's fixed
+
 - Fixed a bug released in 94.3.1. The bug broke firefox-ios builds due to a name conflict. ([#5181](https://github.com/mozilla/application-services/pull/5181))
 
 ### What's Changed
-- Updated UniFFI to 0.21.0.  This improves the string display of the fielded errors on Kotlin.  Currently only logins is using these errors, but we plan to start using them for all components.
+
+- Updated UniFFI to 0.21.0. This improves the string display of the fielded errors on Kotlin. Currently only logins is using these errors, but we plan to start using them for all components.
 
 ## Autofill
 
 ### ⚠️ Breaking Changes ⚠️
 
-- The autofill API now uses `AutofillApiError` instead of `AutofillError`.   `AutofillApiError` exposes a smaller number of variants, which
-will hopefully make it easier to use for the consumer.
+- The autofill API now uses `AutofillApiError` instead of `AutofillError`. `AutofillApiError` exposes a smaller number of variants, which
+  will hopefully make it easier to use for the consumer.
 
 ## Logins
 
 ### ⚠️ Breaking Changes ⚠️
 
 - Renamed `LoginsStorageError` to `LoginsApiError`, which better reflects how it's used and makes it consistent with
-the places error name.
-- Removed the `LoginsApiError::RequestFailed` variant.  This was only thrown when calling the sync-related methods
-manually, rather than going through the SyncManager which is the preferred way to sync. Those errors will now be
-grouped under `LoginsApiError::UnexpectedLoginsApiError`.
+  the places error name.
+- Removed the `LoginsApiError::RequestFailed` variant. This was only thrown when calling the sync-related methods
+  manually, rather than going through the SyncManager which is the preferred way to sync. Those errors will now be
+  grouped under `LoginsApiError::UnexpectedLoginsApiError`.
 
 ### What's Changed
-- Added fields to errors in `logins.udl`.  Most variants will now have a `message` field.
+
+- Added fields to errors in `logins.udl`. Most variants will now have a `message` field.
 
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
+
 - Disabled Glean events recorded when the SDK is not ready for a feature ([#5185](https://github.com/mozilla/application-services/pull/5185))
 - Add structs for behavioral targeting ([#5205](https://github.com/mozilla/application-services/pull/5205))
 - Calls to `log::error` have been replaced with `error_support::report_error` ([#5204](https://github.com/mozilla/application-services/pull/5204))
@@ -1835,18 +2260,18 @@ grouped under `LoginsApiError::UnexpectedLoginsApiError`.
 ### ⚠️ Breaking Changes ⚠️
 
 - Renamed `PlacesError` to `PlacesApiError`, which better reflects that it's used in the public API rather than for
-internal errors.
+  internal errors.
 - Removed the `JsonError`, `InternalError`, and `BookmarksCorruption` variants from places error. Errors that
-resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
-an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
-actually used.
+  resulted in `InternalError` will now result in `UnexpectedPlacesError`. `BookmarksCorruption` will also result in
+  an `UnexpectedPlacesError` and an error report will be automatically generated. `JsonError` didn't seem to be
+  actually used.
 
 ## Tabs
 
 ### ⚠️ Breaking Changes ⚠️
 
-- The tabs API now uses  `TabsError` with `TabsApiError`.  `TabsApiError` exposes a smaller number of variants, which
-will hopefully make it easier to use for the consumer.
+- The tabs API now uses `TabsError` with `TabsApiError`. `TabsApiError` exposes a smaller number of variants, which
+  will hopefully make it easier to use for the consumer.
 
 # v94.3.2 (_2022-10-13_)
 
@@ -1861,6 +2286,7 @@ will hopefully make it easier to use for the consumer.
 ## Sync Manager
 
 ### What's Changed
+
 - Syncing will sync each engine in a deterministic order which matches desktop ([#5171](https://github.com/mozilla/application-services/issues/5171))
 
 # v94.3.1 (_2022-09-23_)
@@ -1887,9 +2313,11 @@ will hopefully make it easier to use for the consumer.
 ## Places
 
 ### What's Changed
-- Added metrics for the `run_maintenance()` method.  This can be used by consumers to decide when to schedule the next `run_maintenance()` call and to check if calls are taking too much time.
+
+- Added metrics for the `run_maintenance()` method. This can be used by consumers to decide when to schedule the next `run_maintenance()` call and to check if calls are taking too much time.
 
 ### What's new
+
 - Exposed a function in Swift `migrateHistoryFromBrowserDb` to migrate history from `browser.db` to `places.db`, the function will migrate all the local visits in one go. ([#5077](https://github.com/mozilla/application-services/pull/5077)).
 - The migration might take some time if a user had a lot of history, so make sure it is **not** run on a thread that shouldn't wait.
 - The migration runs on a writer connection. This means that other writes to the `places.db` will be delayed until the migration is done.
@@ -1897,6 +2325,7 @@ will hopefully make it easier to use for the consumer.
 ## Nimbus
 
 ### What's Changed
+
 - Added `applyLocalExperiments()` method as short hand for `setLocalExperiments` and `applyPendingExperiments`. ([#5131](https://github.com/mozilla/application-services/pull/5131))
 - `applyLocalExperiments` and `applyPendingExperiments` now returns a cancellable job which can be used in a timeout.
 - `initialize` function takes a raw resource file id, and returns a cancellable `Job`.
@@ -1908,6 +2337,7 @@ will hopefully make it easier to use for the consumer.
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
+
 - Added `applyLocalExperiments()` method as short hand for `setLocalExperiments` and `applyPendingExperiments`. ([#5131](https://github.com/mozilla/application-services/pull/5131))
 - `applyLocalExperiments` and `applyPendingExperiments` now returns a cancellable job which can be used in a timeout.
 - `initialize` function takes a raw resource file id, and returns a cancellable `Job`.
@@ -1921,34 +2351,43 @@ will hopefully make it easier to use for the consumer.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.1.0...v94.2.0)
 
 # General
+
 - `error-support` is now exposed to both Firefox iOS and Focus iOS. `error-support` supports better error reporting and logging for errors. ([#5094](https://github.com/mozilla/application-services/pull/5094))
 
 ## Nimbus FML ⛅️🔬🔭🔧
+
 ### What's Changed
+
 - Add `channels` value for defaults and add support for multiple channels in `channel` via comma separation. ([#5101](https://github.com/mozilla/application-services/pull/5101))
 
 ### ✨ What's New ✨
+
 - JEXL targeting allows for using the `in` keyword with objects and a map of active experiments has been added to TargetingAttributes. The map will always be empty at this time. ([#5104](https://github.com/mozilla/application-services/pull/5104))
 
 ## Nimbus ⛅️🔬🔭
 
 ### What's Changed
+
 - Added metrics for SDK unavailability and disk cache unreadiness to tease apart the difference in startup slowness. ([#5118](https://github.com/mozilla/application-services/pull/5118))
 
 # v94.1.0 (_2022-08-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.1...v94.1.0)
-## Nimbus
-### What's new
-- Added telemetry to track how often apps query for variables before Nimbus is initialized. ([#5091](https://github.com/mozilla/application-services/pull/5091))
 
+## Nimbus
+
+### What's new
+
+- Added telemetry to track how often apps query for variables before Nimbus is initialized. ([#5091](https://github.com/mozilla/application-services/pull/5091))
 
 # v94.0.1 (_2022-08-09_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v94.0.0...v94.0.1)
 
 ## Nimbus FML
+
 ### What's fixed
+
 - Linux releases for the FML were missing, there are available again now. ([#5080](https://github.com/mozilla/application-services/pull/5080))
 
 # v94.0.0 (_2022-08-02_)
@@ -1956,7 +2395,9 @@ will hopefully make it easier to use for the consumer.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.8.0...v94.0.0)
 
 ## Logins
+
 ### ⚠️ Breaking Changes ⚠️
+
 - Removed expired logins sqlcipher migration metrics and renamed the `migrateLoginsWithMetrics` function since it no longer reports metrics. An associated iOS PR ([#11470](https://github.com/mozilla-mobile/firefox-ios/pull/11470)) has been created to address the function renaming. ([#5064](https://github.com/mozilla/application-services/pull/5064))
 
 # v93.8.0 (_2022-07-29_)
@@ -1964,16 +2405,22 @@ will hopefully make it easier to use for the consumer.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.1...v93.8.0)
 
 ## Nimbus FML ⛅️🔬🔭
+
 ### What's Changed
+
 - Validate the configuration passed from a top-level FML file to imported files. ([#5055](https://github.com/mozilla/application-services/pull/5055))
 
 ## Places
+
 ### What's new
+
 - We now expose all of the Places history APIs to Swift consumers. ([#4989](https://github.com/mozilla/application-services/pull/4989))
-- Added an optional db_size_limit parameter to `run_maintenance`.  This can be used to set a target size for the places DB.  If the DB is over that size, we'll prune a few older visits. The number of visits is very small (6) to ensure that the operation only blocks the database for a short time. The intention is that `run_maintenance()` is called frequently compared to how often visits are added to the places DB.
+- Added an optional db_size_limit parameter to `run_maintenance`. This can be used to set a target size for the places DB. If the DB is over that size, we'll prune a few older visits. The number of visits is very small (6) to ensure that the operation only blocks the database for a short time. The intention is that `run_maintenance()` is called frequently compared to how often visits are added to the places DB.
 
 ## Sync15
+
 ### What's changed
+
 - `CLIENTS_TTL` has been updated to be 180 days instead of 21 ([#5054](https://github.com/mozilla/application-services/pull/5054))
 
 # v93.7.1 (_2022-07-26_)
@@ -1981,7 +2428,9 @@ will hopefully make it easier to use for the consumer.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.7.0...v93.7.1)
 
 ## Places
+
 ### What's changed
+
 - The `delete_visits_between` API now also deletes history metadata ([#5046](https://github.com/mozilla/application-services/pull/5046))
 
 # v93.7.0 (_2022-07-18_)
@@ -1989,17 +2438,23 @@ will hopefully make it easier to use for the consumer.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.6.0...v93.7.0)
 
 ## Nimbus FML ⛅️🔬🔭🔧
+
 ### What's Changed
+
 - Added `MOZ_APPSERVICES_MODULE` environment variable to specify the megazord module for iOS ([#5042](https://github.com/mozilla/application-services/pull/5042)). If it is missing, no module is imported.
+
 ### ✨ What's New ✨
+
 - Enabled remote loading and using configuring of branches. ([#5041](https://github.com/mozilla/application-services/pull/5041))
 - Add a `fetch` command to `nimbus-fml` to demo and test remote loading and paths. ([#5047](https://github.com/mozilla/application-services/pull/5047))
 
 ## Logins
+
 ### What's Changed
+
 - Updated the `LoginsStorageError` implementation and introduce error reporting for unexpected errors.
-Note that some errors were removed, which is technically a breaking change, but none of our
-consumers use those errors so it's not a breaking change in practice.
+  Note that some errors were removed, which is technically a breaking change, but none of our
+  consumers use those errors so it's not a breaking change in practice.
 
 # v93.6.0 (_2022-07-11_)
 
@@ -2008,13 +2463,15 @@ consumers use those errors so it's not a breaking change in practice.
 ## Autofill
 
 ### What's Fixed
+
 - Fixed syncing of autofill when tombstones exist in the local mirror (#5030)
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### What's New
+
 - Added support for breaking up FML files using `includes` and separating into different modules with `imports`.
-([#5031](https://github.com/mozilla/application-services/pull/5031), [#5022](https://github.com/mozilla/application-services/pull/5022), [#5016](https://github.com/mozilla/application-services/pull/5016), [#5014](https://github.com/mozilla/application-services/pull/5014), [#5007](https://github.com/mozilla/application-services/pull/5007), [#4999](https://github.com/mozilla/application-services/pull/4999), [#4997](https://github.com/mozilla/application-services/pull/4997), [#4976](https://github.com/mozilla/application-services/pull/4976))
+  ([#5031](https://github.com/mozilla/application-services/pull/5031), [#5022](https://github.com/mozilla/application-services/pull/5022), [#5016](https://github.com/mozilla/application-services/pull/5016), [#5014](https://github.com/mozilla/application-services/pull/5014), [#5007](https://github.com/mozilla/application-services/pull/5007), [#4999](https://github.com/mozilla/application-services/pull/4999), [#4997](https://github.com/mozilla/application-services/pull/4997), [#4976](https://github.com/mozilla/application-services/pull/4976))
 - This is _not_ a breaking change, but should be accompanied by a upgrade to the megazord ([#4099](https://github.com/mozilla/application-services/pull/4099)).
 - This also deprecates some commands in the command line interface ([#5022](https://github.com/mozilla/application-services/pull/5022)). These will be removed in a future release.
 - Related proposal document: [FML: Imports and Includes](https://experimenter.info/fml-imports-and-includes).
@@ -2022,14 +2479,19 @@ consumers use those errors so it's not a breaking change in practice.
 ## Logins
 
 ### What's Changed
+
 - sqlcipher migrations no longer record metrics (#5017)
 
 ## Glean
+
 ### What's Changed
+
 - Updated to Glean v50.1.2
 
 ## UniFFI
+
 ### What's Changed
+
 - Updated to UniFFI 0.19.3
 
 # v93.5.0 (_2022-06-16_)
@@ -2039,6 +2501,7 @@ consumers use those errors so it's not a breaking change in practice.
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### What's Changed
+
 - Added [`includes` list property](https://experimenter.info/fml-imports-and-includes/#the-include-list) to enable splitting up large `nimbus.fml.yaml` files ([#4976](https://github.com/mozilla/application-services/pull/4976)).
 
 # v93.4.0 (_2022-06-09_)
@@ -2049,23 +2512,26 @@ consumers use those errors so it's not a breaking change in practice.
 
 ### What's Changed
 
-* Glean updated to v50 and all internal calls adopted
+- Glean updated to v50 and all internal calls adopted
 
 # v93.3.0 (_2022-06-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.2...v93.3.0)
 
 ## Error-support
+
 ### What's New
+
 - Added a new error reporting system that is intended to eventually replace using `log::error` to report errors
 - Added code using the new system to track down application-services#4856
-- Added UniFFI API for this crate.  Consumers should use this to register for error reports and breadcrumbs.
+- Added UniFFI API for this crate. Consumers should use this to register for error reports and breadcrumbs.
 
 # v93.2.2 (_2022-05-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.1...v93.2.2)
 
 ## Tabs
+
 ### What's Changed
 
 - Fixed the iOS breaking change in the `SyncUnlockInfo` constructor by making `tabsLocalId` an optional parameter ([#4975](https://github.com/mozilla/application-services/pull/4975)).
@@ -2075,7 +2541,9 @@ consumers use those errors so it's not a breaking change in practice.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.2.0...v93.2.1)
 
 ## General
+
 ### What's new
+
 - Uniffi was upgraded to 0.18.0. For our consumers, this means there now exported types that used to be internal to `uniffi`. ([#4949](https://github.com/mozilla/application-services/pull/4949)).
 - The types are:
 - `Url` alias for `string`
@@ -2092,6 +2560,7 @@ consumers use those errors so it's not a breaking change in practice.
 - Make generation of Experimenter compatible YAML repeatable: fields, variables, features and enum variants are listed alphabetically. ([#4964](https://github.com/mozilla/application-services/pull/4964)).
 
 ## Tabs
+
 ### What's Changed
 
 - The component has been updated for integration into Firefox iOS ([#4905](https://github.com/mozilla/application-services/pull/4905)).
@@ -2105,7 +2574,9 @@ consumers use those errors so it's not a breaking change in practice.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.1.0...v93.2.0)
 
 ## General
+
 ### What's new
+
 - Application services now releases a **separate** xcframework with only the components needed by focus-ios (namely Nimbus, Viaduct and Rustlog). This change is only relevant for focus, it does not affect the already existing xcframework for firefox ios. ([#4953](https://github.com/mozilla/application-services/pull/4953))
 
 # v93.1.0 (_2022-05-06_)
@@ -2115,14 +2586,20 @@ consumers use those errors so it's not a breaking change in practice.
 ## Nimbus ⛅️🔬🔭
 
 ### What's New
+
 - New API in the `FeatureHolder`, both iOS and Android to control the output of the `value()` call:
 - to cache the values given to callers; this can be cleared with `FxNimbus.invalidatedCachedValues()`
 - to add a custom initializer with `with(initializer:_)`/`withInitializer(_)`.
+
 ## Places
+
 ### What's Fixed:
+
 - Fixed a bug in Android where non-fatal errors were crashing. ([#4941](https://github.com/mozilla/application-services/pull/4941))
 - Fixed a bug where querying history metadata would return a sql error instead of the result ([4940](https://github.com/mozilla/application-services/pull/4940))
+
 ### What's new:
+
 - Exposed the `deleteVisitsFor` function in iOS, the function can be used to delete history metadata. ([#4946](https://github.com/mozilla/application-services/pull/4946))
 - Note: The API is meant to delete all history, however, iOS does **not** use the `places` Rust component for regular history yet.
 
@@ -2131,12 +2608,16 @@ consumers use those errors so it's not a breaking change in practice.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.3...v93.0.4)
 
 ## Places
+
 ### What's New
+
 - The `delete_visits_for()` function now deletes all history metadata even when the item is
-bookmarked.
+  bookmarked.
 
 ## Nimbus
+
 ### What's fixed
+
 - Fixed a bug where the visibility of `GetSdk` was internal and it was used in generated FML code. ([#4927](https://github.com/mozilla/application-services/pull/4927))
 
 # v93.0.3 (_2022-04-27_)
@@ -2146,10 +2627,12 @@ bookmarked.
 ## Nimbus ⛅️🔭🔬
 
 ### What's New
+
 - Added targeting attributes for `language` and `region`, based upon the `locale`. [#4919](https://github.com/mozilla/application-services/pull/4919)
 - This also comes with an update in the JEXL evaluator to handle cases where `region` is not available.
 
 ### What's Changed
+
 - Fixed: A crash was detected by the iOS team, which was traced to `FeatureHolder.swift`. ([#4924](https://github.com/mozilla/application-services/pull/4924))
 - Regression tests added, and FeatureHolder made stateless in both Swift and Kotlin.
 
@@ -2158,7 +2641,9 @@ bookmarked.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v93.0.1...v93.0.2)
 
 ## Nimbus FML
+
 ### What's fixed
+
 - (iOS only) Made the extensions on `String` and `Variables` public. The extended functions are used in the generated code and that didn't compile in consumers when internal.
 
 # v93.0.1 (_2022-04-20_)
@@ -2168,6 +2653,7 @@ bookmarked.
 ## Nimbus FML ⛅️🔬🔭🔧
 
 ### What's Fixed
+
 - Handling of optional types which require a mapping to a usable type. ([#4915](https://github.com/mozilla/application-services/pull/4915))
 
 ## Places
@@ -2207,40 +2693,56 @@ bookmarked.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v92.0.0)
 
 ## Places
+
 ### ⚠️ Breaking Changes ⚠️
-- Removed some functions related to sync interruption.  These were never really completed and don't seem to be in use by iOS/Android code:
+
+- Removed some functions related to sync interruption. These were never really completed and don't seem to be in use by iOS/Android code:
 - `PlacesApi.new_sync_conn_interrupt_handle()`
 - Swift only: `PlacesAPI.interrupt()`
 - The exception variant `InternalPanic` was removed. It's only use was replaced by the already existing `UnexpectedPlacesException`. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+
 ### What's New
+
 - The Places component will report more error variants to telemetry. ([#4847](https://github.com/mozilla/application-services/pull/4847))
+
 ## Autofill / Logins / Places / Sync Manager, Webext-Storage
+
 ### What's Changed
+
 - Updated interruption handling and added support for shutdown-mode which interrupts all operations.
 
 ## Tabs
+
 ### ⚠️ Breaking Changes ⚠️
 
 - The tabs component's constructor now requires the path to the database file where remote tabs will be persisted to.
 - Requesting remote tabs before the first sync will now return the tabs in this database, so may be "stale".
+
 ## Glean
+
 ### ⚠️ Breaking Changes ⚠️
+
 ### Swift
+
 - GleanMetrics should now be imported under `import Glean` instead of importing via `MozillaRustComponents`
 
 ## Nimbus FML
+
 ### What's Changed
+
 - Papercut fixes for nicer developer experience [#4867](https://github.com/mozilla/application-services/pull/4867)
 - More helpful validation error reporting
 - Better handling of defaults in objects and enum maps
 - More YAML syntactic checking.
 - Allow experimenter to output to a YAML file, as well as JSON. [#4874](https://github.com/mozilla/application-services/pull/4874)
 - If the file extension is `yaml`, then output as YAML, otherwise, output as JSON.
+
 # v91.1.2 (_2022-04-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.1...v91.1.2)
 
 **IMPORTANT**: The following change was cherry-picked to 91.1.2 which was a release **not** from the main branch. The change then landed in [v93.0.1](#v9301-2022-04-20). This means that versions v92.0.0 - v93.0.0 do not have the change.
+
 ## Places
 
 - Downgraded places `get_registered_sync_engine` `log:error` to `log:warn` to fix an issue where places was unnecessarily creating sentry noise.
@@ -2250,7 +2752,9 @@ bookmarked.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v91.1.0...v91.1.1)
 
 ## Autofill
+
 ### What's New
+
 - Added `temp-store`, `journal-mode`, and `foreign-keys` pragmas to autofill component. ([#4882](https://github.com/mozilla/application-services/pull/4882))
 
 # v91.1.0 (_2022-02-11_)
@@ -2266,7 +2770,7 @@ bookmarked.
 ### ✨ What's New ✨
 
 - A message helper is now available to apps wanting to build a Messaging System on both Android and iOS. Both of these access the variables
-provided by Nimbus, and can have app-specific variables added. This provides two functions:
+  provided by Nimbus, and can have app-specific variables added. This provides two functions:
 - JEXL evaluation ([#4813](https://github.com/mozilla/application-services/pull/4813)) which evaluates boolean expressions.
 - String interpolation ([#4831](https://github.com/mozilla/application-services/pull/4831)) which builds strings with templates at runtime.
 
@@ -2275,7 +2779,9 @@ provided by Nimbus, and can have app-specific variables added. This provides two
 - Bumped Xcode version from 13.1.0 -> 13.2.1
 
 ## Nimbus FML
+
 ### What's fixed
+
 - Fixes a bug where each time the fml is run, the ordering of features in the experimenter json is changed. ([#4819](https://github.com/mozilla/application-services/pull/4819))
 
 # v91.0.1 (_2022-02-02_)
@@ -2285,14 +2791,15 @@ provided by Nimbus, and can have app-specific variables added. This provides two
 ## Places
 
 ### What's Changed
+
 - The database initialization code now uses BEGIN IMMEDIATE to start a
-transaction.  This will hopefully prevent `database is locked` errors when
-opening a sync connection.
+  transaction. This will hopefully prevent `database is locked` errors when
+  opening a sync connection.
 
 ### What's New
 
 - The `HistoryVisitInfo` struct now has an `is_remote` boolean which indicates whether the
-represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
+  represented visit happened locally or remotely. ([#4810](https://github.com/mozilla/application-services/pull/4810))
 
 # v91.0.0 (_2022-01-31_)
 
@@ -2301,20 +2808,26 @@ represented visit happened locally or remotely. ([#4810](https://github.com/mozi
 ## Nimbus FML
 
 ### What's New
+
 - The Nimbus FML can now generate swift code for the feature manifest. ([#4780](https://github.com/mozilla/application-services/pull/4780))
 - It can be invoked using:
+
 ```sh
 $ nimbus-fml <FEATURE_MANIFEST_YAML> -o <OUTPUT_NAME> ios features
 ```
+
 - You can check the support flags and options by running:
+
 ```sh
 $ nimbus-fml ios --help
 ```
+
 - The generated code exposes:
--  a high level nimbus object, whose name is configurable using the `--classname` option. By default the object is `MyNimbus`.
+- a high level nimbus object, whose name is configurable using the `--classname` option. By default the object is `MyNimbus`.
 - All the enums and objects defined in the manifest as idiomatic Swift code.
 - Usage:
 - To access a feature's value:
+
 ```swift
 // MyNimbus is the class that holds all the features supported by Nimbus
 // MyNimbus has an singleton instance, you can access it using the `shared` field:
@@ -2326,7 +2839,9 @@ let nimbus = MyNimbus.shared
 
 let feature = nimbus.features.homepage.value()
 ```
+
 - To access a field in the feature:
+
 ```swift
 // feature.<propertyNameCamelCase>, for example:
 
@@ -2343,11 +2858,15 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable
 ```
 
 becomes:
+
 ```kotlin
 let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 ```
+
 ## General iOS
+
 ### What's changed
+
 - Moved `SwiftKeychainWrapper` from an external Swift Package to be bundled with FxA. This is due to issues Firefox iOS had with their dependency tree. ([#4797](https://github.com/mozilla/application-services/pull/4797))
 - Exposed all crates as targets for the XCFramework. ([#4797](https://github.com/mozilla/application-services/pull/4797))
 
@@ -2356,9 +2875,9 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 [Full Changelog](https://github.com/mozilla/application-services/compare/v90.0.0...v90.0.1)
 
 ## Places
+
 - Fixed an issue with previously consumed errors for invalid URLs were propagating to consumers and causing a crash
 - Changed `bookmarks_get_all_with_url` and `accept_result` to accept a string instead of url
-
 
 # v90.0.0 (_2022-01-20_)
 
@@ -2367,6 +2886,7 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Places has been completely UniFFI-ed
 
 # v89.0.0 (_2022-01-20_)
@@ -2374,13 +2894,17 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 [Full Changelog](https://github.com/mozilla/application-services/compare/v88.0.0...v89.0.0)
 
 ## Supported Xcode Versions
+
 - Reverting the supported Xcode version from 13.2.1 to 13.1.0 to circumvent the issues with Swift Package Manager in Xcode 13.2.1. ([#4787](https://github.com/mozilla/application-services/pull/4787))
+
 ## Nimbus☁️🔬🔭
 
 ### What's New
+
 - Add `Text` and `Image` support for the FML to access bundled resources ([#4784](https://github.com/mozilla/application-services/pull/4784)).
 
 ### Breaking Change
+
 - The `NimbusInterface` now exposes a `context: Context` property.
 
 # v88.0.0 (_2022-01-19_)
@@ -2390,6 +2914,7 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 ## Nimbus☁️🔬🔭
 
 ### What's Changed
+
 - The SDK is now tolerant to legacy experiment recipes that have both `feature` and `features` in their branches ([SDK-1989](https://github.com/mozilla/application-services/pull/4777))
 
 ## General
@@ -2397,26 +2922,31 @@ let drawable: Drawable = MyNimbus.features.exampleFeature.demoDrawable.resource
 ### ⚠️ Breaking Changes ⚠️
 
 - The bundled version of Glean has been updated to v43.0.2.
-See [the Glean Changelog](https://github.com/mozilla/glean/blob/v43.0.2/CHANGELOG.md) for full details.
-BREAKING CHANGE: Pass build info into initialize, which contains the build date.
-A suitable instance is generated by `glean_parser` in `GleanMetrics.GleanBuild.info`.
+  See [the Glean Changelog](https://github.com/mozilla/glean/blob/v43.0.2/CHANGELOG.md) for full details.
+  BREAKING CHANGE: Pass build info into initialize, which contains the build date.
+  A suitable instance is generated by `glean_parser` in `GleanMetrics.GleanBuild.info`.
 
 # v87.3.0 (_2022-01-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.2.0...v87.3.0)
 
 ## Supported Xcode Versions
+
 - As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details.
 
 ## viaduct
+
 ### What's New
+
 - Add support for PATCH methods. ([#4751](https://github.com/mozilla/application-services/pull/4751))
 
 ## Nimbus
+
 ### What's new
+
 - The Nimbus SDK now support application version targeting, where experiment creators can set `app_version|versionCompare({VERSION}) >= 0` and the experiments will only target users running `VERSION` or higher. ([#4752](https://github.com/mozilla/application-services/pull/4752))
 - The `versionCompare` transform will return a positive number if `app_version` is greater than
-`VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
+  `VERSION`, a negative number if `app_version` is less than `VERSION` and zero if they are equal
 - `VERSION` must be passed in as a string, for example: `app_version|versionCompare('95.!') >= 0` will target users who are on any version starting with `95` or above (`95.0`, `95.1`, `95.2.3-beta`, `96` etc..)
 
 # v87.2.0 (_2021-12-15_)
@@ -2438,16 +2968,22 @@ A suitable instance is generated by `glean_parser` in `GleanMetrics.GleanBuild.i
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.0.0...v87.1.0)
 
 ## Logins
+
 ### What's changed
+
 - The `update()` and `add_or_update()` methods will log rather than return an error when trying to update a duplicate login (#4648)
 
 ## Logins, Places, SyncManager
+
 ### What's Changed
+
 - These packages all use `parking_lot::Mutex` instead of `std::Mutex`, meaning we should no
-longer see errors about mutexes being poisoned.
+  longer see errors about mutexes being poisoned.
 
 ## Push
+
 ### What's fixed
+
 - Fixes a bug where the subscriptions would fail because the server didn't return the `uaid`, this seems to happen only when the client sends request that include the `uaid`.([#4697](https://github.com/mozilla/application-services/pull/4697))
 
 # General
@@ -2459,22 +2995,27 @@ longer see errors about mutexes being poisoned.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...v87.0.0)
 
 ## Push
+
 ### What's changed
+
 - Push internally no longer uses the `error_support` dependency to simplify the code. It now directly defines exactly one error enum and exposes that to `uniffi`. This should have no implication to the consumer code ([#4650](https://github.com/mozilla/application-services/pull/4650))
 
 ## Places
+
 ### ⚠️ Breaking Changes ⚠️
+
 - Switched sync manager integration to use `registerWithSyncManager()` like the other components ([#4627](https://github.com/mozilla/application-services/pull/4627))
 
 ## SyncManager
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Updated SyncManager to use UniFFI:
 - SyncManager is now a class that gets instatiated rather than a singleton
 - Added more SyncManagerException subclasses
 - SyncParams.engines is now a SyncEngineSelection enum.
-SyncEngineSelection's variants are All, or Some(engine_list).  This
-replaces the old code which used null to signify all engines.
+  SyncEngineSelection's variants are All, or Some(engine_list). This
+  replaces the old code which used null to signify all engines.
 - SyncResult.telemetry was replaced with SyncResult.telemetryJson.
 - There were a handful of naming changes:
 - SyncAuthInfo.tokenserverURL -> SyncAuthInfo.tokenserverUrl
@@ -2485,12 +3026,14 @@ replaces the old code which used null to signify all engines.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.1.0...v86.2.0)
 
 ## Push
+
 ### What's Changed
+
 - We've changed the database schema to avoid confusion about the state of subscriptions and
-in particular, avoid `SQL: UNIQUE constraint failed: push_record.channel_id` errors
-reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
-technically a breaking change as a dictionary described in the UDL changed, but in practice,
-none of our consumers used it, so we are not declaring it as breaking in this context.
+  in particular, avoid `SQL: UNIQUE constraint failed: push_record.channel_id` errors
+  reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
+  technically a breaking change as a dictionary described in the UDL changed, but in practice,
+  none of our consumers used it, so we are not declaring it as breaking in this context.
 
 ## Logins
 
@@ -2510,27 +3053,32 @@ none of our consumers used it, so we are not declaring it as breaking in this co
 - for both Android and iOS.
 
 ### What's fixed
+
 - Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
 - Fixed a bug in Android where we were missing disqualification events after a global opt-out ([#4606](https://github.com/mozilla/application-services/pull/4606))
 
 ## Push
 
 - We've changed how the push database is opened, which should mean we now automatically handle
-some kinds of database corruption.
+  some kinds of database corruption.
 
 ## General
+
 ### What's changed
+
 - The bundled version of Glean has been updated to v42.0.1.
-See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.
-(Note there is a breaking change in Rust, but that doesn't impact consumers of Application Services)
+  See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.
+  (Note there is a breaking change in Rust, but that doesn't impact consumers of Application Services)
 
 # v86.0.1 (_2021-10-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.0.1)
-## Logins
-### What's Changed
-- Downgraded the log level of some logs, so now they should not show up in Sentry.
 
+## Logins
+
+### What's Changed
+
+- Downgraded the log level of some logs, so now they should not show up in Sentry.
 
 # v86.0.0 (_2021-10-13_)
 
@@ -2539,19 +3087,21 @@ See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELO
 ## Logins
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Rework logins to no longer use sqlcipher and instead use plain sqlite. This is a major change
-with a massive impact on all consumers of this component, all of whom are already aware of
-this change and have PRs in-progress.
-([#4549](https://github.com/mozilla/application-services/pull/4549))
+  with a massive impact on all consumers of this component, all of whom are already aware of
+  this change and have PRs in-progress.
+  ([#4549](https://github.com/mozilla/application-services/pull/4549))
 
 # v85.4.2 (_2021-10-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v85.4.2)
 
 ## Nimbus
-### What's fixed
-- Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
 
+### What's fixed
+
+- Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
 
 # v85.4.1 (_2021-10-08_)
 
@@ -2560,7 +3110,7 @@ this change and have PRs in-progress.
 ## Logins
 
 - Metrics for the logins sqlcipher migration are included to help "bootstrap"
-the metrics ready for the migration.
+  the metrics ready for the migration.
 
 # v85.4.0 (_2021-10-05_)
 
@@ -2571,10 +3121,12 @@ the metrics ready for the migration.
 ### What's Changed
 
 - Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
-it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
 
 ## Nimbus
+
 ### What's changed
+
 - The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))
 - Nimbus will retry enrollment if it previously errored out on a previous enrollment.
 
@@ -2595,7 +3147,9 @@ it if either are present ([#4504](https://github.com/mozilla/application-service
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
 
 ## Places
+
 ### What's New
+
 - Added Swift bindings for the following History Metadata APIs: `getHighlights` and `deleteHistoryMetadata`.
 
 # v85.1.0 (_2021-09-27_)
@@ -2617,7 +3171,6 @@ it if either are present ([#4504](https://github.com/mozilla/application-service
 
 - 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
 
-
 # v85.0.0 (_2021-09-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
@@ -2637,10 +3190,11 @@ it if either are present ([#4504](https://github.com/mozilla/application-service
 - `get*List`, `get*Map` to get lists and maps of all types.
 - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
 - Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
+
 ### ⚠️ Breaking Changes ⚠️
 
 - [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
-from `(Variables) -> T` to `(Variables) -> T?`.
+  from `(Variables) -> T` to `(Variables) -> T?`.
 
 [1]: https://github.com/mozilla/application-services/pull/4455
 
@@ -2651,12 +3205,17 @@ from `(Variables) -> T` to `(Variables) -> T?`.
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️
+
 - `previewImageUrl` property was added to `HistoryMetadata` ([#4448](https://github.com/mozilla/application-services/pull/4448))
+
 ### What's changed
+
 - `previewImageUrl` was added to `VisitObservation`, allowing clients to make observations about the 'hero' image of the webpage ([#4448](https://github.com/mozilla/application-services/pull/4448))
 
 ## Push
+
 ### ⚠️ Breaking Changes ⚠️
+
 - The push component now uses `uniffi`! Here are the Kotlin breaking changes related to that:
 - `PushAPI` no longer exists, consumers should consumer `PushManager` directly
 - `PushError` becomes `PushException`, and all specific errors are now `PushException` children, and can be retrieved using `PushException.{ExceptionName}`, for example `StorageError` becomes `PushException.StorageException`
@@ -2670,22 +3229,28 @@ from `(Variables) -> T` to `(Variables) -> T?`.
 ## Android
 
 ### ⚠️ Breaking Changes ⚠️
+
 - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
-to be more in keeping with Java/Kotlin idioms.
+  to be more in keeping with Java/Kotlin idioms.
 - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
 
 ## Autofill
 
 ### ⚠️ Breaking Changes ⚠️
+
 - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
 
 ## Push
+
 ### ⚠️ Breaking Changes ⚠️
+
 - The `unsubscribeAll` API will now return nothing as opposed to a boolean. The boolean was misleading as it only ever returned true.
-errors can be caught using exceptions. ([#4418](https://github.com/mozilla/application-services/pull/4418))
+  errors can be caught using exceptions. ([#4418](https://github.com/mozilla/application-services/pull/4418))
+
 ### What's Changed
+
 - The push `unsubscribe` API will no longer accept a null `channel_id` value, a valid `channel_id` must be presented, otherwise rust will panic and an error will be thrown to android.
-note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string. ([#4402](https://github.com/mozilla/application-services/pull/4402))
+  note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string. ([#4402](https://github.com/mozilla/application-services/pull/4402))
 
 ## Nimbus
 
@@ -2699,16 +3264,18 @@ note that this is not a breaking change, since our hand-written Kotlin code alre
 [Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...v82.3.0)
 
 ### What's New
-- Changed how shared libraries are loaded to avoid an issue when both uniffi
-and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
 
+- Changed how shared libraries are loaded to avoid an issue when both uniffi
+  and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
 
 # v82.2.0 (_2021-08-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)
 
 ## Push
+
 ### What's changed
+
 - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
 - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
 - Two other new errors were defined that were used to be reported under a generic error:
@@ -2716,7 +3283,9 @@ and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozi
 - `RequestError` for errors in sending a network request
 
 ## Nimbus
+
 ### What's changed
+
 - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
 
 # v82.1.0 (_2021-07-30_)
@@ -2728,9 +3297,8 @@ and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozi
 ### What's New
 
 - The Swift bindings for history metadata enums and structs now have
-public initializers, allowing them to be used properly from Swift.
-([#4371](https://github.com/mozilla/application-services/pull/4371))
-
+  public initializers, allowing them to be used properly from Swift.
+  ([#4371](https://github.com/mozilla/application-services/pull/4371))
 
 # v82.0.0 (_2021-07-29_)
 
@@ -2741,30 +3309,32 @@ public initializers, allowing them to be used properly from Swift.
 ### ⚠️ Breaking Changes ⚠️
 
 - The bundled version of Glean has been updated to v39.0.4, which includes a new API
-for recording extra event fields that have an explicit type..
-([#4356](https://github.com/mozilla/application-services/pull/4356))
+  for recording extra event fields that have an explicit type..
+  ([#4356](https://github.com/mozilla/application-services/pull/4356))
 
 ### What's New
 
 - Added content signature and chain of trust verification features in `rc_crypto`,
-and updated NSS to version 3.66.
-([#4195](https://github.com/mozilla/application-services/pull/4195))
+  and updated NSS to version 3.66.
+  ([#4195](https://github.com/mozilla/application-services/pull/4195))
 
 ## Nimbus
 
 ### What's Changed
 
 - The Nimbus API now accepts application specific context as a part of its `appSettings`.
-The consumers get to define this context for targeting purposes. This allows different consumers
-to target on different fields without the SDK having to acknowledge all the fields.
-([#4359](https://github.com/mozilla/application-services/pull/4359))
+  The consumers get to define this context for targeting purposes. This allows different consumers
+  to target on different fields without the SDK having to acknowledge all the fields.
+  ([#4359](https://github.com/mozilla/application-services/pull/4359))
 
 # v81.0.1 (_2021-07-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)
 
 ## Tabs
+
 ### ⚠️ Breaking Changes ⚠️
+
 Note: Though this is technically a breaking change, we do not expect any consumers to have upgraded to v81. Since this was a bug that was introduced in v81 we're treating it as a bugfix.
 
 - Tab struct member last_used is now a i64
@@ -2774,20 +3344,26 @@ Note: Though this is technically a breaking change, we do not expect any consume
 [Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
 
 ## Tabs
+
 ### ⚠️ Breaking Changes ⚠️
+
 - Tabs has been Uniffi-ed! ([#4192](https://github.com/mozilla/application-services/pull/4192))
 - Manual calling of sync() is removed
 - registerWithSyncManager() should be used instead
 - Tab struct member lastUsed is now a U64
+
 ## Nimbus
+
 ### What's changed
+
 - Fixed a bug where opt-in enrollments in experiments were not preserved when the application is restarted ([#4324](https://github.com/mozilla/application-services/pull/4324))
 - The nimbus component now specifies the version of the server's api - currently V1. That was done to avoid redirects. ([#4319](https://github.com/mozilla/application-services/pull/4319))
 
 ## Push
-### What's changed
-- Fixed a bug where we don't delete a client's UAID locally when it's deleted on the server ([#4325](https://github.com/mozilla/application-services/pull/4325))
 
+### What's changed
+
+- Fixed a bug where we don't delete a client's UAID locally when it's deleted on the server ([#4325](https://github.com/mozilla/application-services/pull/4325))
 
 # v80.0.1 (_2021-07-06_)
 
@@ -2806,16 +3382,21 @@ Note: Though this is technically a breaking change, we do not expect any consume
 [Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...v80.0.0)
 
 ## fxa-client
+
 ### ⚠️ Breaking Changes ⚠️
+
 - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
-Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
-will receive an error indicating that the schema was not correctly formatted.
+  Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
+  will receive an error indicating that the schema was not correctly formatted.
 
 ## Nimbus
+
 ### What's Changed
+
 - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
 
 ## Other
+
 - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
 
 # v79.0.2 (_2021-06-23_)
@@ -2831,7 +3412,7 @@ will receive an error indicating that the schema was not correctly formatted.
 ## Logins
 
 - Fixed a bug on iOS where `getDbSaltForKey` would incorrectly trigger a fatal error
-instead of propagating errors to the caller.
+  instead of propagating errors to the caller.
 
 ## Dependencies
 
@@ -2863,8 +3444,9 @@ Logins now Uniffi-ed! While this is a very large change internally, the external
 ## [places]
 
 ### ⚠️ Breaking Changes ⚠️
+
 - History Metadata API shape changed to follow an observation pattern, similar to what is present for History.
-Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
+  Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
 
 # v77.0.2 (_2021-05-31_)
 
@@ -2879,6 +3461,7 @@ Shape of objects and related DB schema changed as well. See ([#4123](https://git
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
 
 ## CI-only to force iOS artifact build, 77.0.0 is not good for iOS
+
 - add --force flag when installing swift-protobuf via homebrew (#4137)
 
 # v77.0.0 (_2021-05-24_)
@@ -2899,21 +3482,23 @@ Shape of objects and related DB schema changed as well. See ([#4123](https://git
 - Enable consuming applications to change the server collection being used. (#4076)
 
 ### What's Changed
+
 - Add manual feature exposure recording (#4120)
 - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
 - Localized strings and images are provided by the app, but usable from nimbus. (#4133)
 
 ### ⚠️ Breaking changes ⚠️
+
 - Migrate the experiment database from version 1 to version 2 on first run .(#4078)
 - Various kinds of incorrectly specified feature and featureId
-related fields will be detected, and any related experiments & enrollments
-will be discarded.
+  related fields will be detected, and any related experiments & enrollments
+  will be discarded.
 - Experiments & enrollments will also be discarded if they
-are missing other required fields (eg schemaVersion).
+  are missing other required fields (eg schemaVersion).
 - If there is an error
-during the database upgrade, the database will be wiped, since losing
-existing enrollments is still less bad than having the database in an unknown
-inconsistent state.
+  during the database upgrade, the database will be wiped, since losing
+  existing enrollments is still less bad than having the database in an unknown
+  inconsistent state.
 
 # v76.0.1 (_2021-05-18_)
 
@@ -2940,20 +3525,19 @@ Fixed an error migrating from version 1 to version 2 of the database.
 ### What's Changed
 
 - Added support to scrub encrypted data to handle lost/corrupted client keys.
-Scrubbed data will be replaced with remote data on the next sync.
+  Scrubbed data will be replaced with remote data on the next sync.
 
 ## Nimbus
 
 - Added bucket and collections to `NimbusServerSettings`, with default values.
 - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
 - At most one local experiment will be enrolled for any given `featureId`, and
-to support this, the database can now have a NotEnrolledReason::FeatureConflict value.
+  to support this, the database can now have a NotEnrolledReason::FeatureConflict value.
 
 ### ⚠️ Breaking changes ⚠️
 
 - Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Observer.
-Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
-
+  Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
 
 # v75.2.0 (_2021-04-20_)
 
@@ -2976,8 +3560,6 @@ Fixed in the complementary [android-components#10144](https://github.com/mozilla
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.0.1...v75.1.0)
 
-
-
 # v75.0.1 (_2021-04-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.0.0...v75.0.1)
@@ -2988,12 +3570,9 @@ Fixed in the complementary [android-components#10144](https://github.com/mozilla
 
 - Make `channel` targeting comparison case-insensitive. ([#4009](https://github.com/mozilla/application-services/pull/4009))
 
-
 # v75.0.0 (_2021-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v74.0.1...v75.0.0)
-
-
 
 # v74.0.1 (_2021-03-19_)
 
@@ -3024,8 +3603,8 @@ Fixed in the complementary [android-components#10144](https://github.com/mozilla
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.1...v73.0.2)
 
-* This is a deliberately empty release, designed to help test some downstream automation
-that picks up new appservices releases.
+- This is a deliberately empty release, designed to help test some downstream automation
+  that picks up new appservices releases.
 
 # v73.0.1 (_2021-03-10_)
 
@@ -3034,8 +3613,8 @@ that picks up new appservices releases.
 # Android
 
 - The `-forUnitTest` build no longer includes code compiled for Windows, meaning that
-it is no longer possible to run appservices Kotlin unit tests on Windows. We hope
-this will be a temporary measure while we resolve some build issues.
+  it is no longer possible to run appservices Kotlin unit tests on Windows. We hope
+  this will be a temporary measure while we resolve some build issues.
 
 # v73.0.0 (_2021-03-10_)
 
@@ -3046,7 +3625,7 @@ this will be a temporary measure while we resolve some build issues.
 - The bundled version of the Nimbus SDK has been updated to v0.9.0.
 - The top-level Rust workspace now builds with Rust 1.50
 - The top-level Rust workspace is now stapled to Rust 1.50, so all developers
-will build with 1.50, as will the continuous integration for this repo.
+  will build with 1.50, as will the continuous integration for this repo.
 
 ## iOS
 
@@ -3057,9 +3636,9 @@ will build with 1.50, as will the continuous integration for this repo.
 ### ⚠️ Breaking changes ⚠️
 
 - The Kotlin and Swift bindings are now generated automatically using UniFFI.
-As a result many small details of the API surface have changed, such as some
-classes changing names to be consistent between Rust, Kotlin and Swift.
-([#3876](https://github.com/mozilla/application-services/pull/3876))
+  As a result many small details of the API surface have changed, such as some
+  classes changing names to be consistent between Rust, Kotlin and Swift.
+  ([#3876](https://github.com/mozilla/application-services/pull/3876))
 
 # v72.1.0 (_2021-02-25_)
 
@@ -3070,7 +3649,7 @@ classes changing names to be consistent between Rust, Kotlin and Swift.
 ### What's Changed
 
 - This release fixes an "unsatisfied link error" problem with autofill and nimbus,
-stemming from a misconfiguration in the Android build setup.
+  stemming from a misconfiguration in the Android build setup.
 
 # v72.0.0 (_2021-02-25_)
 
@@ -3087,7 +3666,7 @@ stemming from a misconfiguration in the Android build setup.
 ### ⚠️ Breaking changes ⚠️
 
 - The autofill Kotlin package as been renamed from `org.mozilla.appservices.autofill`
-to `mozilla.appservices.autofill`, for consistency with other components.
+  to `mozilla.appservices.autofill`, for consistency with other components.
 
 # v71.0.0 (_2021-02-18_)
 
@@ -3129,14 +3708,16 @@ to `mozilla.appservices.autofill`, for consistency with other components.
 ## General
 
 ### What's Changed
+
 - Updated nimbus-sdk to 0.7.1
 - Updated Android Components to 71.0.0
 
 ## iOS
 
 ### What's Changed
+
 - The `MozillaAppServices.framework` artifact now contains a dynamically-linked library
-rather than a static library.
+  rather than a static library.
 
 # v68.1.0 (_2020-12-17_)
 
@@ -3148,7 +3729,7 @@ rather than a static library.
 
 - The bundled version of Nimbus SDK has been updated to v0.6.4.
 - The internal traits used by `sync15` have been renamed for consistency and clarity
-(and the README has been updated with docs to help explain them).
+  (and the README has been updated with docs to help explain them).
 - The bundled version of Glean has been updated to v33.10.3.
 
 # v68.0.0 (_2020-12-08_)
@@ -3160,14 +3741,13 @@ rather than a static library.
 ### ⚠️ Breaking changes ⚠️
 
 - The bundled version of Nimbus SDK has been updated to v0.6.3, which includes
-the following breaking changes:
+  the following breaking changes:
 - Removed `NimbusClient.resetEnrollment`.
 - `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
-Consumers should forward these events to their telemetry system (e.g. via Glean).
+  Consumers should forward these events to their telemetry system (e.g. via Glean).
 - Removed implicit fetch of experiments on first use of the database. Consumers now must
-call update_experiments explicitly in order to fetch experiments from the Remote Settings
-server.
-
+  call update_experiments explicitly in order to fetch experiments from the Remote Settings
+  server.
 
 ### What's Changed
 
@@ -3191,7 +3771,7 @@ server.
 ### What's Changed
 
 - The bundled version of Glean has been updated to v33.4.0.
-(as part of [#3724](https://github.com/mozilla/application-services/pull/3724))
+  (as part of [#3724](https://github.com/mozilla/application-services/pull/3724))
 
 ## Autofill
 
@@ -3209,74 +3789,74 @@ the full megazord.
 ### ⚠️ Breaking changes ⚠️
 
 - The custom "Lockbox Megazord" package (`org.mozilla.appservices:lockbox-megazord`) has been removed.
-Existing consumers of this package who wish to update to the latest release of application-services
-should migrate to using the default `appservices:full-megazord` package, or contact the development
-team to discuss an alternate approach.
-([#3700](https://github.com/mozilla/application-services/pull/3700))
+  Existing consumers of this package who wish to update to the latest release of application-services
+  should migrate to using the default `appservices:full-megazord` package, or contact the development
+  team to discuss an alternate approach.
+  ([#3700](https://github.com/mozilla/application-services/pull/3700))
 
 ### What's Changed
 
 - The version of Rust used to compile our components has been pinned to v1.43.0 in order to match
-the version of Rust used in mozilla-central. Changes that do not compile under this version of
-Rust will not be accepted.
-([#3702](https://github.com/mozilla/application-services/pull/3702))
+  the version of Rust used in mozilla-central. Changes that do not compile under this version of
+  Rust will not be accepted.
+  ([#3702](https://github.com/mozilla/application-services/pull/3702))
 
 ## iOS
 
 ### What's Changed
 
 - The bundled version of Glean has been updated to v33.1.2.
-(as part of [#3701](https://github.com/mozilla/application-services/pull/3701))
+  (as part of [#3701](https://github.com/mozilla/application-services/pull/3701))
 
 ## Android
 
 ### What's Changed
 
 - This release comes with a nontrivial increase in the compiled code size of the
-`org.mozilla.appservices:full-megazord` package, adding approximately 1M per platform
-thanks to the addition of the Nimbus SDK component.
-([#3701](https://github.com/mozilla/application-services/pull/3701))
+  `org.mozilla.appservices:full-megazord` package, adding approximately 1M per platform
+  thanks to the addition of the Nimbus SDK component.
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
 - Several core gradle dependencies have been updated, including gradle itself (now v6.5)
-and the android gradle plugin (now v4.0.1).
-([#3701](https://github.com/mozilla/application-services/pull/3701))
+  and the android gradle plugin (now v4.0.1).
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
 
 ## Nimbus SDK
 
 ### What's New
 
 - The first version of the Nimbus Experimentation SDK is now available, via the
-`org.mozilla.appservices:nimbus` package. More details can be found in the
-[nimbus-sdk repo](https://github.com/mozilla/nimbus-sdk).
-([#3701](https://github.com/mozilla/application-services/pull/3701))
+  `org.mozilla.appservices:nimbus` package. More details can be found in the
+  [nimbus-sdk repo](https://github.com/mozilla/nimbus-sdk).
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
 
 ## FxA Client
 
 ### What's Fixed
 
 - We no longer discard the final path component from self-hosted sync tokenserver URLs.
-([#3694](https://github.com/mozilla/application-services/pull/3694))
+  ([#3694](https://github.com/mozilla/application-services/pull/3694))
 
 ## Autofill
 
 ### What's Changed
 
 - We added the `touch_address` and `touch_credit_card` store functions and refactored the component.
-([#3691](https://github.com/mozilla/application-services/pull/3691))
+  ([#3691](https://github.com/mozilla/application-services/pull/3691))
 
 ## Push
 
 ### What's Changed
 
 - Attempts to update the device push token are now rate-limited.
-([#3673](https://github.com/mozilla/application-services/pull/3673))
+  ([#3673](https://github.com/mozilla/application-services/pull/3673))
 
 ## WebExtension Storage
 
 ### What's Fixed
 
 - Syncing of incoming tombstone records has been fixed; previously the presence
-of an incoming tombstone could cause the sync to fail.
-([#3668](https://github.com/mozilla/application-services/pull/3668))
+  of an incoming tombstone could cause the sync to fail.
+  ([#3668](https://github.com/mozilla/application-services/pull/3668))
 
 # v66.0.0 (_2020-10-28_)
 
@@ -3285,7 +3865,7 @@ of an incoming tombstone could cause the sync to fail.
 ### Breaking changes
 
 - Android: Updated the `getTopFrecentSiteInfos` API to specify a frecency threshold parameter for the
-fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.com/mozilla/application-services/issues/3635))
+  fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.com/mozilla/application-services/issues/3635))
 
 # v65.0.0 (_2020-10-19_)
 
@@ -3293,13 +3873,14 @@ fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.c
 
 ## Android
 
-### What's changed ###
+### What's changed
 
 - Upgraded the JNA dependency version to 5.6.0. ([#3647](https://github.com/mozilla/application-services/pull/3647))
 
 ## Autofill
 
-### What's changed ###
+### What's changed
+
 - Updated the autofill-utils example app to include API calls for addresses. ([#3605](https://github.com/mozilla/application-services/pull/3605))
 - Added API calls for credit cards. ([#3615](https://github.com/mozilla/application-services/pull/3615))
 
@@ -3312,46 +3893,47 @@ fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.c
 ### ⚠️ Breaking changes ⚠️
 
 - The `MozillaAppServices.framework` is now built using Xcode 12, so consumers will need
-update their own build accordingly.
-([#3586](https://github.com/mozilla/application-services/pull/3586))
+  update their own build accordingly.
+  ([#3586](https://github.com/mozilla/application-services/pull/3586))
 
 ### What's changed
 
 - The bundled version of glean has been updated to v32.4.0.
-([#3590](https://github.com/mozilla/application-services/pull/3590))
-()
+  ([#3590](https://github.com/mozilla/application-services/pull/3590))
+  ()
 
 ## FxA Client
 
 ### What's changed
 
 - Added a circuit-breaker to the `check_authorization_status` method.
-In specific circumstances, it was in possible to trigger a failure-recovery infinite loop,
-which will now error out after a certain now of retries.
-([#3585](https://github.com/mozilla/application-services/pull/3585))
+  In specific circumstances, it was in possible to trigger a failure-recovery infinite loop,
+  which will now error out after a certain now of retries.
+  ([#3585](https://github.com/mozilla/application-services/pull/3585))
 
 ## Autofill
 
-### What's changed ###
+### What's changed
+
 - Added a basic API and database layer for the autofill component. ([#3582](https://github.com/mozilla/application-services/pull/3582))
 
 ## Places
 
 ### What's changed
-- Removed the duplicate Timestamp logic from Places, which now exists in Support, and updated the references.
-([#3593](https://github.com/mozilla/application-services/pull/3593))
-- Fixed a bug in bookmarks reconciliation that could lead to deleted items being resurrected
-in some circumstances.
-([#3510](https://github.com/mozilla/application-services/pull/3510),
-[Bug 1635859](https://bugzilla.mozilla.org/show_bug.cgi?id=1635859))
 
+- Removed the duplicate Timestamp logic from Places, which now exists in Support, and updated the references.
+  ([#3593](https://github.com/mozilla/application-services/pull/3593))
+- Fixed a bug in bookmarks reconciliation that could lead to deleted items being resurrected
+  in some circumstances.
+  ([#3510](https://github.com/mozilla/application-services/pull/3510),
+  [Bug 1635859](https://bugzilla.mozilla.org/show_bug.cgi?id=1635859))
 
 ## Support Code
 
 ### What's new
 
 - The `rc_crypto` crate now supports ECDSA P384-SHA384 signature verification.
-([#3557](https://github.com/mozilla/application-services/pull/3557))
+  ([#3557](https://github.com/mozilla/application-services/pull/3557))
 
 # v63.0.0 (_2020-09-10_)
 
@@ -3362,46 +3944,46 @@ in some circumstances.
 ### ⚠️ Breaking changes ⚠️
 
 - The `MozillaAppServices.framework` build now includes Glean. Applications that were previously consuming Glean via
-its standalone framework and using `import Glean` will instead need to `import MozillaAppServices`.
-([#3554](https://github.com/mozilla/application-services/pull/3554))
+  its standalone framework and using `import Glean` will instead need to `import MozillaAppServices`.
+  ([#3554](https://github.com/mozilla/application-services/pull/3554))
 
-### What's changed ###
+### What's changed
 
 - The version of xcode used to build `MozillaAppServices.framework` has been updated to v11.7.
-([#3556](https://github.com/mozilla/application-services/pull/3556))
+  ([#3556](https://github.com/mozilla/application-services/pull/3556))
 - When using a custom sync tokenserver URL, the `/1.0/sync/1.5` suffix will be stripped if present.
-This should simplify setup for self-hosters who are accustomed to supplying the tokenserver URL
-in this form on other platforms.
-([#3555](https://github.com/mozilla/application-services/pull/3555))
+  This should simplify setup for self-hosters who are accustomed to supplying the tokenserver URL
+  in this form on other platforms.
+  ([#3555](https://github.com/mozilla/application-services/pull/3555))
 
 ## Android
 
-### What's changed ###
+### What's changed
 
 - `android-components` has been updated to 56.0.0 (previously 47.0.0) ([#3538](https://github.com/mozilla/application-services/pull/3538))
 
 ## Places
 
-### What's fixed ###
+### What's fixed
 
 - Fixed a bug where sync could ask places to recalculate the frecency of iitems that are not bookmarks,
-which would fail and prevent the sync from completing.
-([#3567](https://github.com/mozilla/application-services/pull/3567))
+  which would fail and prevent the sync from completing.
+  ([#3567](https://github.com/mozilla/application-services/pull/3567))
 
-### What's changed ###
+### What's changed
 
 - If the database somehow contains bookmarks with an invalid URL, they will now be ignored
-on read; previously invalid URLs would trigger an error and crash.
-([#3537](https://github.com/mozilla/application-services/pull/3537))
+  on read; previously invalid URLs would trigger an error and crash.
+  ([#3537](https://github.com/mozilla/application-services/pull/3537))
 
 ## Push
 
-### What's fixed ###
+### What's fixed
 
 - Messages using the legacy `aesgcm` encryption method will how have padding bytes correctly stripped;
-previously the padding bytes would be returned as part of the message and could cause message-parsing
-errors in consuming code.
-([#3569](https://github.com/mozilla/application-services/pull/3569))
+  previously the padding bytes would be returned as part of the message and could cause message-parsing
+  errors in consuming code.
+  ([#3569](https://github.com/mozilla/application-services/pull/3569))
 
 # v62.1.0 (_2020-08-21_)
 
@@ -3409,34 +3991,35 @@ errors in consuming code.
 
 ## Extension Storage
 
-### What's fixed ###
+### What's fixed
 
 - Do not check total bytes quota on storage.sync.remote operations ([Bug 1656947](https://bugzilla.mozilla.org/1656947))
 
 ## FxA Client
 
-### What's new ###
+### What's new
 
 - Send-tab metrics are recorded. A new function, `fxa_gather_telemetry` on the
-account object (exposed as `account.gatherTelemetry()` to Kotlin) which
-returns a string of JSON.
+  account object (exposed as `account.gatherTelemetry()` to Kotlin) which
+  returns a string of JSON.
 
 This JSON might grow to support non-sendtab telemetry in the future, but in
 this change it has:
+
 - `commands_sent`, an array of objects, each with `flow_id` and `stream_id`
-string values.
+  string values.
 - `commands_received`, an array of objects, each with `flow_id`, `stream_id`
-and `reason` string values.
+  and `reason` string values.
 
 [#3308](https://github.com/mozilla/application-services/pull/3308/)
 
 ## Places
 
-### What's new ###
+### What's new
 
 - Exclude download, redirects, reload, embed and framed link visit type from the
-`get_top_frecent_site_infos` query.
-([#3505](https://github.com/mozilla/application-services/pull/3505))
+  `get_top_frecent_site_infos` query.
+  ([#3505](https://github.com/mozilla/application-services/pull/3505))
 
 # v62.0.0 (_2020-07-13_)
 
@@ -3446,10 +4029,11 @@ and `reason` string values.
 
 ### ⚠️ Breaking changes ⚠️
 
-- Adds support for `entrypoint` in oauth flow APIs: consumers of `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios) are now ***required*** to pass an `entrypoint` argument that would be used for metrics. This puts the `beginOAuthFlow` and `beginPairingFlow` APIs inline with other existing APIs, like `getManageAccountUrl`.  ([#3265](https://github.com/mozilla/application-services/pull/3265))
+- Adds support for `entrypoint` in oauth flow APIs: consumers of `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios) are now **_required_** to pass an `entrypoint` argument that would be used for metrics. This puts the `beginOAuthFlow` and `beginPairingFlow` APIs inline with other existing APIs, like `getManageAccountUrl`. ([#3265](https://github.com/mozilla/application-services/pull/3265))
 - Changes the `authorizeOAuthCode` API to now accept an `AuthorizationParams` object instead of the individual parameters. The `AuthorizationParams` also includes optional `AuthorizationPKCEParams` that contain the `codeChallenge`, `codeChallengeMethod`. `AuthorizationParams` also includes an optional `keysJwk` for requesting keys ([#3264](https://github.com/mozilla/application-services/pull/3264))
 
-### What's new ###
+### What's new
+
 - Consumers can now optionally include parameters for metrics in `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios). Those parameters can be passed in using a `MetricsParams` struct/class. `MetricsParams` is defined in both the Kotlin and Swift bindings. The parameters are the following ([#3328](https://github.com/mozilla/application-services/pull/3328)):
 - flow_id
 - flow_begin_time
@@ -3464,17 +4048,17 @@ and `reason` string values.
 
 ## Logins
 
-### What's fixed ###
+### What's fixed
 
 - Fixed a bug where attempting to edit a login with an empty `form_submit_url` would incorrectly
-reject the entry as invalid ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+  reject the entry as invalid ([#3331](https://github.com/mozilla/application-services/pull/3331)).
 
 ## Tabs
 
-### What's new ###
+### What's new
 
 - Tab records now have an explicit TTL set when storing on the server, to match the behaviour
-of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
+  of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
 
 # v61.0.12 (_2020-08-07_)
 
@@ -3490,17 +4074,19 @@ of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-servi
 
 ## FxA Client
 
-### What's new ###
+### What's new
+
 - Send-tab metrics are recorded. A new function, `fxa_gather_telemetry` on the
-account object (exposed as `account.gatherTelemetry()` to Kotlin) which
-returns a string of JSON.
+  account object (exposed as `account.gatherTelemetry()` to Kotlin) which
+  returns a string of JSON.
 
 This JSON might grow to support non-sendtab telemetry in the future, but in
 this change it has:
+
 - `commands_sent`, an array of objects, each with `flow_id` and `stream_id`
-string values.
+  string values.
 - `commands_received`, an array of objects, each with `flow_id`, `stream_id`
-and `reason` string values.
+  and `reason` string values.
 
 [#3308](https://github.com/mozilla/application-services/pull/3308/)
 
@@ -3562,10 +4148,10 @@ and `reason` string values.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.3...v61.0.4)
 
-* Fix an issue where a node reassignment or signing out and signing back in
-wouldn't clear the locally stored last sync time for engines
-([#3150](https://github.com/mozilla/application-services/issues/3150),
-PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
+- Fix an issue where a node reassignment or signing out and signing back in
+  wouldn't clear the locally stored last sync time for engines
+  ([#3150](https://github.com/mozilla/application-services/issues/3150),
+  PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
 
 # v61.0.3 (_2020-06-17_)
 
@@ -3590,7 +4176,6 @@ PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
 ## General
 
 - Attempt to fix some build tooling issues with the previous release; no user-visible changes. ([#3245](https://github.com/mozilla/application-services/pull/3245))
-
 
 # v61.0.0 (_2020-06-15_)
 
@@ -3657,6 +4242,7 @@ PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
 - Added option boolean argument `ignoreCache` to ignore caching for `getDevices`. ([#3066](https://github.com/mozilla/application-services/pull/3066))
 
 ### ⚠️ Breaking changes ⚠️
+
 - iOS: Renamed `fetchDevices(forceRefresh)` to `getDevices(ignoreCache)` to establish parity with Android. ([#3066](https://github.com/mozilla/application-services/pull/3066))
 - iOS: Renamed argument of `fetchProfile` from `forceRefresh` to `ignoreCache`. ([#3066](https://github.com/mozilla/application-services/pull/3066))
 
@@ -3706,14 +4292,14 @@ PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
 ### ⚠️ Breaking changes ⚠️
 
 - iOS: The `reqwest` network stack will not be initialized automatically anymore.
-Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before using the framework. ([#2880](https://github.com/mozilla/application-services/pull/2880))
+  Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before using the framework. ([#2880](https://github.com/mozilla/application-services/pull/2880))
 
 ## Logins
 
 ### What's New
 
 - A new function was added to return a list of duplicate logins, ignoring
-username. ([#2542](https://github.com/mozilla/application-services/pull/2542))
+  username. ([#2542](https://github.com/mozilla/application-services/pull/2542))
 
 # v0.56.0 (_2020-03-26_)
 
@@ -3730,14 +4316,14 @@ username. ([#2542](https://github.com/mozilla/application-services/pull/2542))
 ### ⚠️ Breaking changes ⚠️
 
 - Android: `MemoryLoginsStorage` has been removed. Use DatabaseLoginsStorage(":memory:") instead.
-([#2833](https://github.com/mozilla/application-services/pull/2823)).
+  ([#2833](https://github.com/mozilla/application-services/pull/2823)).
 
 ## Libs
 
 ### What's changed
 
 - The project now builds with version 4.3.0 of SQLCipher instead of a fork
-of version 4.2.0. Newest version has NSS crypto backend. ([#2822](https://github.com/mozilla/application-services/pull/2822)).
+  of version 4.2.0. Newest version has NSS crypto backend. ([#2822](https://github.com/mozilla/application-services/pull/2822)).
 
 ## FxA Client
 
@@ -3778,16 +4364,16 @@ of version 4.2.0. Newest version has NSS crypto backend. ([#2822](https://github
 ### ⚠️ Breaking changes ⚠️
 
 - Android: `PlacesConnection.deletePlace` has been renamed to
-`deleteVisitsFor`, to clarify that it might not actually delete the
-page if it's bookmarked, or has a keyword or tags
-([#2695](https://github.com/mozilla/application-services/pull/2695)).
+  `deleteVisitsFor`, to clarify that it might not actually delete the
+  page if it's bookmarked, or has a keyword or tags
+  ([#2695](https://github.com/mozilla/application-services/pull/2695)).
 
 ### What's fixed
 
 - `history::delete_visits_for` (formerly `delete_place_by_guid`) now correctly
-deletes all visits from a page if it has foreign key references, like
-bookmarks, keywords, or tags. Previously, this would cause a constraint
-violation ([#2695](https://github.com/mozilla/application-services/pull/2695)).
+  deletes all visits from a page if it has foreign key references, like
+  bookmarks, keywords, or tags. Previously, this would cause a constraint
+  violation ([#2695](https://github.com/mozilla/application-services/pull/2695)).
 
 ## FxA Client
 
@@ -3813,23 +4399,23 @@ violation ([#2695](https://github.com/mozilla/application-services/pull/2695)).
 ### What's fixed
 
 - Engine disabled/enabled state changes now work again after a regression in
-0.53.0.
+  0.53.0.
 
 ## Android
 
 ### What's changed
 
 - There is now preliminary support for an "autoPublish" local-development workflow similar
-to the one used when working with Fenix and android-components; see
-[this howto guide](./docs/howtos/locally-published-components-in-fenix.md) for details.
+  to the one used when working with Fenix and android-components; see
+  [this howto guide](./docs/howtos/locally-published-components-in-fenix.md) for details.
 
 ## Places
 
 ### What's fixed
 
 - Improve handling of bookmark search keywords. Keywords are now imported
-correctly from Fennec, and signing out of Sync in Firefox for iOS no longer
-loses keywords ([#2501](https://github.com/mozilla/application-services/pull/2501)).
+  correctly from Fennec, and signing out of Sync in Firefox for iOS no longer
+  loses keywords ([#2501](https://github.com/mozilla/application-services/pull/2501)).
 
 # v0.54.0 (_2020-03-10_)
 
@@ -3852,7 +4438,7 @@ loses keywords ([#2501](https://github.com/mozilla/application-services/pull/250
 ### Breaking changes
 
 - Android: The `PushManager.verifyConnection` now returns a `List<PushSubscriptionChanged>` that contain the channel ID and scope of the subscriptions that have expired. ([#2632](https://github.com/mozilla/application-services/pull/2632))
-See [`onpushsubscriptionchange`][0] events on how this change can be propagated to notify web content.
+  See [`onpushsubscriptionchange`][0] events on how this change can be propagated to notify web content.
 
 [0]: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerGlobalScope/onpushsubscriptionchange
 
@@ -3861,16 +4447,16 @@ See [`onpushsubscriptionchange`][0] events on how this change can be propagated 
 ### What's fixed
 
 - Improve handling of tags for bookmarks with the same URL. These bookmarks no
-longer cause syncs to fail ([#2750](https://github.com/mozilla/application-services/pull/2750)),
-and bookmarks with duplicate or mismatched tags are reuploaded
-([#2774](https://github.com/mozilla/application-services/pull/2774)).
+  longer cause syncs to fail ([#2750](https://github.com/mozilla/application-services/pull/2750)),
+  and bookmarks with duplicate or mismatched tags are reuploaded
+  ([#2774](https://github.com/mozilla/application-services/pull/2774)).
 
 ### Breaking changes
 
 - Synced items with unknown types now fail the sync, instead of being silently
-ignored. We'll monitor this error in telemetry, and add logic to delete these
-items on the server if needed
-([#2780](https://github.com/mozilla/application-services/pull/2780)).
+  ignored. We'll monitor this error in telemetry, and add logic to delete these
+  items on the server if needed
+  ([#2780](https://github.com/mozilla/application-services/pull/2780)).
 
 # v0.53.2 (_2020-03-05_)
 
@@ -3892,7 +4478,7 @@ items on the server if needed
 ### What's changed
 
 - A megazord loading failure will throw as soon as possible rather than at call time.
-([#2739](https://github.com/mozilla/application-services/issues/2739))
+  ([#2739](https://github.com/mozilla/application-services/issues/2739))
 
 ## iOS
 
@@ -3930,12 +4516,12 @@ free to reach out if you have any issues.
 ### What's fixed
 
 - Rust sync code is now more robust in the face of corrupt meta/global
-records. ([#2688](https://github.com/mozilla/application-services/pull/2688))
+  records. ([#2688](https://github.com/mozilla/application-services/pull/2688))
 
 - In v0.52.0 we reported some network related fixes. We lied. This time
-we promise they are actually fixed. ([#2616](https://github.com/mozilla/application-services/issues/2616),
-[#2617](https://github.com/mozilla/application-services/issues/2617)
-[#2623](https://github.com/mozilla/application-services/issues/2623))
+  we promise they are actually fixed. ([#2616](https://github.com/mozilla/application-services/issues/2616),
+  [#2617](https://github.com/mozilla/application-services/issues/2617)
+  [#2623](https://github.com/mozilla/application-services/issues/2623))
 
 ### What's changed
 
@@ -3946,29 +4532,28 @@ we promise they are actually fixed. ([#2616](https://github.com/mozilla/applicat
 ### What's changed
 
 - The `ensureCapabilities` method will not perform any network requests if the
-given capabilities are already registered with the server.
-([#2681](https://github.com/mozilla/application-services/pull/2681))
+  given capabilities are already registered with the server.
+  ([#2681](https://github.com/mozilla/application-services/pull/2681))
 
 ### What's fixed
 
 - Ensure an offline migration recovery succeeding does not happen multiple times.
-([#2706](https://github.com/mozilla/application-services/pull/2706))
+  ([#2706](https://github.com/mozilla/application-services/pull/2706))
 
 ## Places
 
 ### What's fixed
 
 - `storage::history::apply_observation` and `storage::bookmarks::update_bookmark`
-now flush pending origin and frecency updates. This fixes a bug where origins
-might be flushed at surprising times, like right after clearing history.
-([#2693](https://github.com/mozilla/application-services/issues/2693))
+  now flush pending origin and frecency updates. This fixes a bug where origins
+  might be flushed at surprising times, like right after clearing history.
+  ([#2693](https://github.com/mozilla/application-services/issues/2693))
 
 ## Push
 
 ### What's fixed
 
 - `PushManager.dispatchInfoForChid` does not throw `KotlinNullPointerException` anymore if the method returned nothing. ([#2703](https://github.com/mozilla/application-services/issues/2703))
-
 
 # v0.52.0 (_2020-02-19_)
 
@@ -3989,7 +4574,7 @@ might be flushed at surprising times, like right after clearing history.
 - Added a new field `reasons` which is a `List` of `SearchResultReason`s in `SearchResult`. ([#2564](https://github.com/mozilla/application-services/pull/2564))
 
 - Some places import related issues fixed ([#2536](https://github.com/mozilla/application-services/issues/2536),
-[#2607](https://github.com/mozilla/application-services/issues/2607))
+  [#2607](https://github.com/mozilla/application-services/issues/2607))
 
 ### Breaking changes
 
@@ -4042,7 +4627,6 @@ might be flushed at surprising times, like right after clearing history.
 
 - Updated android gradle plugin version to 3.5.3 ([#2600](https://github.com/mozilla/application-services/pull/2600))
 
-
 # v0.51.0 (_2020-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.2...v0.51.0)
@@ -4058,7 +4642,6 @@ might be flushed at surprising times, like right after clearing history.
 
 - `FirefoxAccount.fromJSON(json: String)` has been replaced by the `FirefoxAccount(fromJsonState: String)` constructor ([#2454](https://github.com/mozilla/application-services/pull/2454)).
 
-
 # v0.50.2 (_2020-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.1...v0.50.2)
@@ -4066,7 +4649,6 @@ might be flushed at surprising times, like right after clearing history.
 ### What's changed
 
 - Re-releasing to fix misconfigured build options in v0.50.1.
-
 
 # v0.50.1 (_2020-02-06_)
 
@@ -4077,8 +4659,7 @@ might be flushed at surprising times, like right after clearing history.
 ### What's changed
 
 - Fixed a potentially-unsafe use of a boolean in the FFI interface for `migrateFromSessionToken`.
-([#2592](https://github.com/mozilla/application-services/pull/2592)).
-
+  ([#2592](https://github.com/mozilla/application-services/pull/2592)).
 
 # v0.50.0 (_2020-02-05_)
 
@@ -4089,14 +4670,13 @@ might be flushed at surprising times, like right after clearing history.
 ### What's changed
 
 - Android: `migrateFromSessionToken` now correctly persists in-flight migration state even
-when throwing an error ([#2586](https://github.com/mozilla/application-services/pull/2586)).
+  when throwing an error ([#2586](https://github.com/mozilla/application-services/pull/2586)).
 
 ### Breaking changes
 
 - `isInMigrationState` now returns an enum rather than a boolean, to indicate whether
-the migration will re-use or duplicate the underlying sessionToken.
-([#2586](https://github.com/mozilla/application-services/pull/2586))
-
+  the migration will re-use or duplicate the underlying sessionToken.
+  ([#2586](https://github.com/mozilla/application-services/pull/2586))
 
 # v0.49.0 (_2020-02-03_)
 
@@ -4107,15 +4687,14 @@ the migration will re-use or duplicate the underlying sessionToken.
 ### What's New
 
 - Android: `migrateFromSessionToken` now handles offline use cases. It caches the data the consumers
-originally provide. If there's no network connectivity then the migration could be retried using the
-new `retryMigrateFromSessionToken` method. Consumers may also use the `isInMigrationState` method
-to check if there's a migration in progress. ([#2492](https://github.com/mozilla/application-services/pull/2492))
+  originally provide. If there's no network connectivity then the migration could be retried using the
+  new `retryMigrateFromSessionToken` method. Consumers may also use the `isInMigrationState` method
+  to check if there's a migration in progress. ([#2492](https://github.com/mozilla/application-services/pull/2492))
 
 ### Breaking changes
 
 - `migrateFromSessionToken` now returns a metrics JSON object if the migration succeeded.
-([#2492](https://github.com/mozilla/application-services/pull/2492))
-
+  ([#2492](https://github.com/mozilla/application-services/pull/2492))
 
 # v0.48.3 (_2020-01-23_)
 
@@ -4126,38 +4705,37 @@ to check if there's a migration in progress. ([#2492](https://github.com/mozilla
 ## What's new
 
 - The Dogear library for merging synced bookmarks has been updated to the latest version.
-([#2469](https://github.com/mozilla/application-services/pull/2469))
+  ([#2469](https://github.com/mozilla/application-services/pull/2469))
 - Places now exposes `resetHistorySyncMetadata` and `resetBookmarkSyncMetadata`
-methods, which cleans up all Sync state, including tracking flags and change
-counters. These methods should be called by consumers when the user signs out,
-to avoid tracking changes and causing unexpected behavior the next time they
-sign in.
-([#2447](https://github.com/mozilla/application-services/pull/2447))
+  methods, which cleans up all Sync state, including tracking flags and change
+  counters. These methods should be called by consumers when the user signs out,
+  to avoid tracking changes and causing unexpected behavior the next time they
+  sign in.
+  ([#2447](https://github.com/mozilla/application-services/pull/2447))
 
 ## What's changed
 
 - Ensure we do the right thing with timestamps, tags and keywords on first sync after migration.
-([#2472](https://github.com/mozilla/application-services/pull/2472))
+  ([#2472](https://github.com/mozilla/application-services/pull/2472))
 - Don't count Fennec bookmarks we know we don't import in success metrics.
-([#2488](https://github.com/mozilla/application-services/pull/2488))
+  ([#2488](https://github.com/mozilla/application-services/pull/2488))
 - Don't fail if the Fennec database has negative positions when importing top-sites
-([#2462](https://github.com/mozilla/application-services/pull/2462))
+  ([#2462](https://github.com/mozilla/application-services/pull/2462))
 - Fix issue with bookmark tags when syncing
-([#2480](https://github.com/mozilla/application-services/pull/2480))
+  ([#2480](https://github.com/mozilla/application-services/pull/2480))
 - Quality and usage metrics are recorded (ditto for logins)
 - Fix some swift warnings
-([#2491](https://github.com/mozilla/application-services/pull/2491))
+  ([#2491](https://github.com/mozilla/application-services/pull/2491))
 
 ### Breaking Changes
 
 - The Android bindings now collect some basic performance and quality metrics via Glean.
-Applications that submit telemetry via Glean must request a data review for these metrics
-before integrating the places component. See the component README.md for more details.
-([#2431](https://github.com/mozilla/application-services/pull/2431))
+  Applications that submit telemetry via Glean must request a data review for these metrics
+  before integrating the places component. See the component README.md for more details.
+  ([#2431](https://github.com/mozilla/application-services/pull/2431))
 - iOS only: `PlacesAPI.resetBookmarksMetadata` has been renamed to
-`PlacesAPI.resetBookmarkSyncMetadata`, for consistency with history. The functionality
-remains the same.
-
+  `PlacesAPI.resetBookmarkSyncMetadata`, for consistency with history. The functionality
+  remains the same.
 
 # v0.48.2 (_2020-01-13_)
 
@@ -4167,9 +4745,8 @@ remains the same.
 
 ### What's changed
 
-* Fixed a bug in deserializing FxA objects from JSON when the new `introspection_endpoint`
-field is not present.
-
+- Fixed a bug in deserializing FxA objects from JSON when the new `introspection_endpoint`
+  field is not present.
 
 # v0.48.1 (_2020-01-08_)
 
@@ -4183,8 +4760,8 @@ field is not present.
 
 ### What's changed
 
-* The error strings returned by `LoginsStorage.importLogins` as part of the migration metrics bundle,
-no longer include potentially-sensitive information such as guids.
+- The error strings returned by `LoginsStorage.importLogins` as part of the migration metrics bundle,
+  no longer include potentially-sensitive information such as guids.
 
 # v0.48.0 (_2020-01-03_)
 
@@ -4197,8 +4774,8 @@ no longer include potentially-sensitive information such as guids.
 - `LoginsStorage.importLogins` returns logins migration metrics as JSON object. ([#2382](https://github.com/mozilla/application-services/issues/2382))
 
 - iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).
-New databases must be opened using `LoginsStorage.unlockWithKeyAndSalt` instead of `LoginsStorage.unlock` which is now deprecated.
-To migrate current users databases, it is required to call `LoginsStorage.migrateToPlaintextHeader` before opening the database. This new method requires a salt. The salt persistence is now the responsibility of the application, which should be stored alongside the encryption key. For an existing database, the salt can be obtained using `LoginsStorage.getDbSaltForKey`.
+  New databases must be opened using `LoginsStorage.unlockWithKeyAndSalt` instead of `LoginsStorage.unlock` which is now deprecated.
+  To migrate current users databases, it is required to call `LoginsStorage.migrateToPlaintextHeader` before opening the database. This new method requires a salt. The salt persistence is now the responsibility of the application, which should be stored alongside the encryption key. For an existing database, the salt can be obtained using `LoginsStorage.getDbSaltForKey`.
 
 ### What's new
 
@@ -4208,12 +4785,12 @@ To migrate current users databases, it is required to call `LoginsStorage.migrat
 
 ### Breaking Changes
 
-* Android: `migrateFromSessionToken` now reuses the existing 'sessionToken' instead of creating a new session token.
+- Android: `migrateFromSessionToken` now reuses the existing 'sessionToken' instead of creating a new session token.
 
 ### What's new
 
-* Android: New method `copyFromSessionToken` will create a new 'sessionToken' state, this is what `migrateFromSessionToken` used to do,
-before this release.
+- Android: New method `copyFromSessionToken` will create a new 'sessionToken' state, this is what `migrateFromSessionToken` used to do,
+  before this release.
 
 ## Places
 
@@ -4224,7 +4801,7 @@ before this release.
 
 ### What's new
 
-* Android: New method `PlacesApi.importPinnedSitesFromFennec` returns a list of pinned bookmarks from Fennec. ([#2427](https://github.com/mozilla/application-services/issues/2427))
+- Android: New method `PlacesApi.importPinnedSitesFromFennec` returns a list of pinned bookmarks from Fennec. ([#2427](https://github.com/mozilla/application-services/issues/2427))
 
 # v0.47.0 (_2019-12-18_)
 
@@ -4247,9 +4824,9 @@ before this release.
 - `LoginsStorage.getByBaseDomain` has been added. ([#2152](https://github.com/mozilla/application-services/issues/2152))
 - Removed hard deletion of `SyncStatus::New` records in `delete` and `wipe` logins database functions. ([#2362](https://github.com/mozilla/application-services/pull/2362))
 - Android: The `MemoryLoginsStorage` class has been deprecated, because it behaviour has already started to
-diverge from that of `DatabaseLoginStorage`. To replace previous uses of this class in tests, please either
-explicitly mock the `LoginsStorage` interface or use a `DatabaseLoginStorage` with a tempfile or `":memory:"`
-as the `dbPath` argument. ([#2389](https://github.com/mozilla/application-services/issues/2389))
+  diverge from that of `DatabaseLoginStorage`. To replace previous uses of this class in tests, please either
+  explicitly mock the `LoginsStorage` interface or use a `DatabaseLoginStorage` with a tempfile or `":memory:"`
+  as the `dbPath` argument. ([#2389](https://github.com/mozilla/application-services/issues/2389))
 
 # v0.46.0 (_2019-12-12_)
 
@@ -4260,16 +4837,16 @@ as the `dbPath` argument. ([#2389](https://github.com/mozilla/application-servic
 ### Breaking Changes
 
 - The Android bindings now collect some basic performance and quality metrics via Glean.
-Applications that submit telemetry via Glean must request a data review for these metrics
-before integrating the logins component. See the component README.md for more details.
-([#2225](https://github.com/mozilla/application-services/pull/2225))
+  Applications that submit telemetry via Glean must request a data review for these metrics
+  before integrating the logins component. See the component README.md for more details.
+  ([#2225](https://github.com/mozilla/application-services/pull/2225))
 - `username`, `usernameField`, and `passwordField` are no longer
-serialized as `null` in the case where they are empty strings. ([#2252](https://github.com/mozilla/application-services/pull/2252))
+  serialized as `null` in the case where they are empty strings. ([#2252](https://github.com/mozilla/application-services/pull/2252))
 - Android: `ServerPassword` fields `username`, `usernameField`, and
-`passwordField` are now required fields -- `null` is not acceptable,
-but empty strings are OK.
+  `passwordField` are now required fields -- `null` is not acceptable,
+  but empty strings are OK.
 - iOS: `LoginRecord` fields `username`, `usernameField` and
-`passwordField` are no longer nullable.
+  `passwordField` are no longer nullable.
 
 # v0.45.1 (_2019-12-10_)
 
@@ -4286,8 +4863,8 @@ This release exists only to rectify a publishing error that occurred with v0.45.
 ### What's new
 
 - Added `PlacesReaderConnection.getVisitPageWithBound` which performs
-faster history visits pagination by first skipping directly to a `bound` timestamp and then
-skipping over `offset` items from `bound`. ([#1019](https://github.com/mozilla/application-services/issues/1019))
+  faster history visits pagination by first skipping directly to a `bound` timestamp and then
+  skipping over `offset` items from `bound`. ([#1019](https://github.com/mozilla/application-services/issues/1019))
 
 ## Push
 
@@ -4306,7 +4883,7 @@ skipping over `offset` items from `bound`. ([#1019](https://github.com/mozilla/a
 ### Breaking Changes
 
 - Login records with a `httpRealm` attribute will now have their `usernameField` and `passwordField`
-properties silently cleared, to help ensure data consistency. ([#2158](https://github.com/mozilla/application-services/pull/2158))
+  properties silently cleared, to help ensure data consistency. ([#2158](https://github.com/mozilla/application-services/pull/2158))
 
 ### What's new
 
@@ -4317,9 +4894,9 @@ properties silently cleared, to help ensure data consistency. ([#2158](https://g
 ### Breaking Changes
 
 - When asked to sync all engines, SyncManager will now sync all engines for which a handle has been set.
-Previously it would sync all known engines, panicking if a handle had not been set for some engine.
-While *technically* a breaking change, we expect that the new behaviour is almost certainly what
-consuming applications actually want in practice. ([#2313](https://github.com/mozilla/application-services/pull/2313))
+  Previously it would sync all known engines, panicking if a handle had not been set for some engine.
+  While _technically_ a breaking change, we expect that the new behaviour is almost certainly what
+  consuming applications actually want in practice. ([#2313](https://github.com/mozilla/application-services/pull/2313))
 
 # v0.44.0 (_2019-11-21_)
 
@@ -4365,12 +4942,12 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 ### What's new
 
 - `PushManager.dispatchInfoForChid(channelID)` now also returns the
-`endpoint` and `appServerKey` from the subscription.
+  `endpoint` and `appServerKey` from the subscription.
 
 ### Breaking Changes
 
 - The `appServerKey` VAPID public key has moved from `PushConfig` to
-`PushManager.subscription(channelID, scope, appServerKey)`.
+  `PushManager.subscription(channelID, scope, appServerKey)`.
 
 - The unused `regenerate_endpoints()` function has been removed.
 
@@ -4383,8 +4960,8 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 ### What's New
 
 - On Android, our Megazord libraries now include license information for dependencies
-as part of their `.pom` file, making it easily available to tools such as the
-[oss-licenses-plugin](https://github.com/google/play-services-plugins/tree/master/oss-licenses-plugin)
+  as part of their `.pom` file, making it easily available to tools such as the
+  [oss-licenses-plugin](https://github.com/google/play-services-plugins/tree/master/oss-licenses-plugin)
 
 - Our iOS framework binaries are now built using XCode 11.2.
 
@@ -4403,7 +4980,6 @@ as part of their `.pom` file, making it easily available to tools such as the
 ### What's new
 
 - Android: Add ability to get an OAuth code using a session token via the `authorizeOAuthCode` method. ([#2003](https://github.com/mozilla/application-services/pull/2003))
-
 
 # v0.42.1 (_2019-10-21_)
 
@@ -4438,7 +5014,7 @@ as part of their `.pom` file, making it easily available to tools such as the
 ### What's New
 
 - Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))
-For existing contributors, here's what you need to do immediately:
+  For existing contributors, here's what you need to do immediately:
 - Download and extract the [Android NDK r20](https://developer.android.com/ndk/downloads).
 - Change the `ANDROID_NDK_ROOT` and `ANDROID_NDK_HOME` environment variables to point to the newer NDK dir. You can also delete the now un-used `ANDROID_NDK_TOOLCHAIN_DIR` variable.
 - Delete `.cargo/config` at the root of the repository if you have it.
@@ -4480,8 +5056,8 @@ For existing contributors, here's what you need to do immediately:
 ### What's new
 
 - The OAuth access token cache is now persisted as part of the account state data,
-which should reduce the number of times callers need to fetch a fresh access token
-from the server.
+  which should reduce the number of times callers need to fetch a fresh access token
+  from the server.
 
 # v0.39.2 (_2019-09-24_)
 
@@ -4511,26 +5087,26 @@ Add ability to get the current device id in Kotlin via `getCurrentDeviceId` meth
 
 ### What's new
 
-* New `getSessionToken` method on the FxA Client that returns the stored session_token from state.
-Also we now store the session_token into the state from the 'https://identity.mozilla.com/tokens/session' scope.
+- New `getSessionToken` method on the FxA Client that returns the stored session_token from state.
+  Also we now store the session_token into the state from the 'https://identity.mozilla.com/tokens/session' scope.
 
 ## Places
 
 ### What's fixed
 
 - Hidden URLs (redirect sources, or links visited in frames) are no longer
-synced or returned in `get_visit_infos` or `get_visit_page`. Additionally,
-a new `is_hidden` flag is added to `HistoryVisitInfo`, though it's currently
-always `false`, since those visits are excluded.
-([#1715](https://github.com/mozilla/application-services/pull/1715))
+  synced or returned in `get_visit_infos` or `get_visit_page`. Additionally,
+  a new `is_hidden` flag is added to `HistoryVisitInfo`, though it's currently
+  always `false`, since those visits are excluded.
+  ([#1715](https://github.com/mozilla/application-services/pull/1715))
 
 ## Sync Manager
 
 - The new sync manager component is now available for integration ([#1447](https://github.com/mozilla/application-services/pull/1447)).
 - This should include no breaking changes at the moment, but in the future
-we will deprecate the non-sync manager sync APIs on android.
+  we will deprecate the non-sync manager sync APIs on android.
 - Note: Currently, the sync manager is only available in the `full` and
-`fenix` megazords.
+  `fenix` megazords.
 
 # v0.38.2 (_2019-09-04_)
 
@@ -4556,7 +5132,7 @@ we will deprecate the non-sync manager sync APIs on android.
 
 ### What's new
 
--  Added support for a webchannel redirect behaviour. ([#1608](https://github.com/mozilla/application-services/pull/1608))
+- Added support for a webchannel redirect behaviour. ([#1608](https://github.com/mozilla/application-services/pull/1608))
 
 ## Android
 
@@ -4573,16 +5149,16 @@ we will deprecate the non-sync manager sync APIs on android.
 ## General
 
 - Our OpenSSL dependency has been removed for all platforms other than
-desktop-linux (used when running local rust unit tests and the android
--forUnitTests artifact). All other platforms use NSS.
-([#1570](https://github.com/mozilla/application-services/pull/1570))
+  desktop-linux (used when running local rust unit tests and the android
+  -forUnitTests artifact). All other platforms use NSS.
+  ([#1570](https://github.com/mozilla/application-services/pull/1570))
 
 ## Places
 
 ### What's Fixed
 
-* Tags containing embedded whitespace are no longer marked as invalid and
-removed. ([#1616](https://github.com/mozilla/application-services/issues/1616))
+- Tags containing embedded whitespace are no longer marked as invalid and
+  removed. ([#1616](https://github.com/mozilla/application-services/issues/1616))
 
 # v0.37.1 (_2019-08-09_)
 
@@ -4593,7 +5169,7 @@ removed. ([#1616](https://github.com/mozilla/application-services/issues/1616))
 ### What's fixed
 
 - Published artifacts should now correctly declare their `packaging` type in
-their pom files. ([#1564](https://github.com/mozilla/application-services/pull/1564))
+  their pom files. ([#1564](https://github.com/mozilla/application-services/pull/1564))
 
 ## FxA Client
 
@@ -4618,7 +5194,7 @@ their pom files. ([#1564](https://github.com/mozilla/application-services/pull/1
 ### Breaking changes
 
 - The `FirefoxAccount.beginOAuthFlow` method does not require the `wantsKeys` argument anymore
-as it will always do the right thing based on the requested scopes.
+  as it will always do the right thing based on the requested scopes.
 
 # v0.36.0 (_2019-07-30_)
 
@@ -4674,14 +5250,14 @@ This release exists only to rectify a publishing error that occurred with v0.35.
 
 ### What's Fixed
 
-* Android: `migrateFromSessionToken` will not leave the account in a broken state if
-network errors happen during the migration process.
+- Android: `migrateFromSessionToken` will not leave the account in a broken state if
+  network errors happen during the migration process.
 
 ## Push
 
 ### What's Fixed
 
-* Updated the default server host for the push service to match the production server.
+- Updated the default server host for the push service to match the production server.
 
 # v0.35.0 (_2019-07-16_)
 
@@ -4696,47 +5272,47 @@ arrived. This has a large number of changes, many of them breaking:
 ([#1103](https://github.com/mozilla/application-services/pull/1103))
 
 - Consumers who depend on network features of application-services, but
-which were not using a megazord, will no longer be able to use a legacy
-HTTP stack by default.
+  which were not using a megazord, will no longer be able to use a legacy
+  HTTP stack by default.
 
-- Consumers who depend on network features and *do* use a megazord, can no
-longer initialize HTTP in the same call as the megazord.
+- Consumers who depend on network features and _do_ use a megazord, can no
+  longer initialize HTTP in the same call as the megazord.
 
 - Both of these cases should import the `org.mozilla.appservices:httpconfig`
-package, and call `RustHttpConfig.setClient(lazy { /* client to use */ })`
-before calling functions which make HTTP requests.
+  package, and call `RustHttpConfig.setClient(lazy { /* client to use */ })`
+  before calling functions which make HTTP requests.
 
 - For custom megazord users, the name of your megazord is now always
-`mozilla.appservices.Megazord`. You no longer need to load it by reflection,
-since the swapped-out version always has the same name as your custom version.
+  `mozilla.appservices.Megazord`. You no longer need to load it by reflection,
+  since the swapped-out version always has the same name as your custom version.
 
 - The reference-browser megazord has effectively been replaced by the
-full-megazord, which is also the megazord used by default
+  full-megazord, which is also the megazord used by default
 
 - The steps to swap-out a custom megazord have changed. The specific steps are
-slightly different in various cases, and we will file PRs to help make the
-transition.
+  slightly different in various cases, and we will file PRs to help make the
+  transition.
 
 - Substitution builds once again work, except for running unit tests against
-Rust code.
+  Rust code.
 
 ## FxA Client
 
 ### What's Fixed
 
 - The state persistence callback is now correctly triggered after a call
-to `FirefoxAccount.getProfile`.
+  to `FirefoxAccount.getProfile`.
 
 ### Breaking changes
 
 - The `FirefoxAccount.destroyDevice` method has been removed in favor of the
-more general `FirefoxAccount.disconnect` method which will ensure a full
-disconnection by invalidating OAuth tokens and destroying the device record
-if it exists. ([#1397](https://github.com/mozilla/application-services/issues/1397))
+  more general `FirefoxAccount.disconnect` method which will ensure a full
+  disconnection by invalidating OAuth tokens and destroying the device record
+  if it exists. ([#1397](https://github.com/mozilla/application-services/issues/1397))
 - The `FirefoxAccount.disconnect` method has been added to the Swift bindings as well.
 - The `FirefoxAccount.beginOAuthFlow` method will redirect to a content page that
-forces the user to connect to the last seen user email. To avoid this behavior,
-a new `FirefoxAccount` instance with a new persisted state must be created.
+  forces the user to connect to the last seen user email. To avoid this behavior,
+  a new `FirefoxAccount` instance with a new persisted state must be created.
 
 # v0.34.0 (_2019-07-10_)
 
@@ -4753,16 +5329,16 @@ If you build application-services, it is recommended to delete the `libs/{deskto
 ### What's New
 
 - Added `WritableHistoryConnection.acceptResult(searchString, url)` for marking
-an awesomebar result as accepted.
-([#1332](https://github.com/mozilla/application-services/pull/1332))
+  an awesomebar result as accepted.
+  ([#1332](https://github.com/mozilla/application-services/pull/1332))
 - Specifically, `queryAutocomplete` calls for searches that contain
-frequently accepted results are more highly ranked.
+  frequently accepted results are more highly ranked.
 
 ### Breaking changes
 
 - Android only: The addition of `acceptResult` to `WritableHistoryConnection` is
-a breaking change for any custom implementations of `WritableHistoryConnection`
-([#1332](https://github.com/mozilla/application-services/pull/1332))
+  a breaking change for any custom implementations of `WritableHistoryConnection`
+  ([#1332](https://github.com/mozilla/application-services/pull/1332))
 
 ## Push
 
@@ -4791,8 +5367,8 @@ This release exists only to rectify a publishing error that occurred with v0.33.
 ### Breaking Changes
 
 - iOS: FirefoxAccountError enum variants have their name `lowerCamelCased`
-instead of `UpperCamelCased`, to better fit with common Swift code style.
-([#1324](https://github.com/mozilla/application-services/issues/1324))
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1324](https://github.com/mozilla/application-services/issues/1324))
 
 # v0.32.3 (_2019-07-02_)
 
@@ -4847,10 +5423,10 @@ instead of `UpperCamelCased`, to better fit with common Swift code style.
 ### What's fixed
 
 - Fix an error that could happen when the place database is closed.
-([#1304](https://github.com/mozilla/application-services/pull/1304))
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
 
 - iOS only: Ensure interruption errors don't come through as network errors.
-([#1304](https://github.com/mozilla/application-services/pull/1304))
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
 
 # v0.31.3 (_2019-07-02_)
 
@@ -4877,8 +5453,8 @@ instead of `UpperCamelCased`, to better fit with common Swift code style.
 ### What's fixed
 
 - Fixes an edge case introduced in v0.31.1 where a users set of declined engines
-(aka the "Choose what to Sync" preferences) could be forgotten.
-([#1273](https://github.com/mozilla/application-services/pull/1273))
+  (aka the "Choose what to Sync" preferences) could be forgotten.
+  ([#1273](https://github.com/mozilla/application-services/pull/1273))
 
 # v0.31.1 (_2019-06-10_)
 
@@ -4889,24 +5465,24 @@ instead of `UpperCamelCased`, to better fit with common Swift code style.
 ### What's fixed
 
 - Fixes an issue where a stale sync key will be used in cases where a user signs
-out and signs in to another account. ([#1256](https://github.com/mozilla/application-services/pull/1256))
+  out and signs in to another account. ([#1256](https://github.com/mozilla/application-services/pull/1256))
 
 ## FxA Client
 
 ### What's new
 
 - Added a new method to help recover from invalid access tokens.
-([#1244](https://github.com/mozilla/application-services/pull/1244)) If the
-application receives an an authentication exception while using a token
-obtained through `FirefoxAccount.getAccessToken`, it should:
+  ([#1244](https://github.com/mozilla/application-services/pull/1244)) If the
+  application receives an an authentication exception while using a token
+  obtained through `FirefoxAccount.getAccessToken`, it should:
 - Call `FirefoxAccount.clearAccessTokenCache` to remove the invalid token from the internal cache.
 - Retry the operation after obtaining fresh access token via `FirefoxAccount.getAccessToken`.
 - If the retry also fails with an authentication exception, then the user will need to reconnect
-their account via a fresh OAuth flow.
+  their account via a fresh OAuth flow.
 - `FirefoxAccount.getProfile` now performs the above retry logic automagically.
-An authentication error while calling `getProfile` indicates that the user
-needs to reconnect their account.
-([#1244](https://github.com/mozilla/application-services/pull/1244)
+  An authentication error while calling `getProfile` indicates that the user
+  needs to reconnect their account.
+  ([#1244](https://github.com/mozilla/application-services/pull/1244)
 
 # v0.31.0 (_2019-06-07_)
 
@@ -4915,27 +5491,27 @@ needs to reconnect their account.
 ## Sync
 
 - Android: A new `sync15` package defines Kotlin data classes for the Sync
-telemetry ping. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+  telemetry ping. ([#1112](https://github.com/mozilla/application-services/pull/1112))
 - Android: `PlacesApi.syncHistory` and `PlacesApi.syncBookmarks` now return a
-`SyncTelemetryPing`. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+  `SyncTelemetryPing`. ([#1112](https://github.com/mozilla/application-services/pull/1112))
 - iOS: `PlacesAPI.syncBookmarks` now returns a JSON string with the contents of
-the Sync ping. This should be posted to the legacy telemetry submission
-endpoint. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+  the Sync ping. This should be posted to the legacy telemetry submission
+  endpoint. ([#1112](https://github.com/mozilla/application-services/pull/1112))
 
 ## Places
 
 ### What's fixed
 
 - Deduping synced bookmarks with newer server timestamps no longer throws
-unique constraint violations. ([#1259](https://github.com/mozilla/application-services/pull/1259))
+  unique constraint violations. ([#1259](https://github.com/mozilla/application-services/pull/1259))
 
 ## Logins
 
 ### Breaking Changes
 
 - iOS: LoginsStoreError enum variants have their name `lowerCamelCased`
-instead of `UpperCamelCased`, to better fit with common Swift code style.
-([#1042](https://github.com/mozilla/application-services/issues/1042))
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1042](https://github.com/mozilla/application-services/issues/1042))
 
 # v0.30.0 (_2019-05-30_)
 
@@ -4945,19 +5521,19 @@ instead of `UpperCamelCased`, to better fit with common Swift code style.
 
 ### Breaking Changes
 
-* Changed the internal serialization format of the Push Keys.
+- Changed the internal serialization format of the Push Keys.
 
 ## FxA Client
 
 ### Breaking Changes
 
-* Changed the internal serialization format of the Send Tab Keys. Calling `ensureCapabilities` will re-generate them.
+- Changed the internal serialization format of the Send Tab Keys. Calling `ensureCapabilities` will re-generate them.
 
 ### Features
 
-* Added `migrateFromSessionToken` to allow creating a refreshToken from an existing sessionToken.
-Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to
-create a new session with a refreshToken.
+- Added `migrateFromSessionToken` to allow creating a refreshToken from an existing sessionToken.
+  Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to
+  create a new session with a refreshToken.
 
 # v0.29.0 (_2019-05-23_)
 
@@ -4968,12 +5544,13 @@ create a new session with a refreshToken.
 ### What's New
 
 - A new `getRecentBookmarks` API was added to return the list of most recently
-added bookmark items ([#1129](https://github.com/mozilla/application-services/issues/1129)).
+  added bookmark items ([#1129](https://github.com/mozilla/application-services/issues/1129)).
 
 ### Breaking Changes
+
 - The addition of `getRecentBookmarks` is a breaking change for custom
-implementation of `ReadableBookmarksConnection` on Android
-([#1129](https://github.com/mozilla/application-services/issues/1129)).
+  implementation of `ReadableBookmarksConnection` on Android
+  ([#1129](https://github.com/mozilla/application-services/issues/1129)).
 
 # v0.28.1 (_2019-05-21_)
 
@@ -4990,37 +5567,36 @@ This release exists only to rectify a publishing error that occurred with v0.28.
 ### Breaking Changes
 
 - `FirefoxAccount.ensureCapabilities` now takes a set of capabilities
-as a parameter. All the device registered "capabilities" such as Send
-Tab will be replaced by the passed set of new capabilities.
+  as a parameter. All the device registered "capabilities" such as Send
+  Tab will be replaced by the passed set of new capabilities.
 
 ## Push
 
 ### Breaking Changes
 
 - `PushManager.verifyConnection()` now returns a boolean. `true`
-indicates the connection is valid and no action required, `false`
-indicates that the connection is invalid. All existing subscriptions
-have been dropped. The caller should send a `pushsubscriptionchange`
-to all known apps. (This is due to the fact that the Push API does
-not have a way to send just the new endpoint to the client PWA.)
-[#1114](https://github.com/mozilla/application-services/issues/1114)
+  indicates the connection is valid and no action required, `false`
+  indicates that the connection is invalid. All existing subscriptions
+  have been dropped. The caller should send a `pushsubscriptionchange`
+  to all known apps. (This is due to the fact that the Push API does
+  not have a way to send just the new endpoint to the client PWA.)
+  [#1114](https://github.com/mozilla/application-services/issues/1114)
 
 - `PushManager.unsubscribe(...)` now will only unsubscribe a single
-channel. It will return `false` if no channel is specified or if the
-channel was already deleted. To delete all channels for a given user,
-call `PushManager.unsubscribeAll()`.
-[#889](https://github.com/mozilla/application-services/issues/889)
+  channel. It will return `false` if no channel is specified or if the
+  channel was already deleted. To delete all channels for a given user,
+  call `PushManager.unsubscribeAll()`.
+  [#889](https://github.com/mozilla/application-services/issues/889)
 
 ## General
 
 ### What's Fixed
 
 - Native libraries should now have debug symbols stripped by default,
-resulting in significantly smaller package size for consuming
-applications. A test was also added to CI to ensure that this
-does not regress in future.
-([1107](https://github.com/mozilla/application-services/issues/1107))
-
+  resulting in significantly smaller package size for consuming
+  applications. A test was also added to CI to ensure that this
+  does not regress in future.
+  ([1107](https://github.com/mozilla/application-services/issues/1107))
 
 # v0.27.2 (_2019-05-08_)
 
@@ -5037,15 +5613,14 @@ does not regress in future.
 ### What's New
 
 - iOS only: PlacesApi can now migrate bookmark data from a `browser.db` database
-via the `migrateBookmarksFromBrowserDb` function. It is recommended that this
-only be called for non-sync users, as syncing the bookmarks over will result
-in better handling of sync metadata, among other things.
-([#1078](https://github.com/mozilla/application-services/pull/1078))
+  via the `migrateBookmarksFromBrowserDb` function. It is recommended that this
+  only be called for non-sync users, as syncing the bookmarks over will result
+  in better handling of sync metadata, among other things.
+  ([#1078](https://github.com/mozilla/application-services/pull/1078))
 - iOS: Sync can now be interrupted using the `interrupt` method
-([#1092](https://github.com/mozilla/application-services/pull/1092))
+  ([#1092](https://github.com/mozilla/application-services/pull/1092))
 - iOS: Sync metadata can be reset using the `resetBookmarksMetadata` method
-([#1092](https://github.com/mozilla/application-services/pull/1092))
-
+  ([#1092](https://github.com/mozilla/application-services/pull/1092))
 
 # v0.27.1 (_2019-04-26_)
 
@@ -5062,7 +5637,7 @@ in better handling of sync metadata, among other things.
 ### What's New
 
 - Frecencies are now recalculated for bookmarked URLs after a sync.
-([#847](https://github.com/mozilla/application-services/issues/847))
+  ([#847](https://github.com/mozilla/application-services/issues/847))
 
 ## Push
 
@@ -5091,12 +5666,12 @@ in better handling of sync metadata, among other things.
 ### What's New
 
 - New methods `getManageAccountURL` and `getManageDevicesURL` have been added,
-which the application can use to direct the user to manage their account on the web.
-([#984](https://github.com/mozilla/application-services/pull/984))
+  which the application can use to direct the user to manage their account on the web.
+  ([#984](https://github.com/mozilla/application-services/pull/984))
 - Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
 
 - Switched to use the new fxa-auth-server token endpoint which generates device records, email and push notifications
-for connected clients([#1055](https://github.com/mozilla/application-services/pull/1055))
+  for connected clients([#1055](https://github.com/mozilla/application-services/pull/1055))
 
 ## Places
 
@@ -5118,7 +5693,7 @@ for connected clients([#1055](https://github.com/mozilla/application-services/pu
 ### What's Fixed
 
 - iOS temporarially no longer uses NSS for crypto. This is a short term fix to
-allow firefox-ios to release an update.
+  allow firefox-ios to release an update.
 
 # v0.26.1 (_2019-04-18_)
 
@@ -5143,51 +5718,51 @@ allow firefox-ios to release an update.
 ### Breaking Change
 
 - `PushAPI.subscribe()` now returns a `SubscriptionResponse` that contains the server supplied `channelID` and the
-`subscriptionInfo` block previously returned. Please note: the server supplied `channelID` may differ from the
-supplied `channelID` argument. This is definitely true when an empty channelID value is provided to `subscribe()`,
-or if the channelID is not a proper UUID.
-The returned `channelID` value is authoritative and will be the value associated with the subscription and future
-subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to the application.
-([#988](https://github.com/mozilla/application-services/pull/988))
+  `subscriptionInfo` block previously returned. Please note: the server supplied `channelID` may differ from the
+  supplied `channelID` argument. This is definitely true when an empty channelID value is provided to `subscribe()`,
+  or if the channelID is not a proper UUID.
+  The returned `channelID` value is authoritative and will be the value associated with the subscription and future
+  subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to the application.
+  ([#988](https://github.com/mozilla/application-services/pull/988))
 
 ## Places
 
 ### What's new
 
 - Bookmarks may now be synced using the `syncBookmarks` method on `PlacesApi`
-(and on Android, the interface it implements, `SyncManager`).
-([#850](https://github.com/mozilla/application-services/issues/850))
+  (and on Android, the interface it implements, `SyncManager`).
+  ([#850](https://github.com/mozilla/application-services/issues/850))
 - Android only: New methods for querying paginated history have been added:
-`getVisitCount` and `getVisitPage`
-([#992](https://github.com/mozilla/application-services/issues/992))
+  `getVisitCount` and `getVisitPage`
+  ([#992](https://github.com/mozilla/application-services/issues/992))
 - Android only: `getVisitInfos` now takes a list of visit types to exclude.
-([#920](https://github.com/mozilla/application-services/issues/920))
+  ([#920](https://github.com/mozilla/application-services/issues/920))
 
 ### Breaking Changes
 
 - Android only: The addition of `syncBookmarks` on the `PlacesManager` interface
-is a breaking change. ([#850](https://github.com/mozilla/application-services/issues/850))
+  is a breaking change. ([#850](https://github.com/mozilla/application-services/issues/850))
 - Android only: `sync` has been renamed to `syncHistory` for clarity given the
-existence of `syncBookmarks`.
-([#850](https://github.com/mozilla/application-services/issues/850))
+  existence of `syncBookmarks`.
+  ([#850](https://github.com/mozilla/application-services/issues/850))
 - Android only: `getVisitInfos` has changed, which is breaking for implementors
-of `ReadableHistoryConnection`.
-([#920](https://github.com/mozilla/application-services/issues/920))
+  of `ReadableHistoryConnection`.
+  ([#920](https://github.com/mozilla/application-services/issues/920))
 - Android only: New methods on `ReadableHistoryConnection`: `getVisitCount` and
-`getVisitPage`.
-([#992](https://github.com/mozilla/application-services/issues/992))
+  `getVisitPage`.
+  ([#992](https://github.com/mozilla/application-services/issues/992))
 
 ## Logins
 
 ### What's new
 
 - iOS only: Logins operations may now be interrupted via the `interrupt()`
-method on LoginsDb, which may be called from any thread.
-([#884](https://github.com/mozilla/application-services/issues/884))
+  method on LoginsDb, which may be called from any thread.
+  ([#884](https://github.com/mozilla/application-services/issues/884))
 - This is currently only implemented for iOS due to lack of interest on the
-Android side, please let us know if this is desirable in the Android API
-as well. Feel free to indicate support for exposing this in the Android API
-[here](https://github.com/mozilla/application-services/issues/1020).
+  Android side, please let us know if this is desirable in the Android API
+  as well. Feel free to indicate support for exposing this in the Android API
+  [here](https://github.com/mozilla/application-services/issues/1020).
 
 # v0.25.2 (_2019-04-11_)
 
@@ -5223,11 +5798,11 @@ as well. Feel free to indicate support for exposing this in the Android API
 ## Breaking Changes
 
 - Megazord initialization has changed. Megazords' init() function now takes a
-`Lazy<mozilla.components.concept.fetch.Client>` (from
-[concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch/)),
-which will be used to proxy all HTTP requests through. It will not be accessed
-until a method is called on rust code which requires the network. This
-functionality is not present in non-megazords. ([#835](https://github.com/mozilla/application-services/pull/835))
+  `Lazy<mozilla.components.concept.fetch.Client>` (from
+  [concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch/)),
+  which will be used to proxy all HTTP requests through. It will not be accessed
+  until a method is called on rust code which requires the network. This
+  functionality is not present in non-megazords. ([#835](https://github.com/mozilla/application-services/pull/835))
 
 An example of how to initialize this follows:
 
@@ -5251,9 +5826,9 @@ megazordInitMethod.invoke(megazordClass, lazyClient)
 ## General
 
 - Native code builds are now stripped by default, reducing size by almost an
-order of magnitude. ([#913](https://github.com/mozilla/application-services/issues/913))
+  order of magnitude. ([#913](https://github.com/mozilla/application-services/issues/913))
 - This is done rather than relying on consumers to strip them, which proved
-more difficult than anticipated.
+  more difficult than anticipated.
 
 ## Push
 
@@ -5264,15 +5839,15 @@ more difficult than anticipated.
 ### Breaking changes
 
 - `mozilla.appservices.push.BridgeTypes` is now
-`mozilla.appservices.push.BridgeType`
-([#885](https://github.com/mozilla/application-services/issues/885))
+  `mozilla.appservices.push.BridgeType`
+  ([#885](https://github.com/mozilla/application-services/issues/885))
 
 ## Places
 
 ### What's Fixed
 
 - Swift PlacesAPI methods are not externally accessible
-([#928](https://github.com/mozilla/application-services/issues/928))
+  ([#928](https://github.com/mozilla/application-services/issues/928))
 
 # v0.23.0 (_2019-03-29_)
 
@@ -5283,14 +5858,14 @@ more difficult than anticipated.
 ### What's Fixed
 
 - createBookmarkItem on android will now create the correct type of bookmark.
-([#880](https://github.com/mozilla/application-services/issues/880))
+  ([#880](https://github.com/mozilla/application-services/issues/880))
 
 ## Push
 
 ### Breaking changes
 
 - the `PushManager` argument `socket_protocol` is now `http_protocol`
-to correctly map its role. `socket_protocol` is reserved.
+  to correctly map its role. `socket_protocol` is reserved.
 
 # v0.22.1 (_2019-03-27_)
 
@@ -5301,15 +5876,15 @@ to correctly map its role. `socket_protocol` is reserved.
 ### What's New
 
 - iOS Logins storage now has `ensureLocked`, `ensureUnlocked`, and `wipeLocal`
-methods, equivalent to those provided in the android API.
-([#854](https://github.com/mozilla/application-services/issues/854))
+  methods, equivalent to those provided in the android API.
+  ([#854](https://github.com/mozilla/application-services/issues/854))
 
 ## Places
 
 ### What's Fixed
 
 - PlacesAPIs should now be closed when all references to them are no longer used.
-([#749](https://github.com/mozilla/application-services/issues/749))
+  ([#749](https://github.com/mozilla/application-services/issues/749))
 
 # v0.22.0 (_2019-03-22_)
 
@@ -5329,7 +5904,7 @@ methods, equivalent to those provided in the android API.
 
 ## `org.mozilla.appservices` Gradle plugin
 
-- Artifacts are now to be published to the `mozilla-appservices` bintray organization.  This necessitates version 0.4.3 of the Gradle plugin.  ([#843](https://github.com/mozilla/application-services/issues/843))
+- Artifacts are now to be published to the `mozilla-appservices` bintray organization. This necessitates version 0.4.3 of the Gradle plugin. ([#843](https://github.com/mozilla/application-services/issues/843))
 
 # v0.21.0 (_2019-03-20_)
 
@@ -5344,14 +5919,13 @@ methods, equivalent to those provided in the android API.
 - Places now is available on iOS, however support is limited to Bookmarks. ([#743](https://github.com/mozilla/application-services/pull/743))
 - Places now has bookmarks support enabled in the FFI. This addition is too large to include in the changelog, however both Swift and Kotlin APIs for this are fairly well documented. ([#743](https://github.com/mozilla/application-services/pull/743))
 
-
 # v0.20.2 (_2019-03-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.1...v0.20.2)
 
 - An automation problem with the previous release, forcing a version bump. No functional changes.
 - Local development: non-megazord builds are now `debug` be default, improving local build times
-and working around subtle build issues.
+  and working around subtle build issues.
 - Override this via a flag in `local.properties`: `application-services.nonmegazord-profile=release`
 
 # v0.20.1 (_2019-03-15_)
@@ -5359,7 +5933,7 @@ and working around subtle build issues.
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.0...v0.20.1)
 
 - A error in the build.gradle file caused the v0.20.0 release to fail, this
-release should not be meaningfully different from it.
+  release should not be meaningfully different from it.
 
 # v0.20.0 (_2019-03-14_)
 
@@ -5368,29 +5942,29 @@ release should not be meaningfully different from it.
 ## General
 
 - The previous release had an issue with the megazords, and so another
-release was needed. This is version 0.4.2 of the megazord plugin.
-([#775](https://github.com/mozilla/application-services/pull/775))
+  release was needed. This is version 0.4.2 of the megazord plugin.
+  ([#775](https://github.com/mozilla/application-services/pull/775))
 
 ### Breaking Changes
 
 - All package names have been normalized. The gradle packages should all be
-`org.mozilla.appservices:component`, and the java namespaces should be
-`mozilla.appservices.component`. ([#776](https://github.com/mozilla/application-services/pull/776))
+  `org.mozilla.appservices:component`, and the java namespaces should be
+  `mozilla.appservices.component`. ([#776](https://github.com/mozilla/application-services/pull/776))
 
 ## Logins
 
 ### Breaking Changes
 
 - The gradle package for logins has been changed from
-`'org.mozilla.sync15:logins'` to `org.mozilla.appservices:logins`.
-([#776](https://github.com/mozilla/application-services/pull/776))
+  `'org.mozilla.sync15:logins'` to `org.mozilla.appservices:logins`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
 
 ## Places
 
 ### Breaking Changes
 
 - Several classes and interfaces have been renamed after feedback from consumers
-to avoid `Interface` in the name, and better reflect what they provide.
+  to avoid `Interface` in the name, and better reflect what they provide.
 - `PlacesApiInterface` => `PlacesManager`
 - `PlacesConnectionInterface` => `InterruptibleConnection`
 - `ReadablePlacesConnectionInterface` => `ReadableHistoryConnection`
@@ -5399,20 +5973,20 @@ to avoid `Interface` in the name, and better reflect what they provide.
 - `WritablePlacesConnection` => `PlacesWriterConnection`
 
 - The java namespace used in places has changed from `org.mozilla.places` to
-`mozilla.appservices.places`
-([#776](https://github.com/mozilla/application-services/pull/776))
+  `mozilla.appservices.places`
+  ([#776](https://github.com/mozilla/application-services/pull/776))
 
 - The gradle package for places has been changed from
-`'org.mozilla.places:places'` to `org.mozilla.appservices:places`.
-([#776](https://github.com/mozilla/application-services/pull/776))
+  `'org.mozilla.places:places'` to `org.mozilla.appservices:places`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
 
 ## FxA
 
 ### Breaking Changes
 
 - The gradle package for fxa-client has been changed from
-`'org.mozilla.fxaclient:fxaclient'` to `org.mozilla.appservices:fxaclient`.
-([#776](https://github.com/mozilla/application-services/pull/776))
+  `'org.mozilla.fxaclient:fxaclient'` to `org.mozilla.appservices:fxaclient`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
 
 # 0.19.0 (_2019-03-13_)
 
@@ -5423,41 +5997,41 @@ to avoid `Interface` in the name, and better reflect what they provide.
 ### What's New
 
 - Initial support for the new Push component landed, however it's not yet ready
-for widespread use ([#683](https://github.com/mozilla/application-services/pull/683))
+  for widespread use ([#683](https://github.com/mozilla/application-services/pull/683))
 
 ## Places
 
 ### What's New
 
 - A massive rewrite of the Kotlin API has been completed. This distinguishes
-reader and writer connections. A brief description of the new types follows.
-Note that all the types have corresponding interfaces that allow for them to
-be mocked during testing as needed. ([#718](https://github.com/mozilla/application-services/pull/718))
+  reader and writer connections. A brief description of the new types follows.
+  Note that all the types have corresponding interfaces that allow for them to
+  be mocked during testing as needed. ([#718](https://github.com/mozilla/application-services/pull/718))
 - `PlacesApi`: This is similar to a connection pool, it exists to give out
-reader and writer connections via the functions `openReader` and
-`getWriter`. The naming distinction is due to there only being a single
-writer connection (which is actually opened when the `PlacesApi` is
-created). This class generally should be a singleton.
+  reader and writer connections via the functions `openReader` and
+  `getWriter`. The naming distinction is due to there only being a single
+  writer connection (which is actually opened when the `PlacesApi` is
+  created). This class generally should be a singleton.
 - In addition to `openReader` and `getWriter`, this also includes the
-`sync()` method, as that requires a special type of connection.
+  `sync()` method, as that requires a special type of connection.
 - `ReadablePlacesConnection`: This is a read-only connection to the places
-database, implements all the methods of the API that do not require write
-access.
+  database, implements all the methods of the API that do not require write
+  access.
 - Specifically, `getVisited`, `matchUrl`, `queryAutocomplete`, `interrupt`,
-`getVisitedUrlsInRange`, and `getVisitInfos` all exist on this object.
+  `getVisitedUrlsInRange`, and `getVisitInfos` all exist on this object.
 - `WritablePlacesConnection`: This is a read-write connection, and as such,
-contains not only the all reader methods mentioned above, but also the
-methods requiring write access, such as:
+  contains not only the all reader methods mentioned above, but also the
+  methods requiring write access, such as:
 - `noteObservation`, `wipeLocal`, `runMaintenance`, `pruneDestructively`,
-`deleteEverything`, `deletePlace`, `deleteVisitsSince`, `deleteVisitsBetween`,
-and `deleteVisit`.
+  `deleteEverything`, `deletePlace`, `deleteVisitsSince`, `deleteVisitsBetween`,
+  and `deleteVisit`.
 - Note that the semantics of the various methods have not been changed, only
-their location.
+  their location.
 
 ### Breaking Changes
 
 - Almost the entire API has been rewritten. See "What's New" for
-details. ([#718](https://github.com/mozilla/application-services/pull/718))
+  details. ([#718](https://github.com/mozilla/application-services/pull/718))
 
 # 0.18.0 (_2019-02-27_)
 
@@ -5480,7 +6054,7 @@ details. ([#718](https://github.com/mozilla/application-services/pull/718))
 ### What's New
 
 - The `rc_log` component now has support for iOS. It is only available as part of the
-MozillaAppServices megazord. ([#618](https://github.com/mozilla/application-services/issues/618))
+  MozillaAppServices megazord. ([#618](https://github.com/mozilla/application-services/issues/618))
 
 # 0.17.0 (_2019-02-19_)
 
@@ -5556,7 +6130,6 @@ See also `wipeLocal`, also added in this version, which is less
 permanent with respect to sync data (a full sync is likely to bring
 most of it back).
 
-
 ### Breaking Changes
 
 - The new `PlacesConnection` methods listed in the "What's New" all need to be implemented (or stubbed) by any class that implements `PlacesAPI`. (multiple bugs, see "What's New" for specifics).
@@ -5565,7 +6138,7 @@ most of it back).
 
 - Locally deleted visits deleted using `deleteVisitsSince` should not be resurrected on future syncs. ([#621](https://github.com/mozilla/application-services/issues/621))
 - Places now properly updates frecency for origins, and generally supports
-origins in a way more in line with how they're implemented on desktop. ([#429](https://github.com/mozilla/application-services/pull/429))
+  origins in a way more in line with how they're implemented on desktop. ([#429](https://github.com/mozilla/application-services/pull/429))
 
 # 0.16.1 (_2019-02-08_)
 
@@ -5607,7 +6180,7 @@ origins in a way more in line with how they're implemented on desktop. ([#429](h
 ### Breaking Changes
 
 - Several new methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
--  `fun interrupt()`. Cancels any calls to `queryAutocomplete` or `matchUrl` that are running on other threads. Those threads will throw an `OperationInterrupted` exception. ([#597](https://github.com/mozilla/application-services/pull/597))
+- `fun interrupt()`. Cancels any calls to `queryAutocomplete` or `matchUrl` that are running on other threads. Those threads will throw an `OperationInterrupted` exception. ([#597](https://github.com/mozilla/application-services/pull/597))
 - Note: Using `interrupt()` during the execution of other methods may work, but will have mixed results (it will work if we're currently executing a SQL query, and not if we're running rust code). This limitation may be lifted in the future.
 - `fun deletePlace(url: String)`: Deletes all visits associated with the provided URL ([#591](https://github.com/mozilla/application-services/pull/591))
 - Note that these deletions are synced!
@@ -5623,7 +6196,6 @@ origins in a way more in line with how they're implemented on desktop. ([#429](h
 ### What's Fixed
 
 - iOS Framework: Members of Avatar struct are now public. ([#615](https://github.com/mozilla/application-services/pull/615))
-
 
 # 0.15.0 (_2019-02-01_)
 

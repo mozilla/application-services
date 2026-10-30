@@ -164,12 +164,23 @@ open class Nimbus(
         override fun submitTargetingContext() {
             org.mozilla.experiments.nimbus.GleanMetrics.Pings.nimbusTargetingContext.submit()
         }
+
+        override fun recordRolloutsOptOut() {
+            NimbusEvents.rolloutsOptOut.record()
+        }
+
+        override fun recordStudiesOptOut() {
+            NimbusEvents.studiesOptOut.record()
+        }
     }
 
     private val nimbusClient: NimbusClientInterface
 
     override var experimentParticipation: Boolean
-        get() = nimbusClient.getExperimentParticipation()
+        get() = withCatchAll("getExperimentParticipation") {
+            nimbusClient.getExperimentParticipation()
+        } ?: true
+
         set(active) {
             dbScope.launch {
                 setExperimentParticipationOnThisThread(active)
@@ -177,7 +188,10 @@ open class Nimbus(
         }
 
     override var rolloutParticipation: Boolean
-        get() = nimbusClient.getRolloutParticipation()
+        get() = withCatchAll("getExperimentParticipation") {
+            nimbusClient.getRolloutParticipation()
+        } ?: true
+
         set(active) {
             dbScope.launch {
                 setRolloutParticipationOnThisThread(active)

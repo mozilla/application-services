@@ -9,14 +9,8 @@ use std::time::Duration;
 pub struct HttpCacheConnectionInitializer {}
 
 impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
-    const NAME: &'static str = "http_cache";
     const END_VERSION: u32 = 2;
-
-    fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
-        conn.execute_batch("PRAGMA journal_mode=wal;")?;
-        conn.busy_timeout(Duration::from_secs(5))?;
-        Ok(())
-    }
+    const NAME: &'static str = "http_cache";
 
     fn init(&self, tx: &rusqlite::Transaction<'_>) -> open_database::Result<()> {
         const SCHEMA: &str = "
@@ -42,6 +36,12 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
             tx.execute_batch("DROP TABLE IF EXISTS http_cache")?;
             tx.execute_batch(SCHEMA)?;
         }
+        Ok(())
+    }
+
+    fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
+        conn.execute_batch("PRAGMA journal_mode=wal;")?;
+        conn.busy_timeout(Duration::from_secs(5))?;
         Ok(())
     }
 

@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+# `broken-feature` defaults a boolean to a string, on every channel, so this
+# manifest is invalid whichever one is generated. Linting it would only report
+# nonsense.
+version: 1.0
+about:
+  description: A manifest which can't be linted, because it isn't valid.
+channels:
+  - release
+features:
+  broken-feature:
+    description: A feature whose default value doesn't match its type.
+    variables:
+      enabled:
+        description: Whether the feature is enabled at all.
+        type: Boolean
+        default: "yes"

@@ -105,6 +105,8 @@ pub struct TimeSeriesPanel {
 #[serde(rename_all = "camelCase")]
 pub struct FieldConfig {
     pub defaults: FieldConfigDefaults,
+    #[serde(default)]
+    pub overrides: Vec<FieldConfigOverride>,
 }
 
 #[derive(Default, Serialize)]
@@ -161,6 +163,35 @@ pub struct DataLink {
     pub url: String,
     pub target_blank: bool,
     pub one_click: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldConfigOverride {
+    pub matcher: FieldConfigOverrideMatcher,
+    pub properties: Vec<FieldConfigOverrideProperty>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldConfigOverrideMatcher {
+    pub id: String,
+    pub options: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "id")]
+pub enum FieldConfigOverrideProperty {
+    Color { value: FieldConfigOverrideColor },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "mode")]
+pub enum FieldConfigOverrideColor {
+    #[serde(rename_all = "camelCase")]
+    Fixed { fixed_color: String },
 }
 
 #[derive(Default, Serialize)]

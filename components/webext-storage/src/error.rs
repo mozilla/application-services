@@ -92,6 +92,15 @@ pub enum Error {
     SyncError(String),
 }
 
+impl From<sql_support::path::Error> for Error {
+    fn from(e: sql_support::path::Error) -> Self {
+        match e {
+            sql_support::path::Error::IllegalDatabasePath(path) => Error::IllegalDatabasePath(path),
+            sql_support::path::Error::IoError(e) => Error::IoError(e),
+        }
+    }
+}
+
 impl GetErrorHandling for Error {
     type ExternalError = WebExtStorageApiError;
 

@@ -19,28 +19,13 @@ use axum::{
     extract::{Path, State},
     http,
     response::{Html, IntoResponse},
-    routing::{get, post, IntoMakeService},
-    Json, Router, Server,
+    routing::{get, post},
+    Json, Router,
 };
-use hyper::server::conn::AddrIncoming;
 use serde_json::Value;
-use tower::layer::util::Stack;
+use tokio::net::TcpListener;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_livereload::{LiveReloadLayer, Reloader};
-
-fn create_server(
-    livereload: LiveReloadLayer,
-    state: Db,
-) -> Result<Server<AddrIncoming, IntoMakeService<Router>>, anyhow::Error> {
-    let app = create_app(livereload, state);
-
-    let addr = get_address()?;
-    eprintln!("Copy the address http://{}/ into your mobile browser", addr);
-
-    let server = Server::try_bind(&addr)?.serve(app.into_make_service());
-
-    Ok(server)
-}
 
 fn create_app(livereload: LiveReloadLayer, state: Db) -> Router {
     Router::new()
@@ -48,13 +33,27 @@ fn create_app(livereload: LiveReloadLayer, state: Db) -> Router {
         .route("/style.css", get(style))
         .route("/script.js", get(script))
         .route("/post", post(post_handler))
-        .route("/buckets/:bucket/collections/:collection/records", get(rs))
         .route(
-            "/v2/buckets/:bucket/collections/:collection/records",
+            "/buckets/{bucket}/collections/{collection}/records",
+            get(rs),
+        )
+        .route(
+            "/v2/buckets/{bucket}/collections/{collection}/records",
             get(rs),
         )
         .layer(livereload)
-        .layer(no_cache_layer())
+        .layer(SetResponseHeaderLayer::overriding(
+            http::header::CACHE_CONTROL,
+            http::HeaderValue::from_static("no-cache, no-store, must-revalidate"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            http::header::PRAGMA,
+            http::HeaderValue::from_static("no-cache"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            http::header::EXPIRES,
+            http::HeaderValue::from_static("0"),
+        ))
         .with_state(state)
 }
 
@@ -67,8 +66,13 @@ fn create_state(livereload: &LiveReloadLayer) -> Db {
 pub(crate) async fn start_server() -> Result<bool> {
     let livereload = LiveReloadLayer::new();
     let state = create_state(&livereload);
-    let server = create_server(livereload, state)?;
-    server.await?;
+    let app = create_app(livereload, state);
+
+    let addr = get_address()?;
+    eprintln!("Copy the address http://{}/ into your mobile browser", addr);
+
+    let listener = TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
     Ok(true)
 }
 
@@ -226,48 +230,23 @@ impl InMemoryDb {
     }
 }
 
-type Srhl = SetResponseHeaderLayer<http::HeaderValue>;
-
-fn no_cache_layer() -> Stack<Srhl, Stack<Srhl, Srhl>> {
-    Stack::new(
-        SetResponseHeaderLayer::overriding(
-            http::header::CACHE_CONTROL,
-            http::HeaderValue::from_static("no-cache, no-store, must-revalidate"),
-        ),
-        Stack::new(
-            SetResponseHeaderLayer::overriding(
-                http::header::PRAGMA,
-                http::HeaderValue::from_static("no-cache"),
-            ),
-            SetResponseHeaderLayer::overriding(
-                http::header::EXPIRES,
-                http::HeaderValue::from_static("0"),
-            ),
-        ),
-    )
-}
-
 #[cfg(test)]
 mod tests {
-    use hyper::{Body, Method, Request, Response};
     use serde_json::json;
-    use std::net::TcpListener;
     use tokio::sync::oneshot::Sender;
 
     use super::*;
 
-    fn start_test_server(port: u32) -> Result<(Db, Sender<()>)> {
+    async fn start_test_server(port: u32) -> Result<(Db, Sender<()>)> {
         let livereload = LiveReloadLayer::new();
         let state = create_state(&livereload);
 
         let app = create_app(livereload, state.clone());
         let addr = format!("127.0.0.1:{port}");
-        let listener = TcpListener::bind(addr)?;
+        let listener = TcpListener::bind(addr).await?;
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
         tokio::spawn(async move {
-            Server::from_tcp(listener)
-                .unwrap()
-                .serve(app.into_make_service())
+            axum::serve(listener, app)
                 .with_graceful_shutdown(async {
                     rx.await.ok();
                 })
@@ -281,36 +260,30 @@ mod tests {
     async fn get(port: u32, endpoint: &str) -> Result<String> {
         let url = format!("http://127.0.0.1:{port}{endpoint}");
 
-        let client = hyper::Client::new();
-        let response = client
-            .request(Request::builder().uri(url).body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        let response = reqwest::Client::new().get(url).send().await?;
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await?;
         let s = std::str::from_utf8(&body)?;
 
         Ok(s.to_string())
     }
 
-    async fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<Response<Body>> {
+    async fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<reqwest::Response> {
         let url = format!("http://{addr}/post");
         let body = serde_json::to_string(payload)?;
-        let request = Request::builder()
-            .method(Method::POST)
-            .uri(url)
+        Ok(reqwest::Client::new()
+            .post(url)
             .header("accept", "application/json")
             .header("Content-type", "application/json; charset=UTF-8")
-            .body(Body::from(body))
-            .unwrap();
-        let client = hyper::Client::new();
-        Ok(client.request(request).await?)
+            .body(body)
+            .send()
+            .await?)
     }
 
     #[tokio::test]
     async fn test_smoke_test() -> Result<()> {
         let port = 1234;
-        let (_db, tx) = start_test_server(port)?;
+        let (_db, tx) = start_test_server(port).await?;
 
         let s = get(port, "/").await?;
         assert!(s.contains("<html>"));
@@ -322,7 +295,7 @@ mod tests {
     #[tokio::test]
     async fn test_posting_platform_url() -> Result<()> {
         let port = 1235;
-        let (db, tx) = start_test_server(port)?;
+        let (db, tx) = start_test_server(port).await?;
 
         let platform = "android";
         let deeplink = "fenix-dev-test://open-now";
@@ -342,7 +315,7 @@ mod tests {
     #[tokio::test]
     async fn test_posting_platform_url_from_index_page() -> Result<()> {
         let port = 1236;
-        let (_, tx) = start_test_server(port)?;
+        let (_, tx) = start_test_server(port).await?;
 
         let platform = "android";
         let deeplink = "fenix-dev-test://open-now";
@@ -361,7 +334,7 @@ mod tests {
     #[tokio::test]
     async fn test_posting_value_to_fake_remote_settings() -> Result<()> {
         let port = 1237;
-        let (_, tx) = start_test_server(port)?;
+        let (_, tx) = start_test_server(port).await?;
 
         let platform = "android";
         let deeplink = "fenix-dev-test://open-now";
@@ -389,7 +362,7 @@ mod tests {
     #[tokio::test]
     async fn test_getting_null_values_from_fake_remote_settings() -> Result<()> {
         let port = 1238;
-        let (_, tx) = start_test_server(port)?;
+        let (_, tx) = start_test_server(port).await?;
 
         // Part 1: get from remote settings page before anything has been posted yet.
         let s = get(port, "/v2/buckets/BUCKET/collections/COLLECTION/records").await?;

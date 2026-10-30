@@ -5,32 +5,54 @@ namespace autofill {
     [Throws=AutofillApiError]
     string create_autofill_key();
 
-    /// Encrypt an arbitrary string - `key` must have come from `create_key()`
+    /// Create a Store with StaticKeyManager by passing in a db path and a
+    /// static key
     [Throws=AutofillApiError]
-    string encrypt_string(string key, string cleartext);
-
-    /// Decrypt an arbitrary string - `key` must have come from `create_key()`
-    /// and `ciphertext` must have come from `encrypt_string()`
-    [Throws=AutofillApiError]
-    string decrypt_string(string key, string ciphertext);
+    Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. The number is given in
+/// cleartext; the store encrypts it and derives the last-4 digits itself.
+/// On update, a null `cc_cvv` keeps the stored CVV and an empty one clears
+/// it.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number_enc;
-    string cc_number_last_4;
+    string cc_number;
+    string? cc_cvv = null;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
 };
 
-/// What you get back as a credit-card.
+/// What you get back as a credit-card. The number comes back decrypted;
+/// it is empty for a scrubbed card or one saved without a number. A number
+/// the key cannot read fails the read.
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number_enc;
+    string cc_number;
+    string? cc_cvv = null;
     string cc_number_last_4;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Reading these never needs the encryption key, so consumers listing cards by name,
+/// last four digits and expiry can do so without forcing the user to authenticate.
+/// See `list_credit_card_candidates()`.
+dictionary CreditCardCandidate {
+    string guid;
+    string cc_name;
+    string cc_number_last_4;
+    boolean has_cvv;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -108,6 +130,48 @@ dictionary Passport {
 };
 
 /// Metadata fields managed internally by the library: the guid, timestamps and
+/// local sync state. These are automatically set on `add_credit_card` and
+/// updated on operations like `touch` and `update_credit_card`. Not included in
+/// `UpdatableCreditCardFields`; use `add_credit_card_with_meta` when importing
+/// records that already have metadata.
+dictionary CreditCardMeta {
+    string guid;
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+    i64 sync_change_counter;
+};
+
+/// A credit card together with its metadata, passed to `add_credit_card_with_meta`
+/// and `update_credit_card_with_meta` when importing a record from another store.
+dictionary UpdatableCreditCardFieldsWithMeta {
+    UpdatableCreditCardFields fields;
+    CreditCardMeta meta;
+};
+
+/// A bulk insert result entry, returned per input record by `add_many_credit_cards_with_meta`
+[Enum]
+interface CreditCardBulkResultEntry {
+    Success(CreditCard credit_card);
+    Error(string message);
+};
+
+/// A tombstone for a record deleted locally but not yet uploaded, supplied to
+/// `add_many_credit_card_tombstones` when migrating from another store.
+dictionary CreditCardTombstone {
+    string guid;
+    i64 time_deleted;
+};
+
+/// Per-record result of `add_many_credit_card_tombstones`.
+[Enum]
+interface CreditCardBulkTombstoneResultEntry {
+    Success(string guid);
+    Error(string message);
+};
+
+/// Metadata fields managed internally by the library: the guid, timestamps and
 /// local sync state. These are automatically set on `add_address` and updated on
 /// operations like `touch` and `update_address`. Not included in
 /// `UpdatableAddressFields`; use `add_address_with_meta` when importing records
@@ -164,9 +228,15 @@ interface AutofillApiError {
     UnexpectedAutofillApiError(string reason);
 };
 
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
+
+[External = "db_crypto"]
+typedef trait_with_foreign KeyManager;
+
 interface Store {
     [Throws=AutofillApiError]
-    constructor(string dbpath);
+    constructor(string dbpath, EncryptorDecryptor encdec);
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
@@ -176,6 +246,13 @@ interface Store {
 
     [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
+
+    /// Every stored credit card without its encrypted fields. Unlike
+    /// `get_all_credit_cards` this never touches the key, so listing cannot
+    /// prompt for a primary password; read the one card that needs its
+    /// secrets with `get_credit_card`.
+    [Throws=AutofillApiError]
+    sequence<CreditCardCandidate> list_credit_card_candidates();
 
     [Throws=AutofillApiError]
     i64 count_all_credit_cards();
@@ -190,6 +267,27 @@ interface Store {
     void touch_credit_card(string guid);
 
     [Throws=AutofillApiError]
+    CreditCard add_credit_card_with_meta(UpdatableCreditCardFieldsWithMeta entry_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<CreditCardBulkResultEntry> add_many_credit_cards_with_meta(sequence<UpdatableCreditCardFieldsWithMeta> entries_with_meta);
+
+    [Throws=AutofillApiError]
+    sequence<CreditCardBulkTombstoneResultEntry> add_many_credit_card_tombstones(sequence<CreditCardTombstone> tombstones);
+
+    /// Removes every credit card and every credit card tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_credit_card` to delete on the
+    /// user's behalf.
+    [Throws=AutofillApiError]
+    void delete_all_credit_cards();
+
+    [Throws=AutofillApiError]
+    void update_credit_card_with_meta(UpdatableCreditCardFieldsWithMeta entry_with_meta);
+
+    [Throws=AutofillApiError]
     Address add_address(UpdatableAddressFields a);
 
     [Throws=AutofillApiError]
@@ -202,6 +300,11 @@ interface Store {
     sequence<AddressBulkTombstoneResultEntry> add_many_address_tombstones(sequence<AddressTombstone> tombstones);
 
     /// Removes every address and every address tombstone.
+    ///
+    /// A migration primitive: it leaves the sync mirror intact and produces no
+    /// tombstones, so the deletions are never uploaded and a synced profile gets
+    /// the records back on the next sync. Use `delete_address` to delete on the
+    /// user's behalf.
     [Throws=AutofillApiError]
     void delete_all_addresses();
 
@@ -257,7 +360,7 @@ interface Store {
     /// NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
     /// outside of this use case.
     [Throws=AutofillApiError, Self=ByArc]
-    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement(string local_encryption_key);
+    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement();
 
     /// Run maintenance on the DB
     ///
@@ -276,12 +379,58 @@ interface Store {
     /// DB, so it cannot fail.
     [Self=ByArc]
     AddressesBridgedEngine addresses_bridged_engine();
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing it only assembles structs and never touches
+    /// the DB, so it cannot fail.
+    [Self=ByArc]
+    CreditCardsBridgedEngine credit_cards_bridged_engine();
 };
 
-/// The bridged sync engine for addresses. The canonical docs are in
-/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// The bridged sync engine for addresses, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
 /// NOTE: all timestamps here are milliseconds.
 interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply(i64 server_modified_millis);
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
+};
+
+/// The bridged sync engine for credit cards, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
+/// NOTE: all timestamps here are milliseconds.
+interface CreditCardsBridgedEngine {
     [Throws=AutofillApiError]
     i64 last_sync();
 
