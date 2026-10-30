@@ -16,6 +16,10 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
+### Merino
+
+- `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
+
 ## Breaking Changes
 
 ### Autofill

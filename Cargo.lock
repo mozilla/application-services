@@ -2937,11 +2937,13 @@ name = "merino"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "uniffi",
  "url",
+ "uuid",
  "viaduct",
 ]
 
