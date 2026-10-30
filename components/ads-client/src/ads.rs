@@ -88,6 +88,18 @@ pub enum Ad {
     Tile(AdTile),
 }
 
+/// The `format` IDs MARS sends.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum AdFormat {
+    Billboard,
+    Leaderboard,
+    Rectangle,
+    Skyscraper,
+    Spoc,
+    Tile,
+}
+
 impl<'de> Deserialize<'de> for Ad {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -95,14 +107,16 @@ impl<'de> Deserialize<'de> for Ad {
     {
         use serde::de::Error;
         let value = <serde_json::Value>::deserialize(deserializer)?;
-        match value.get("format").and_then(serde_json::Value::as_str) {
-            Some("billboard" | "leaderboard" | "rectangle" | "skyscraper") => {
-                serde_json::from_value(value).map(Self::Image)
-            }
-            Some("spoc") => serde_json::from_value(value).map(Self::Spoc),
-            Some("tile") => serde_json::from_value(value).map(Self::Tile),
-            Some(format) => return Err(D::Error::custom(format!("Unknown ad format `{format}`"))),
-            None => return Err(D::Error::missing_field("format")),
+        let format = value
+            .get("format")
+            .ok_or_else(|| D::Error::missing_field("format"))?;
+        match AdFormat::deserialize(format).map_err(D::Error::custom)? {
+            AdFormat::Billboard
+            | AdFormat::Leaderboard
+            | AdFormat::Rectangle
+            | AdFormat::Skyscraper => serde_json::from_value(value).map(Self::Image),
+            AdFormat::Spoc => serde_json::from_value(value).map(Self::Spoc),
+            AdFormat::Tile => serde_json::from_value(value).map(Self::Tile),
         }
         .map_err(D::Error::custom)
     }
@@ -337,7 +351,9 @@ mod tests {
 
         image["format"] = "nonsense_format".into();
         let err = serde_json::from_value::<Ad>(image.clone()).unwrap_err();
-        assert_eq!(err.to_string(), "Unknown ad format `nonsense_format`");
+        assert!(err
+            .to_string()
+            .starts_with("unknown variant `nonsense_format`"));
 
         image.as_object_mut().unwrap().remove("format");
         assert!(serde_json::from_value::<Ad>(image).is_err());
