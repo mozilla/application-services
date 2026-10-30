@@ -473,7 +473,7 @@ mod tests {
         let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
-                AdsStoreBuilder::new("test_store.db")
+                AdsStoreBuilder::new(":memory:")
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             )),

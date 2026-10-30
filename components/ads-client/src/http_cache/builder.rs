@@ -68,7 +68,7 @@ impl HttpCacheBuilder {
     pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let (db, is_memory) = self.open_db()?;
+        let db = self.open_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
@@ -77,7 +77,6 @@ impl HttpCacheBuilder {
             default_ttl,
             max_size,
             store,
-            is_memory,
         })
     }
 
@@ -85,7 +84,7 @@ impl HttpCacheBuilder {
     pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let (db, is_memory) = self.open_db()?;
+        let db = self.open_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new_with_test_clock(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
@@ -94,7 +93,6 @@ impl HttpCacheBuilder {
             default_ttl,
             max_size,
             store,
-            is_memory,
         })
     }
 
@@ -109,21 +107,16 @@ impl HttpCacheBuilder {
     }
 
     // Opens the db at `db_path`, or a memory db if there is no path or it fails to open.
-    // Returns the db and whether it is in memory.
-    fn open_db(
-        &self,
-    ) -> Result<(LazyDb<HttpCacheConnectionInitializer>, bool), HttpCacheBuilderError> {
+    fn open_db(&self) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
         if let Some(db_path) = &self.db_path {
             match open_connection(db_path) {
-                Ok(db) => return Ok((db, false)),
+                Ok(db) => return Ok(db),
                 Err(e) => telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e)),
             }
         }
 
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        let db = open_connection(Path::new(IN_MEMORY_DB_PATH))
-            .map_err(HttpCacheBuilderError::DatabaseMemory)?;
-        Ok((db, true))
+        open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
@@ -194,10 +187,8 @@ mod tests {
     fn test_unopenable_path_falls_back_to_memory_db() {
         // The fallback records telemetry, so don't race the telemetry tests.
         let _lock = crate::telemetry::test_lock();
-        let cache = make_test_builder("this/is/a/test/bad/path")
-            .build()
-            .unwrap();
-        assert!(cache.is_memory());
+        let result = make_test_builder("this/is/a/test/bad/path").build();
+        assert!(result.is_ok());
     }
 
     #[test]

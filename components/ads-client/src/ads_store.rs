@@ -12,7 +12,6 @@ use std::path::Path;
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
-    is_memory: bool,
     #[allow(dead_code)]
     max_size: ByteSize,
 }
@@ -32,10 +31,6 @@ impl AdsStore {
         Ok(())
     }
 
-    pub fn is_memory(&self) -> bool {
-        self.is_memory
-    }
-
     pub fn shutdown_db(&self) {
         self.holder.close();
     }
@@ -49,13 +44,13 @@ mod tests {
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> = AdsStore::builder("test_store.db").build();
+        let store: Result<AdsStore, _> = AdsStore::builder(":memory:").build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
-        let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(":memory:").build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
         store.holder.store_ad(&placement_id, ad.clone()).unwrap();
@@ -74,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(":memory:").build().unwrap();
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
