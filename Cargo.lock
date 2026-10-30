@@ -1326,7 +1326,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
- "thiserror 2.0.3",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
