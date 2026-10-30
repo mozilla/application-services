@@ -52,7 +52,7 @@ pub struct HttpCacheBuilder {
     default_ttl: Option<Duration>,
     max_size: Option<ByteSize>,
     // Flag for whether this db is built in-memory
-    // This is set by an error in `open_connection`, or with `build_memory`.
+    // This is set by `open_with_memory_fallback` whenever it opens a memory db.
     is_memory: bool,
 }
 
@@ -72,7 +72,7 @@ impl HttpCacheBuilder {
     pub fn build(&mut self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let db = self.open_connection()?;
+        let db = self.open_with_memory_fallback()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
@@ -89,7 +89,7 @@ impl HttpCacheBuilder {
     pub fn build_for_time_dependent_tests(&mut self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let db = self.open_connection()?;
+        let db = self.open_with_memory_fallback()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new_with_test_clock(db);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
@@ -112,24 +112,29 @@ impl HttpCacheBuilder {
         self
     }
 
-    // Opens the filesystem db if possible, falling back to a memory db otherwise.
-    fn open_connection(
+    // Opens the filesystem db if there is one, falling back to a memory db if there isn't or it fails to open.
+    fn open_with_memory_fallback(
         &mut self,
     ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
-        if !cfg!(test) && !self.is_memory {
-            if let Some(db_path) = &self.db_path {
-                match open_db(db_path) {
-                    Ok(db) => return Ok(db),
-                    Err(e) => telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e)),
-                }
+        if let Some(db_path) = self.file_db_path() {
+            match open_connection(db_path) {
+                Ok(db) => return Ok(db),
+                Err(e) => telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e)),
             }
         }
 
-        // If we cannot instantiate a filesystem db, cfg!(test) == true, or is_memory == true, we fall back to a memory db.
-        // We set is_memory to true in case it was not already.
         self.is_memory = true;
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        open_db(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
+        open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
+    }
+
+    // The filesystem db to open, if any.
+    // Unit tests always get a memory db so they never touch the filesystem.
+    fn file_db_path(&self) -> Option<&Path> {
+        if cfg!(test) || self.is_memory {
+            return None;
+        }
+        self.db_path.as_deref()
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
@@ -167,7 +172,9 @@ impl HttpCacheBuilder {
 }
 
 // Opens the db at `path`, eagerly opening the initial connection so failures surface here.
-fn open_db(path: &Path) -> Result<LazyDb<HttpCacheConnectionInitializer>, open_database::Error> {
+fn open_connection(
+    path: &Path,
+) -> Result<LazyDb<HttpCacheConnectionInitializer>, open_database::Error> {
     let db = LazyDb::new(
         path,
         OpenFlags::default(),
@@ -192,6 +199,12 @@ mod tests {
         assert_eq!(builder.max_size, None);
         assert_eq!(builder.default_ttl, None);
         assert!(builder.build().is_ok());
+    }
+
+    #[test]
+    fn test_unit_tests_always_use_memory_db() {
+        let cache = make_test_builder("test.db").build().unwrap();
+        assert!(cache.is_memory());
     }
 
     #[test]
