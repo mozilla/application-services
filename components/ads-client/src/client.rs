@@ -473,7 +473,7 @@ mod tests {
         let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
-                AdsStoreBuilder::new("test_store.db")
+                AdsStoreBuilder::new(":memory:")
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             )),
@@ -687,9 +687,7 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_click_invalidates_cache")
-            .build()
-            .unwrap();
+        let cache = HttpCache::builder_memory().build().unwrap();
         let mars_client = MARSClient::new(Environment::Test, Some(cache));
         let ads_client = new_with_mars_client(mars_client);
 

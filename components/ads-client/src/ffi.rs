@@ -550,7 +550,7 @@ mod tests {
         let builder = Arc::new(MozAdsClientBuilder::new())
             .telemetry(Box::new(NoopMozAdsTelemetry))
             .cache_config(MozAdsCacheConfig {
-                db_path: "test_shutdown_is_idempotent".to_string(),
+                db_path: ":memory:".to_string(),
                 default_cache_ttl_seconds: None,
                 max_size_mib: None,
             });
@@ -573,7 +573,7 @@ mod tests {
         let builder = Arc::new(MozAdsClientBuilder::new())
             .telemetry(Box::new(NoopMozAdsTelemetry))
             .cache_config(MozAdsCacheConfig {
-                db_path: "test_shutdown_is_idempotent".to_string(),
+                db_path: ":memory:".to_string(),
                 default_cache_ttl_seconds: None,
                 max_size_mib: None,
             });
