@@ -14,19 +14,19 @@ buildscript {
         mavenCentral()
         google()
         maven {
-            url "https://plugins.gradle.org/m2/"
+            url = "https://plugins.gradle.org/m2/"
         }
         maven {
-            name "Mozilla"
-            url "https://maven.mozilla.org/maven2"
+            name = "Mozilla"
+            url = "https://maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
             }
         }
         maven {
-            name "Mozilla Nightly"
-            url "https://nightly.maven.mozilla.org/maven2"
+            name = "Mozilla Nightly"
+            url = "https://nightly.maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
@@ -60,16 +60,16 @@ allprojects {
         google()
         mavenCentral()
         maven {
-            name "Mozilla"
-            url "https://maven.mozilla.org/maven2"
+            name = "Mozilla"
+            url = "https://maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
             }
         }
         maven {
-            name "Mozilla Nightly"
-            url "https://nightly.maven.mozilla.org/maven2"
+            name = "Mozilla Nightly"
+            url = "https://nightly.maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"

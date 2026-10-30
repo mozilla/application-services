@@ -33,7 +33,7 @@ ext {
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 android {
-    namespace 'org.mozilla.appservices.syncmanager'
+    namespace = 'org.mozilla.appservices.syncmanager'
 }
 
 dependencies {

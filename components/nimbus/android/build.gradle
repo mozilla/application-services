@@ -31,7 +31,7 @@ ext {
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 android {
-    namespace 'org.mozilla.experiments.nimbus'
+    namespace = 'org.mozilla.experiments.nimbus'
 }
 
 dependencies {

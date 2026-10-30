@@ -30,7 +30,7 @@ ext {
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 android {
-    namespace 'org.mozilla.appservices.adsclient'
+    namespace = 'org.mozilla.appservices.adsclient'
 }
 
 dependencies {

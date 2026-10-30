@@ -42,7 +42,7 @@ dependencies {
 }
 
 android {
-    namespace 'org.mozilla.appservices.errorsupport'
+    namespace = 'org.mozilla.appservices.errorsupport'
 }
 
 ext.configureUniFFIBindgen("error_support")
