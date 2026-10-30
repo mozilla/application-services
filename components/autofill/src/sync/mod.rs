@@ -69,9 +69,14 @@ pub trait ProcessIncomingRecordImpl {
         tx: &Transaction<'_>,
     ) -> Result<Vec<IncomingState<Self::Record>>>;
 
-    /// Returns a local record that has the same values as the given incoming record (with the exception
-    /// of the `guid` values which should differ) that will be used as a local duplicate record for
-    /// syncing.
+    /// Returns a local record that has the same values as the given incoming record, but a different
+    /// `guid`, that will be used as a local duplicate record for syncing.
+    ///
+    /// Only records that aren't already on the server are candidates, which means their guid is in
+    /// neither the mirror nor the incoming staging table. After the mirror is reset (a sync reset, or
+    /// a migration into a fresh database), a local record that is already on the server isn't in the
+    /// mirror, and its guid can match that of another record being downloaded; the staging table is
+    /// what excludes it then.
     fn get_local_dupe(
         &self,
         tx: &Transaction<'_>,

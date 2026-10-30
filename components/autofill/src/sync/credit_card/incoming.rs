@@ -16,6 +16,7 @@ use crate::sync::{
     ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use db_crypto::EncryptorDecryptor;
+use error_support::warn;
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
@@ -169,9 +170,14 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         })
     }
 
-    /// Returns a local record that has the same values as the given incoming record (with the exception
-    /// of the `guid` values which should differ) that will be used as a local duplicate record for
-    /// syncing.
+    /// Returns a local record that has the same values as the given incoming record, but a different
+    /// `guid`, that will be used as a local duplicate record for syncing.
+    ///
+    /// Only records that aren't already on the server are candidates, which means their guid is in
+    /// neither the mirror nor the incoming staging table. After the mirror is reset (a sync reset, or
+    /// a migration into a fresh database), a local record that is already on the server isn't in the
+    /// mirror, and its guid can match that of another record being downloaded; the staging table is
+    /// what excludes it then.
     fn get_local_dupe(
         &self,
         tx: &Transaction<'_>,
@@ -190,6 +196,16 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                     SELECT guid
                     FROM credit_cards_mirror
                 )
+                -- a record being downloaded is already on the server, even when
+                -- the mirror has been reset or not yet written for this sync.
+                AND guid NOT IN (
+                    SELECT guid
+                    FROM temp.credit_cards_sync_staging
+                )
+                -- an empty number, whether scrubbed and awaiting its replacement
+                -- from the server or saved without one, can't be decrypted to
+                -- compare.
+                AND cc_number_enc <> ''
                 -- and sql can check the field values (but note we can not meaningfully
                 -- check the encrypted value, as it's different each time it is encrypted)
                 AND cc_name == :cc_name
@@ -215,8 +231,13 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
 
         let incoming_cc_number = decrypt_str(self.encdec.as_ref(), &incoming.cc_number_enc)?;
         for record in records {
-            if decrypt_str(self.encdec.as_ref(), &record.cc_number_enc)? == incoming_cc_number {
-                return Ok(Some(record));
+            match decrypt_str(self.encdec.as_ref(), &record.cc_number_enc) {
+                Ok(number) if number == incoming_cc_number => return Ok(Some(record)),
+                Ok(_) => {}
+                Err(e) => warn!(
+                    "Skipping dupe candidate {} that can't be decrypted: {e}",
+                    record.guid
+                ),
             }
         }
         Ok(None)
@@ -613,6 +634,216 @@ mod tests {
         tx.commit().expect("should commit");
         assert!(get_credit_card(&db.writer, &local_guid).is_err());
         assert!(get_credit_card(&db.writer, &incoming_guid).is_ok());
+    }
+
+    // Plans and applies the staged records in the order of `guids`, which must
+    // list every staged guid; `fetch_incoming_states` has no defined order.
+    fn apply_staged(
+        ci: &IncomingCreditCardsImpl,
+        tx: &Transaction<'_>,
+        guids: &[char],
+    ) -> Result<()> {
+        let mut states = ci.fetch_incoming_states(tx)?;
+        assert_eq!(states.len(), guids.len());
+        states.sort_by_key(|state| {
+            guids
+                .iter()
+                .position(|&g| state.incoming.envelope.id.as_str() == expand_test_guid(g))
+                .expect("every staged guid should be listed")
+        });
+        for state in states {
+            let action = crate::sync::plan_incoming(ci, tx, state)?;
+            crate::sync::apply_incoming_action(ci, tx, action)?;
+        }
+        ci.finish_incoming(tx)
+    }
+
+    fn record_with_guid(ci: &IncomingCreditCardsImpl, guid: char) -> InternalCreditCard {
+        InternalCreditCard {
+            guid: SyncGuid::new(&expand_test_guid(guid)),
+            ..test_record('C', ci.encdec.as_ref())
+        }
+    }
+
+    fn incoming_bso(ci: &IncomingCreditCardsImpl, guid: char) -> IncomingBso {
+        record_with_guid(ci, guid).into_test_incoming_bso(ci.encdec.as_ref(), Default::default())
+    }
+
+    // A local card that isn't in the mirror, but whose guid is also being
+    // downloaded, is already on the server and must not be taken as the dupe
+    // of a different incoming card with the same details.
+    fn do_test_incoming_identical_to_unmirrored_local(apply_order: &[char]) {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+
+        add_internal_credit_card(&tx, &record_with_guid(&ci, 'D')).expect("should insert");
+        ci.stage_incoming(
+            &tx,
+            vec![incoming_bso(&ci, 'D'), incoming_bso(&ci, 'A')],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ci, &tx, apply_order).expect("should apply");
+
+        assert!(get_credit_card(&tx, &expand_test_guid('D').into()).is_ok());
+        assert!(get_credit_card(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    #[test]
+    fn test_incoming_identical_to_unmirrored_local_applied_first() {
+        do_test_incoming_identical_to_unmirrored_local(&['D', 'A']);
+    }
+
+    #[test]
+    fn test_incoming_identical_to_unmirrored_local_applied_last() {
+        do_test_incoming_identical_to_unmirrored_local(&['A', 'D']);
+    }
+
+    // Deleting a card that isn't in the mirror leaves no tombstone, so the next
+    // sync sees it as missing locally while its identical twin is still held.
+    #[test]
+    fn test_incoming_identical_after_unmirrored_delete() {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+        {
+            let tx = db.transaction().expect("should get tx");
+            add_internal_credit_card(&tx, &record_with_guid(&ci, 'D')).expect("should insert");
+            add_internal_credit_card(&tx, &record_with_guid(&ci, 'A')).expect("should insert");
+            tx.commit().expect("should commit");
+        }
+        crate::db::credit_cards::delete_credit_card(&db, &expand_test_guid('A').into())
+            .expect("should delete");
+
+        let tx = db.transaction().expect("should get tx");
+        ci.stage_incoming(
+            &tx,
+            vec![incoming_bso(&ci, 'A'), incoming_bso(&ci, 'D')],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ci, &tx, &['A', 'D']).expect("should apply");
+
+        assert!(get_credit_card(&tx, &expand_test_guid('D').into()).is_ok());
+        assert!(get_credit_card(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    // A card inserted earlier in the same sync isn't in the mirror yet, and
+    // must not be taken as the dupe of a later incoming card.
+    #[test]
+    fn test_several_identical_incoming() {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+
+        ci.stage_incoming(
+            &tx,
+            vec![
+                incoming_bso(&ci, 'A'),
+                incoming_bso(&ci, 'B'),
+                incoming_bso(&ci, 'D'),
+            ],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ci, &tx, &['A', 'B', 'D']).expect("should apply");
+
+        for guid in ['A', 'B', 'D'] {
+            assert!(get_credit_card(&tx, &expand_test_guid(guid).into()).is_ok());
+        }
+    }
+
+    // A scrubbed card is waiting for its own record to restore it, and must not
+    // stop an identical incoming card from being applied.
+    #[test]
+    fn test_incoming_identical_to_scrubbed_local() {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+
+        let scrubbed = InternalCreditCard {
+            cc_number_enc: String::new(),
+            ..record_with_guid(&ci, 'D')
+        };
+        add_internal_credit_card(&tx, &scrubbed).expect("should insert");
+        ci.stage_incoming(
+            &tx,
+            vec![incoming_bso(&ci, 'A'), incoming_bso(&ci, 'D')],
+            &NeverInterrupts,
+        )
+        .expect("should stage");
+
+        apply_staged(&ci, &tx, &['A', 'D']).expect("should apply");
+
+        let restored =
+            get_credit_card(&tx, &expand_test_guid('D').into()).expect("should be restored");
+        assert!(!restored.cc_number_enc.is_empty());
+        assert!(get_credit_card(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    // A local card with an empty number that isn't being downloaded can't be
+    // compared, so it is never taken as the dupe of an incoming card.
+    #[test]
+    fn test_incoming_identical_to_empty_number_local() {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+
+        let empty_number = InternalCreditCard {
+            cc_number_enc: String::new(),
+            ..record_with_guid(&ci, 'L')
+        };
+        add_internal_credit_card(&tx, &empty_number).expect("should insert");
+        ci.stage_incoming(&tx, vec![incoming_bso(&ci, 'A')], &NeverInterrupts)
+            .expect("should stage");
+
+        apply_staged(&ci, &tx, &['A']).expect("should apply");
+
+        let local = get_credit_card(&tx, &expand_test_guid('L').into()).expect("should be kept");
+        assert!(local.cc_number_enc.is_empty());
+        assert!(get_credit_card(&tx, &expand_test_guid('A').into()).is_ok());
+    }
+
+    #[test]
+    fn test_incoming_identical_to_undecryptable_local() {
+        ensure_initialized();
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: Arc::new(random_key_encryptor().unwrap()),
+        };
+
+        let other_key = random_key_encryptor().unwrap();
+        let undecryptable = InternalCreditCard {
+            cc_number_enc: encrypt_str(&other_key, "8765432112345678").unwrap(),
+            ..record_with_guid(&ci, 'L')
+        };
+        add_internal_credit_card(&tx, &undecryptable).expect("should insert");
+        ci.stage_incoming(&tx, vec![incoming_bso(&ci, 'A')], &NeverInterrupts)
+            .expect("should stage");
+
+        apply_staged(&ci, &tx, &['A']).expect("should apply");
+
+        assert!(get_credit_card(&tx, &expand_test_guid('L').into()).is_ok());
+        assert!(get_credit_card(&tx, &expand_test_guid('A').into()).is_ok());
     }
 
     #[test]
