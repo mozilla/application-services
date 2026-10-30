@@ -31,6 +31,10 @@ impl AdsStore {
         Ok(())
     }
 
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        self.holder.is_memory()
+    }
+
     pub fn shutdown_db(&self) {
         self.holder.close();
     }

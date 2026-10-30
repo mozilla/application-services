@@ -58,6 +58,10 @@ impl HttpCache {
         HttpCacheBuilder::new(None::<String>)
     }
 
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        self.store.is_memory()
+    }
+
     pub fn clear(&self) -> Result<(), open_database::Error> {
         self.store.clear_all()?;
         Ok(())

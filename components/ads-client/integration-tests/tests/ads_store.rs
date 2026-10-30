@@ -26,20 +26,19 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
 fn test_bad_path_opens_memory_db() {
     clear_test_dbs(&["good_path.db"]);
 
-    AdsStoreBuilder::new("good_path.db")
+    let good_path = AdsStoreBuilder::new("good_path.db")
         .build()
-        .expect("Should be able to build a good path");
+        .expect("Should be able to build a bad path");
     assert!(
-        Path::new("good_path.db").exists(),
+        !good_path.is_memory().unwrap(),
         "A valid path should result in a file-based sqlite database"
     );
 
     let bad_path = AdsStoreBuilder::new("this/is/a/test/bad/path")
         .build()
         .expect("Should be able to build a bad path");
-    bad_path.clear().expect("The fallback db should be usable");
     assert!(
-        !Path::new("this/is/a/test/bad/path").exists(),
+        bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
 

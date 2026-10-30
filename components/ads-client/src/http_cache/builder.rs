@@ -190,10 +190,7 @@ mod tests {
         let cache = make_test_builder("this/is/a/test/bad/path")
             .build()
             .unwrap();
-
-        // The db works but nothing was created on disk, so it is in memory.
-        cache.clear().unwrap();
-        assert!(!Path::new("this/is/a/test/bad/path").exists());
+        assert!(cache.is_memory().unwrap());
     }
 
     #[test]

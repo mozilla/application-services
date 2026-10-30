@@ -120,22 +120,21 @@ fn test_cache_works_using_real_timeouts() {
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_bad_path_opens_memory_db() {
-    clear_test_dbs(&["good_path_httpstore.db"]);
+    clear_test_dbs(&["good_path.db"]);
 
-    HttpCache::builder("good_path_httpstore.db")
+    let good_path = HttpCache::builder("good_path_httpstore.db")
         .build()
-        .expect("Should be able to build a good path");
+        .expect("Should be able to build a bad path");
     assert!(
-        Path::new("good_path_httpstore.db").exists(),
+        !good_path.is_memory().unwrap(),
         "A valid path should result in a file-based sqlite database"
     );
 
     let bad_path = HttpCache::builder("this/is/a/test/bad/path")
         .build()
         .expect("Should be able to build a bad path");
-    bad_path.clear().expect("The fallback db should be usable");
     assert!(
-        !Path::new("this/is/a/test/bad/path").exists(),
+        bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
 
@@ -148,5 +147,8 @@ fn test_bad_path_opens_memory_db() {
     let no_path = HttpCache::builder_memory()
         .build()
         .expect("Should be able to build a memory db");
-    no_path.clear().expect("The memory db should be usable");
+    assert!(
+        no_path.is_memory().unwrap(),
+        "`builder_memory` should result in a memory-based sqlite database"
+    )
 }
