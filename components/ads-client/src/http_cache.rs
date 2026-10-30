@@ -165,7 +165,7 @@ mod tests {
 
     fn make_cache() -> HttpCache {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(60))
             .max_size(ByteSize::mib(1))
             .build()
@@ -174,7 +174,7 @@ mod tests {
 
     fn make_cache_with_ttl(secs: u64) -> HttpCache {
         // In tests our store uses an in-memory DB; filename is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
             .build_for_time_dependent_tests()
@@ -184,11 +184,11 @@ mod tests {
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let cache: Result<HttpCache, _> = HttpCache::builder("test_cache.db").build();
+        let cache: Result<HttpCache, _> = HttpCache::builder_memory().build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let cache_with_config: Result<HttpCache, _> = HttpCache::builder("custom_test.db")
+        let cache_with_config: Result<HttpCache, _> = HttpCache::builder_memory()
             .max_size(ByteSize::mib(1))
             .default_ttl(Duration::from_secs(60))
             .build();
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache = HttpCache::builder("test_invalidate.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));
