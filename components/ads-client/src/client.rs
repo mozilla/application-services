@@ -162,7 +162,7 @@ impl AdsClientInner {
 
         let environment = client_config.environment;
 
-        // Configure the cache if a path is provided.
+        // Configure the cache from `cache_config`, if provided.
         // Defaults for ttl and cache size are also set if unspecified.
         let http_cache = client_config
             .cache_config
@@ -175,20 +175,15 @@ impl AdsClientInner {
                 let max_cache_size =
                     ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-                match HttpCache::builder(cache_cfg.db_path)
+                HttpCache::builder(cache_cfg.db_path)
                     .max_size(max_cache_size)
                     .default_ttl(default_cache_ttl)
                     .build()
-                {
-                    Ok(cache) => Some(cache),
-                    Err(e) => {
-                        telemetry::record_build_cache_error(&e);
-                        None
-                    }
-                }
+                    .inspect_err(telemetry::record_build_cache_error)
+                    .ok()
             })
             .or_else(|| {
-                // If no `cache_config` is provided, create an in-memory db with default parameters.
+                // If no `cache_config` is provided, or it is invalid, create an in-memory db with default parameters.
                 // TODO: the `build` function should be infallible, and no error would be needed here.
                 // (true for both memory and FS, because FS would default to memory)
                 HttpCache::builder_memory()

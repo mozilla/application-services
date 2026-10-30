@@ -51,55 +51,27 @@ pub struct HttpCacheBuilder {
     db_path: Option<PathBuf>,
     default_ttl: Option<Duration>,
     max_size: Option<ByteSize>,
-    // Flag for whether this db is built in-memory
-    // This is set by `open_with_memory_fallback` whenever it opens a memory db.
-    is_memory: bool,
 }
 
 impl HttpCacheBuilder {
     // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in-memory.
-    pub fn new(db_path: Option<impl Into<PathBuf>>) -> Self {
+    pub fn new(db_path: Option<PathBuf>) -> Self {
         Self {
-            db_path: db_path.map(|x| x.into()),
+            db_path,
             default_ttl: None,
             max_size: None,
-            is_memory: false,
         }
     }
 
     // Attempt to build the HttpCache. If a file path exists and can be built successfully, we build
     // a FS sqlite database. Otherwise, we fall back to memory.
-    pub fn build(&mut self) -> Result<HttpCache, HttpCacheBuilderError> {
-        self.validate()?;
-
-        let db = self.open_with_memory_fallback()?;
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new(db);
-        let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
-
-        Ok(HttpCache {
-            default_ttl,
-            max_size,
-            store,
-            is_memory: self.is_memory,
-        })
+    pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+        self.build_with_store(HttpCacheStore::new)
     }
 
     #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&mut self) -> Result<HttpCache, HttpCacheBuilderError> {
-        self.validate()?;
-
-        let db = self.open_with_memory_fallback()?;
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new_with_test_clock(db);
-        let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
-
-        Ok(HttpCache {
-            default_ttl,
-            max_size,
-            store,
-            is_memory: self.is_memory,
-        })
+    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+        self.build_with_store(HttpCacheStore::new_with_test_clock)
     }
 
     pub fn default_ttl(mut self, ttl: Duration) -> Self {
@@ -112,37 +84,43 @@ impl HttpCacheBuilder {
         self
     }
 
-    // Opens the filesystem db if there is one, falling back to a memory db if there isn't or it fails to open.
-    fn open_with_memory_fallback(
-        &mut self,
-    ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
-        if let Some(db_path) = self.file_db_path() {
-            match open_connection(db_path) {
-                Ok(db) => return Ok(db),
-                Err(e) => telemetry::record_build_cache_error(&HttpCacheBuilderError::from(e)),
-            }
-        }
+    fn build_with_store(
+        &self,
+        new_store: impl FnOnce(LazyDb<HttpCacheConnectionInitializer>) -> HttpCacheStore,
+    ) -> Result<HttpCache, HttpCacheBuilderError> {
+        self.validate()?;
 
-        self.is_memory = true;
-        // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
+        let (db, is_memory) = match self.open_file_db() {
+            Some(db) => (db, false),
+            None => (open_memory_db()?, true),
+        };
+
+        Ok(HttpCache {
+            default_ttl: self.default_ttl.unwrap_or(DEFAULT_TTL),
+            max_size: self.max_size.unwrap_or(DEFAULT_MAX_SIZE),
+            store: new_store(db),
+            is_memory,
+        })
     }
 
-    // The filesystem db to open, if any.
-    // Unit tests always get a memory db so they never touch the filesystem.
-    fn file_db_path(&self) -> Option<&Path> {
-        if cfg!(test) || self.is_memory {
+    // Opens the filesystem db, or returns `None` if there is no path or it fails to open.
+    fn open_file_db(&self) -> Option<LazyDb<HttpCacheConnectionInitializer>> {
+        // Unit tests always use a memory db so they never touch the filesystem.
+        if cfg!(test) {
             return None;
         }
-        self.db_path.as_deref()
+        let db_path = self.db_path.as_deref()?;
+        open_connection(db_path)
+            .map_err(HttpCacheBuilderError::from)
+            .inspect_err(telemetry::record_build_cache_error)
+            .ok()
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
         if self
             .db_path
             .as_ref()
-            .map(|p| p.to_string_lossy().trim().is_empty())
-            .unwrap_or(false)
+            .is_some_and(|p| p.to_string_lossy().trim().is_empty())
         {
             return Err(HttpCacheBuilderError::EmptyDbPath);
         }
@@ -171,6 +149,11 @@ impl HttpCacheBuilder {
     }
 }
 
+// TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
+fn open_memory_db() -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
+    open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
+}
+
 // Opens the db at `path`, eagerly opening the initial connection so failures surface here.
 fn open_connection(
     path: &Path,
@@ -189,12 +172,12 @@ mod tests {
     use super::*;
 
     fn make_test_builder(path: &str) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(Some(path))
+        HttpCacheBuilder::new(Some(path.into()))
     }
 
     #[test]
     fn test_cache_builder_with_defaults() {
-        let mut builder = make_test_builder("test.db");
+        let builder = make_test_builder("test.db");
         assert_eq!(builder.db_path, Some(PathBuf::from("test.db")));
         assert_eq!(builder.max_size, None);
         assert_eq!(builder.default_ttl, None);
@@ -209,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_cache_builder_valid_custom() {
-        let mut builder = make_test_builder("custom.db")
+        let builder = make_test_builder("custom.db")
             .max_size(ByteSize::b(1024))
             .default_ttl(Duration::from_secs(60));
 
@@ -257,10 +240,10 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_boundaries() {
-        let mut builder_min = make_test_builder("test.db").max_size(MIN_CACHE_SIZE);
+        let builder_min = make_test_builder("test.db").max_size(MIN_CACHE_SIZE);
         assert!(builder_min.build().is_ok());
 
-        let mut builder_max = make_test_builder("test.db").max_size(MAX_CACHE_SIZE);
+        let builder_max = make_test_builder("test.db").max_size(MAX_CACHE_SIZE);
         assert!(builder_max.build().is_ok());
     }
 
@@ -296,10 +279,10 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_boundaries() {
-        let mut builder_min = make_test_builder("test.db").default_ttl(MIN_TTL);
+        let builder_min = make_test_builder("test.db").default_ttl(MIN_TTL);
         assert!(builder_min.build().is_ok());
 
-        let mut builder_max = make_test_builder("test.db").default_ttl(MAX_TTL);
+        let builder_max = make_test_builder("test.db").default_ttl(MAX_TTL);
         assert!(builder_max.build().is_ok());
     }
 }
