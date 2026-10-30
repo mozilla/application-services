@@ -399,6 +399,7 @@ pub async fn process_ohttp_request(
     let (status, headers_map, body) = ohttp_response.into_parts();
     let final_headers = Headers::try_from_hashmap(headers_map)?;
 
+    let url = request.url.clone();
     let final_response = Response {
         request_method: request.method,
         url: request.url,
@@ -406,6 +407,13 @@ pub async fn process_ohttp_request(
         headers: final_headers,
         body,
     };
+    if final_response.body.len() > 50_000_000 {
+        error_support::report_error!(
+            "viaduct-large-download",
+            "url: {url}, size: {} (ohttp)",
+            final_response.body.len(),
+        );
+    }
 
     let overall_duration = overall_start.elapsed();
     crate::trace!(
