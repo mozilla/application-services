@@ -15,7 +15,7 @@ kotlinx-serialization = "1.11.0"
 # Mozilla
 android-components = "150.0.3"
 glean = "71.0.0"
-rust-android-gradle = "0.9.6"
+rust-android-gradle = "0.10.0"
 
 # AndroidX
 annotation = "1.10.0"
@@ -43,7 +43,6 @@ robolectric = "4.16.1"
 
 # Miscellaneous Gradle plugins
 gradle-download-task = "5.7.0"
-python-envs-plugin = "0.0.31"
 
 [libraries]
 # AGP
@@ -91,5 +90,4 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 gradle-download-task = { id = "de.undercouch.download", version.ref = "gradle-download-task" }
-python-envs-plugin = {id = "com.jetbrains.python.envs", version.ref = "python-envs-plugin"}
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
