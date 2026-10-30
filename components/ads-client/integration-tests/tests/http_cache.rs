@@ -120,11 +120,11 @@ fn test_cache_works_using_real_timeouts() {
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_bad_path_opens_memory_db() {
-    clear_test_dbs(&["good_path_httpstore.db"]);
+    clear_test_dbs(&["good_path.db"]);
 
     let good_path = HttpCache::builder("good_path_httpstore.db")
         .build()
-        .expect("Should be able to build a good path");
+        .expect("Should be able to build a bad path");
     assert!(
         !good_path.is_memory(),
         "A valid path should result in a file-based sqlite database"

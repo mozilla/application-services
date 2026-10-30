@@ -52,11 +52,11 @@ pub struct HttpCache {
 
 impl HttpCache {
     pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(Some(db_path.as_ref().to_path_buf()))
+        HttpCacheBuilder::new(Some(db_path.as_ref()))
     }
 
     pub fn builder_memory() -> HttpCacheBuilder {
-        HttpCacheBuilder::new(None)
+        HttpCacheBuilder::new(None::<String>)
     }
 
     pub fn is_memory(&self) -> bool {
