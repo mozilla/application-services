@@ -14,19 +14,19 @@ buildscript {
         mavenCentral()
         google()
         maven {
-            url "https://plugins.gradle.org/m2/"
+            url = "https://plugins.gradle.org/m2/"
         }
         maven {
-            name "Mozilla"
-            url "https://maven.mozilla.org/maven2"
+            name = "Mozilla"
+            url = "https://maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
             }
         }
         maven {
-            name "Mozilla Nightly"
-            url "https://nightly.maven.mozilla.org/maven2"
+            name = "Mozilla Nightly"
+            url = "https://nightly.maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
@@ -51,8 +51,6 @@ buildscript {
 
 plugins {
     alias libs.plugins.detekt
-    alias libs.plugins.gradle.download.task  // Downloading libs/archives from Taskcluster.
-    alias libs.plugins.python.envs.plugin apply false
     alias libs.plugins.kotlin.serialization apply false
 }
 
@@ -61,16 +59,16 @@ allprojects {
         google()
         mavenCentral()
         maven {
-            name "Mozilla"
-            url "https://maven.mozilla.org/maven2"
+            name = "Mozilla"
+            url = "https://maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
             }
         }
         maven {
-            name "Mozilla Nightly"
-            url "https://nightly.maven.mozilla.org/maven2"
+            name = "Mozilla Nightly"
+            url = "https://nightly.maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
@@ -87,101 +85,8 @@ task clean(type: Delete) {
 // { ... }`, to avoid issues with importing.
 import com.sun.jna.Platform as DefaultPlatform
 
-// If this is `null`, we use libs from the source directory.
-// Check if there are any changes to `libs` since `main`, and if not,
-// use the sha to download the artifacts from taskcluster.
-//
-// Note we pass the path to the git-dir so that this still works when
-// used as a dependency substitution from e.g. android-components.
-ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only main -- :/libs".execute().text.allWhitespace ?
-                 "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
-
-// Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
-// downloaded libs.
-
-// XX: Since we switched the libs directory to be `darwin-x86-64` and `darwin-aarch64` in https://github.com/mozilla/application-services/pull/4792
-//     we have mismatch with the libs built on CI, since they have the libraries under `darwin`.
-//     Temporarily, we are disabling downloaded libs
-//     we should enable them once our CI builds libs the same way as our local environments
-//     see: https://github.com/mozilla/application-services/issues/4828
-// def useDownloadedLibs = !System.getenv('CI') && ext.libsGitSha != null
-def useDownloadedLibs = false
-
-if (useDownloadedLibs) {
-    task downloadAndroidLibs(type: Download) {
-        src "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.android.${rootProject.ext.libsGitSha}/artifacts/public/build/android.tar.gz"
-        dest new File(buildDir, "libs.android.${rootProject.ext.libsGitSha}.tar.gz")
-
-        doFirst {
-            if (it.dest.exists()) {
-                throw new StopExecutionException("File to download already exists: ${it.dest.path}")
-            }
-        }
-        overwrite true
-    }
-
-    task untarAndroidLibs(dependsOn: downloadAndroidLibs, type: Copy) {
-        from tarTree(downloadAndroidLibs.dest)
-        into rootProject.buildDir
-    }
-
-    task downloadDesktopLibs(type: Download) {
-        src {
-            switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin-x86-64':
-                case 'darwin-aarch64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
-                case 'linux-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
-                default:
-                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
-                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
-                                              "If you don't want to build your own libs for Android, you can untar\n\n${downloadAndroidLibs.src}\n\nat top-level to populate `libs/android/`.  " +
-                                              "You'll need build your own libs for your host platform in order to be able to build and run unit tests.")
-            }
-        }
-
-        dest {
-            switch (DefaultPlatform.RESOURCE_PREFIX) {
-                case 'darwin-x86-64':
-                case 'darwin-aarch64':
-                    return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
-                case 'linux-x86-64':
-                    return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
-                default:
-                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
-                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.")
-            }
-        }
-
-        doFirst {
-            if (it.dest.exists()) {
-                throw new StopExecutionException("File to download already exists: ${it.dest.path}")
-            }
-        }
-        overwrite true
-    }
-
-    task untarDesktopLibs(dependsOn: downloadDesktopLibs, type: Copy) {
-        from tarTree(downloadDesktopLibs.dest)
-        into rootProject.buildDir
-    }
-
-    subprojects { project ->
-        project.pluginManager.withPlugin("com.android.library") {
-            def androidComponents = project.extensions.getByName("androidComponents")
-            androidComponents.onVariants(androidComponents.selector().all()) { variant ->
-                project.tasks.named("pre${variant.name.capitalize()}Build").configure {
-                    dependsOn(rootProject.untarAndroidLibs)
-                    dependsOn(rootProject.untarDesktopLibs)
-                }
-            }
-        }
-    }
-}
-
-// Additionally, we require `--locked` in CI, but not for local builds.
-// Unlike the above, this can't be overridden by `local.properties` (mainly
+// We require `--locked` in CI, but not for local builds.
+// Unlike the Cargo targets below, this can't be overridden by `local.properties` (mainly
 // because doing so seems pointless, not for any security reason)
 ext.extraCargoBuildArguments = []
 
@@ -213,12 +118,13 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
 }
 ext.rustTargets += ext.nativeRustTarget
 
-ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
-
 subprojects {
     group = "org.mozilla.appservices"
     if (!gradle.hasProperty("mozconfig")) {
         apply plugin: 'maven-publish'
+    }
+    tasks.withType(AbstractTestTask).configureEach {
+        failOnNoDiscoveredTests = false
     }
     // Kotlin settings applicable to all modules.
     afterEvaluate{
@@ -257,7 +163,7 @@ subprojects {
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
     spec.environment("NSS_STATIC", "1")
-    spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    spec.environment("NSS_DIR",               new File(rootProject.rootDir, "libs/${toolchain.folder}/nss").absolutePath)
 }
 
 detekt {
@@ -294,7 +200,7 @@ tasks.register("ktlint", JavaExec) {
     group = "verification"
     description = "Check Kotlin code style."
     classpath = configurations.ktlint
-    main = "com.pinterest.ktlint.Main"
+    mainClass = "com.pinterest.ktlint.Main"
     args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
 }
 
@@ -302,7 +208,7 @@ tasks.register("ktlintFormat", JavaExec) {
     group = "formatting"
     description = "Fix Kotlin code style deviations."
     classpath = configurations.ktlint
-    main = "com.pinterest.ktlint.Main"
+    mainClass = "com.pinterest.ktlint.Main"
     args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
     // Fix for newer Java from https://github.com/pinterest/ktlint/issues/1195#issuecomment-1009027802
     jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
