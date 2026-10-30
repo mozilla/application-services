@@ -15,6 +15,14 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
+### Event-Based Sync Engine
+
+- New component: `event_based_sync_engine`, a generic event-based sync engine on `sync15`.
+
+### Sync15
+
+- Add `pending_deletions()` / `set_deleted()` to `SyncEngine`, so an engine can have records deleted from the server after an upload. Both default to no-ops, so existing engines are unaffected.
+
 ## Breaking Changes
 
 ### Autofill

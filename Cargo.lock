@@ -1315,6 +1315,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "event_based_sync_engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "example-autofill-utils"
 version = "0.1.0"
 dependencies = [
