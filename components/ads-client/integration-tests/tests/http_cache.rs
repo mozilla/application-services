@@ -130,9 +130,14 @@ fn test_bad_path_opens_memory_db() {
         "A valid path should result in a file-based sqlite database"
     );
 
-    HttpCache::builder("this/is/a/test/bad/path")
+    let bad_path = HttpCache::builder("this/is/a/test/bad/path")
         .build()
-        .expect("Invalid path should fall back to a memory-based sqlite database");
+        .expect("Should be able to build a bad path");
+    bad_path.clear().expect("The fallback db should be usable");
+    assert!(
+        !Path::new("this/is/a/test/bad/path").exists(),
+        "Invalid path should result in a memory-based sqlite database"
+    );
 
     let empty_path = HttpCache::builder("").build();
     assert!(
@@ -140,7 +145,8 @@ fn test_bad_path_opens_memory_db() {
         "An empty string for a path should result in an error (because of validation step)"
     );
 
-    HttpCache::builder_memory()
+    let no_path = HttpCache::builder_memory()
         .build()
-        .expect("`builder_memory` should result in a memory-based sqlite database");
+        .expect("Should be able to build a memory db");
+    no_path.clear().expect("The memory db should be usable");
 }

@@ -34,9 +34,14 @@ fn test_bad_path_opens_memory_db() {
         "A valid path should result in a file-based sqlite database"
     );
 
-    AdsStoreBuilder::new("this/is/a/test/bad/path")
+    let bad_path = AdsStoreBuilder::new("this/is/a/test/bad/path")
         .build()
-        .expect("Invalid path should fall back to a memory-based sqlite database");
+        .expect("Should be able to build a bad path");
+    bad_path.clear().expect("The fallback db should be usable");
+    assert!(
+        !Path::new("this/is/a/test/bad/path").exists(),
+        "Invalid path should result in a memory-based sqlite database"
+    );
 
     let empty_path = AdsStoreBuilder::new("").build();
     assert!(

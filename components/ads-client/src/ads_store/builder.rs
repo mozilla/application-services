@@ -112,8 +112,13 @@ mod tests {
     fn test_unopenable_path_falls_back_to_memory_db() {
         // The fallback records telemetry, so don't race the telemetry tests.
         let _lock = crate::telemetry::test_lock();
-        let result = make_test_builder("this/is/a/test/bad/path").build();
-        assert!(result.is_ok());
+        let store = make_test_builder("this/is/a/test/bad/path")
+            .build()
+            .unwrap();
+
+        // The db works but nothing was created on disk, so it is in memory.
+        store.clear().unwrap();
+        assert!(!Path::new("this/is/a/test/bad/path").exists());
     }
 
     #[test]
