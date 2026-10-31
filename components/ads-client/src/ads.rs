@@ -15,7 +15,7 @@ pub struct PlacementId(String);
 #[cfg(feature = "stateful")]
 impl PlacementId {
     pub fn new(s: &str) -> PlacementId {
-        PlacementId(s.to_string())
+        PlacementId(s.to_owned())
     }
     pub fn into_inner(self) -> String {
         self.0

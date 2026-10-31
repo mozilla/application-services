@@ -99,7 +99,7 @@ impl RequestQueue {
         }
 
         // Otherwise, pop the next queue-able command.
-        inner.request_queue.pop_front().map(|c| c.into())
+        inner.request_queue.pop_front().map(Into::into)
     }
 
     // Add a `DispatchRequest` to the `RequestQueue` (primary entry point for queuing requests).
@@ -109,13 +109,13 @@ impl RequestQueue {
         match request {
             DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
             DispatchRequest::RecordImpression { url } => {
-                self.push_queued_request(QueuedRequest::RecordImpression { url })
+                self.push_queued_request(QueuedRequest::RecordImpression { url });
             }
             DispatchRequest::RecordClick { url } => {
-                self.push_queued_request(QueuedRequest::RecordClick { url })
+                self.push_queued_request(QueuedRequest::RecordClick { url });
             }
             DispatchRequest::ReportAd { url, reason } => {
-                self.push_queued_request(QueuedRequest::ReportAd { url, reason })
+                self.push_queued_request(QueuedRequest::ReportAd { url, reason });
             }
         }
     }

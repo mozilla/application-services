@@ -65,7 +65,7 @@ mod tests {
         let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
-        store.holder.store_ad(&placement_id, ad.clone()).unwrap();
+        store.holder.store_ad(&placement_id, &ad).unwrap();
 
         // Verify it's cached
         let retrieved = store.holder.lookup(&placement_id).unwrap();
@@ -85,8 +85,8 @@ mod tests {
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
-        store.holder.store_ad(&placement_1, ad_1).unwrap();
-        store.holder.store_ad(&placement_2, ad_2).unwrap();
+        store.holder.store_ad(&placement_1, &ad_1).unwrap();
+        store.holder.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.holder.lookup(&placement_1).unwrap().is_some());
         assert!(store.holder.lookup(&placement_2).unwrap().is_some());

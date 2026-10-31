@@ -10,7 +10,7 @@ use std::time::Duration;
 /// with `SQLITE_BUSY`.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
-pub struct AdsStoreConnectionInitializer {}
+pub struct AdsStoreConnectionInitializer;
 
 impl open_database::ConnectionInitializer for AdsStoreConnectionInitializer {
     const END_VERSION: u32 = 1;

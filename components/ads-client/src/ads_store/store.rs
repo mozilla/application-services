@@ -118,7 +118,7 @@ impl AdsStoreHolder {
     }
 
     /// Upsert the ads for a placement, replacing any ads already stored for it.
-    pub fn store_ad(&self, placement_id: &PlacementId, ads: Vec<Ad>) -> Result<(), FetchAdsError> {
+    pub fn store_ad(&self, placement_id: &PlacementId, ads: &[Ad]) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(open_database::Error::from(Self::forced_fault_error(
@@ -232,7 +232,7 @@ mod tests {
 
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        let err = store.store_ad(&placement, ad).unwrap_err();
+        let err = store.store_ad(&placement, &ad).unwrap_err();
         match err {
             FetchAdsError::Sqlite(open_database::Error::SqlError(
                 rusqlite::Error::SqliteFailure(_, Some(msg)),
@@ -249,7 +249,7 @@ mod tests {
         store.set_fault(FaultKind::Trim);
 
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
-        store.store_ad(&placement, ad).unwrap();
+        store.store_ad(&placement, &ad).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
@@ -265,7 +265,7 @@ mod tests {
         let store = create_test_store();
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement, ad.clone()).unwrap();
+        store.store_ad(&placement, &ad).unwrap();
 
         let retrieved = store.lookup(&placement).unwrap().unwrap();
         assert_eq!(retrieved, ad);
@@ -282,7 +282,7 @@ mod tests {
             .collect();
         assert!(ads.len() > 1);
 
-        store.store_ad(&placement, ads.clone()).unwrap();
+        store.store_ad(&placement, &ads).unwrap();
 
         assert_eq!(store.lookup(&placement).unwrap(), Some(ads));
     }
@@ -296,10 +296,10 @@ mod tests {
             .into_values()
             .flatten()
             .collect();
-        store.store_ad(&placement, ads.clone()).unwrap();
+        store.store_ad(&placement, &ads).unwrap();
 
         let refreshed = ads[..1].to_vec();
-        store.store_ad(&placement, refreshed.clone()).unwrap();
+        store.store_ad(&placement, &refreshed).unwrap();
 
         assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));
     }
@@ -310,7 +310,7 @@ mod tests {
 
         for i in 0..10 {
             let (placement_id, ad) = get_example_happy_image_ads(&format!("mock_billboard_{i}"));
-            store.store_ad(&placement_id, ad.clone()).unwrap();
+            store.store_ad(&placement_id, &ad).unwrap();
         }
 
         let total_size = store.current_total_size_bytes().unwrap();
@@ -331,10 +331,10 @@ mod tests {
         let store = create_test_store();
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement_1, ad_1.clone()).unwrap();
+        store.store_ad(&placement_1, &ad_1).unwrap();
 
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
-        store.store_ad(&placement_2, ad_2.clone()).unwrap();
+        store.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.lookup(&placement_1).unwrap().is_some());
         assert!(store.lookup(&placement_2).unwrap().is_some());
@@ -353,8 +353,8 @@ mod tests {
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
 
-        store.store_ad(&placement_1, ad_1.clone()).unwrap();
-        store.store_ad(&placement_2, ad_2.clone()).unwrap();
+        store.store_ad(&placement_1, &ad_1).unwrap();
+        store.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.lookup(&placement_1).unwrap().is_some());
         assert!(store.lookup(&placement_2).unwrap().is_some());

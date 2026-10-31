@@ -96,7 +96,7 @@ impl AdsStoreBuilder {
         self.is_memory = true;
 
         // Attempt to open initial connection, resolving an error if needed.
-        let _ = memory_db.lock()?;
+        drop(memory_db.lock()?);
 
         Ok(memory_db)
     }
