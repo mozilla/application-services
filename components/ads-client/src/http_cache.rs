@@ -328,6 +328,34 @@ mod tests {
     }
 
     #[test]
+    fn test_error_response_is_not_cached() {
+        viaduct_dev::init_backend_dev();
+
+        let m = mock("POST", "/ads")
+            .with_status(500)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"unavailable"}"#)
+            .expect(2) // both calls should hit the network: an error is not cached
+            .create();
+
+        let cache = make_cache();
+        let req = make_post_request();
+        let client = make_client();
+
+        for _ in 0..2 {
+            let (response, outcomes) = cache
+                .send_with_policy(&client, req.clone(), &CachePolicy::default())
+                .unwrap();
+            assert_eq!(response.status, 500);
+            assert!(matches!(
+                outcomes.last().unwrap(),
+                CacheOutcome::MissNotCacheable
+            ));
+        }
+        m.assert();
+    }
+
+    #[test]
     fn ttl_resolution_explicit_overrides_server_max_age() {
         viaduct_dev::init_backend_dev();
 
@@ -367,7 +395,7 @@ mod tests {
     fn ttl_resolution_uses_server_max_age_when_no_explicit_override() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("cache-control", "max-age=2") // Server says 2 seconds
@@ -395,6 +423,7 @@ mod tests {
         cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
     }
 
     #[test]

@@ -50,7 +50,8 @@ impl NetworkFirst {
     pub(super) fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
         let response = client.send_sync(self.request)?;
         let cache_control = CacheControl::from(&response);
-        let outcome = if cache_control.should_cache() {
+        // An error response is not an answer to cache: the next send retries.
+        let outcome = if response.is_success() && cache_control.should_cache() {
             let ttl = EffectiveTtl {
                 default: self.default_ttl,
                 explicit: self.explicit_ttl,
