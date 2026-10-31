@@ -91,8 +91,9 @@ impl AdsStoreHolder {
     pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
-            return Err(Self::forced_fault_error("forced lookup failure"))
-                .map_err(open_database::Error::from)?;
+            return Err(open_database::Error::from(Self::forced_fault_error(
+                "forced lookup failure",
+            )))?;
         }
         let (conn, _) = self.db.lock()?;
         let res = conn
@@ -119,8 +120,9 @@ impl AdsStoreHolder {
     pub fn store_ad(&self, placement_id: &PlacementId, ads: Vec<Ad>) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
-            return Err(Self::forced_fault_error("forced store failure"))
-                .map_err(open_database::Error::from)?;
+            return Err(open_database::Error::from(Self::forced_fault_error(
+                "forced store failure",
+            )))?;
         }
         let placement_id_str: &str = placement_id.as_ref();
         let ad_body = serde_json::to_vec(&ads)?;

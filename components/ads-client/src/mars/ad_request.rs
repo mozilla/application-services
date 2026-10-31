@@ -106,7 +106,7 @@ impl AdRequest {
         for ad_placement_request in placements {
             if used_placement_ids.contains(&ad_placement_request.placement) {
                 return Err(BuildRequestError::DuplicatePlacementId {
-                    placement_id: ad_placement_request.placement.clone(),
+                    placement_id: ad_placement_request.placement,
                 });
             }
 
@@ -128,8 +128,8 @@ impl AdRequest {
     }
 }
 
-pub type AdRequestFlags = HashMap<String, bool>;
-pub type AdRequestRelevance = HashMap<String, f64>;
+pub(crate) type AdRequestFlags = HashMap<String, bool>;
+pub(crate) type AdRequestRelevance = HashMap<String, f64>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 pub struct AdPlacementRequest {

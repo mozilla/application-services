@@ -15,7 +15,7 @@ const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
 
-pub const IN_MEMORY_DB_PATH: &'static str = ":memory:";
+pub const IN_MEMORY_DB_PATH: &str = ":memory:";
 
 #[derive(Debug, thiserror::Error)]
 pub enum AdsStoreBuilderError {
@@ -89,7 +89,7 @@ impl AdsStoreBuilder {
 
         // If we cannot instantiate a filesystem db, or cfg!(test) == true, we fall back to a memory db.
         let memory_db = LazyDb::new(
-            &Path::new(IN_MEMORY_DB_PATH),
+            Path::new(IN_MEMORY_DB_PATH),
             OpenFlags::default(),
             AdsStoreConnectionInitializer {},
         );

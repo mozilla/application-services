@@ -24,7 +24,6 @@ dependencies = [
  "chrono",
  "context_id",
  "error-support",
- "mockall",
  "mockito",
  "once_cell",
  "parking_lot",

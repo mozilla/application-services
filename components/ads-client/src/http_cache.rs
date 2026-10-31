@@ -28,8 +28,7 @@ pub use self::request_hash::RequestHash;
 use std::path::Path;
 use std::time::Duration;
 
-pub type HttpCacheSendResult =
-    std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
+pub type HttpCacheSendResult = Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum CachePolicy {

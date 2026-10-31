@@ -6,7 +6,7 @@ use rusqlite::Connection;
 use sql_support::open_database;
 use std::time::Duration;
 
-pub struct HttpCacheConnectionInitializer {}
+pub(super) struct HttpCacheConnectionInitializer {}
 
 impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
     const END_VERSION: u32 = 2;

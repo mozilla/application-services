@@ -24,7 +24,7 @@ pub enum FaultKind {
     Trim,
 }
 
-pub struct HttpCacheStore {
+pub(super) struct HttpCacheStore {
     clock: Arc<dyn Clock>,
     db: LazyDb<HttpCacheConnectionInitializer>,
     #[cfg(test)]
@@ -32,7 +32,7 @@ pub struct HttpCacheStore {
 }
 
 impl HttpCacheStore {
-    pub fn new(db: LazyDb<HttpCacheConnectionInitializer>) -> Self {
+    pub(super) fn new(db: LazyDb<HttpCacheConnectionInitializer>) -> Self {
         Self {
             clock: Arc::new(CacheClock),
             db,
@@ -54,17 +54,17 @@ impl HttpCacheStore {
     }
 
     /// Removes all entries from cache.
-    pub fn clear_all(&self) -> Result<usize, open_database::Error> {
+    pub(super) fn clear_all(&self) -> Result<usize, open_database::Error> {
         let (conn, _) = self.db.lock()?;
         Ok(conn.execute("DELETE FROM http_cache", [])?)
     }
 
-    pub fn close(&self) {
+    pub(super) fn close(&self) {
         self.db.close(true);
     }
 
     /// Returns total size of the cache in bytes.
-    pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
+    pub(super) fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
         let (conn, _) = self.db.lock()?;
         let size_bytes = conn.query_row(
             "SELECT COALESCE(SUM(size_bytes),0) FROM http_cache",
@@ -75,7 +75,7 @@ impl HttpCacheStore {
     }
 
     /// Removes all entries from the store whose expires_at is at or before the current time.
-    pub fn delete_expired_entries(&self) -> Result<usize, open_database::Error> {
+    pub(super) fn delete_expired_entries(&self) -> Result<usize, open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
             return Err(Self::forced_fault_error("forced cleanup failure"))?;
@@ -92,7 +92,7 @@ impl HttpCacheStore {
         &*self.clock
     }
 
-    pub fn invalidate_by_hash(
+    pub(super) fn invalidate_by_hash(
         &self,
         request_hash: &RequestHash,
     ) -> Result<usize, open_database::Error> {
@@ -104,7 +104,7 @@ impl HttpCacheStore {
     }
 
     /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
-    pub fn lookup(
+    pub(super) fn lookup(
         &self,
         request_hash: &RequestHash,
     ) -> Result<Option<Response>, open_database::Error> {
@@ -124,30 +124,35 @@ impl HttpCacheStore {
                 let method_str: String = row.get(3)?;
                 let url_str: String = row.get(4)?;
 
-                let headers = serde_json::from_slice::<HashMap<String, String>>(&response_headers)
-                    .map(|map| {
+                let headers = serde_json::from_slice::<HashMap<String, String>>(&response_headers).map_or_else(|_| viaduct::Headers::new(), |map| {
                         map.into_iter()
                             .filter_map(|(n, v)| Header::new(n, v).ok())
                             .collect::<Vec<_>>()
                             .into()
-                    })
-                    .unwrap_or_else(|_| viaduct::Headers::new());
+                    });
 
                 let request_method = match method_str.as_str() {
-                    "GET" => viaduct::Method::Get,
                     "HEAD" => viaduct::Method::Head,
                     "POST" => viaduct::Method::Post,
                     "PUT" => viaduct::Method::Put,
                     "DELETE" => viaduct::Method::Delete,
                     "PATCH" => viaduct::Method::Patch,
+                    // "GET", and anything this cache did not write.
                     _ => viaduct::Method::Get,
                 };
 
-                let url = url::Url::parse(&url_str).map_err(|_| {
+                let url = url::Url::parse(&url_str).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
                         4,
                         rusqlite::types::Type::Text,
-                        format!("invalid URL in cache: {url_str}").into(),
+                        format!("invalid URL in cache: {url_str}: {e}").into(),
+                    )
+                })?;
+                let status = u16::try_from(response_status).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,
+                        rusqlite::types::Type::Integer,
+                        Box::new(e),
                     )
                 })?;
 
@@ -155,7 +160,7 @@ impl HttpCacheStore {
                     body: response_body,
                     headers,
                     request_method,
-                    status: response_status as u16,
+                    status,
                     url,
                 })
             },
@@ -171,7 +176,7 @@ impl HttpCacheStore {
     /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
     /// Calling this method will always store an object regardless of headers or policy.
     /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
-    pub fn store_with_ttl(
+    pub(super) fn store_with_ttl(
         &self,
         request_hash: &RequestHash,
         response: &Response,
@@ -230,7 +235,7 @@ impl HttpCacheStore {
     }
 
     /// Trim cache to
-    pub fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
+    pub(super) fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;

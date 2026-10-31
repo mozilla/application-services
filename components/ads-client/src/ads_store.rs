@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 pub mod builder;
 pub mod connection_initializer;
 pub mod store;
@@ -13,7 +17,10 @@ use std::path::Path;
 pub struct AdsStore {
     holder: AdsStoreHolder,
     is_memory: bool,
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "validated by the builder, but nothing trims the store to it yet"
+    )]
     max_size: ByteSize,
 }
 

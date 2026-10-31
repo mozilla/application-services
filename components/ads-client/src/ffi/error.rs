@@ -6,8 +6,9 @@
 use crate::client::error::ComponentError;
 use error_support::{ErrorHandling, GetErrorHandling};
 
-pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
+pub type AdsClientApiResult<T> = Result<T, MozAdsClientApiError>;
 
+/// The error every ads client method can throw.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum MozAdsClientApiError {
     #[error("Something unexpected occurred.")]
