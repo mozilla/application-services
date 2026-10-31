@@ -235,7 +235,7 @@ impl HttpCacheStore {
     }
 
     /// Trim cache to
-    pub(super) fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
+    pub(super) fn trim_to_max_size(&self, max_size: ByteSize) -> Result<(), open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
@@ -378,7 +378,7 @@ mod tests {
             .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
             .unwrap();
 
-        let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
+        let err = store.trim_to_max_size(ByteSize::b(1)).unwrap_err();
         match err {
             open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
                 assert!(msg.contains("forced trim failure"));
@@ -564,7 +564,7 @@ mod tests {
                 .unwrap();
         }
 
-        store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
+        store.trim_to_max_size(ByteSize::kib(1)).unwrap();
 
         let total_size = store.current_total_size_bytes().unwrap();
         assert!(total_size.as_u64() <= 1024);

@@ -114,7 +114,7 @@ impl HttpCache {
             .iter()
             .any(|o| matches!(o, CacheOutcome::MissStored))
         {
-            if let Err(e) = self.store.trim_to_max_size(&self.max_size) {
+            if let Err(e) = self.store.trim_to_max_size(self.max_size) {
                 outcomes.push(CacheOutcome::TrimFailed(e));
             }
         }
