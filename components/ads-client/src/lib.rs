@@ -50,12 +50,9 @@ pub struct MozAdsClient {
 #[uniffi::export]
 impl MozAdsClient {
     /// Deletes everything in the HTTP cache.
+    #[handle_error(ComponentError)]
     pub fn clear_cache(&self) -> AdsClientApiResult<()> {
-        self.inner
-            .clear_cache()
-            .map_err(|e| MozAdsClientApiError::Other {
-                reason: format!("Failed to clear cache: {e}"),
-            })
+        self.inner.clear_cache().map_err(ComponentError::ClearCache)
     }
 
     /// Records a click on an ad, from its `callbacks.click` URL.
