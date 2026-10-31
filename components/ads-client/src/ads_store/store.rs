@@ -153,19 +153,22 @@ impl AdsStoreHolder {
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
         }
-        loop {
-            let total = self.current_total_size_bytes()?;
-            if total.as_u64() <= max_size.as_u64() {
-                break;
-            }
-            let (conn, _) = self.db.lock()?;
-            conn.execute(
-                "DELETE FROM ads WHERE rowid IN (
-                    SELECT rowid FROM ads ORDER BY stored_at ASC LIMIT 1
-                )",
-                [],
-            )?;
-        }
+        // Keeps the newest rows that fit in `max_size` and deletes the rest,
+        // in one statement.
+        let (conn, _) = self.db.lock()?;
+        conn.execute(
+            "DELETE FROM ads
+             WHERE rowid IN (
+                 SELECT rowid
+                 FROM (
+                     SELECT rowid,
+                            SUM(size_bytes) OVER (ORDER BY stored_at DESC, rowid DESC) AS kept_bytes
+                     FROM ads
+                 )
+                 WHERE kept_bytes > ?1
+             )",
+            params![max_size.as_u64()],
+        )?;
         Ok(())
     }
 

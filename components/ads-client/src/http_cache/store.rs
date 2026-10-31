@@ -234,25 +234,28 @@ impl HttpCacheStore {
         Ok(())
     }
 
-    /// Trim cache to
+    /// Deletes the oldest entries until the cache fits in `max_size`.
     pub(super) fn trim_to_max_size(&self, max_size: ByteSize) -> Result<(), open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
         }
-        loop {
-            let total = self.current_total_size_bytes()?;
-            if total.as_u64() <= max_size.as_u64() {
-                break;
-            }
-            let (conn, _) = self.db.lock()?;
-            conn.execute(
-                "DELETE FROM http_cache WHERE rowid IN (
-                    SELECT rowid FROM http_cache ORDER BY cached_at ASC LIMIT 1
-                )",
-                [],
-            )?;
-        }
+        // Keeps the newest rows that fit in `max_size` and deletes the rest,
+        // in one statement.
+        let (conn, _) = self.db.lock()?;
+        conn.execute(
+            "DELETE FROM http_cache
+             WHERE rowid IN (
+                 SELECT rowid
+                 FROM (
+                     SELECT rowid,
+                            SUM(size_bytes) OVER (ORDER BY cached_at DESC, rowid DESC) AS kept_bytes
+                     FROM http_cache
+                 )
+                 WHERE kept_bytes > ?1
+             )",
+            params![max_size.as_u64()],
+        )?;
         Ok(())
     }
 
@@ -573,6 +576,10 @@ mod tests {
         let first_hash = hash_for_request(&first_request);
         let first_cached = store.lookup(&first_hash).unwrap();
         assert!(first_cached.is_none());
+
+        let last_request = create_test_request("https://example.com/api/4", b"");
+        let last_hash = hash_for_request(&last_request);
+        assert!(store.lookup(&last_hash).unwrap().is_some());
     }
 
     #[test]
