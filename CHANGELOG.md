@@ -18,6 +18,10 @@
 
 ## Breaking Changes
 
+### Tracing Support
+
+- **BREAKING**: `SimpleEventFilter` is no longer exported. Firefox no longer needs it to skip application-services events in its own tracing layers. ([bug 1652558](https://bugzilla.mozilla.org/show_bug.cgi?id=1652558))
+
 ### Autofill
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
