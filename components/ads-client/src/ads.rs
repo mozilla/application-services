@@ -88,9 +88,18 @@ pub enum Ad {
     Tile(AdTile),
 }
 
-// TODO: `format` names a design (`billboard`, `skyscraper`, ...), not a shape,
-// so anything other than `spoc` and `tile` is read as an image. A field from
-// MARS that describes the shape would make this exact.
+/// The `format` IDs MARS sends.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum AdFormat {
+    Billboard,
+    Leaderboard,
+    Rectangle,
+    Skyscraper,
+    Spoc,
+    Tile,
+}
+
 impl<'de> Deserialize<'de> for Ad {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -98,11 +107,16 @@ impl<'de> Deserialize<'de> for Ad {
     {
         use serde::de::Error;
         let value = <serde_json::Value>::deserialize(deserializer)?;
-        match value.get("format").and_then(serde_json::Value::as_str) {
-            Some("spoc") => serde_json::from_value(value).map(Self::Spoc),
-            Some("tile") => serde_json::from_value(value).map(Self::Tile),
-            Some(_) => serde_json::from_value(value).map(Self::Image),
-            None => return Err(D::Error::missing_field("format")),
+        let format = value
+            .get("format")
+            .ok_or_else(|| D::Error::missing_field("format"))?;
+        match AdFormat::deserialize(format).map_err(D::Error::custom)? {
+            AdFormat::Billboard
+            | AdFormat::Leaderboard
+            | AdFormat::Rectangle
+            | AdFormat::Skyscraper => serde_json::from_value(value).map(Self::Image),
+            AdFormat::Spoc => serde_json::from_value(value).map(Self::Spoc),
+            AdFormat::Tile => serde_json::from_value(value).map(Self::Tile),
         }
         .map_err(D::Error::custom)
     }
@@ -311,20 +325,37 @@ mod tests {
     }
 
     #[test]
-    fn ad_with_an_unknown_format_is_an_image() {
-        let spoc = get_example_happy_spoc_response()
+    fn ad_with_an_iab_format_is_an_image() {
+        let image = get_example_happy_image_response()
             .data
             .into_values()
             .next()
             .unwrap();
-        let mut spoc = first_ad_json(spoc);
+        let mut image = first_ad_json(image);
 
-        // TODO: This is not ultimately desired behaviour- see `Deserialize` implementation for `Ad`.
-        spoc["format"] = "nonsense_format".into();
-        let ad: Ad = serde_json::from_value(spoc.clone()).unwrap();
-        assert!(matches!(ad, Ad::Image(_)));
+        for format in ["billboard", "leaderboard", "rectangle", "skyscraper"] {
+            image["format"] = format.into();
+            let ad: Ad = serde_json::from_value(image.clone()).unwrap();
+            assert!(matches!(ad, Ad::Image(_)), "{format}");
+        }
+    }
 
-        spoc.as_object_mut().unwrap().remove("format");
-        assert!(serde_json::from_value::<Ad>(spoc).is_err());
+    #[test]
+    fn ad_with_an_unknown_or_missing_format_is_rejected() {
+        let image = get_example_happy_image_response()
+            .data
+            .into_values()
+            .next()
+            .unwrap();
+        let mut image = first_ad_json(image);
+
+        image["format"] = "nonsense_format".into();
+        let err = serde_json::from_value::<Ad>(image.clone()).unwrap_err();
+        assert!(err
+            .to_string()
+            .starts_with("unknown variant `nonsense_format`"));
+
+        image.as_object_mut().unwrap().remove("format");
+        assert!(serde_json::from_value::<Ad>(image).is_err());
     }
 }
