@@ -144,9 +144,11 @@ impl HttpCacheBuilder {
 
         // Attempt to open initial connection, resolving an error if needed.
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
-        let _ = memory_db
-            .lock()
-            .map_err(HttpCacheBuilderError::DatabaseMemory)?;
+        drop(
+            memory_db
+                .lock()
+                .map_err(HttpCacheBuilderError::DatabaseMemory)?,
+        );
 
         Ok(memory_db)
     }

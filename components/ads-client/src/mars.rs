@@ -48,7 +48,10 @@ impl MARSClient {
         self.transport.clear_cache()
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the fields of an ad request, and how to send it"
+    )]
     pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
@@ -83,7 +86,7 @@ impl MARSClient {
 
     #[expect(
         dead_code,
-        reason = "cache invalidation on click is off until it is re-enabled behind a Nimbus experiment"
+        reason = "cache invalidation on click is off until a Nimbus experiment re-enables it"
     )]
     pub(crate) fn invalidate_cache_by_hash(
         &self,

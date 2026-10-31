@@ -10,6 +10,7 @@ use crate::{
         connection_initializer::HttpCacheConnectionInitializer, request_hash::RequestHash, ByteSize,
     },
 };
+use error_support::warn;
 use rusqlite::{params, OptionalExtension};
 use sql_support::{open_database, LazyDb};
 use viaduct::{Header, Response};
@@ -64,6 +65,7 @@ impl HttpCacheStore {
     }
 
     /// Returns total size of the cache in bytes.
+    #[cfg(test)]
     pub(super) fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
         let (conn, _) = self.db.lock()?;
         let size_bytes = conn.query_row(
@@ -115,7 +117,8 @@ impl HttpCacheStore {
         let (conn, _) = self.db.lock()?;
         Ok(conn.query_row(
             "SELECT response_body, response_headers, response_status, request_method, request_url
-             FROM http_cache WHERE request_hash = ?1",
+             FROM http_cache
+             WHERE request_hash = ?1",
             params![request_hash.to_string()],
             |row| {
                 let response_body: Vec<u8> = row.get(0)?;
@@ -124,12 +127,23 @@ impl HttpCacheStore {
                 let method_str: String = row.get(3)?;
                 let url_str: String = row.get(4)?;
 
-                let headers = serde_json::from_slice::<HashMap<String, String>>(&response_headers).map_or_else(|_| viaduct::Headers::new(), |map| {
-                        map.into_iter()
-                            .filter_map(|(n, v)| Header::new(n, v).ok())
-                            .collect::<Vec<_>>()
-                            .into()
-                    });
+                let headers = serde_json::from_slice::<HashMap<String, String>>(&response_headers)
+                    .map_or_else(
+                        |e| {
+                            warn!("Ignoring unreadable cached headers: {e}");
+                            viaduct::Headers::new()
+                        },
+                        |map| {
+                            map.into_iter()
+                                .filter_map(|(n, v)| {
+                                    Header::new(n, v)
+                                        .inspect_err(|e| warn!("Skipping a cached header: {e}"))
+                                        .ok()
+                                })
+                                .collect::<Vec<_>>()
+                                .into()
+                        },
+                    );
 
                 let request_method = match method_str.as_str() {
                     "HEAD" => viaduct::Method::Head,

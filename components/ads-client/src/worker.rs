@@ -88,7 +88,9 @@ fn worker(
             std::thread::sleep(batch_duration);
             if let Some(request) = request_queue.next() {
                 // TODO: Request should be logged via telemetry here.
-                let _ = request.handle_request(inner_client.clone());
+                if let Err(e) = request.handle_request(inner_client.clone()) {
+                    error_support::warn!("ads-client background request failed: {e}");
+                }
             }
         }
     }

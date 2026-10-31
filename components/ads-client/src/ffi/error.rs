@@ -15,14 +15,6 @@ pub enum MozAdsClientApiError {
     Other { reason: String },
 }
 
-impl From<context_id::ApiError> for MozAdsClientApiError {
-    fn from(err: context_id::ApiError) -> Self {
-        MozAdsClientApiError::Other {
-            reason: err.to_string(),
-        }
-    }
-}
-
 impl GetErrorHandling for ComponentError {
     type ExternalError = MozAdsClientApiError;
 

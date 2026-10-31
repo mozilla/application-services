@@ -99,7 +99,8 @@ impl AdsStoreHolder {
         let res = conn
             .query_row(
                 "SELECT placement_id, ad_body
-             FROM ads WHERE placement_id = ?1",
+                 FROM ads
+                 WHERE placement_id = ?1",
                 params![placement_id.as_ref()],
                 |row| {
                     let ad_body: Vec<u8> = row.get(1)?;

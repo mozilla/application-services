@@ -6,7 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use viaduct::{Headers, Request};
 
 use crate::mars::Environment;
@@ -138,13 +138,13 @@ pub struct AdPlacementRequest {
     pub placement: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 pub struct AdContentCategory {
     pub categories: Vec<String>,
     pub taxonomy: IABContentTaxonomy,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
