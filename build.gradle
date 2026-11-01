@@ -130,6 +130,10 @@ subprojects {
     afterEvaluate{
         if (it.hasProperty('android')) {
             android {
+                compileOptions {
+                    sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                    targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                }
                 publishing {
                     singleVariant('release') {
                         withSourcesJar()
@@ -139,6 +143,7 @@ subprojects {
         }
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
             compilerOptions.allWarningsAsErrors = true
+            compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("${rootProject.config.jvmTargetCompatibility}")
         }
     }
 
