@@ -37,7 +37,7 @@ pub struct MARSClient {
 }
 
 impl MARSClient {
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
+    pub fn new(environment: Environment, http_cache: HttpCache) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
@@ -152,7 +152,9 @@ mod tests {
     };
     use mockito::mock;
 
+    // Make a test client using the provided HTTPCache, or fallback to an in-memory one.
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
+        let http_cache = http_cache.unwrap_or_else(|| HttpCache::builder_memory().build());
         MARSClient::new(Environment::Test, http_cache)
     }
 
@@ -250,7 +252,7 @@ mod tests {
         let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
+            .build_valid()
             .unwrap();
         let client = make_test_client(Some(cache));
 
@@ -290,7 +292,7 @@ mod tests {
         let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
+            .build_valid()
             .unwrap();
 
         let client = make_test_client(Some(cache));
@@ -309,7 +311,7 @@ mod tests {
         let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
+            .build_valid()
             .unwrap();
 
         let client = make_test_client(Some(cache));

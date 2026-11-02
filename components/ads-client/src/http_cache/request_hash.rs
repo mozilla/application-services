@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 
 use url::Url;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RequestHash(String);
 
 impl RequestHash {

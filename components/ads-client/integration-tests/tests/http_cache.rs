@@ -58,7 +58,7 @@ fn test_cache_works_using_real_timeouts() {
     let cache = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
-        .build()
+        .build_valid()
         .expect("cache build should succeed");
 
     let url = format!("{}/v1/ads", mockito::server_url()).parse().unwrap();
@@ -123,7 +123,7 @@ fn test_bad_path_opens_memory_db() {
     clear_test_dbs(&["good_path.db"]);
 
     let good_path = HttpCache::builder("good_path_httpstore.db")
-        .build()
+        .build_valid()
         .expect("Should be able to build a bad path");
     assert!(
         !good_path.is_memory().unwrap(),
@@ -131,21 +131,21 @@ fn test_bad_path_opens_memory_db() {
     );
 
     let bad_path = HttpCache::builder("this/is/a/test/bad/path")
-        .build()
+        .build_valid()
         .expect("Should be able to build a bad path");
     assert!(
         bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
 
-    let empty_path = HttpCache::builder("").build();
+    let empty_path = HttpCache::builder("").build_valid();
     assert!(
         empty_path.is_err(),
         "An empty string for a path should result in an error (because of validation step)"
     );
 
     let no_path = HttpCache::builder_memory()
-        .build()
+        .build_valid()
         .expect("Should be able to build a memory db");
     assert!(
         no_path.is_memory().unwrap(),

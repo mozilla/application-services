@@ -166,7 +166,7 @@ impl AdsClientInner {
         // Defaults for ttl and cache size are also set if unspecified.
         let http_cache = client_config
             .cache_config
-            .and_then(|cache_cfg| {
+            .map(|cache_cfg| {
                 let default_cache_ttl = Duration::from_secs(
                     cache_cfg
                         .default_cache_ttl_seconds
@@ -175,26 +175,18 @@ impl AdsClientInner {
                 let max_cache_size =
                     ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-                match HttpCache::builder(cache_cfg.db_path)
+                // HttpCacheBuilder::build() is infallible, falling back on failures in the following order:
+                // FS SQLite database -> in-memory SQLite database -> in-memory Rust store
+                HttpCache::builder(cache_cfg.db_path)
                     .max_size(max_cache_size)
                     .default_ttl(default_cache_ttl)
                     .build()
-                {
-                    Ok(cache) => Some(cache),
-                    Err(e) => {
-                        telemetry::record_build_cache_error(&e);
-                        None
-                    }
-                }
             })
-            .or_else(|| {
-                // If no `cache_config` is provided, create an in-memory db with default parameters.
-                // TODO: the `build` function should be infallible, and no error would be needed here.
-                // (true for both memory and FS, because FS would default to memory)
-                HttpCache::builder_memory()
-                    .build()
-                    .inspect_err(telemetry::record_build_cache_error)
-                    .ok()
+            .unwrap_or_else(|| {
+                // If no `cache_config` is provided, use an in-memory db with default parameters.
+                // HttpCacheBuilder::build() is infallible, falling back on failures in the following order:
+                // in-memory SQLite database -> in-memory Rust store
+                HttpCache::builder_memory().build()
             });
 
         #[cfg(feature = "stateful")]
@@ -514,7 +506,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, HttpCache::builder_memory().build());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_image_ads(
@@ -539,7 +531,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, HttpCache::builder_memory().build());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_spoc_ads(
@@ -564,7 +556,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, HttpCache::builder_memory().build());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_tile_ads(
@@ -659,7 +651,7 @@ mod tests {
     #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, HttpCache::builder_memory().build());
         let ads_client = new_with_mars_client(mars_client);
 
         let base_url = mockito::server_url();
@@ -687,8 +679,8 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory().build().unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache));
+        let cache = HttpCache::builder_memory().build_valid().unwrap();
+        let mars_client = MARSClient::new(Environment::Test, cache);
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();
