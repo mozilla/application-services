@@ -213,10 +213,13 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{IN_MEMORY_DB_PATH, http_cache::{
-        connection_initializer::HttpCacheConnectionInitializer,
-        store::{FaultKind, HttpCacheStore},
-    }};
+    use crate::{
+        http_cache::{
+            connection_initializer::HttpCacheConnectionInitializer,
+            store::{FaultKind, HttpCacheStore},
+        },
+        IN_MEMORY_DB_PATH,
+    };
     use rusqlite::OpenFlags;
     use sql_support::open_database;
     use std::{path::Path, time::Duration};
@@ -256,7 +259,11 @@ mod tests {
 
     fn create_test_store() -> HttpCacheStore {
         let initializer = HttpCacheConnectionInitializer {};
-        let db = LazyDb::new(Path::new(IN_MEMORY_DB_PATH), OpenFlags::default(), initializer);
+        let db = LazyDb::new(
+            Path::new(IN_MEMORY_DB_PATH),
+            OpenFlags::default(),
+            initializer,
+        );
         HttpCacheStore::new_with_test_clock(Box::new(db))
     }
 
