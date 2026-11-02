@@ -12,7 +12,6 @@ use std::path::Path;
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
-    is_memory: bool,
     #[allow(dead_code)]
     max_size: ByteSize,
 }
@@ -32,8 +31,8 @@ impl AdsStore {
         Ok(())
     }
 
-    pub fn is_memory(&self) -> bool {
-        self.is_memory
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        self.holder.is_memory()
     }
 
     pub fn shutdown_db(&self) {
@@ -45,17 +44,18 @@ impl AdsStore {
 mod tests {
     use super::*;
     use crate::test_utils::get_example_happy_image_ads;
+    use crate::IN_MEMORY_DB_PATH;
 
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> = AdsStore::builder("test_store.db").build();
+        let store: Result<AdsStore, _> = AdsStore::builder(IN_MEMORY_DB_PATH).build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
-        let store: AdsStore = AdsStore::builder("test_clear.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(IN_MEMORY_DB_PATH).build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
         store.holder.store_ad(&placement_id, ad.clone()).unwrap();
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store: AdsStore = AdsStore::builder("test_invalidate.db").build().unwrap();
+        let store: AdsStore = AdsStore::builder(IN_MEMORY_DB_PATH).build().unwrap();
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");

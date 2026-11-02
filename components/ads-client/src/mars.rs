@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_impression.db")
+        let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
             .build()

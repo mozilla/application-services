@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
