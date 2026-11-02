@@ -15,18 +15,22 @@ use crate::{
 };
 
 // A memory-only Rust structural cache that keeps http requests ephemerally in memory.
-// Designed for fallback if the sqlite database fails to initialize, or invalid parameters are passed.
+// Designed for fallback usage if the sqlite database fails to initialize, or invalid parameters are passed.
+// The design apes the sqlite `http_cache` table, with two 'indexes' emulated to allow quick expiration of old entries, etc.
 pub struct HttpCacheMemory {
     inner: Arc<Mutex<HttpCacheMemoryInner>>,
 }
 
 struct HttpCacheMemoryInner {
+    // BTreeMap backed 'indexes' that allow easy access to iteration over all stored entries by their respective axes.
     cached_at_index: MemoryIndex<i64, RequestHash>,
     expired_at_index: MemoryIndex<i64, RequestHash>,
+
     arena: HashMap<RequestHash, HttpCacheEntry>,
     total_size_bytes: u64,
 }
 
+// Example entry struct for internal storage, mimicking the sqlite's schema.
 #[derive(Clone, Debug)]
 pub struct HttpCacheEntry {
     cached_at: i64,
@@ -54,6 +58,7 @@ impl HttpCacheMemory {
             inner: Arc::new(Mutex::new(HttpCacheMemoryInner::new())),
         }
     }
+
     pub fn add(&self, entry: HttpCacheEntry) {
         let mut inner = self.inner.lock();
         inner
@@ -83,7 +88,7 @@ impl HttpCacheMemory {
         entry
     }
 
-    // Gets the stored value with a clone. /// TODO: Rewrite that doc
+    // Gets the stored memory value, and returns an owned clone.
     pub fn get(&self, hash: &RequestHash) -> Option<HttpCacheEntry> {
         let inner = self.inner.lock();
         inner.arena.get(hash).cloned()
@@ -130,9 +135,8 @@ impl HttpCacheDb for HttpCacheMemory {
         clock: std::sync::Arc<dyn crate::clock::Clock>,
     ) -> Result<usize, sql_support::open_database::Error> {
         let sec = clock.now_epoch_seconds();
-        // TODO: could be a function on index?
         let delete_list: HashSet<_> = {
-            let inner = self.inner.lock(); // TODO: These locks should be either in httpcachememory or in this implementation...
+            let inner = self.inner.lock();
             inner
                 .expired_at_index
                 .iter()

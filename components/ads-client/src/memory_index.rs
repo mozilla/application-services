@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
 // A simple index structure that maintains a sorted map with duplicates.
+// Allows average case of approximately O(log n) (assuming few duplicates in matched IndexKey),
+// and O(1) get for minimum value (for iteration).
 #[derive(Debug)]
 pub struct MemoryIndex<
     IndexKey: PartialOrd + Ord + std::fmt::Debug,
