@@ -64,7 +64,6 @@ impl HttpCache {
         self.store.is_memory()
     }
 
-    // TODO: Tests using this- integration tests?
     pub fn is_sqlite(&self) -> bool {
         self.store.is_sqlite()
     }

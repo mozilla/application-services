@@ -22,6 +22,7 @@ pub mod clock;
 mod ffi;
 pub mod http_cache;
 mod mars;
+pub mod memory_index;
 #[cfg(feature = "stateful")]
 pub mod request;
 pub mod telemetry;

@@ -11,6 +11,7 @@ use viaduct::Header;
 use crate::{
     bytesize::ByteSize,
     http_cache::{store::HttpCacheDb, RequestHash},
+    memory_index::MemoryIndex,
 };
 
 // A memory-only Rust structural cache that keeps http requests ephemerally in memory.
@@ -24,60 +25,6 @@ struct HttpCacheMemoryInner {
     expired_at_index: MemoryIndex<i64, RequestHash>,
     arena: HashMap<RequestHash, HttpCacheEntry>,
     total_size_bytes: u64,
-}
-
-// A simple index structure that maintains a sorted list.
-// TODO: Overkill?
-#[derive(Debug)]
-pub struct MemoryIndex<
-    IndexKey: PartialOrd + Ord + std::fmt::Debug,
-    ArenaKey: PartialOrd + Ord + std::fmt::Debug,
->(Vec<(IndexKey, ArenaKey)>);
-impl<
-        IndexKey: PartialOrd + Ord + std::fmt::Debug,
-        ArenaKey: PartialOrd + Ord + std::fmt::Debug,
-    > Default for MemoryIndex<IndexKey, ArenaKey>
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-// TODO: simplify this?
-impl<
-        IndexKey: PartialOrd + Ord + std::fmt::Debug,
-        ArenaKey: PartialOrd + Ord + std::fmt::Debug,
-    > MemoryIndex<IndexKey, ArenaKey>
-{
-    pub fn new() -> MemoryIndex<IndexKey, ArenaKey> {
-        Self(Vec::new())
-    }
-
-    pub fn remove(&mut self, arena_key: &ArenaKey, val: IndexKey) {
-        if let Ok(pos) = self
-            .0
-            .binary_search_by(|(a0, a1)| a0.cmp(&val).then(a1.cmp(arena_key)))
-        {
-            self.0.remove(pos);
-        }
-    }
-
-    pub fn add(&mut self, arena_key: ArenaKey, val: IndexKey) {
-        let pos = self
-            .0
-            .binary_search_by(|(a0, a1)| a0.cmp(&val).then(a1.cmp(&arena_key)))
-            .unwrap_or_else(|e| e);
-
-        self.0.insert(pos, (val, arena_key));
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, (IndexKey, ArenaKey)> {
-        self.0.iter()
-    }
-
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -189,7 +136,7 @@ impl HttpCacheDb for HttpCacheMemory {
             inner
                 .expired_at_index
                 .iter()
-                .take_while(|(n, _)| sec > *n)
+                .take_while(|(n, _)| sec > **n)
                 .map(|(_, s)| s)
                 .cloned()
                 .collect()
@@ -204,7 +151,8 @@ impl HttpCacheDb for HttpCacheMemory {
     fn delete_oldest_cached_row(&self) -> Result<(), sql_support::open_database::Error> {
         let delete_hash = {
             let inner = self.inner.lock();
-            inner.cached_at_index.iter().next().map(|(_, b)| b).cloned()
+            let hash = inner.cached_at_index.iter().next().map(|(_, b)| b);
+            hash.cloned()
         };
         if let Some(delete_hash) = delete_hash {
             self.invalidate_by_hash(&delete_hash)?;
