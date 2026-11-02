@@ -1596,6 +1596,47 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
     }
 
     #[test]
+    fn test_legacy_signature_is_invalid() -> Result<()> {
+        ensure_initialized();
+        let err = run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: LEGACY_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .unwrap_err();
+        assert!(matches!(err, Error::SignatureError(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_signature_from_another_collection_is_invalid() -> Result<()> {
+        ensure_initialized();
+        // The signature was computed for `main/pioneer-study-addons`.
+        let err = run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main-preview",
+        )
+        .unwrap_err();
+        assert!(matches!(err, Error::SignatureError(_)));
+        Ok(())
+    }
+
+    #[test]
     fn test_valid_signature_after_retry() -> Result<()> {
         ensure_initialized();
         run_client_sync(
