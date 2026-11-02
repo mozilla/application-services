@@ -7,6 +7,7 @@ use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::telemetry;
+use crate::IN_MEMORY_DB_PATH;
 use rusqlite::OpenFlags;
 use sql_support::{open_database, LazyDb};
 use std::path::{Path, PathBuf};
@@ -14,8 +15,6 @@ use std::path::{Path, PathBuf};
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
 const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
-
-pub const IN_MEMORY_DB_PATH: &'static str = ":memory:";
 
 #[derive(Debug, thiserror::Error)]
 pub enum AdsStoreBuilderError {
@@ -102,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_store_builder_with_defaults() {
-        let builder = make_test_builder(":memory:");
-        assert_eq!(builder.db_path, PathBuf::from(":memory:"));
+        let builder = make_test_builder(IN_MEMORY_DB_PATH);
+        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
         assert_eq!(builder.max_size, None);
         assert!(builder.build().is_ok());
     }
@@ -120,9 +119,9 @@ mod tests {
 
     #[test]
     fn test_cache_builder_valid_custom() {
-        let builder = make_test_builder(":memory:").max_size(ByteSize::b(1024));
+        let builder = make_test_builder(IN_MEMORY_DB_PATH).max_size(ByteSize::b(1024));
 
-        assert_eq!(builder.db_path, PathBuf::from(":memory:"));
+        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
         assert!(builder.build().is_ok());
     }
@@ -135,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_too_small() {
-        let result = make_test_builder(":memory:")
+        let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(512))
             .build();
         assert!(matches!(
@@ -150,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_too_large() {
-        let result = make_test_builder(":memory:")
+        let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(2 * 1024 * 1024 * 1024))
             .build();
         assert!(matches!(
@@ -165,10 +164,10 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_boundaries() {
-        let builder_min = make_test_builder(":memory:").max_size(MIN_STORE_SIZE);
+        let builder_min = make_test_builder(IN_MEMORY_DB_PATH).max_size(MIN_STORE_SIZE);
         assert!(builder_min.build().is_ok());
 
-        let builder_max = make_test_builder(":memory:").max_size(MAX_STORE_SIZE);
+        let builder_max = make_test_builder(IN_MEMORY_DB_PATH).max_size(MAX_STORE_SIZE);
         assert!(builder_max.build().is_ok());
     }
 }

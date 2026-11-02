@@ -328,7 +328,11 @@ mod tests {
 
     fn create_test_store() -> HttpCacheStore {
         let initializer = HttpCacheConnectionInitializer {};
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
+        let db = LazyDb::new(
+            Path::new(crate::IN_MEMORY_DB_PATH),
+            OpenFlags::default(),
+            initializer,
+        );
         HttpCacheStore::new_with_test_clock(db)
     }
 

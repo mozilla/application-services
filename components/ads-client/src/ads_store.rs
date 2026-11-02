@@ -44,17 +44,18 @@ impl AdsStore {
 mod tests {
     use super::*;
     use crate::test_utils::get_example_happy_image_ads;
+    use crate::IN_MEMORY_DB_PATH;
 
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> = AdsStore::builder(":memory:").build();
+        let store: Result<AdsStore, _> = AdsStore::builder(IN_MEMORY_DB_PATH).build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
-        let store: AdsStore = AdsStore::builder(":memory:").build().unwrap();
+        let store: AdsStore = AdsStore::builder(IN_MEMORY_DB_PATH).build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
         store.holder.store_ad(&placement_id, ad.clone()).unwrap();
@@ -73,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store: AdsStore = AdsStore::builder(":memory:").build().unwrap();
+        let store: AdsStore = AdsStore::builder(IN_MEMORY_DB_PATH).build().unwrap();
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
