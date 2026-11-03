@@ -356,6 +356,7 @@ mod tests {
     use super::super::{CommandStatus, DeviceType, Settings};
     use super::*;
     use crate::bso::IncomingBso;
+    use crate::client::InfoConfiguration;
     use anyhow::Result;
     use interrupt_support::NeverInterrupts;
     use serde_json::{Value, json};
@@ -417,7 +418,7 @@ mod tests {
             .collect(),
         };
 
-        let config = CollectionLimits::default();
+        let config = InfoConfiguration::default().for_collection(COLLECTION_NAME);
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
@@ -566,7 +567,7 @@ mod tests {
             outgoing_commands: [].iter().cloned().collect(),
         };
 
-        let config = CollectionLimits::default();
+        let config = InfoConfiguration::default().for_collection(COLLECTION_NAME);
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
@@ -633,7 +634,7 @@ mod tests {
             outgoing_commands: [].iter().cloned().collect(),
         };
 
-        let config = CollectionLimits::default();
+        let config = InfoConfiguration::default().for_collection(COLLECTION_NAME);
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 
@@ -703,7 +704,7 @@ mod tests {
             outgoing_commands: HashSet::new(),
         };
 
-        let config = CollectionLimits::default();
+        let config = InfoConfiguration::default().for_collection(COLLECTION_NAME);
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, config);
 

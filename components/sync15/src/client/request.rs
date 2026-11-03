@@ -58,68 +58,39 @@ impl LimitTracker {
     }
 }
 
-/// The limits which apply to a single collection, as reported by
-/// `info/configuration`. Obtained via [`InfoConfiguration::for_collection`],
-/// which applies any per-collection overrides to the limits at the root of the
-/// response.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+/// The limits which apply to a single collection. Obtained via
+/// [`InfoConfiguration::for_collection`], which resolves the limits the server
+/// specified for that collection against the ones at the root of
+/// `info/configuration` (and our own defaults).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CollectionLimits {
     /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
     /// server.
-    #[serde(default = "default_max_request_bytes")]
     pub max_request_bytes: usize,
 
     /// The maximum number of records that can be uploaded to a collection in a single POST request.
-    #[serde(default = "usize::max_value")]
     pub max_post_records: usize,
 
     /// The maximum combined size in bytes of the record payloads that can be uploaded to a
     /// collection in a single POST request.
-    #[serde(default = "usize::max_value")]
     pub max_post_bytes: usize,
 
     /// The maximum total number of records that can be uploaded to a collection as part of a
     /// batched upload.
-    #[serde(default = "usize::max_value")]
     pub max_total_records: usize,
 
     /// The maximum total combined size in bytes of the record payloads that can be uploaded to a
     /// collection as part of a batched upload.
-    #[serde(default = "usize::max_value")]
     pub max_total_bytes: usize,
 
     /// The maximum size of an individual BSO payload, in bytes.
-    #[serde(default = "default_max_record_payload_bytes")]
     pub max_record_payload_bytes: usize,
 }
 
-// This is annoying but seems to be the only way to do it...
-fn default_max_request_bytes() -> usize {
-    260 * 1024
-}
-fn default_max_record_payload_bytes() -> usize {
-    256 * 1024
-}
-
-impl Default for CollectionLimits {
-    #[inline]
-    fn default() -> CollectionLimits {
-        CollectionLimits {
-            max_request_bytes: default_max_request_bytes(),
-            max_record_payload_bytes: default_max_record_payload_bytes(),
-            max_post_records: usize::MAX,
-            max_post_bytes: usize::MAX,
-            max_total_records: usize::MAX,
-            max_total_bytes: usize::MAX,
-        }
-    }
-}
-
-/// The per-collection overrides from the `collections` map of
-/// `info/configuration`. Every field is optional; an absent field means "use
-/// the limit from the root of the response".
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct CollectionLimitOverrides {
+/// The limits specified by `info/configuration`, either at the root of the
+/// response or for a single collection in its `collections` map.
+#[derive(Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CollectionLimitsSpec {
     pub max_request_bytes: Option<usize>,
     pub max_post_records: Option<usize>,
     pub max_post_bytes: Option<usize>,
@@ -128,40 +99,60 @@ pub struct CollectionLimitOverrides {
     pub max_record_payload_bytes: Option<usize>,
 }
 
-impl CollectionLimitOverrides {
-    fn apply_to(&self, d: CollectionLimits) -> CollectionLimits {
+impl CollectionLimitsSpec {
+    /// Resolve into the concrete limits to sync with: the limits specified
+    /// here, falling back to the ones specified by `fallback` (ie the root of
+    /// `info/configuration`) and finally defaults.
+    fn apply_to(&self, fallback: &CollectionLimitsSpec) -> CollectionLimits {
         CollectionLimits {
-            max_request_bytes: self.max_request_bytes.unwrap_or(d.max_request_bytes),
-            max_post_records: self.max_post_records.unwrap_or(d.max_post_records),
-            max_post_bytes: self.max_post_bytes.unwrap_or(d.max_post_bytes),
-            max_total_records: self.max_total_records.unwrap_or(d.max_total_records),
-            max_total_bytes: self.max_total_bytes.unwrap_or(d.max_total_bytes),
+            max_request_bytes: self
+                .max_request_bytes
+                .or(fallback.max_request_bytes)
+                .unwrap_or(260 * 1024),
+            max_post_records: self
+                .max_post_records
+                .or(fallback.max_post_records)
+                .unwrap_or(usize::MAX),
+            max_post_bytes: self
+                .max_post_bytes
+                .or(fallback.max_post_bytes)
+                .unwrap_or(usize::MAX),
+            max_total_records: self
+                .max_total_records
+                .or(fallback.max_total_records)
+                .unwrap_or(usize::MAX),
+            max_total_bytes: self
+                .max_total_bytes
+                .or(fallback.max_total_bytes)
+                .unwrap_or(usize::MAX),
             max_record_payload_bytes: self
                 .max_record_payload_bytes
-                .unwrap_or(d.max_record_payload_bytes),
+                .or(fallback.max_record_payload_bytes)
+                .unwrap_or(256 * 1024),
         }
     }
 }
 
 /// The server's `info/configuration` response. The limits at the root apply to
 /// every collection unless the optional `collections` map overrides them.
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct InfoConfiguration {
     #[serde(flatten)]
-    default_limits: CollectionLimits,
+    default_limits: CollectionLimitsSpec,
 
     #[serde(default)]
-    collections: HashMap<String, CollectionLimitOverrides>,
+    collections: HashMap<String, CollectionLimitsSpec>,
 }
 
 impl InfoConfiguration {
     /// The limits which apply to `collection`: the ones from the root of the
     /// response with that collection's overrides, if any, applied.
     pub fn for_collection(&self, collection: &str) -> CollectionLimits {
-        match self.collections.get(collection) {
-            Some(overrides) => overrides.apply_to(self.default_limits),
-            None => self.default_limits,
-        }
+        self.collections
+            .get(collection)
+            .copied()
+            .unwrap_or_default()
+            .apply_to(&self.default_limits)
     }
 }
 
@@ -547,6 +538,67 @@ mod test {
     use std::collections::VecDeque;
     use std::rc::Rc;
 
+    #[test]
+    fn test_for_collection() {
+        let config: InfoConfiguration = serde_json::from_value(serde_json::json!({
+            "max_post_bytes": 2_621_440,
+            "max_post_records": 100,
+            "max_record_payload_bytes": 2_621_440,
+            "max_request_bytes": 2_625_536,
+            "max_total_bytes": 96_000_000,
+            "max_total_records": 9984,
+            "max_quota_limit": 2_097_152_000,
+            "collections": {
+                "some-offloaded-collection": {
+                    "max_post_bytes": 10_485_760,
+                    "max_record_payload_bytes": 10_485_760,
+                    "max_request_bytes": 10_489_856,
+                },
+            },
+        }))
+        .unwrap();
+
+        assert_eq!(
+            config.for_collection("bookmarks"),
+            CollectionLimits {
+                max_request_bytes: 2_625_536,
+                max_post_records: 100,
+                max_post_bytes: 2_621_440,
+                max_total_records: 9984,
+                max_total_bytes: 96_000_000,
+                max_record_payload_bytes: 2_621_440,
+            }
+        );
+
+        assert_eq!(
+            config.for_collection("some-offloaded-collection"),
+            CollectionLimits {
+                max_request_bytes: 10_489_856,
+                max_post_records: 100,
+                max_post_bytes: 10_485_760,
+                max_total_records: 9984,
+                max_total_bytes: 96_000_000,
+                max_record_payload_bytes: 10_485_760,
+            }
+        );
+    }
+
+    #[test]
+    fn test_for_collection_defaults() {
+        let config: InfoConfiguration = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(
+            config.for_collection("bookmarks"),
+            CollectionLimits {
+                max_request_bytes: 260 * 1024,
+                max_post_records: usize::MAX,
+                max_post_bytes: usize::MAX,
+                max_total_records: usize::MAX,
+                max_total_bytes: usize::MAX,
+                max_record_payload_bytes: 256 * 1024,
+            }
+        );
+    }
+
     #[derive(Debug, Clone)]
     struct PostedData {
         body: String,
@@ -721,10 +773,11 @@ mod test {
     type MockedPostQueue = PostQueue<TestPosterRef, TestPosterRef>;
 
     fn pq_test_setup(
-        cfg: CollectionLimits,
+        spec: CollectionLimitsSpec,
         lm: i64,
         resps: Vec<PostResponse>,
     ) -> (MockedPostQueue, TestPosterRef) {
+        let cfg = spec.apply_to(&CollectionLimitsSpec::default());
         let tester = TestPoster::new(cfg, resps);
         let pq = PostQueue::new(cfg, ServerTimestamp(lm), tester.clone(), tester.clone());
         (pq, tester)
@@ -805,10 +858,10 @@ mod test {
 
     #[test]
     fn test_pq_basic() {
-        let cfg = CollectionLimits {
-            max_request_bytes: 1000,
-            max_record_payload_bytes: 1000,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_request_bytes: Some(1000),
+            max_record_payload_bytes: Some(1000),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -835,9 +888,9 @@ mod test {
 
     #[test]
     fn test_pq_max_request_bytes_no_batch() {
-        let cfg = CollectionLimits {
-            max_request_bytes: 250,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_request_bytes: Some(250),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -883,10 +936,10 @@ mod test {
 
     #[test]
     fn test_pq_max_record_payload_bytes_no_batch() {
-        let cfg = CollectionLimits {
-            max_record_payload_bytes: 150,
-            max_request_bytes: 350,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_record_payload_bytes: Some(150),
+            max_request_bytes: Some(350),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -921,7 +974,7 @@ mod test {
 
     #[test]
     fn test_pq_single_batch() {
-        let cfg = CollectionLimits::default();
+        let cfg = CollectionLimitsSpec::default();
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
@@ -956,9 +1009,9 @@ mod test {
 
     #[test]
     fn test_pq_multi_post_batch_bytes() {
-        let cfg = CollectionLimits {
-            max_post_bytes: 200,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_post_bytes: Some(200),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -1005,9 +1058,9 @@ mod test {
 
     #[test]
     fn test_pq_multi_post_batch_records() {
-        let cfg = CollectionLimits {
-            max_post_records: 3,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_post_records: Some(3),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -1070,10 +1123,10 @@ mod test {
     #[test]
     #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_records() {
-        let cfg = CollectionLimits {
-            max_post_records: 3,
-            max_total_records: 5,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_post_records: Some(3),
+            max_total_records: Some(5),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
@@ -1154,10 +1207,10 @@ mod test {
     #[test]
     #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_bytes() {
-        let cfg = CollectionLimits {
-            max_post_bytes: 300,
-            max_total_bytes: 500,
-            ..CollectionLimits::default()
+        let cfg = CollectionLimitsSpec {
+            max_post_bytes: Some(300),
+            max_total_bytes: Some(500),
+            ..CollectionLimitsSpec::default()
         };
         let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(

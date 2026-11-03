@@ -29,6 +29,8 @@ pub(crate) use coll_state::{CollState, LocalCollStateMachine};
 pub(crate) use coll_update::{CollectionUpdate, fetch_incoming};
 pub(crate) use collection_keys::CollectionKeys;
 pub(crate) use request::CollectionLimits;
+#[cfg(test)]
+pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
 pub use status::{ServiceStatus, SyncResult};
 pub use storage_client::{
