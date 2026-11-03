@@ -98,14 +98,16 @@ impl AdsStoreHolder {
     pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
-            return Err(Self::forced_fault_error("forced lookup failure"))
-                .map_err(open_database::Error::from)?;
+            return Err(open_database::Error::from(Self::forced_fault_error(
+                "forced lookup failure",
+            )))?;
         }
         let (conn, _) = self.db.lock()?;
         let res = conn
             .query_row(
                 "SELECT placement_id, ad_body
-             FROM ads WHERE placement_id = ?1",
+                 FROM ads
+                 WHERE placement_id = ?1",
                 params![placement_id.as_ref()],
                 |row| {
                     let ad_body: Vec<u8> = row.get(1)?;
@@ -123,11 +125,12 @@ impl AdsStoreHolder {
     }
 
     /// Upsert the ads for a placement, replacing any ads already stored for it.
-    pub fn store_ad(&self, placement_id: &PlacementId, ads: Vec<Ad>) -> Result<(), FetchAdsError> {
+    pub fn store_ad(&self, placement_id: &PlacementId, ads: &[Ad]) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
-            return Err(Self::forced_fault_error("forced store failure"))
-                .map_err(open_database::Error::from)?;
+            return Err(open_database::Error::from(Self::forced_fault_error(
+                "forced store failure",
+            )))?;
         }
         let placement_id_str: &str = placement_id.as_ref();
         let ad_body = serde_json::to_vec(&ads)?;
@@ -158,19 +161,22 @@ impl AdsStoreHolder {
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
         }
-        loop {
-            let total = self.current_total_size_bytes()?;
-            if total.as_u64() <= max_size.as_u64() {
-                break;
-            }
-            let (conn, _) = self.db.lock()?;
-            conn.execute(
-                "DELETE FROM ads WHERE rowid IN (
-                    SELECT rowid FROM ads ORDER BY stored_at ASC LIMIT 1
-                )",
-                [],
-            )?;
-        }
+        // Keeps the newest rows that fit in `max_size` and deletes the rest,
+        // in one statement.
+        let (conn, _) = self.db.lock()?;
+        conn.execute(
+            "DELETE FROM ads
+             WHERE rowid IN (
+                 SELECT rowid
+                 FROM (
+                     SELECT rowid,
+                            SUM(size_bytes) OVER (ORDER BY stored_at DESC, rowid DESC) AS kept_bytes
+                     FROM ads
+                 )
+                 WHERE kept_bytes > ?1
+             )",
+            params![max_size.as_u64()],
+        )?;
         Ok(())
     }
 
@@ -233,7 +239,7 @@ mod tests {
 
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        let err = store.store_ad(&placement, ad).unwrap_err();
+        let err = store.store_ad(&placement, &ad).unwrap_err();
         match err {
             FetchAdsError::Sqlite(open_database::Error::SqlError(
                 rusqlite::Error::SqliteFailure(_, Some(msg)),
@@ -250,7 +256,7 @@ mod tests {
         store.set_fault(FaultKind::Trim);
 
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
-        store.store_ad(&placement, ad).unwrap();
+        store.store_ad(&placement, &ad).unwrap();
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
@@ -266,7 +272,7 @@ mod tests {
         let store = create_test_store();
         let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement, ad.clone()).unwrap();
+        store.store_ad(&placement, &ad).unwrap();
 
         let retrieved = store.lookup(&placement).unwrap().unwrap();
         assert_eq!(retrieved, ad);
@@ -283,7 +289,7 @@ mod tests {
             .collect();
         assert!(ads.len() > 1);
 
-        store.store_ad(&placement, ads.clone()).unwrap();
+        store.store_ad(&placement, &ads).unwrap();
 
         assert_eq!(store.lookup(&placement).unwrap(), Some(ads));
     }
@@ -297,10 +303,10 @@ mod tests {
             .into_values()
             .flatten()
             .collect();
-        store.store_ad(&placement, ads.clone()).unwrap();
+        store.store_ad(&placement, &ads).unwrap();
 
         let refreshed = ads[..1].to_vec();
-        store.store_ad(&placement, refreshed.clone()).unwrap();
+        store.store_ad(&placement, &refreshed).unwrap();
 
         assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));
     }
@@ -311,7 +317,7 @@ mod tests {
 
         for i in 0..10 {
             let (placement_id, ad) = get_example_happy_image_ads(&format!("mock_billboard_{i}"));
-            store.store_ad(&placement_id, ad.clone()).unwrap();
+            store.store_ad(&placement_id, &ad).unwrap();
         }
 
         let total_size = store.current_total_size_bytes().unwrap();
@@ -332,10 +338,10 @@ mod tests {
         let store = create_test_store();
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement_1, ad_1.clone()).unwrap();
+        store.store_ad(&placement_1, &ad_1).unwrap();
 
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
-        store.store_ad(&placement_2, ad_2.clone()).unwrap();
+        store.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.lookup(&placement_1).unwrap().is_some());
         assert!(store.lookup(&placement_2).unwrap().is_some());
@@ -354,8 +360,8 @@ mod tests {
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
 
-        store.store_ad(&placement_1, ad_1.clone()).unwrap();
-        store.store_ad(&placement_2, ad_2.clone()).unwrap();
+        store.store_ad(&placement_1, &ad_1).unwrap();
+        store.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.lookup(&placement_1).unwrap().is_some());
         assert!(store.lookup(&placement_2).unwrap().is_some());

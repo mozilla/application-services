@@ -9,6 +9,9 @@
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
 - Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
 - Ads are now read by their `format`: `billboard`, `leaderboard`, `rectangle` and `skyscraper` are images, `spoc` and `tile` keep their own shapes. An ad with any other `format` is skipped and recorded under `deserialization_error/invalid_ad_item`, instead of being read as an image.
+- The HTTP cache no longer stores error responses: a failed request is retried on the next call instead of being replayed for the cache TTL.
+- Every exported type and method has a docstring in the Kotlin and Swift bindings.
+- `MozAdsRequestOptions.cachePolicy` defaults to `null`, like the record's other fields.
 
 ### Autofill
 
