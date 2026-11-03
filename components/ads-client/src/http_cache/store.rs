@@ -11,8 +11,6 @@ use crate::{
 use sql_support::open_database;
 use viaduct::Response;
 
-// TODO: Should the faults be in the trait? seemsl ike test only
-// TODO: Reorganize this
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FaultKind {
@@ -59,6 +57,7 @@ pub trait HttpCacheDb: Send + Sync + 'static {
     /// Returns whether the db is backed by sqlite, rather than an in-Rust store.
     fn is_sqlite(&self) -> bool;
 
+    // Test only function: cached_at, expires_at, ttl_seconds
     #[cfg(test)]
     fn fetch_timestamps(&self, hash: &RequestHash)
         -> Result<(i64, i64, i64), open_database::Error>;
