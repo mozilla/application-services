@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 pub mod builder;
 pub mod connection_initializer;
 pub mod store;
@@ -12,7 +16,10 @@ use std::path::Path;
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "validated by the builder, but nothing trims the store to it yet"
+    )]
     max_size: ByteSize,
 }
 
@@ -58,7 +65,7 @@ mod tests {
         let store: AdsStore = AdsStore::builder(IN_MEMORY_DB_PATH).build().unwrap();
 
         let (placement_id, ad) = get_example_happy_image_ads("mock_billboard_1");
-        store.holder.store_ad(&placement_id, ad.clone()).unwrap();
+        store.holder.store_ad(&placement_id, &ad).unwrap();
 
         // Verify it's cached
         let retrieved = store.holder.lookup(&placement_id).unwrap();
@@ -78,8 +85,8 @@ mod tests {
 
         let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
-        store.holder.store_ad(&placement_1, ad_1).unwrap();
-        store.holder.store_ad(&placement_2, ad_2).unwrap();
+        store.holder.store_ad(&placement_1, &ad_1).unwrap();
+        store.holder.store_ad(&placement_2, &ad_2).unwrap();
 
         assert!(store.holder.lookup(&placement_1).unwrap().is_some());
         assert!(store.holder.lookup(&placement_2).unwrap().is_some());
