@@ -108,6 +108,17 @@ pub fn synchronize_with_clients_engine(
 
     // The above should all be per-batch :(
 
+    // A failed delete doesn't fail the sync: the engine still holds the ids and
+    // offers them again next time.
+    let to_delete = engine.pending_deletions()?;
+    if !to_delete.is_empty() {
+        info!("Deleting {} superseded records", to_delete.len());
+        match client.delete_records(&engine.collection_name(), &to_delete) {
+            Ok(()) => engine.set_deleted(to_delete)?,
+            Err(e) => warn!("Failed to delete superseded records: {}", e),
+        }
+    }
+
     engine.sync_finished()?;
 
     info!("Sync finished!");

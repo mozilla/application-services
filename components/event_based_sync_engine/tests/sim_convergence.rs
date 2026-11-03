@@ -1,0 +1,124 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Core convergence scenarios: independent edits union, concurrent same-field
+//! edits resolve to one winner everywhere, deletes stay sticky, and a wiped
+//! client rebuilds from the server.
+
+mod support;
+
+use event_based_sync_engine::BaselineConfig;
+use serde_json::json;
+use support::{
+    assert_converged, no_baselines, schema_v1, sync_to_quiescence, FakeServer, SimClient,
+};
+
+#[test]
+fn independent_creates_union() {
+    let mut server = FakeServer::new();
+    let a = SimClient::new("A", schema_v1(), no_baselines());
+    let b = SimClient::new("B", schema_v1(), no_baselines());
+
+    a.create(json!({ "name": "work", "color": "blue" }));
+    b.create(json!({ "name": "home", "color": "red" }));
+
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    assert_converged(&[&a, &b]);
+    assert_eq!(a.state().len(), 2);
+}
+
+#[test]
+fn concurrent_modify_resolves_to_one_winner() {
+    let mut server = FakeServer::new();
+    let a = SimClient::new("A", schema_v1(), no_baselines());
+    let b = SimClient::new("B", schema_v1(), no_baselines());
+
+    let id = a.create(json!({ "name": "orig", "color": "blue" }));
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    // Both rename the same container concurrently.
+    a.modify(&id, "name", json!("from-A"));
+    b.modify(&id, "name", json!("from-B"));
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    // Both agree on one of the two edits.
+    assert_converged(&[&a, &b]);
+    assert_eq!(a.state().len(), 1);
+    let name = a.state()[&id]["name"].as_str().unwrap().to_string();
+    assert!(
+        name == "from-A" || name == "from-B",
+        "unexpected name {name}"
+    );
+}
+
+#[test]
+fn delete_is_sticky_against_concurrent_modify() {
+    let mut server = FakeServer::new();
+    let a = SimClient::new("A", schema_v1(), no_baselines());
+    let b = SimClient::new("B", schema_v1(), no_baselines());
+
+    let id = a.create(json!({ "name": "doomed" }));
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    // A deletes while B renames the same container.
+    a.delete(&id);
+    b.modify(&id, "name", json!("too-late"));
+    sync_to_quiescence(&[&a, &b], &mut server);
+
+    // The delete wins: a modify can't resurrect a deleted entity.
+    assert_converged(&[&a, &b]);
+    assert!(a.state().is_empty(), "entity should be gone");
+}
+
+#[test]
+fn repeated_local_edit_in_one_batch_keeps_the_last() {
+    // Both edits upload in one batch and share a `modified`, so the record id
+    // (random) would break the tie. Repeat to cover both id orderings.
+    for _ in 0..20 {
+        let mut server = FakeServer::new();
+        let a = SimClient::new("A", schema_v1(), no_baselines());
+        let b = SimClient::new("B", schema_v1(), no_baselines());
+
+        let id = a.create(json!({ "name": "orig" }));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        a.modify(&id, "name", json!("first"));
+        a.modify(&id, "name", json!("second"));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        assert_converged(&[&a, &b]);
+        assert_eq!(b.state()[&id]["name"], json!("second"));
+    }
+}
+
+#[test]
+fn wiped_client_drops_unsent_edits_and_rebuilds_from_the_server() {
+    // With and without a baseline (which also deletes the events it covers).
+    for config in [
+        no_baselines(),
+        BaselineConfig {
+            events_per_baseline: Some(2),
+            baseline_timeout_ms: None,
+        },
+    ] {
+        let mut server = FakeServer::new();
+        let a = SimClient::new("A", schema_v1(), config.clone());
+        let b = SimClient::new("B", schema_v1(), config);
+
+        let id = a.create(json!({ "name": "work" }));
+        a.create(json!({ "name": "home" }));
+        sync_to_quiescence(&[&a, &b], &mut server);
+
+        // B edits but wipes before syncing: the edit must not reach the server.
+        b.modify(&id, "name", json!("lost"));
+        b.wipe();
+        assert!(b.state().is_empty());
+
+        sync_to_quiescence(&[&a, &b], &mut server);
+        assert_converged(&[&a, &b]);
+        assert_eq!(b.state().len(), 2);
+        assert_eq!(a.state()[&id]["name"], json!("work"));
+    }
+}
