@@ -8,6 +8,7 @@ use crate::{
     clock::{CacheClock, Clock},
     http_cache::{request_hash::RequestHash, ByteSize},
 };
+use error_support::warn;
 use sql_support::open_database;
 use viaduct::Response;
 
@@ -61,7 +62,47 @@ pub trait HttpCacheDb: Send + Sync + 'static {
         -> Result<(i64, i64, i64), open_database::Error>;
 }
 
-pub struct HttpCacheStore {
+// Generic HttpCacheDb trait reflecting all the functions that are required.
+// This allows implementation by both:
+// - sqlite database
+// - in-memory structural 'database' (as a fallback)
+pub trait HttpCacheDb: Send + Sync + 'static {
+    fn close(&self);
+    fn clear_all(&self) -> Result<usize, open_database::Error>;
+    /// Returns total size of the cache in bytes.
+    fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error>;
+    /// Removes all entries from the store whose expires_at is at or before the current time.
+    fn delete_expired_entries(&self, clock: Arc<dyn Clock>) -> Result<usize, open_database::Error>;
+
+    fn invalidate_by_hash(&self, request_hash: &RequestHash)
+        -> Result<usize, open_database::Error>;
+
+    /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
+    fn lookup(&self, request_hash: &RequestHash) -> Result<Option<Response>, open_database::Error>;
+
+    /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
+    /// Calling this method will always store an object regardless of headers or policy.
+    /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
+    fn store_with_ttl(
+        &self,
+        request_hash: &RequestHash,
+        response: &Response,
+        ttl: &Duration,
+        clock: Arc<dyn Clock>,
+    ) -> Result<(), open_database::Error>;
+
+    fn delete_oldest_cached_row(&self) -> Result<(), open_database::Error>;
+
+    /// Returns whether the db is in memory rather than backed by a file.
+    fn is_memory(&self) -> Result<bool, open_database::Error>;
+
+    // Test only function: cached_at, expires_at, ttl_seconds
+    #[cfg(test)]
+    fn fetch_timestamps(&self, hash: &RequestHash)
+        -> Result<(i64, i64, i64), open_database::Error>;
+}
+
+pub(super) struct HttpCacheStore {
     clock: Arc<dyn Clock>,
     db: Box<dyn HttpCacheDb>,
     #[cfg(test)]
@@ -69,7 +110,7 @@ pub struct HttpCacheStore {
 }
 
 impl HttpCacheStore {
-    pub fn new(db: Box<dyn HttpCacheDb>) -> Self {
+    pub(super) fn new(db: Box<dyn HttpCacheDb>) -> Self {
         Self {
             clock: Arc::new(CacheClock),
             db,
@@ -91,11 +132,11 @@ impl HttpCacheStore {
     }
 
     /// Removes all entries from cache.
-    pub fn clear_all(&self) -> Result<usize, open_database::Error> {
+    pub(super) fn clear_all(&self) -> Result<usize, open_database::Error> {
         self.db.clear_all()
     }
 
-    pub fn close(&self) {
+    pub(super) fn close(&self) {
         self.db.close();
     }
 
@@ -105,12 +146,13 @@ impl HttpCacheStore {
     }
 
     /// Returns total size of the cache in bytes.
-    pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
+    #[cfg(test)]
+    pub(super) fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
         self.db.current_total_size_bytes()
     }
 
     /// Removes all entries from the store whose expires_at is at or before the current time.
-    pub fn delete_expired_entries(&self) -> Result<usize, open_database::Error> {
+    pub(super) fn delete_expired_entries(&self) -> Result<usize, open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
             return Err(Self::forced_fault_error("forced cleanup failure"))?;
@@ -123,7 +165,7 @@ impl HttpCacheStore {
         &*self.clock
     }
 
-    pub fn invalidate_by_hash(
+    pub(super) fn invalidate_by_hash(
         &self,
         request_hash: &RequestHash,
     ) -> Result<usize, open_database::Error> {
@@ -131,7 +173,7 @@ impl HttpCacheStore {
     }
 
     /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
-    pub fn lookup(
+    pub(super) fn lookup(
         &self,
         request_hash: &RequestHash,
     ) -> Result<Option<Response>, open_database::Error> {
@@ -150,7 +192,7 @@ impl HttpCacheStore {
     /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
     /// Calling this method will always store an object regardless of headers or policy.
     /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
-    pub fn store_with_ttl(
+    pub(super) fn store_with_ttl(
         &self,
         request_hash: &RequestHash,
         response: &Response,
@@ -165,20 +207,28 @@ impl HttpCacheStore {
         Ok(())
     }
 
-    /// Trim cache to
-    pub fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
+    /// Deletes the oldest entries until the cache fits in `max_size`.
+    pub(super) fn trim_to_max_size(&self, max_size: ByteSize) -> Result<(), open_database::Error> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
         }
-        // Repeatedly delete the oldest row until we are under `max_size`
-        loop {
-            let total = self.current_total_size_bytes()?;
-            if total.as_u64() <= max_size.as_u64() {
-                break;
-            }
-            self.db.delete_oldest_cached_row()?;
-        }
+        // Keeps the newest rows that fit in `max_size` and deletes the rest,
+        // in one statement.
+        let (conn, _) = self.db.lock()?;
+        conn.execute(
+            "DELETE FROM http_cache
+             WHERE rowid IN (
+                 SELECT rowid
+                 FROM (
+                     SELECT rowid,
+                            SUM(size_bytes) OVER (ORDER BY cached_at DESC, rowid DESC) AS kept_bytes
+                     FROM http_cache
+                 )
+                 WHERE kept_bytes > ?1
+             )",
+            params![max_size.as_u64()],
+        )?;
         Ok(())
     }
 
@@ -323,7 +373,7 @@ mod tests {
                 .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
                 .unwrap();
 
-            let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
+            let err = store.trim_to_max_size(ByteSize::b(1)).unwrap_err();
             match err {
                 open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
                     assert!(msg.contains("forced trim failure"));
@@ -532,7 +582,7 @@ mod tests {
                 store.clock().advance(1);
             }
 
-            store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
+            store.trim_to_max_size(ByteSize::kib(1)).unwrap();
 
             let total_size = store.current_total_size_bytes().unwrap();
             assert!(total_size.as_u64() <= 1024);
@@ -541,6 +591,10 @@ mod tests {
             let first_hash = hash_for_request(&first_request);
             let first_cached = store.lookup(&first_hash).unwrap();
             assert!(first_cached.is_none());
+
+        let last_request = create_test_request("https://example.com/api/4", b"");
+        let last_hash = hash_for_request(&last_request);
+        assert!(store.lookup(&last_hash).unwrap().is_some());
         }
     }
 

@@ -87,7 +87,7 @@ fn open_connection(
     path: &Path,
 ) -> Result<LazyDb<AdsStoreConnectionInitializer>, open_database::Error> {
     let db = LazyDb::new(path, OpenFlags::default(), AdsStoreConnectionInitializer {});
-    let _ = db.lock()?;
+    drop(db.lock()?);
     Ok(db)
 }
 
