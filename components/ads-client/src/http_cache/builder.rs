@@ -69,7 +69,7 @@ impl HttpCacheBuilder {
 
         let db = self.open_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new(db);
+        let store = HttpCacheStore::new(Box::new(db));
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
@@ -85,7 +85,7 @@ impl HttpCacheBuilder {
 
         let db = self.open_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new_with_test_clock(db);
+        let store = HttpCacheStore::new_with_test_clock(Box::new(db));
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
