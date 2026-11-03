@@ -41,11 +41,6 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
         )?)
     }
 
-    // #[cfg(test)]
-    // pub fn get_clock(&self) -> &dyn Clock {
-    //     &*self.clock
-    // }
-
     fn invalidate_by_hash(
         &self,
         request_hash: &RequestHash,
