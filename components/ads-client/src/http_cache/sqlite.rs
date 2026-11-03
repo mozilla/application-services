@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
     clock::Clock,
@@ -7,8 +9,10 @@ use crate::{
         store::HttpCacheDb, ByteSize,
     },
 };
+use error_support::warn;
 use rusqlite::{params, OptionalExtension};
 use sql_support::{open_database, LazyDb};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use viaduct::{Header, Response};
 
 impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
@@ -46,7 +50,8 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
         let (conn, _) = self.lock()?;
         Ok(conn.query_row(
             "SELECT response_body, response_headers, response_status, request_method, request_url
-             FROM http_cache WHERE request_hash = ?1",
+             FROM http_cache
+             WHERE request_hash = ?1",
             params![request_hash.to_string()],
             |row| {
                 let response_body: Vec<u8> = row.get(0)?;
@@ -56,29 +61,45 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
                 let url_str: String = row.get(4)?;
 
                 let headers = serde_json::from_slice::<HashMap<String, String>>(&response_headers)
-                    .map(|map| {
-                        map.into_iter()
-                            .filter_map(|(n, v)| Header::new(n, v).ok())
-                            .collect::<Vec<_>>()
-                            .into()
-                    })
-                    .unwrap_or_else(|_| viaduct::Headers::new());
+                    .map_or_else(
+                        |e| {
+                            warn!("Ignoring unreadable cached headers: {e}");
+                            viaduct::Headers::new()
+                        },
+                        |map| {
+                            map.into_iter()
+                                .filter_map(|(n, v)| {
+                                    Header::new(n, v)
+                                        .inspect_err(|e| warn!("Skipping a cached header: {e}"))
+                                        .ok()
+                                })
+                                .collect::<Vec<_>>()
+                                .into()
+                        },
+                    );
 
                 let request_method = match method_str.as_str() {
-                    "GET" => viaduct::Method::Get,
                     "HEAD" => viaduct::Method::Head,
                     "POST" => viaduct::Method::Post,
                     "PUT" => viaduct::Method::Put,
                     "DELETE" => viaduct::Method::Delete,
                     "PATCH" => viaduct::Method::Patch,
+                    // "GET", and anything this cache did not write.
                     _ => viaduct::Method::Get,
                 };
 
-                let url = url::Url::parse(&url_str).map_err(|_| {
+                let url = url::Url::parse(&url_str).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
                         4,
                         rusqlite::types::Type::Text,
-                        format!("invalid URL in cache: {url_str}").into(),
+                        format!("invalid URL in cache: {url_str}: {e}").into(),
+                    )
+                })?;
+                let status = u16::try_from(response_status).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,
+                        rusqlite::types::Type::Integer,
+                        Box::new(e),
                     )
                 })?;
 
@@ -86,7 +107,7 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
                     body: response_body,
                     headers,
                     request_method,
-                    status: response_status as u16,
+                    status,
                     url,
                 })
             },
