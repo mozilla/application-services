@@ -16,6 +16,11 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
+### Remote Settings
+
+- Content signatures are now verified against a payload that includes the collection identifier (`"{bid}/{cid}"`), binding signatures to their collection. ([remote-settings#1650](https://github.com/mozilla/remote-settings/pull/1650))
+- Upgraded `canonical_json` to 0.7.0, which sorts object keys regardless of `serde_json`'s `preserve_order` feature.
+
 ## Breaking Changes
 
 ### Autofill

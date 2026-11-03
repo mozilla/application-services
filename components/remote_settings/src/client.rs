@@ -49,9 +49,15 @@ const HEADER_RETRY_AFTER: &str = "Retry-After";
 /// certificates chains used in content signatures verification were produced from our root certificate.
 /// See https://bugzilla.mozilla.org/show_bug.cgi?id=1940903 to align with desktop implementation.
 #[cfg(feature = "signatures")]
+#[cfg(not(test))]
 const ROOT_CERT_SHA256_HASH_PROD: &str = "C8:A8:0E:9A:FA:EF:4E:21:9B:6F:B5:D7:A7:1D:0F:10:12:23:BA:C5:00:1A:C2:8F:9B:0D:43:DC:59:A1:06:DB";
 #[cfg(feature = "signatures")]
+#[cfg(not(test))]
 const ROOT_CERT_SHA256_HASH_NONPROD: &str = "3C:01:44:6A:BE:90:36:CE:A9:A0:9A:CA:A3:A5:20:AC:62:8F:20:A7:AE:32:CE:86:1C:B2:EF:B7:0F:A0:C7:45";
+/// Root of the test certificate chain used in `test_signatures`.
+#[cfg(feature = "signatures")]
+#[cfg(test)]
+const ROOT_CERT_SHA256_HASH_TEST: &str = "06:93:D2:6C:ED:7C:B7:E0:F6:E7:88:EF:A7:03:BE:5A:70:15:2B:AB:A6:8F:BB:CC:52:E1:8D:76:F7:C3:B1:76";
 
 #[derive(Debug, Clone, Deserialize)]
 struct CollectionData {
@@ -448,11 +454,14 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         match (timestamp, &records, metadata) {
             (Some(timestamp), Some(records), Some(metadata)) => {
                 // rc_crypto verifies that the provided certificates chain leads to our root certificate.
+                #[cfg(not(test))]
                 let expected_root_hash = if inner.api_client.is_prod_server()? {
                     ROOT_CERT_SHA256_HASH_PROD
                 } else {
                     ROOT_CERT_SHA256_HASH_NONPROD
                 };
+                #[cfg(test)]
+                let expected_root_hash = ROOT_CERT_SHA256_HASH_TEST;
                 // Iterate through the list of signatures, and verify that at least one of them is valid.
                 // This allows for key rotation without breaking clients that have an old certificate chain cached.
                 let mut result = Err(Error::IncompleteSignatureDataError(
@@ -480,7 +489,9 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                         }
                     );
 
+                    let collection = format!("{}/{}", metadata.bucket, self.collection_name);
                     result = signatures::verify_signature(
+                        &collection,
                         timestamp,
                         records,
                         signature.signature.as_bytes(),
@@ -1318,104 +1329,52 @@ mod test_signatures {
     use super::*;
     use nss_as::ensure_initialized;
 
+    // Test certificate chain (valid from 2025-01-01 to 2035-01-01) generated with openssl.
+    // For posterity, the openssl commands are in the pull-request description.
     const VALID_CERTIFICATE: &str = "\
 -----BEGIN CERTIFICATE-----
-MIIDBjCCAougAwIBAgIIFml6g0ldRGowCgYIKoZIzj0EAwMwgaMxCzAJBgNVBAYT
-AlVTMRwwGgYDVQQKExNNb3ppbGxhIENvcnBvcmF0aW9uMS8wLQYDVQQLEyZNb3pp
-bGxhIEFNTyBQcm9kdWN0aW9uIFNpZ25pbmcgU2VydmljZTFFMEMGA1UEAww8Q29u
-dGVudCBTaWduaW5nIEludGVybWVkaWF0ZS9lbWFpbEFkZHJlc3M9Zm94c2VjQG1v
-emlsbGEuY29tMB4XDTIxMDIwMzE1MDQwNVoXDTIxMDQyNDE1MDQwNVowgakxCzAJ
-BgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFp
-biBWaWV3MRwwGgYDVQQKExNNb3ppbGxhIENvcnBvcmF0aW9uMRcwFQYDVQQLEw5D
-bG91ZCBTZXJ2aWNlczE2MDQGA1UEAxMtcmVtb3RlLXNldHRpbmdzLmNvbnRlbnQt
-c2lnbmF0dXJlLm1vemlsbGEub3JnMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE8pKb
-HX4IiD0SCy+NO7gwKqRRZ8IhGd8PTaIHIBgM6RDLRyDeswXgV+2kGUoHyzkbNKZt
-zlrS3AhqeUCtl1g6ECqSmZBbRTjCpn/UCpCnMLL0T0goxtAB8Rmi3CdM0cBUo4GD
-MIGAMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAfBgNVHSME
-GDAWgBQlZawrqt0eUz/t6OdN45oKfmzy6DA4BgNVHREEMTAvgi1yZW1vdGUtc2V0
-dGluZ3MuY29udGVudC1zaWduYXR1cmUubW96aWxsYS5vcmcwCgYIKoZIzj0EAwMD
-aQAwZgIxAPh43Bxl4MxPT6Ra1XvboN5O2OvIn2r8rHvZPWR/jJ9vcTwH9X3F0aLJ
-9FiresnsLAIxAOoAcREYB24gFBeWxbiiXaG7TR/yM1/MXw4qxbN965FFUaoB+5Bc
-fS8//SQGTlCqKQ==
+MIICNTCCAbygAwIBAgIUDYt1Iegmx5HbzkXcTXrORT/qj74wCgYIKoZIzj0EAwIw
+HDEaMBgGA1UEAwwRVGVzdCBJbnRlcm1lZGlhdGUwHhcNMjUwMTAxMDAwMDAwWhcN
+MzUwMTAxMDAwMDAwWjA4MTYwNAYDVQQDDC1yZW1vdGUtc2V0dGluZ3MuY29udGVu
+dC1zaWduYXR1cmUubW96aWxsYS5vcmcwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAS5
+khkVoSzFCVmpV7sYTV1WIQLw+bH51AynnVJphyelyma44OAPF5Yau2geyhGu66OZ
+hQSV+Tj4UlG9MyAADDYIMY4y0xuc1yjJ2XbGjQlT6U8XX7AzXwXjShjGXKxEO1Kj
+gaIwgZ8wDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMDgGA1Ud
+EQQxMC+CLXJlbW90ZS1zZXR0aW5ncy5jb250ZW50LXNpZ25hdHVyZS5tb3ppbGxh
+Lm9yZzAfBgNVHSMEGDAWgBTCTOb+g7xX/C4T+Mme9ZcBIBuMDTAdBgNVHQ4EFgQU
+EfQ9j9NrMUpUgSHbS06v4PTHXCEwCgYIKoZIzj0EAwIDZwAwZAIwTTBk4dvWNqoO
+3Jxn/vRmlsIPxKhYRccfiHkUSpE4KD9aSe1cLp1QpK2lSpadl4DPAjBc37xNmsXy
+VgdJWlknb+VP1Py+K2urR/bkv3zFxM3Z9VbYgE39C4hwvUZg84gaNc4=
 -----END CERTIFICATE-----
 -----BEGIN CERTIFICATE-----
-MIIF2jCCA8KgAwIBAgIEAQAAADANBgkqhkiG9w0BAQsFADCBqTELMAkGA1UEBhMC
-VVMxCzAJBgNVBAgTAkNBMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRwwGgYDVQQK
-ExNBZGRvbnMgVGVzdCBTaWduaW5nMSQwIgYDVQQDExt0ZXN0LmFkZG9ucy5zaWdu
-aW5nLnJvb3QuY2ExMTAvBgkqhkiG9w0BCQEWInNlY29wcytzdGFnZXJvb3RhZGRv
-bnNAbW96aWxsYS5jb20wHhcNMjEwMTExMDAwMDAwWhcNMjQxMTE0MjA0ODU5WjCB
-ozELMAkGA1UEBhMCVVMxHDAaBgNVBAoTE01vemlsbGEgQ29ycG9yYXRpb24xLzAt
-BgNVBAsTJk1vemlsbGEgQU1PIFByb2R1Y3Rpb24gU2lnbmluZyBTZXJ2aWNlMUUw
-QwYDVQQDDDxDb250ZW50IFNpZ25pbmcgSW50ZXJtZWRpYXRlL2VtYWlsQWRkcmVz
-cz1mb3hzZWNAbW96aWxsYS5jb20wdjAQBgcqhkjOPQIBBgUrgQQAIgNiAARw1dyE
-xV5aNiHJPa/fVHO6kxJn3oZLVotJ0DzFZA9r1sQf8i0+v78Pg0/c3nTAyZWfkULz
-vOpKYK/GEGBtisxCkDJ+F3NuLPpSIg3fX25pH0LE15fvASBVcr8tKLVHeOmjggG6
-MIIBtjAMBgNVHRMEBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAWBgNVHSUBAf8EDDAK
-BggrBgEFBQcDAzAdBgNVHQ4EFgQUJWWsK6rdHlM/7ejnTeOaCn5s8ugwgdkGA1Ud
-IwSB0TCBzoAUhtg0HE5Y0RNcmV/YQpjtFA8Z8l2hga+kgawwgakxCzAJBgNVBAYT
-AlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEcMBoGA1UE
-ChMTQWRkb25zIFRlc3QgU2lnbmluZzEkMCIGA1UEAxMbdGVzdC5hZGRvbnMuc2ln
-bmluZy5yb290LmNhMTEwLwYJKoZIhvcNAQkBFiJzZWNvcHMrc3RhZ2Vyb290YWRk
-b25zQG1vemlsbGEuY29tggRgJZg7MDMGCWCGSAGG+EIBBAQmFiRodHRwOi8vYWRk
-b25zLmFsbGl6b20ub3JnL2NhL2NybC5wZW0wTgYDVR0eBEcwRaBDMCCCHi5jb250
-ZW50LXNpZ25hdHVyZS5tb3ppbGxhLm9yZzAfgh1jb250ZW50LXNpZ25hdHVyZS5t
-b3ppbGxhLm9yZzANBgkqhkiG9w0BAQsFAAOCAgEAtGTTzcPzpcdf07kIeRs9vPMx
-qiF8ylW5L/IQ2NzT3sFFAvPW1vW1wZC0xAHMsuVyo+BTGrv+4mlD0AUR9acRfiTZ
-9qyZ3sJbyhQwJAXLKU4YpnzuFOf58T/yOnOdwpH2ky/0FuHskMyfXaAz2Az4JXJH
-TCgggqfdZNvsZ5eOnQlKoC5NadMa8oTI5sd4SyR5ANUPAtYok931MvVSz3IMbwTr
-v4PPWXdl9SGXuOknSqdY6/bS1LGvC2KprsT+PBlvVtS6YgZOH0uCgTTLpnrco87O
-ErzC2PJBA1Ftn3Mbaou6xy7O+YX+reJ6soNUV+0JHOuKj0aTXv0c+lXEAh4Y8nea
-UGhW6+MRGYMOP2NuKv8s2+CtNH7asPq3KuTQpM5RerjdouHMIedX7wpNlNk0CYbg
-VMJLxZfAdwcingLWda/H3j7PxMoAm0N+eA24TGDQPC652ZakYk4MQL/45lm0A5f0
-xLGKEe6JMZcTBQyO7ANWcrpVjKMiwot6bY6S2xU17mf/h7J32JXZJ23OPOKpMS8d
-mljj4nkdoYDT35zFuS1z+5q6R5flLca35vRHzC3XA0H/XJvgOKUNLEW/IiJIqLNi
-ab3Ao0RubuX+CAdFML5HaJmkyuJvL3YtwIOwe93RGcGRZSKZsnMS+uY5QN8+qKQz
-LC4GzWQGSCGDyD+JCVw=
+MIIB6DCCAW2gAwIBAgIUK/dKG+Rey4ifQn0ZyOc1YH38b0swCgYIKoZIzj0EAwIw
+FDESMBAGA1UEAwwJVGVzdCBSb290MB4XDTI1MDEwMTAwMDAwMFoXDTM1MDEwMTAw
+MDAwMFowHDEaMBgGA1UEAwwRVGVzdCBJbnRlcm1lZGlhdGUwdjAQBgcqhkjOPQIB
+BgUrgQQAIgNiAATWACmaW/2SoGotjE8ERb4T5+Ev+N96Sh1G3zGSWP1HcKlA7Zja
+eLryRaADH2oswrsYhxa7W4m7L5BEBLk1xEyiwShg9cwPr903GamaFb2qOwkcV3OD
+vW85585hCRXxPLujeDB2MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEG
+MBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBTCTOb+g7xX/C4T+Mme9ZcB
+IBuMDTAfBgNVHSMEGDAWgBSQOc1XQDZqb01/By8vEfwmpheN8jAKBggqhkjOPQQD
+AgNpADBmAjEA5hbib2lUHSwu/H5I+gQk1kTWf2k8yvt8sKxCkBP6us/otY8t3S+D
+5ApPnYBI878CAjEA71pa761x0wrh5IfSi6kyF85slCwF8A7aRFrmKV6hA5pfBmMD
+NNPS0dIOyt9LXoG/
 -----END CERTIFICATE-----
 -----BEGIN CERTIFICATE-----
-MIIHbDCCBVSgAwIBAgIEYCWYOzANBgkqhkiG9w0BAQwFADCBqTELMAkGA1UEBhMC
-VVMxCzAJBgNVBAgTAkNBMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRwwGgYDVQQK
-ExNBZGRvbnMgVGVzdCBTaWduaW5nMSQwIgYDVQQDExt0ZXN0LmFkZG9ucy5zaWdu
-aW5nLnJvb3QuY2ExMTAvBgkqhkiG9w0BCQEWInNlY29wcytzdGFnZXJvb3RhZGRv
-bnNAbW96aWxsYS5jb20wHhcNMjEwMjExMjA0ODU5WhcNMjQxMTE0MjA0ODU5WjCB
-qTELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNBMRYwFAYDVQQHEw1Nb3VudGFpbiBW
-aWV3MRwwGgYDVQQKExNBZGRvbnMgVGVzdCBTaWduaW5nMSQwIgYDVQQDExt0ZXN0
-LmFkZG9ucy5zaWduaW5nLnJvb3QuY2ExMTAvBgkqhkiG9w0BCQEWInNlY29wcytz
-dGFnZXJvb3RhZGRvbnNAbW96aWxsYS5jb20wggIiMA0GCSqGSIb3DQEBAQUAA4IC
-DwAwggIKAoICAQDKRVty/FRsO4Ech6EYleyaKgAueaLYfMSsAIyPC/N8n/P8QcH8
-rjoiMJrKHRlqiJmMBSmjUZVzZAP0XJku0orLKWPKq7cATt+xhGY/RJtOzenMMsr5
-eN02V3GzUd1jOShUpERjzXdaO3pnfZqhdqNYqP9ocqQpyno7bZ3FZQ2vei+bF52k
-51uPioTZo+1zduoR/rT01twGtZm3QpcwU4mO74ysyxxgqEy3kpojq8Nt6haDwzrj
-khV9M6DGPLHZD71QaUiz5lOhD9CS8x0uqXhBhwMUBBkHsUDSxbN4ZhjDDWpCmwaD
-OtbJMUJxDGPCr9qj49QESccb367OeXLrfZ2Ntu/US2Bw9EDfhyNsXr9dg9NHj5yf
-4sDUqBHG0W8zaUvJx5T2Ivwtno1YZLyJwQW5pWeWn8bEmpQKD2KS/3y2UjlDg+YM
-NdNASjFe0fh6I5NCFYmFWA73DpDGlUx0BtQQU/eZQJ+oLOTLzp8d3dvenTBVnKF+
-uwEmoNfZwc4TTWJOhLgwxA4uK+Paaqo4Ap2RGS2ZmVkPxmroB3gL5n3k3QEXvULh
-7v8Psk4+MuNWnxudrPkN38MGJo7ju7gDOO8h1jLD4tdfuAqbtQLduLXzT4DJPA4y
-JBTFIRMIpMqP9CovaS8VPtMFLTrYlFh9UnEGpCeLPanJr+VEj7ae5sc8YwIDAQAB
-o4IBmDCCAZQwDAYDVR0TBAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwFgYDVR0lAQH/
-BAwwCgYIKwYBBQUHAwMwLAYJYIZIAYb4QgENBB8WHU9wZW5TU0wgR2VuZXJhdGVk
-IENlcnRpZmljYXRlMDMGCWCGSAGG+EIBBAQmFiRodHRwOi8vYWRkb25zLm1vemls
-bGEub3JnL2NhL2NybC5wZW0wHQYDVR0OBBYEFIbYNBxOWNETXJlf2EKY7RQPGfJd
-MIHZBgNVHSMEgdEwgc6AFIbYNBxOWNETXJlf2EKY7RQPGfJdoYGvpIGsMIGpMQsw
-CQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDU1vdW50YWluIFZpZXcx
-HDAaBgNVBAoTE0FkZG9ucyBUZXN0IFNpZ25pbmcxJDAiBgNVBAMTG3Rlc3QuYWRk
-b25zLnNpZ25pbmcucm9vdC5jYTExMC8GCSqGSIb3DQEJARYic2Vjb3BzK3N0YWdl
-cm9vdGFkZG9uc0Btb3ppbGxhLmNvbYIEYCWYOzANBgkqhkiG9w0BAQwFAAOCAgEA
-nowyJv8UaIV7NA0B3wkWratq6FgA1s/PzetG/ZKZDIW5YtfUvvyy72HDAwgKbtap
-Eog6zGI4L86K0UGUAC32fBjE5lWYEgsxNM5VWlQjbgTG0dc3dYiufxfDFeMbAPmD
-DzpIgN3jHW2uRqa/MJ+egHhv7kGFL68uVLboqk/qHr+SOCc1LNeSMCuQqvHwwM0+
-AU1GxhzBWDkealTS34FpVxF4sT5sKLODdIS5HXJr2COHHfYkw2SW/Sfpt6fsOwaF
-2iiDaK4LPWHWhhIYa6yaynJ+6O6KPlpvKYCChaTOVdc+ikyeiSO6AakJykr5Gy7d
-PkkK7MDCxuY6psHj7iJQ59YK7ujQB8QYdzuXBuLLo5hc5gBcq3PJs0fLT2YFcQHA
-dj+olGaDn38T0WI8ycWaFhQfKwATeLWfiQepr8JfoNlC2vvSDzGUGfdAfZfsJJZ8
-5xZxahHoTFGS0mDRfXqzKH5uD578GgjOZp0fULmzkcjWsgzdpDhadGjExRZFKlAy
-iKv8cXTONrGY0fyBDKennuX0uAca3V0Qm6v2VRp+7wG/pywWwc5n+04qgxTQPxgO
-6pPB9UUsNbaLMDR5QPYAWrNhqJ7B07XqIYJZSwGP5xB9NqUZLF4z+AOMYgWtDpmg
-IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
+MIIBqTCCAS+gAwIBAgIUL+76zd/3UTh5OI519u5h4SnziEEwCgYIKoZIzj0EAwIw
+FDESMBAGA1UEAwwJVGVzdCBSb290MB4XDTI1MDEwMTAwMDAwMFoXDTM1MDEwMTAw
+MDAwMFowFDESMBAGA1UEAwwJVGVzdCBSb290MHYwEAYHKoZIzj0CAQYFK4EEACID
+YgAErxrPiujJexdNomTvk2fYq3WvmhjMFZGJS88/X5KB/heh07OrIzL5rkUy4IF1
+dLZS//76jLUg0hNmed5RPCTVPixiLzlGZiNliE+k1p6d+yLQoPOfI1EkyY//X39Y
+bSWno0IwQDAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4E
+FgQUkDnNV0A2am9NfwcvLxH8JqYXjfIwCgYIKoZIzj0EAwIDaAAwZQIwFF1YSOcV
+7V8Md/DBPhmwBRZ3nLhcGxyzkAAanwlBPHUbrI+bkzKK0TTK7iqvh5FmAjEAivZZ
+fyGY40uwWk6uOMVvXwMHwlNBC0UHP8fAH99++PczbxdDzaRBkOAus8rl35g3
 -----END CERTIFICATE-----";
-    const VALID_SIGNATURE: &str = r#"fJJcOpwdnkjEWFeHXfdOJN6GaGLuDTPGzQOxA2jn6ldIleIk6KqMhZcy2GZv2uYiGwl6DERWwpaoUfQFLyCAOcVjck1qlaaEFZGY1BQba9p99xEc9FNQ3YPPfvSSZqsw"#;
-    const VALID_CERT_EPOCH_SECONDS: u64 = 1615559719;
+    // Signature of `{"collection":"main/pioneer-study-addons","data":[],"last_modified":"1603992731957"}`
+    const VALID_SIGNATURE: &str = "2c0sTmIUJFllomNIYlZdU7UggXg0T42MFnmiWo0tb0ohBvnuj8fw_sYQEBd-_P9sg8m3MDynXJD6N86TtjwJQk3QvnI_QHarQSMuF2tN2MD4Z864vmx0qv4lW9LUdxYH";
+    // Signature of the legacy payload, without collection: `{"data":[],"last_modified":"1603992731957"}`
+    const LEGACY_SIGNATURE: &str = "pUAdFqeM7CzRkPhIBRRl5TTPjtB_Vr3CGLjcoIeQQxVFNKzbd3lSjTV0qKaZW5Z4M-6ZTIqPa8R3ZAfBGuTXcT3BkWuMK2TY7Q9lu5J9bnyVEfb05K1iLKKRVsd5C829";
+    const VALID_CERT_EPOCH_SECONDS: u64 = 1767225600; // 2026-01-01
 
     fn build_client(
         diff_records: &[RemoteSettingsRecord],
@@ -1562,6 +1521,75 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             "main",
         )
         .expect("Valid signature");
+        Ok(())
+    }
+
+    #[test]
+    fn test_legacy_signature_first_and_signature_with_collection_second() -> Result<()> {
+        // This is what the server sends: the legacy signature first (for older clients),
+        // and the signature of the payload that includes the collection second.
+        ensure_initialized();
+        run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[
+                CollectionSignature {
+                    signature: LEGACY_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
+                },
+                CollectionSignature {
+                    signature: VALID_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                    mode: "p384ecdsa".into(),
+                },
+            ],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .expect("Valid signature");
+        Ok(())
+    }
+
+    #[test]
+    fn test_legacy_signature_is_invalid() -> Result<()> {
+        ensure_initialized();
+        let err = run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: LEGACY_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .unwrap_err();
+        assert!(matches!(err, Error::SignatureError(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_signature_from_another_collection_is_invalid() -> Result<()> {
+        ensure_initialized();
+        // The signature was computed for `main/pioneer-study-addons`.
+        let err = run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+                mode: "p384ecdsa".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main-preview",
+        )
+        .unwrap_err();
+        assert!(matches!(err, Error::SignatureError(_)));
         Ok(())
     }
 
