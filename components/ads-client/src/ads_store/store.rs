@@ -62,6 +62,13 @@ impl AdsStoreHolder {
         self.db.close(true);
     }
 
+    /// Returns whether the db is in memory rather than backed by a file.
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        let (conn, _) = self.db.lock()?;
+        // SQLite reports an empty path for in-memory dbs.
+        Ok(conn.path() == Some(""))
+    }
+
     /// Returns total size of the cache in bytes.
     pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
         let (conn, _) = self.db.lock()?;
@@ -200,7 +207,7 @@ mod tests {
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
         let db = LazyDb::new(
-            Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH),
+            Path::new(crate::IN_MEMORY_DB_PATH),
             OpenFlags::default(),
             initializer,
         );

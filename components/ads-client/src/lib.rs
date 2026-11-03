@@ -30,6 +30,9 @@ pub mod worker;
 
 pub use ffi::*;
 
+/// Path that makes SQLite open a private in-memory database.
+pub(crate) const IN_MEMORY_DB_PATH: &str = ":memory:";
+
 #[cfg(test)]
 mod test_utils;
 

@@ -64,6 +64,13 @@ impl HttpCacheStore {
         self.db.close(true);
     }
 
+    /// Returns whether the db is in memory rather than backed by a file.
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        let (conn, _) = self.db.lock()?;
+        // SQLite reports an empty path for in-memory dbs.
+        Ok(conn.path() == Some(""))
+    }
+
     /// Returns total size of the cache in bytes.
     #[cfg(test)]
     pub(super) fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
@@ -343,7 +350,11 @@ mod tests {
 
     fn create_test_store() -> HttpCacheStore {
         let initializer = HttpCacheConnectionInitializer {};
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
+        let db = LazyDb::new(
+            Path::new(crate::IN_MEMORY_DB_PATH),
+            OpenFlags::default(),
+            initializer,
+        );
         HttpCacheStore::new_with_test_clock(db)
     }
 
