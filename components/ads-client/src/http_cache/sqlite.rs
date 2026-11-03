@@ -21,17 +21,6 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
         self.close(true);
     }
 
-    /// Returns total size of the cache in bytes.
-    fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
-        let (conn, _) = self.lock()?;
-        let size_bytes = conn.query_row(
-            "SELECT COALESCE(SUM(size_bytes),0) FROM http_cache",
-            [],
-            |row| row.get(0),
-        )?;
-        Ok(ByteSize::b(size_bytes))
-    }
-
     /// Removes all entries from the store whose expires_at is at or before the current time.
     fn delete_expired_entries(&self, clock: Arc<dyn Clock>) -> Result<usize, open_database::Error> {
         let (conn, _) = self.lock()?;
@@ -160,13 +149,22 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
         Ok(())
     }
 
-    fn delete_oldest_cached_row(&self) -> Result<(), open_database::Error> {
+    /// Deletes the oldest entries until the cache fits in `max_size`.
+    fn trim_to_max_size(&self, max_size: ByteSize) -> Result<(), open_database::Error> {
+        // Keeps the newest rows that fit in `max_size` and deletes the rest.
         let (conn, _) = self.lock()?;
         conn.execute(
-            "DELETE FROM http_cache WHERE rowid IN (
-                    SELECT rowid FROM http_cache ORDER BY cached_at ASC LIMIT 1
-                )",
-            [],
+            "DELETE FROM http_cache
+             WHERE rowid IN (
+                 SELECT rowid
+                 FROM (
+                     SELECT rowid,
+                            SUM(size_bytes) OVER (ORDER BY cached_at DESC, rowid DESC) AS kept_bytes
+                     FROM http_cache
+                 )
+                 WHERE kept_bytes > ?1
+             )",
+            params![max_size.as_u64()],
         )?;
         Ok(())
     }
@@ -175,6 +173,18 @@ impl HttpCacheDb for LazyDb<HttpCacheConnectionInitializer> {
         let (conn, _) = self.lock()?;
         // SQLite reports an empty path for in-memory dbs.
         Ok(conn.path() == Some(""))
+    }
+
+    /// Returns total size of the cache in bytes.
+    #[cfg(test)]
+    fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
+        let (conn, _) = self.lock()?;
+        let size_bytes = conn.query_row(
+            "SELECT COALESCE(SUM(size_bytes),0) FROM http_cache",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(ByteSize::b(size_bytes))
     }
 
     #[cfg(test)]
