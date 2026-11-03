@@ -58,7 +58,7 @@ fn test_cache_works_using_real_timeouts() {
     let cache = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
-        .build()
+        .build_valid()
         .expect("cache build should succeed");
 
     let url = format!("{}/v1/ads", mockito::server_url()).parse().unwrap();
@@ -119,36 +119,61 @@ fn test_cache_works_using_real_timeouts() {
 
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
-fn test_bad_path_opens_memory_db() {
+fn test_bad_path_or_params_opens_memory_db() {
     clear_test_dbs(&["good_path.db"]);
 
     let good_path = HttpCache::builder("good_path_httpstore.db")
-        .build()
+        .build_valid()
         .expect("Should be able to build a bad path");
     assert!(
         !good_path.is_memory().unwrap(),
         "A valid path should result in a file-based sqlite database"
     );
+    assert!(
+        good_path.is_sqlite(),
+        "Invalid path should result in a memory-based sqlite database"
+    );
 
     let bad_path = HttpCache::builder("this/is/a/test/bad/path")
-        .build()
+        .build_valid()
         .expect("Should be able to build a bad path");
     assert!(
         bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
+    assert!(
+        bad_path.is_sqlite(),
+        "Invalid path should result in a memory-based sqlite database"
+    );
 
-    let empty_path = HttpCache::builder("").build();
+    let empty_path = HttpCache::builder("").build_valid();
     assert!(
         empty_path.is_err(),
         "An empty string for a path should result in an error (because of validation step)"
     );
 
-    let no_path = HttpCache::builder_memory()
-        .build()
+    let direct_memory = HttpCache::builder_memory()
+        .build_valid()
         .expect("Should be able to build a memory db");
     assert!(
-        no_path.is_memory().unwrap(),
+        direct_memory.is_memory().unwrap(),
         "`builder_memory` should result in a memory-based sqlite database"
-    )
+    );
+    assert!(
+        direct_memory.is_sqlite(),
+        "`builder_memory` should result in a memory-based sqlite database"
+    );
+
+    let mut bad_params = HttpCache::builder("good_path_httpstore.db")
+        .max_size(ByteSize::mib(5000));
+    assert!(bad_params.build_valid().is_err(), "`bad_params` should not be able to be validly built");
+    let bad_params = bad_params.build();
+    assert!(
+        bad_params.is_memory().unwrap(),
+        "An invalid parameter set should result in a in-memory Rust 'database'"
+    );
+    assert!(
+        !bad_params.is_sqlite(),
+        "An invalid parameter set should result in a in-memory Rust 'database'"
+    );
 }

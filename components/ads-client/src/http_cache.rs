@@ -5,8 +5,10 @@
 mod builder;
 mod cache_control;
 mod connection_initializer;
+pub mod memory;
 mod outcome;
 mod request_hash;
+pub mod sqlite;
 mod store;
 mod strategy;
 mod ttl;
@@ -60,6 +62,10 @@ impl HttpCache {
 
     pub fn is_memory(&self) -> Result<bool, open_database::Error> {
         self.store.is_memory()
+    }
+
+    pub fn is_sqlite(&self) -> bool {
+        self.store.is_sqlite()
     }
 
     pub fn clear(&self) -> Result<(), open_database::Error> {
@@ -167,7 +173,7 @@ mod tests {
         HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(60))
             .max_size(ByteSize::mib(1))
-            .build()
+            .build_valid()
             .expect("cache build should succeed")
     }
 
@@ -176,27 +182,27 @@ mod tests {
         HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
-            .build_for_time_dependent_tests()
+            .build_valid_for_time_dependent_tests()
             .expect("cache build should succeed")
     }
 
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let cache: Result<HttpCache, _> = HttpCache::builder_memory().build();
+        let cache: Result<HttpCache, _> = HttpCache::builder_memory().build_valid();
         assert!(cache.is_ok());
 
         // Test with custom config
         let cache_with_config: Result<HttpCache, _> = HttpCache::builder_memory()
             .max_size(ByteSize::mib(1))
             .default_ttl(Duration::from_secs(60))
-            .build();
+            .build_valid();
         assert!(cache_with_config.is_ok());
     }
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build_valid().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
@@ -500,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build_valid().unwrap();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));

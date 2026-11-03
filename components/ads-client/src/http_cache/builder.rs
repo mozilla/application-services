@@ -5,6 +5,7 @@
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
 use crate::bytesize::ByteSize;
+use crate::http_cache::memory::HttpCacheMemory;
 use crate::http_cache::HttpCache;
 use crate::telemetry;
 use crate::IN_MEMORY_DB_PATH;
@@ -62,14 +63,38 @@ impl HttpCacheBuilder {
         }
     }
 
-    // Attempt to build the HttpCache. If a file path exists and can be built successfully, we build
-    // a FS sqlite database. Otherwise, we fall back to memory.
-    pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    /// Attempt to build the HttpCache, with multiple fallbacks.
+    /// 1. If a `db_path` is provided, the parameters are validated, and the SQLite connection is successful, we use a FS-based SQLite database.
+    /// 2. If no `db_path` is provided, or the SQLite connection fails, but `validate()` is successful, we use an in-memory SQLite database.
+    /// 3. If both of those fail, we use an in-memory Rust structural store.
+    ///
+    /// Steps 1 and 2 are handled by a call to `build_valid()`. After any fallback step, we emit a build cache error and continue.
+    pub fn build(&mut self) -> HttpCache {
+        match self.build_valid() {
+            Ok(cache) => cache,
+            Err(e) => {
+                telemetry::record_build_cache_error(&e);
+                HttpCache {
+                    default_ttl: DEFAULT_TTL,
+                    max_size: DEFAULT_MAX_SIZE,
+                    store: HttpCacheStore::new(Box::new(self.open_rust_db())),
+                }
+            }
+        }
+    }
+
+    /// Attempt to fallibly build the HttpCache in SQLite, only returning an error if validation step fails.
+    /// 1. If a `db_path` is provided, the parameters are validated, and the SQLite connection is successful, we use a FS-based SQLite database.
+    /// 2. If no `db_path` is provided, or the SQLite connection fails, but `validate()` is successful, we use an in-memory SQLite database.
+    ///
+    /// If the validation step fails, an error is returned.
+    /// After any fallback step, we emit a build cache error and continue.
+    pub fn build_valid(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let db = self.open_db()?;
+        let db = self.open_sqlite_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new(db);
+        let store = HttpCacheStore::new(Box::new(db));
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
@@ -80,12 +105,12 @@ impl HttpCacheBuilder {
     }
 
     #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    pub fn build_valid_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
         self.validate()?;
 
-        let db = self.open_db()?;
+        let db = self.open_sqlite_db()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        let store = HttpCacheStore::new_with_test_clock(db);
+        let store = HttpCacheStore::new_with_test_clock(Box::new(db));
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
@@ -106,7 +131,9 @@ impl HttpCacheBuilder {
     }
 
     // Opens the db at `db_path`, or a memory db if there is no path or it fails to open.
-    fn open_db(&self) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
+    fn open_sqlite_db(
+        &self,
+    ) -> Result<LazyDb<HttpCacheConnectionInitializer>, HttpCacheBuilderError> {
         if let Some(db_path) = &self.db_path {
             match open_connection(db_path) {
                 Ok(db) => return Ok(db),
@@ -116,6 +143,13 @@ impl HttpCacheBuilder {
 
         // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
         open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(HttpCacheBuilderError::DatabaseMemory)
+    }
+
+    // Creates a fully structural in-Rust memory 'database'.
+    // Non-durable alternative to open_sqlite_connection
+    // TODO: This is intentionally redundant with the sqlite in-memory one. Eventually, one or the other will be removed.
+    fn open_rust_db(&mut self) -> HttpCacheMemory {
+        HttpCacheMemory::new()
     }
 
     fn validate(&self) -> Result<(), HttpCacheBuilderError> {
@@ -179,7 +213,7 @@ mod tests {
         assert_eq!(builder.db_path, Some(PathBuf::from(IN_MEMORY_DB_PATH)));
         assert_eq!(builder.max_size, None);
         assert_eq!(builder.default_ttl, None);
-        assert!(builder.build().is_ok());
+        assert!(builder.build_valid().is_ok());
     }
 
     #[test]
@@ -187,7 +221,7 @@ mod tests {
         // The fallback records telemetry, so don't race the telemetry tests.
         let _lock = crate::telemetry::test_lock();
         let cache = make_test_builder("this/is/a/test/bad/path")
-            .build()
+            .build_valid()
             .unwrap();
         assert!(cache.is_memory().unwrap());
     }
@@ -201,12 +235,12 @@ mod tests {
         assert_eq!(builder.db_path, Some(PathBuf::from(IN_MEMORY_DB_PATH)));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
         assert_eq!(builder.default_ttl, Some(Duration::from_secs(60)));
-        assert!(builder.build().is_ok());
+        assert!(builder.build_valid().is_ok());
     }
 
     #[test]
     fn test_validation_empty_db_path() {
-        let result = make_test_builder("   ").build();
+        let result = make_test_builder("   ").build_valid();
         assert!(matches!(result, Err(HttpCacheBuilderError::EmptyDbPath)));
     }
 
@@ -214,7 +248,7 @@ mod tests {
     fn test_validation_max_size_too_small() {
         let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(512))
-            .build();
+            .build_valid();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidMaxSize {
@@ -229,7 +263,7 @@ mod tests {
     fn test_validation_max_size_too_large() {
         let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(2 * 1024 * 1024 * 1024))
-            .build();
+            .build_valid();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidMaxSize {
@@ -243,17 +277,17 @@ mod tests {
     #[test]
     fn test_validation_max_size_boundaries() {
         let builder_min = make_test_builder(IN_MEMORY_DB_PATH).max_size(MIN_CACHE_SIZE);
-        assert!(builder_min.build().is_ok());
+        assert!(builder_min.build_valid().is_ok());
 
         let builder_max = make_test_builder(IN_MEMORY_DB_PATH).max_size(MAX_CACHE_SIZE);
-        assert!(builder_max.build().is_ok());
+        assert!(builder_max.build_valid().is_ok());
     }
 
     #[test]
     fn test_validation_ttl_too_small() {
         let result = make_test_builder(IN_MEMORY_DB_PATH)
             .default_ttl(Duration::from_secs(0))
-            .build();
+            .build_valid();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidTtl {
@@ -268,7 +302,7 @@ mod tests {
     fn test_validation_ttl_too_large() {
         let result = make_test_builder(IN_MEMORY_DB_PATH)
             .default_ttl(Duration::from_secs(8 * 24 * 60 * 60))
-            .build();
+            .build_valid();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidTtl {
@@ -282,9 +316,24 @@ mod tests {
     #[test]
     fn test_validation_ttl_boundaries() {
         let builder_min = make_test_builder(IN_MEMORY_DB_PATH).default_ttl(MIN_TTL);
-        assert!(builder_min.build().is_ok());
+        assert!(builder_min.build_valid().is_ok());
 
         let builder_max = make_test_builder(IN_MEMORY_DB_PATH).default_ttl(MAX_TTL);
-        assert!(builder_max.build().is_ok());
+        assert!(builder_max.build_valid().is_ok());
+    }
+
+    #[test]
+    fn example_error_still_builds_in_memory() {
+        // Normally built memory database with reasonable bounds should be built in SQLite memory.
+        let result = make_test_builder(":memory:").build();
+        assert!(result.is_memory().unwrap());
+        assert!(result.is_sqlite());
+
+        // When built with unreasonable invalidated bounds, it should not be in SQLite.
+        let result = make_test_builder("test.db")
+            .default_ttl(Duration::from_secs(8 * 24 * 60 * 60))
+            .build();
+        assert!(result.is_memory().unwrap());
+        assert!(!result.is_sqlite());
     }
 }

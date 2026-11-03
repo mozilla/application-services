@@ -7,7 +7,7 @@
 ### Ads-Client
 
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
-- Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
+- `HttpCache` now always exists. Malformed parameters or a failure to open the sqlite database will fallback to memory (sqlite), which will in turn fall back to a pure-Rust solution.
 - Ads are now read by their `format`: `billboard`, `leaderboard`, `rectangle` and `skyscraper` are images, `spoc` and `tile` keep their own shapes. An ad with any other `format` is skipped and recorded under `deserialization_error/invalid_ad_item`, instead of being read as an image.
 
 ### Autofill
