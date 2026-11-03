@@ -13,6 +13,6 @@ async-trait = "0.1"
 error-support = { path = "../error" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 viaduct = { path = "../../viaduct" }
-reqwest = { version = "0.13.5", features = ["native-tls-vendored"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls-vendored"] }
 uniffi = { version = "0.32" }
 url = "2"

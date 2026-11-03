@@ -2,6 +2,20 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
+- Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
+- Ads are now read by their `format`: `billboard`, `leaderboard`, `rectangle` and `skyscraper` are images, `spoc` and `tile` keep their own shapes. An ad with any other `format` is skipped and recorded under `deserialization_error/invalid_ad_item`, instead of being read as an image.
+
+### Autofill
+
+- Fixed a crash or a silently dropped address or credit card when syncing after a sync reset or a migration into a new database: a local record that was also being downloaded could be taken as the duplicate of another incoming record with the same contents. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+- Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
+
 ## Breaking Changes
 
 ### Autofill
@@ -33,6 +47,11 @@
 - **BREAKING**: The key-based `encrypt_string(key, ...)` / `decrypt_string(key, ...)` namespace functions are removed - with transparent card numbers nothing needs them. `create_autofill_key()` stays; for canaries use `db_crypto.create_canary` / `check_canary` (format-compatible).
 - **BREAKING**: Credit card numbers are transparent in the API: `UpdatableCreditCardFields` takes `cc_number` in cleartext (the store encrypts it and derives `cc_number_last_4` itself), and `CreditCard.cc_number` comes back decrypted - empty for a scrubbed card, while a value the key cannot read fails the read. An empty `cc_number` is stored as an empty `cc_number_enc` rather than as a ciphertext of "", so a scrubbed card stays recognizable as such. `cc_number_enc` is gone from both dictionaries; consumers never handle ciphertext. ([bug 2075563](https://bugzilla.mozilla.org/show_bug.cgi?id=2075563))
 
+### Sync Manager
+
+- `SyncParams.enabled_changes` is replaced by `engine_choices_model`. Pass `EngineChoicesModel.Account(enabledChanges)` to keep the current behaviour (in Kotlin, `EngineChoicesModel` is in `mozilla.appservices.sync15`).
+- `DeviceSettings` has a new optional `enabled_engines` field, not yet used.
+
 ## ✨ What's New ✨
 
 ### Error support
@@ -40,6 +59,9 @@
 - Wired up the error ping on iOS using glean-sym.
 
 ## ✨ What's Changed ✨
+
+### Glean
+- Updated to v71.0.0 ([#7688](https://github.com/mozilla/application-services/pull/7688))
 
 ### Ads-Client
 - Telemetry is now a process-wide singleton internally; the binding API is unchanged, but the `MozAdsTelemetry` callback now receives metrics from every client in the process.

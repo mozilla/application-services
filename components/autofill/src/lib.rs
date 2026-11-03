@@ -14,11 +14,11 @@ pub mod sync;
 pub use crate::db::store::get_registered_sync_engine;
 
 // Expose stuff needed by the uniffi generated code.
-use crate::db::credit_cards::CreditCardsDeletionMetrics;
-use crate::db::models::address::*;
-use crate::db::models::credit_card::*;
-use crate::db::models::passport::*;
-use crate::db::store::Store;
+pub use crate::db::credit_cards::CreditCardsDeletionMetrics;
+pub use crate::db::models::address::*;
+pub use crate::db::models::credit_card::*;
+pub use crate::db::models::passport::*;
+pub use crate::db::store::Store;
 pub use crate::sync::{AddressesBridgedEngine, CreditCardsBridgedEngine};
 use db_crypto::{EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager};
 pub use error::{ApiResult, AutofillApiError, Error, Result};

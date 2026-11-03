@@ -30,7 +30,7 @@ fn test_bad_path_opens_memory_db() {
         .build()
         .expect("Should be able to build a bad path");
     assert!(
-        !good_path.is_memory(),
+        !good_path.is_memory().unwrap(),
         "A valid path should result in a file-based sqlite database"
     );
 
@@ -38,7 +38,7 @@ fn test_bad_path_opens_memory_db() {
         .build()
         .expect("Should be able to build a bad path");
     assert!(
-        bad_path.is_memory(),
+        bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
 

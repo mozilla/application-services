@@ -9,7 +9,7 @@ use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
-use crate::mars::ad_response::{AdResponse, AdResponseValue};
+use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
@@ -18,7 +18,6 @@ use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
-#[cfg(feature = "stateful")]
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -32,6 +31,10 @@ const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
 pub struct AdsClient {
+    inner: Arc<AdsClientInner>,
+}
+
+pub struct AdsClientInner {
     #[cfg(feature = "stateful")]
     ads_store: Arc<Option<AdsStore>>,
     client: MARSClient,
@@ -39,6 +42,116 @@ pub struct AdsClient {
 }
 
 impl AdsClient {
+    pub fn new(client_config: AdsClientConfig) -> Self {
+        let inner = Arc::new(AdsClientInner::new(client_config));
+        AdsClient { inner }
+    }
+
+    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+        self.inner.clear_cache()
+    }
+
+    #[cfg(test)]
+    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
+        self.inner.get_context_id()
+    }
+
+    pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
+        self.inner.record_click(click_url, ohttp)
+    }
+
+    pub fn record_impression(
+        &self,
+        impression_url: Url,
+        ohttp: bool,
+    ) -> Result<(), RecordImpressionError> {
+        self.inner.record_impression(impression_url, ohttp)
+    }
+
+    pub fn report_ad(
+        &self,
+        report_url: Url,
+        reason: ReportReason,
+        ohttp: bool,
+    ) -> Result<(), ReportAdError> {
+        self.inner.report_ad(report_url, reason, ohttp)
+    }
+
+    pub fn request_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
+        self.inner
+            .request_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn request_spoc_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
+        self.inner
+            .request_spoc_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn request_tile_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        relevance: AdRequestRelevance,
+    ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
+        self.inner.request_tile_ads(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            relevance,
+        )
+    }
+
+    pub fn request_spoc_or_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+    ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
+        self.inner
+            .request_spoc_or_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+    }
+
+    pub fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
+    #[cfg(test)]
+    fn request_ads(
+        &self,
+        placements: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        relevance: AdRequestRelevance,
+    ) -> Result<AdResponse, RequestAdsError> {
+        self.inner
+            .request_ads(placements, flags, options, ohttp, blocks, relevance)
+    }
+}
+
+impl AdsClientInner {
     pub fn new(client_config: AdsClientConfig) -> Self {
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
@@ -51,27 +164,38 @@ impl AdsClient {
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
-        let http_cache = client_config.cache_config.and_then(|cache_cfg| {
-            let default_cache_ttl = Duration::from_secs(
-                cache_cfg
-                    .default_cache_ttl_seconds
-                    .unwrap_or(DEFAULT_TTL_SECONDS),
-            );
-            let max_cache_size =
-                ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
+        let http_cache = client_config
+            .cache_config
+            .and_then(|cache_cfg| {
+                let default_cache_ttl = Duration::from_secs(
+                    cache_cfg
+                        .default_cache_ttl_seconds
+                        .unwrap_or(DEFAULT_TTL_SECONDS),
+                );
+                let max_cache_size =
+                    ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry::record_build_cache_error(&e);
-                    None
+                match HttpCache::builder(cache_cfg.db_path)
+                    .max_size(max_cache_size)
+                    .default_ttl(default_cache_ttl)
+                    .build()
+                {
+                    Ok(cache) => Some(cache),
+                    Err(e) => {
+                        telemetry::record_build_cache_error(&e);
+                        None
+                    }
                 }
-            }
-        });
+            })
+            .or_else(|| {
+                // If no `cache_config` is provided, create an in-memory db with default parameters.
+                // TODO: the `build` function should be infallible, and no error would be needed here.
+                // (true for both memory and FS, because FS would default to memory)
+                HttpCache::builder_memory()
+                    .build()
+                    .inspect_err(telemetry::record_build_cache_error)
+                    .ok()
+            });
 
         #[cfg(feature = "stateful")]
         let ads_store =
@@ -190,7 +314,7 @@ impl AdsClient {
         blocks: Vec<String>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads::<AdImage>(
+            .request_ads(
                 ad_placement_requests,
                 flags,
                 options,
@@ -202,7 +326,7 @@ impl AdsClient {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
             })?;
         telemetry::record_client_operation(ClientOperation::RequestAds);
-        Ok(response.take_first())
+        Ok(response.take_first::<AdImage>())
     }
 
     // relevance is not implemented for spocs, using an empty HashMap.
@@ -214,7 +338,7 @@ impl AdsClient {
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdSpoc>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -228,7 +352,7 @@ impl AdsClient {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.data
+                response.into_kind::<AdSpoc>()
             })
     }
 
@@ -244,7 +368,7 @@ impl AdsClient {
         ohttp: bool,
         blocks: Vec<String>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
-        let result = self.request_ads::<AdImageOrSpoc>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -258,7 +382,7 @@ impl AdsClient {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.data
+                response.into_kind::<AdImageOrSpoc>()
             })
     }
 
@@ -271,7 +395,7 @@ impl AdsClient {
         blocks: Vec<String>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads::<AdTile>(
+        let result = self.request_ads(
             ad_placement_requests,
             flags,
             options,
@@ -285,7 +409,7 @@ impl AdsClient {
             })
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.take_first()
+                response.take_first::<AdTile>()
             })
     }
 
@@ -300,7 +424,7 @@ impl AdsClient {
         self.client.shutdown_db();
     }
 
-    fn request_ads<A>(
+    fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -308,10 +432,7 @@ impl AdsClient {
         ohttp: bool,
         blocks: Vec<String>,
         relevance: AdRequestRelevance,
-    ) -> Result<AdResponse<A>, RequestAdsError>
-    where
-        A: AdResponseValue,
-    {
+    ) -> Result<AdResponse, RequestAdsError> {
         let context_id = if relevance.is_empty() {
             Some(self.get_context_id()?)
         } else {
@@ -319,7 +440,7 @@ impl AdsClient {
         };
 
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads::<A>(
+        let (mut response, request_hash) = self.client.fetch_ads(
             context_id,
             flags,
             placements,
@@ -349,10 +470,10 @@ mod tests {
     use super::*;
 
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
-        AdsClient {
+        let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
-                AdsStoreBuilder::new("test_store.db")
+                AdsStoreBuilder::new(crate::IN_MEMORY_DB_PATH)
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             )),
@@ -363,6 +484,9 @@ mod tests {
                 false,
                 Box::new(DefaultContextIdCallback),
             ),
+        });
+        AdsClient {
+            inner: inner.clone(),
         }
     }
 
@@ -563,9 +687,7 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_click_invalidates_cache")
-            .build()
-            .unwrap();
+        let cache = HttpCache::builder_memory().build().unwrap();
         let mars_client = MARSClient::new(Environment::Test, Some(cache));
         let ads_client = new_with_mars_client(mars_client);
 
@@ -606,7 +728,7 @@ mod tests {
         ads_client.record_click(callback_url, false).unwrap();
 
         ads_client
-            .request_ads::<AdImage>(
+            .request_ads(
                 make_happy_placement_requests(),
                 AdRequestFlags::default(),
                 Some(CachePolicy::default()),

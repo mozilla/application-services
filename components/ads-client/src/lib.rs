@@ -3,12 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use client::error::ComponentError;
 use error_support::handle_error;
 use mars::error::CallbackRequestError;
-use url::Url as AdsClientUrl;
+pub use url::Url as AdsClientUrl;
 
 use client::AdsClient;
 use http_cache::CachePolicy;
@@ -25,8 +25,13 @@ mod mars;
 #[cfg(feature = "stateful")]
 pub mod request;
 pub mod telemetry;
+#[cfg(feature = "stateful")]
+pub mod worker;
 
 pub use ffi::*;
+
+/// Path that makes SQLite open a private in-memory database.
+pub(crate) const IN_MEMORY_DB_PATH: &str = ":memory:";
 
 #[cfg(test)]
 mod test_utils;
@@ -38,10 +43,9 @@ uniffi::custom_type!(AdsClientUrl, String, {
     try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
     lower: |obj| obj.as_str().to_string(),
 });
-
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: AdsClient,
+    inner: Arc<AdsClient>,
 }
 
 #[uniffi::export]

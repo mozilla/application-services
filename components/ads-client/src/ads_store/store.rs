@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::ads::Ads;
+use crate::ads::Ad;
 use crate::ads_store::connection_initializer::AdsStoreConnectionInitializer;
 use crate::bytesize::ByteSize;
 use crate::clock::Clock;
@@ -62,6 +62,13 @@ impl AdsStoreHolder {
         self.db.close(true);
     }
 
+    /// Returns whether the db is in memory rather than backed by a file.
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        let (conn, _) = self.db.lock()?;
+        // SQLite reports an empty path for in-memory dbs.
+        Ok(conn.path() == Some(""))
+    }
+
     /// Returns total size of the cache in bytes.
     pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
         let (conn, _) = self.db.lock()?;
@@ -88,7 +95,7 @@ impl AdsStoreHolder {
         )?)
     }
 
-    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Ads>, FetchAdsError> {
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
             return Err(Self::forced_fault_error("forced lookup failure"))
@@ -116,14 +123,14 @@ impl AdsStoreHolder {
     }
 
     /// Upsert the ads for a placement, replacing any ads already stored for it.
-    pub fn store_ad(&self, placement_id: &PlacementId, ad: Ads) -> Result<(), FetchAdsError> {
+    pub fn store_ad(&self, placement_id: &PlacementId, ads: Vec<Ad>) -> Result<(), FetchAdsError> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(Self::forced_fault_error("forced store failure"))
                 .map_err(open_database::Error::from)?;
         }
         let placement_id_str: &str = placement_id.as_ref();
-        let ad_body = serde_json::to_vec(&ad)?;
+        let ad_body = serde_json::to_vec(&ads)?;
         let size_bytes = ad_body.len() as i64;
         let now = self.clock.now_epoch_seconds();
 
@@ -185,7 +192,6 @@ mod tests {
 
     use super::*;
     use crate::{
-        ads::AdSpoc,
         ads_store::connection_initializer::AdsStoreConnectionInitializer,
         test_utils::{get_example_happy_image_ads, get_example_happy_spoc_response},
     };
@@ -195,7 +201,7 @@ mod tests {
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
         let db = LazyDb::new(
-            Path::new(crate::ads_store::builder::IN_MEMORY_DB_PATH),
+            Path::new(crate::IN_MEMORY_DB_PATH),
             OpenFlags::default(),
             initializer,
         );
@@ -270,13 +276,12 @@ mod tests {
     fn test_store_keeps_every_ad_for_a_placement() {
         let store = create_test_store();
         let placement = PlacementId::new("mock_spoc_1");
-        let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
+        let ads: Vec<Ad> = get_example_happy_spoc_response()
             .data
             .into_values()
             .flatten()
             .collect();
-        assert!(spocs.len() > 1);
-        let ads = Ads::Spocs(spocs);
+        assert!(ads.len() > 1);
 
         store.store_ad(&placement, ads.clone()).unwrap();
 
@@ -287,16 +292,14 @@ mod tests {
     fn test_store_replaces_ads_for_a_placement() {
         let store = create_test_store();
         let placement = PlacementId::new("mock_spoc_1");
-        let spocs: Vec<AdSpoc> = get_example_happy_spoc_response()
+        let ads: Vec<Ad> = get_example_happy_spoc_response()
             .data
             .into_values()
             .flatten()
             .collect();
-        store
-            .store_ad(&placement, Ads::Spocs(spocs.clone()))
-            .unwrap();
+        store.store_ad(&placement, ads.clone()).unwrap();
 
-        let refreshed = Ads::Spocs(spocs[..1].to_vec());
+        let refreshed = ads[..1].to_vec();
         store.store_ad(&placement, refreshed.clone()).unwrap();
 
         assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));

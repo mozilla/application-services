@@ -204,16 +204,6 @@ pub(crate) fn update_credit_card_with_meta(
     let tx = conn.unchecked_transaction()?;
 
     let card = internal_credit_card_from_meta(encdec, fields, &meta)?;
-    // Checked up front because `update_internal_credit_card` does not report
-    // how many rows it changed.
-    let exists: bool = tx.query_row(
-        "SELECT EXISTS(SELECT 1 FROM credit_cards_data WHERE guid = :guid)",
-        rusqlite::named_params! { ":guid": card.guid },
-        |row| row.get(0),
-    )?;
-    if !exists {
-        return Err(Error::NoSuchRecord(card.guid.to_string()));
-    }
     update_internal_credit_card(
         &tx,
         &card,
@@ -353,7 +343,7 @@ pub(crate) fn update_internal_credit_card(
     counter: CounterUpdate,
 ) -> Result<()> {
     let (counter_sql, counter_value) = counter.as_sql();
-    tx.execute(
+    let rows_changed = tx.execute(
         &format!(
             "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
@@ -386,6 +376,9 @@ pub(crate) fn update_internal_credit_card(
             ":guid": card.guid,
         },
     )?;
+    if rows_changed == 0 {
+        return Err(Error::NoSuchRecord(card.guid.to_string()));
+    }
     Ok(())
 }
 
