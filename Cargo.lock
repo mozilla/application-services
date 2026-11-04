@@ -2470,6 +2470,7 @@ dependencies = [
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "nss-as",
  "uniffi",
  "viaduct",
