@@ -10,7 +10,7 @@ This directory builds the required libraries for iOS, Android and desktop platfo
 
 ### Build dependencies
 
-* [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
+* [gyp-next](https://github.com/nodejs/gyp-next) (see [building.md](../docs/building.md) for install instructions)
 * [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages)
 * [Tcl](https://www.tcl.tk/software/tcltk/)
 

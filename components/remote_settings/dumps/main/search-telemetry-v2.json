@@ -253,7 +253,7 @@
           "key": "has_ai_summary"
         }
       ],
-      "last_modified": 1779985790144,
+      "last_modified": 1790262186648,
       "organicCodes": [
         "startpage.udog"
       ],
@@ -262,13 +262,15 @@
         "q",
         "query"
       ],
-      "schema": 1779580811115,
+      "schema": 1789862407611,
       "searchPageMatches": [
         "https://www.startpage.com/sp/search*"
       ],
       "searchPageRegexp": "^https://www\\.startpage\\.com/sp/search",
       "subframes": [
         {
+          "inspectRegexpInParent": true,
+          "inspectRegexpInSERP": true,
           "regexp": "^https://www\\.startpage\\.com/sp/afs/ads"
         }
       ],
@@ -793,7 +795,7 @@
           "key": "has_ai_summary"
         }
       ],
-      "last_modified": 1774283138111,
+      "last_modified": 1790262186651,
       "nonAdsLinkQueryParamNames": [
         "url"
       ],
@@ -806,7 +808,7 @@
         "q",
         "lns_mode"
       ],
-      "schema": 1773964810753,
+      "schema": 1790260928016,
       "searchMode": {
         "lns_mode": "image_search"
       },
@@ -839,6 +841,7 @@
         "firefox-b-1-d",
         "firefox-b-1-dt",
         "firefox-b-e",
+        "firefox-b-exp1",
         "firefox-b-1-e",
         "firefox-b-m",
         "firefox-b-1-m",
@@ -1443,5 +1446,5 @@
       "telemetryId": "bing"
     }
   ],
-  "timestamp": 1786632246774
+  "timestamp": 1790262186651
 }

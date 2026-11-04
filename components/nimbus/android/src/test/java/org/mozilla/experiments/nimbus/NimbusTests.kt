@@ -1118,6 +1118,14 @@ class NimbusTests {
         nimbus.getFeatureUpdateDispatcher()?.addCallback("foo", { calls++ })
 
         nimbus.setExperimentParticipationOnThisThread(false)
+        assertEquals(
+            0,
+            NimbusEvents.rolloutsOptOut.testGetValue("events")?.size ?: 0,
+        )
+        assertEquals(
+            1,
+            NimbusEvents.studiesOptOut.testGetValue("events")?.size ?: 0,
+        )
         assertCalls(1)
 
         // The experiment won't re-enroll so there is no change.
@@ -1125,11 +1133,70 @@ class NimbusTests {
         assertCalls(1)
 
         nimbus.setRolloutParticipationOnThisThread(false)
+        assertEquals(
+            1,
+            NimbusEvents.rolloutsOptOut.testGetValue("events")?.size ?: 0,
+        )
+        assertEquals(
+            1,
+            NimbusEvents.studiesOptOut.testGetValue("events")?.size ?: 0,
+        )
         assertCalls(2)
 
         // Rollout do re-enroll, so there is a change here.
         nimbus.setRolloutParticipationOnThisThread(true)
         assertCalls(3)
+    }
+
+    @Test
+    fun `setExperimentParticipation et al trigger telemetry`() {
+        fun getRolloutsOptOutCount() = NimbusEvents.rolloutsOptOut.testGetValue("events")?.size ?: 0
+        fun getStudiesOptOutCount() = NimbusEvents.studiesOptOut.testGetValue("events")?.size ?: 0
+
+        assertTrue(nimbus.experimentParticipation)
+        assertTrue(nimbus.rolloutParticipation)
+        assertEquals(0, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setRolloutParticipationOnThisThread(true)
+        assertEquals(0, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setRolloutParticipationOnThisThread(false)
+        assertEquals(1, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setRolloutParticipationOnThisThread(false)
+        assertEquals(1, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setRolloutParticipationOnThisThread(true)
+        assertEquals(1, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setRolloutParticipationOnThisThread(false)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setExperimentParticipationOnThisThread(true)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(0, getStudiesOptOutCount())
+
+        nimbus.setExperimentParticipationOnThisThread(false)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(1, getStudiesOptOutCount())
+
+        nimbus.setExperimentParticipationOnThisThread(false)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(1, getStudiesOptOutCount())
+
+        nimbus.setExperimentParticipationOnThisThread(true)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(1, getStudiesOptOutCount())
+
+        nimbus.setExperimentParticipationOnThisThread(false)
+        assertEquals(2, getRolloutsOptOutCount())
+        assertEquals(2, getStudiesOptOutCount())
     }
 
     @Test

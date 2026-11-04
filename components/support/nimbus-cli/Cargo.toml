@@ -20,7 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
 unicode-segmentation = "1.8.0"
 viaduct = { path = "../../viaduct" }
-viaduct-hyper = { path = "../../support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../support/viaduct-backend-rust" }
 glob = "0.3.1"
 heck = "0.5"
 whoami = "1.4.0"

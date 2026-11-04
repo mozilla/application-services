@@ -12,7 +12,7 @@ use ads_client::{
 };
 
 fn init_backend() {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 }
 
 fn prod_client() -> ads_client::MozAdsClient {
@@ -96,6 +96,57 @@ fn test_contract_spoc_prod() {
     let placements = result.unwrap();
     assert!(placements.contains_key("mock_spoc_1"));
     assert!(placements.get("mock_spoc_1").unwrap().len() == 3);
+}
+
+// Note: this test does not actually test a mock placement that returns spoc *and* image ads, as no such placement currently exists,
+// and direct staging calls may be stochastic (depends on inventory, etc.).
+// TODO: When such a mock placement exists, add a test for it.
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_contract_spoc_or_image_spocs_prod() {
+    init_backend();
+
+    let client = prod_client();
+    let result = client.request_spoc_or_image_ads(
+        vec![MozAdsPlacementRequestWithCount {
+            count: 3,
+            iab_content: None,
+            placement_id: "mock_spoc_1".to_string(),
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_spoc_1"));
+    assert!(placements.get("mock_spoc_1").unwrap().len() == 3);
+}
+
+// Note: this test does not actually test a mock placement that returns spoc *and* image ads, as no such placement currently exists,
+// and direct staging calls may be stochastic (depends on inventory, etc.).
+// TODO: When such a mock placement exists, add a test for it.
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_contract_spoc_or_image_images_prod() {
+    init_backend();
+
+    let client = prod_client();
+    let result = client.request_spoc_or_image_ads(
+        vec![MozAdsPlacementRequestWithCount {
+            count: 1,
+            iab_content: None,
+            placement_id: "mock_billboard_1".to_string(),
+        }],
+        None,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Image ad request failed: {:?}",
+        result.err()
+    );
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_billboard_1"));
 }
 
 #[test]
@@ -216,8 +267,8 @@ fn test_contract_tile_ohttp_prod() {
     viaduct::ohttp::configure_ohttp_channel(
         "ads-client".to_string(),
         viaduct::ohttp::OhttpConfig {
-            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
             gateway_host: "prod.ohttp-gateway.prod.webservices.mozgcp.net".to_string(),
+            relay_url: "https://mozilla-ohttp.fastly-edge.com/".to_string(),
         },
     )
     .expect("OHTTP channel configuration should succeed");

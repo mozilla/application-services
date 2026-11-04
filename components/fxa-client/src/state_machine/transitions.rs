@@ -163,9 +163,30 @@ pub fn transition(
         }
         (S::Connected, E::CheckAuthorizationStatus) => {
             // check_authorization_status() failing should leave us in the original state.
+            #[cfg(not(target_os = "ios"))]
+            let active = match account.check_authorization_status() {
+                Ok(active) => active,
+                // Missing a refresh/session token means this check failed
+                // https://bugzilla.mozilla.org/show_bug.cgi?id=2084260
+                Err(Error::NoRefreshToken) | Err(Error::NoSessionToken) => false,
+                // Any other error means this check was inconclusive.
+                // Keep the user in the `Connected` state.
+                Err(e) => {
+                    return Err(StateMachineErr::Handled {
+                        cause: Box::new(e),
+                        target: S::Connected,
+                    })
+                }
+            };
+
+            // However, this isn't working properly on iOS.
+            // Let's revert for now.
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=2084252
+            #[cfg(target_os = "ios")]
             let active = account
                 .check_authorization_status()
-                .to_state_machine_err(|| S::Connected)?;
+                .to_state_machine_err(|| S::AuthIssues)?;
+
             if active {
                 Ok(S::Connected)
             } else {

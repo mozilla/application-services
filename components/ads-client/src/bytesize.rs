@@ -5,7 +5,7 @@
 use std::fmt;
 use std::ops;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteSize(u64);
 
 impl ByteSize {
@@ -42,7 +42,7 @@ impl fmt::Display for ByteSize {
         } else if bytes_u64 >= 1024 {
             write!(f, "{} KB", bytes_u64 / 1024)
         } else {
-            write!(f, "{} bytes", bytes_u64)
+            write!(f, "{bytes_u64} bytes")
         }
     }
 }

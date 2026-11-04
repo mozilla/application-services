@@ -4,11 +4,15 @@
 
 package mozilla.appservices.viaduct
 
+import mozilla.components.concept.fetch.Headers.Names.CONTENT_LENGTH
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import mozilla.components.concept.fetch.Client as FetchClient
 import mozilla.components.concept.fetch.Header as FetchHeader
 import mozilla.components.concept.fetch.MutableHeaders as FetchMutableHeaders
 import mozilla.components.concept.fetch.Request as FetchRequest
+
+private const val DEFAULT_INITIAL_BUFFER_SIZE = 8 * 1024
 
 internal class FetchBackend(val client: Lazy<FetchClient>) : Backend {
     override suspend fun sendRequest(request: Request, settings: ClientSettings): Response {
@@ -60,7 +64,21 @@ internal class FetchBackend(val client: Lazy<FetchClient>) : Backend {
                 .map { Pair(it.name, it.value) }
                 .toMap(),
             body = fetchResp.body.useStream {
-                it.readBytes()
+                // Use the content-length header as the initial size of our buffer.
+                // If present and correct, this means we won't need to resize the buffer.
+                //
+                // Note: We're trusting the remote server to not pass us a content-length value
+                // that's too large and will cause an OOM error.
+                // We should probably set a max body size at some point.
+                // However, that would need to happen for viaduct as a whole not this backend.
+                val initialBufferSize = fetchResp.headers[CONTENT_LENGTH]
+                    ?.trim()
+                    ?.toIntOrNull()
+                    ?.coerceIn(0, Int.MAX_VALUE)
+                    ?: DEFAULT_INITIAL_BUFFER_SIZE
+                val buffer = ByteArrayOutputStream(initialBufferSize)
+                it.copyTo(buffer)
+                buffer.toByteArray()
             },
         )
     }

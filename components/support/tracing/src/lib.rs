@@ -13,7 +13,7 @@ pub use filters::{
 
 pub use layer::{
     register_event_sink, register_event_sink_box, simple_event_layer, unregister_event_sink,
-    EventSinkId, EventSinkSpecification, EventTarget,
+    EventSinkId, EventSinkSpecification, EventTarget, SimpleEventFilter,
 };
 // Re-export tracing so that our dependencies can use it.
 pub use tracing;
@@ -160,7 +160,7 @@ pub trait EventSink: Send + Sync {
     fn on_event(&self, event: Event);
 }
 
-use serde_json::Value as TracingJsonValue;
+pub use serde_json::Value as TracingJsonValue;
 
 uniffi::custom_type!(TracingJsonValue, String, {
     remote,

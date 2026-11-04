@@ -14,10 +14,13 @@ pub mod error;
 pub mod metrics;
 pub mod schema;
 
-pub use crate::enrollment::{EnrolledFeature, EnrollmentStatus};
+pub use crate::enrollment::{
+    EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentStatus,
+};
 pub use crate::error::{NimbusError, Result};
 #[cfg(debug_assertions)]
 pub use crate::evaluator::evaluate_enrollment;
+pub use crate::metrics::*;
 pub use crate::schema::*;
 pub use crate::targeting::NimbusTargetingHelper;
 
@@ -28,8 +31,13 @@ cfg_if::cfg_if! {
 
         pub use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer};
 
-        pub use crate::stateful::nimbus_client::*;
+        pub use crate::stateful::client::NimbusServerSettings;
+        pub use crate::stateful::evaluator::*;
+        pub use crate::stateful::gecko_prefs::*;
         pub use crate::stateful::matcher::AppContext;
+        pub use crate::stateful::nimbus_client::*;
+        pub use crate::stateful::targeting::*;
+        pub use crate::stateful::firefox_labs::*;
     } else {
         pub mod stateless;
 
@@ -39,7 +47,7 @@ cfg_if::cfg_if! {
 }
 
 #[cfg(feature = "stateful-uniffi-bindings")]
-use json::{JsonObject, PrefValue};
+pub use json::{JsonObject, PrefValue};
 
 #[cfg(feature = "stateful-uniffi-bindings")]
 uniffi::custom_type!(JsonObject, String, {

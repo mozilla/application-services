@@ -53,7 +53,7 @@ tasks:
         - [ "mv", "artifacts", "../../"]
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]
-      use-caches: true
+      use-caches: [checkout]
     fetches:
       toolchain:
         - rust-osx

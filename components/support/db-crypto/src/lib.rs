@@ -20,3 +20,18 @@ pub use crate::encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
 pub use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
+use std::sync::Arc;
+
+// Utility function to create a StaticKeyManager to be used for the time being until support lands
+// for [trait implementation of an UniFFI
+// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+// in UniFFI.
+pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
+    Arc::new(StaticKeyManager::new(key))
+}
+
+// Similar to create_static_key_manager above, create a
+// ManagedEncryptorDecryptor by passing in a KeyManager
+pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
+    Arc::new(ManagedEncryptorDecryptor::new(key_manager))
+}
