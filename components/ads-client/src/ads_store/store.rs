@@ -178,172 +178,204 @@ mod tests {
     use rusqlite::OpenFlags;
     use sql_support::{open_database, LazyDb};
 
-    fn create_test_store() -> AdsStoreHolder {
+    fn create_test_stores() -> Vec<(&'static str, AdsStoreHolder)> {
+        let mut stores = vec![];
+
         let initializer = AdsStoreConnectionInitializer {};
         let db = LazyDb::new(
             Path::new(crate::IN_MEMORY_DB_PATH),
             OpenFlags::default(),
             initializer,
         );
-        AdsStoreHolder::new_with_test_clock(Box::new(db))
+        stores.push((
+            "sqlite memory",
+            AdsStoreHolder::new_with_test_clock(Box::new(db)),
+        ));
+
+        stores
     }
 
     #[test]
     fn test_lookup_fault_injection() {
-        let store = create_test_store();
-        store.set_fault(FaultKind::Lookup);
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            store.set_fault(FaultKind::Lookup);
 
-        let (placement, _) = get_example_happy_image_ads("mock_billboard_1");
-        let err = store.lookup(&placement).unwrap_err();
+            let (placement, _) = get_example_happy_image_ads("mock_billboard_1");
+            let err = store.lookup(&placement).unwrap_err();
 
-        match err {
-            FetchAdsError::Sqlite(open_database::Error::SqlError(
-                rusqlite::Error::SqliteFailure(_, Some(msg)),
-            )) => {
-                assert!(msg.contains("forced lookup failure"));
+            match err {
+                FetchAdsError::Sqlite(open_database::Error::SqlError(
+                    rusqlite::Error::SqliteFailure(_, Some(msg)),
+                )) => {
+                    assert!(msg.contains("forced lookup failure"));
+                }
+                other => panic!("unexpected error: {other:?}"),
             }
-            other => panic!("unexpected error: {other:?}"),
         }
     }
-
     #[test]
     fn test_store_fault_injection() {
-        let store = create_test_store();
-        store.set_fault(FaultKind::Store);
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            store.set_fault(FaultKind::Store);
 
-        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
+            let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        let err = store.store_ad(&placement, &ad).unwrap_err();
-        match err {
-            FetchAdsError::Sqlite(open_database::Error::SqlError(
-                rusqlite::Error::SqliteFailure(_, Some(msg)),
-            )) => {
-                assert!(msg.contains("forced store failure"));
+            let err = store.store_ad(&placement, &ad).unwrap_err();
+            match err {
+                FetchAdsError::Sqlite(open_database::Error::SqlError(
+                    rusqlite::Error::SqliteFailure(_, Some(msg)),
+                )) => {
+                    assert!(msg.contains("forced store failure"));
+                }
+                other => panic!("unexpected error: {other:?}"),
             }
-            other => panic!("unexpected error: {other:?}"),
         }
     }
 
     #[test]
     fn test_trim_fault_injection() {
-        let store = create_test_store();
-        store.set_fault(FaultKind::Trim);
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            store.set_fault(FaultKind::Trim);
 
-        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
-        store.store_ad(&placement, &ad).unwrap();
+            let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
+            store.store_ad(&placement, &ad).unwrap();
 
-        let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
-        match err {
-            open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
-                assert!(msg.contains("forced trim failure"));
+            let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
+            match err {
+                open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
+                    assert!(msg.contains("forced trim failure"));
+                }
+                other => panic!("unexpected error: {other:?}"),
             }
-            other => panic!("unexpected error: {other:?}"),
         }
     }
 
     #[test]
     fn test_store_and_retrieve_ads() {
-        let store = create_test_store();
-        let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            let (placement, ad) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement, &ad).unwrap();
+            store.store_ad(&placement, &ad).unwrap();
 
-        let retrieved = store.lookup(&placement).unwrap().unwrap();
-        assert_eq!(retrieved, ad);
+            let retrieved = store.lookup(&placement).unwrap().unwrap();
+            assert_eq!(retrieved, ad);
+        }
     }
 
     #[test]
     fn test_store_keeps_every_ad_for_a_placement() {
-        let store = create_test_store();
-        let placement = PlacementId::new("mock_spoc_1");
-        let ads: Vec<Ad> = get_example_happy_spoc_response()
-            .data
-            .into_values()
-            .flatten()
-            .collect();
-        assert!(ads.len() > 1);
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            let placement = PlacementId::new("mock_spoc_1");
+            let ads: Vec<Ad> = get_example_happy_spoc_response()
+                .data
+                .into_values()
+                .flatten()
+                .collect();
+            assert!(ads.len() > 1);
 
-        store.store_ad(&placement, &ads).unwrap();
+            store.store_ad(&placement, &ads).unwrap();
 
-        assert_eq!(store.lookup(&placement).unwrap(), Some(ads));
+            assert_eq!(store.lookup(&placement).unwrap(), Some(ads));
+        }
     }
 
     #[test]
     fn test_store_replaces_ads_for_a_placement() {
-        let store = create_test_store();
-        let placement = PlacementId::new("mock_spoc_1");
-        let ads: Vec<Ad> = get_example_happy_spoc_response()
-            .data
-            .into_values()
-            .flatten()
-            .collect();
-        store.store_ad(&placement, &ads).unwrap();
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            let placement = PlacementId::new("mock_spoc_1");
+            let ads: Vec<Ad> = get_example_happy_spoc_response()
+                .data
+                .into_values()
+                .flatten()
+                .collect();
+            store.store_ad(&placement, &ads).unwrap();
 
-        let refreshed = ads[..1].to_vec();
-        store.store_ad(&placement, &refreshed).unwrap();
+            let refreshed = ads[..1].to_vec();
+            store.store_ad(&placement, &refreshed).unwrap();
 
-        assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));
+            assert_eq!(store.lookup(&placement).unwrap(), Some(refreshed));
+        }
     }
 
     #[test]
     fn test_max_size_eviction_ads() {
-        let store = create_test_store();
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            for i in 0..10 {
+                let (placement_id, ad) =
+                    get_example_happy_image_ads(&format!("mock_billboard_{i}"));
+                store.store_ad(&placement_id, &ad).unwrap();
+            }
 
-        for i in 0..10 {
-            let (placement_id, ad) = get_example_happy_image_ads(&format!("mock_billboard_{i}"));
-            store.store_ad(&placement_id, &ad).unwrap();
+            let total_size = store.current_total_size_bytes().unwrap();
+            assert!(total_size.as_u64() >= 1024);
+
+            store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
+
+            let total_size = store.current_total_size_bytes().unwrap();
+            assert!(total_size.as_u64() <= 1024);
+
+            let first_placement_id = PlacementId::new("mock_billboard_0");
+            let first_cached = store.lookup(&first_placement_id).unwrap();
+            assert!(first_cached.is_none());
         }
-
-        let total_size = store.current_total_size_bytes().unwrap();
-        assert!(total_size.as_u64() >= 1024);
-
-        store.trim_to_max_size(&ByteSize::kib(1)).unwrap();
-
-        let total_size = store.current_total_size_bytes().unwrap();
-        assert!(total_size.as_u64() <= 1024);
-
-        let first_placement_id = PlacementId::new("mock_billboard_0");
-        let first_cached = store.lookup(&first_placement_id).unwrap();
-        assert!(first_cached.is_none());
     }
 
     #[test]
     fn test_clear_all_ads() {
-        let store = create_test_store();
-        let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
 
-        store.store_ad(&placement_1, &ad_1).unwrap();
+            store.store_ad(&placement_1, &ad_1).unwrap();
 
-        let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
-        store.store_ad(&placement_2, &ad_2).unwrap();
+            let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
+            store.store_ad(&placement_2, &ad_2).unwrap();
 
-        assert!(store.lookup(&placement_1).unwrap().is_some());
-        assert!(store.lookup(&placement_2).unwrap().is_some());
+            assert!(store.lookup(&placement_1).unwrap().is_some());
+            assert!(store.lookup(&placement_2).unwrap().is_some());
 
-        let deleted_count = store.clear_all().unwrap();
-        assert_eq!(deleted_count, 2);
+            let deleted_count = store.clear_all().unwrap();
+            assert_eq!(deleted_count, 2);
 
-        assert!(store.lookup(&placement_1).unwrap().is_none());
-        assert!(store.lookup(&placement_2).unwrap().is_none());
+            assert!(store.lookup(&placement_1).unwrap().is_none());
+            assert!(store.lookup(&placement_2).unwrap().is_none());
+        }
     }
 
     #[test]
     fn test_invalidate_ad_by_placement_id() {
-        let store = create_test_store();
+        let stores = create_test_stores();
+        for (label, store) in stores {
+            println!("Store: {label}");
+            let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
+            let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
 
-        let (placement_1, ad_1) = get_example_happy_image_ads("mock_billboard_1");
-        let (placement_2, ad_2) = get_example_happy_image_ads("mock_billboard_2");
+            store.store_ad(&placement_1, &ad_1).unwrap();
+            store.store_ad(&placement_2, &ad_2).unwrap();
 
-        store.store_ad(&placement_1, &ad_1).unwrap();
-        store.store_ad(&placement_2, &ad_2).unwrap();
+            assert!(store.lookup(&placement_1).unwrap().is_some());
+            assert!(store.lookup(&placement_2).unwrap().is_some());
 
-        assert!(store.lookup(&placement_1).unwrap().is_some());
-        assert!(store.lookup(&placement_2).unwrap().is_some());
+            let deleted = store.invalidate_ad_by_id(&placement_1).unwrap();
+            assert_eq!(deleted, 1);
 
-        let deleted = store.invalidate_ad_by_id(&placement_1).unwrap();
-        assert_eq!(deleted, 1);
-
-        assert!(store.lookup(&placement_1).unwrap().is_none());
-        assert!(store.lookup(&placement_2).unwrap().is_some());
+            assert!(store.lookup(&placement_1).unwrap().is_none());
+            assert!(store.lookup(&placement_2).unwrap().is_some());
+        }
     }
 }
