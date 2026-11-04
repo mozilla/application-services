@@ -3,12 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ads::Ad;
-use crate::ads_store::connection_initializer::AdsStoreConnectionInitializer;
 use crate::bytesize::ByteSize;
 use crate::clock::Clock;
 use crate::mars::error::FetchAdsError;
 use crate::{ads::PlacementId, clock::CacheClock};
-use sql_support::{open_database, LazyDb};
+use sql_support::open_database;
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -28,7 +27,6 @@ pub trait AdsStoreDb: Send + Sync + 'static {
     fn close(&self);
     fn clear_all(&self) -> Result<usize, open_database::Error>;
 
-    // TODO: Unused?
     /// Removes all entries from the store whose expires_at is at or before the current time.
     fn delete_expired_entries(&self, clock: Arc<dyn Clock>) -> Result<usize, open_database::Error>;
 
@@ -69,22 +67,22 @@ pub struct AdsStoreHolder {
 }
 
 impl AdsStoreHolder {
-    pub fn new(db: LazyDb<AdsStoreConnectionInitializer>) -> Self {
+    pub fn new(db: Box<dyn AdsStoreDb>) -> Self {
         Self {
             clock: Arc::new(CacheClock),
-            db: Box::new(db),
+            db,
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_test_clock(db: LazyDb<AdsStoreConnectionInitializer>) -> Self {
+    pub fn new_with_test_clock(db: Box<dyn AdsStoreDb>) -> Self {
         use crate::clock::TestClock;
 
         Self {
             clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
-            db: Box::new(db),
+            db,
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
@@ -178,7 +176,7 @@ mod tests {
         test_utils::{get_example_happy_image_ads, get_example_happy_spoc_response},
     };
     use rusqlite::OpenFlags;
-    use sql_support::open_database;
+    use sql_support::{open_database, LazyDb};
 
     fn create_test_store() -> AdsStoreHolder {
         let initializer = AdsStoreConnectionInitializer {};
@@ -187,7 +185,7 @@ mod tests {
             OpenFlags::default(),
             initializer,
         );
-        AdsStoreHolder::new_with_test_clock(db)
+        AdsStoreHolder::new_with_test_clock(Box::new(db))
     }
 
     #[test]
