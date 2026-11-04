@@ -8,24 +8,21 @@ release tasks.
 """
 
 import os
+from typing import Optional
 
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.transforms.task import task_description_schema
 from taskgraph.util.schema import Schema
 from taskgraph.util.workertypes import worker_type_implementation
-from voluptuous import Extra, Optional, Required
 
 transforms = TransformSequence()
 
-release_artifacts_schema = Schema(
-    {
-        Required("worker-type"): task_description_schema["worker-type"],
-        Optional("release-artifacts"): [str],
-        Extra: object,
-    }
-)
 
-transforms.add_validate(release_artifacts_schema)
+class ReleaseArtifactsSchema(Schema, forbid_unknown_fields=False):
+    worker_type: str
+    release_artifacts: Optional[list[str]] = None
+
+
+transforms.add_validate(ReleaseArtifactsSchema)
 
 
 @transforms.add

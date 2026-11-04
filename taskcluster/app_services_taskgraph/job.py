@@ -4,53 +4,49 @@
 
 
 from shlex import quote as shell_quote
+from typing import Literal, Optional, Union
 
 from taskgraph.transforms.run import configure_taskdesc_for_run, run_task_using
-from taskgraph.util.schema import Schema, taskref_or_string
-from voluptuous import Optional, Required
-
-secret_schema = {
-    Required("name"): str,
-    Required("path"): str,
-    Required("key"): str,
-    Optional("json"): bool,
-}
-
-dummy_secret_schema = {
-    Required("content"): str,
-    Required("path"): str,
-    Optional("json"): bool,
-}
-
-gradlew_schema = Schema(
-    {
-        Required("using"): "gradlew",
-        Optional("pre-gradlew"): [[str]],
-        Required("gradlew"): [str],
-        Optional("post-gradlew"): [[str]],
-        # Base work directory used to set up the task.
-        Required("workdir"): str,
-        Optional("use-caches"): bool,
-        Optional("secrets"): [secret_schema],
-        Optional("dummy-secrets"): [dummy_secret_schema],
-    }
-)
-
-run_commands_schema = Schema(
-    {
-        Required("using"): "run-commands",
-        Optional("pre-commands"): [[str]],
-        Required("commands"): [[taskref_or_string]],
-        Required("workdir"): str,
-        Optional("use-caches"): bool,
-        Optional("secrets"): [secret_schema],
-        Optional("dummy-secrets"): [dummy_secret_schema],
-        Optional("run-task-command"): [str],
-    }
-)
+from taskgraph.util.schema import Schema, taskref_or_string_msgspec
 
 
-@run_task_using("docker-worker", "run-commands", schema=run_commands_schema)
+class SecretSchema(Schema):
+    name: str
+    path: str
+    key: str
+    json: Optional[bool] = None
+
+
+class DummySecretSchema(Schema):
+    content: str
+    path: str
+    json: Optional[bool] = None
+
+
+class GradlewRunSchema(Schema):
+    using: Literal["gradlew"]
+    gradlew: list[str]
+    # Base work directory used to set up the task.
+    workdir: str
+    pre_gradlew: Optional[list[list[str]]] = None
+    post_gradlew: Optional[list[list[str]]] = None
+    use_caches: Optional[Union[bool, list[str]]] = None
+    secrets: Optional[list[SecretSchema]] = None
+    dummy_secrets: Optional[list[DummySecretSchema]] = None
+
+
+class RunCommandsRunSchema(Schema):
+    using: Literal["run-commands"]
+    commands: list[list[taskref_or_string_msgspec]]
+    workdir: str
+    pre_commands: Optional[list[list[str]]] = None
+    use_caches: Optional[Union[bool, list[str]]] = None
+    secrets: Optional[list[SecretSchema]] = None
+    dummy_secrets: Optional[list[DummySecretSchema]] = None
+    run_task_command: Optional[list[str]] = None
+
+
+@run_task_using("docker-worker", "run-commands", schema=RunCommandsRunSchema)
 def configure_run_commands_schema(config, job, taskdesc):
     run = job["run"]
     pre_commands = run.pop("pre-commands", [])
@@ -70,7 +66,7 @@ def configure_run_commands_schema(config, job, taskdesc):
     configure_taskdesc_for_run(config, job, taskdesc, job["worker"]["implementation"])
 
 
-@run_task_using("generic-worker", "run-commands", schema=run_commands_schema)
+@run_task_using("generic-worker", "run-commands", schema=RunCommandsRunSchema)
 def configure_run_commands_schema_generic(config, job, taskdesc):
     run = job["run"]
     pre_commands = run.pop("pre-commands", [])
@@ -90,7 +86,7 @@ def configure_run_commands_schema_generic(config, job, taskdesc):
     configure_taskdesc_for_run(config, job, taskdesc, job["worker"]["implementation"])
 
 
-@run_task_using("docker-worker", "gradlew", schema=gradlew_schema)
+@run_task_using("docker-worker", "gradlew", schema=GradlewRunSchema)
 def configure_gradlew(config, job, taskdesc):
     run = job["run"]
     taskdesc["worker"] = job["worker"]

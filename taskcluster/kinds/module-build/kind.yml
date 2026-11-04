@@ -38,7 +38,7 @@ task-defaults:
       - ':{module_name}:publish'
       - ':{module_name}:checkMavenArtifacts'
     using: gradlew
-    use-caches: true
+    use-caches: [checkout]
 
   fetches:
     toolchain:

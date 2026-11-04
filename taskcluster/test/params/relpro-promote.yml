@@ -8,7 +8,7 @@ do_not_optimize: []
 enable_always_target: true
 existing_tasks:
   Build summary task: YEuUOoVbRNeGKtOvBJlInQ
-  build-docker-image-linux: CD--BKGXRAOfpGJviIxY6w
+  docker-image-linux: CD--BKGXRAOfpGJviIxY6w
   fetch-go-1.14.4: LUCoOzsCTTeWJgSSDszEvg
   lint-detekt: CipDmbrkQH2ccXSGtrStZA
   lint-ktlint: ckD6DYUOQleJp7ng7OmfZA
