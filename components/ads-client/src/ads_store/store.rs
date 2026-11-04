@@ -8,7 +8,6 @@ use crate::bytesize::ByteSize;
 use crate::clock::Clock;
 use crate::mars::error::FetchAdsError;
 use crate::{ads::PlacementId, clock::CacheClock};
-use rusqlite::{params, OptionalExtension};
 use sql_support::{open_database, LazyDb};
 use std::sync::Arc;
 
@@ -21,9 +20,50 @@ pub enum FaultKind {
     Trim,
 }
 
+// Generic AdsStore trait reflecting all the functions that are required.
+// This allows implementation by both:
+// - sqlite database
+// - in-memory structural 'database' (as a fallback)
+pub trait AdsStoreDb: Send + Sync + 'static {
+    fn close(&self);
+    fn clear_all(&self) -> Result<usize, open_database::Error>;
+
+    // TODO: Unused?
+    /// Removes all entries from the store whose expires_at is at or before the current time.
+    fn delete_expired_entries(&self, clock: Arc<dyn Clock>) -> Result<usize, open_database::Error>;
+
+    fn invalidate_ad_by_id(
+        &self,
+        placement_id: &PlacementId,
+    ) -> Result<usize, open_database::Error>;
+
+    /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
+    fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError>;
+
+    /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
+    /// Calling this method will always store an object regardless of headers or policy.
+    /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
+    fn store_ad(
+        &self,
+        placement_id: &PlacementId,
+        ads: &[Ad],
+        clock: Arc<dyn Clock>,
+    ) -> Result<(), FetchAdsError>;
+
+    /// Deletes the oldest entries until the cache fits in `max_size`.
+    fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error>;
+
+    /// Returns whether the db is in memory rather than backed by a file.
+    fn is_memory(&self) -> Result<bool, open_database::Error>;
+
+    /// Test only: returns total size of the cache in bytes.
+    #[cfg(test)]
+    fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error>;
+}
+
 pub struct AdsStoreHolder {
     clock: Arc<dyn Clock>,
-    db: LazyDb<AdsStoreConnectionInitializer>,
+    db: Box<dyn AdsStoreDb>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }
@@ -32,7 +72,7 @@ impl AdsStoreHolder {
     pub fn new(db: LazyDb<AdsStoreConnectionInitializer>) -> Self {
         Self {
             clock: Arc::new(CacheClock),
-            db,
+            db: Box::new(db),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
@@ -44,7 +84,7 @@ impl AdsStoreHolder {
 
         Self {
             clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
-            db,
+            db: Box::new(db),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
@@ -52,31 +92,22 @@ impl AdsStoreHolder {
 
     /// Removes all entries from cache.
     pub fn clear_all(&self) -> Result<usize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        let mut total = 0;
-        total += conn.execute("DELETE FROM ads", [])?;
-        Ok(total)
+        self.db.clear_all()
     }
 
     pub fn close(&self) {
-        self.db.close(true);
+        self.db.close();
     }
 
     /// Returns whether the db is in memory rather than backed by a file.
     pub fn is_memory(&self) -> Result<bool, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        // SQLite reports an empty path for in-memory dbs.
-        Ok(conn.path() == Some(""))
+        self.db.is_memory()
     }
 
     /// Returns total size of the cache in bytes.
+    #[cfg(test)]
     pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        let size_bytes_ads: u64 =
-            conn.query_row("SELECT COALESCE(SUM(size_bytes),0) FROM ads", [], |row| {
-                row.get(0)
-            })?;
-        Ok(ByteSize::b(size_bytes_ads))
+        self.db.current_total_size_bytes()
     }
 
     #[cfg(test)]
@@ -88,11 +119,7 @@ impl AdsStoreHolder {
         &self,
         placement_id: &PlacementId,
     ) -> Result<usize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        Ok(conn.execute(
-            "DELETE FROM ads WHERE placement_id = ?1",
-            params![&placement_id.as_ref()],
-        )?)
+        self.db.invalidate_ad_by_id(placement_id)
     }
 
     pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
@@ -102,21 +129,7 @@ impl AdsStoreHolder {
                 "forced lookup failure",
             )))?;
         }
-        let (conn, _) = self.db.lock()?;
-        let res = conn
-            .query_row(
-                "SELECT placement_id, ad_body
-                 FROM ads
-                 WHERE placement_id = ?1",
-                params![placement_id.as_ref()],
-                |row| {
-                    let ad_body: Vec<u8> = row.get(1)?;
-                    Ok(ad_body)
-                },
-            )
-            .optional()
-            .map_err(open_database::Error::from)?;
-        Ok(res.map(|x| serde_json::from_slice(&x)).transpose()?)
+        self.db.lookup(placement_id)
     }
 
     #[cfg(test)]
@@ -132,28 +145,7 @@ impl AdsStoreHolder {
                 "forced store failure",
             )))?;
         }
-        let placement_id_str: &str = placement_id.as_ref();
-        let ad_body = serde_json::to_vec(&ads)?;
-        let size_bytes = ad_body.len() as i64;
-        let now = self.clock.now_epoch_seconds();
-
-        let (conn, _) = self.db.lock()?;
-        conn.execute(
-            "INSERT INTO ads (
-                stored_at,
-                placement_id,
-                ad_body,
-                size_bytes
-            )
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT(placement_id) DO UPDATE SET
-                stored_at=excluded.stored_at,
-                ad_body=excluded.ad_body,
-                size_bytes=excluded.size_bytes",
-            params![now, placement_id_str, ad_body, size_bytes,],
-        )
-        .map_err(open_database::Error::from)?;
-        Ok(())
+        self.db.store_ad(placement_id, ads, self.clock.clone())
     }
 
     pub fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
@@ -161,23 +153,7 @@ impl AdsStoreHolder {
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"))?;
         }
-        // Keeps the newest rows that fit in `max_size` and deletes the rest,
-        // in one statement.
-        let (conn, _) = self.db.lock()?;
-        conn.execute(
-            "DELETE FROM ads
-             WHERE rowid IN (
-                 SELECT rowid
-                 FROM (
-                     SELECT rowid,
-                            SUM(size_bytes) OVER (ORDER BY stored_at DESC, rowid DESC) AS kept_bytes
-                     FROM ads
-                 )
-                 WHERE kept_bytes > ?1
-             )",
-            params![max_size.as_u64()],
-        )?;
-        Ok(())
+        self.db.trim_to_max_size(max_size)
     }
 
     #[cfg(test)]
