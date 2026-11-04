@@ -39,7 +39,7 @@ tasks:
         - 'assembleDebug'
         - 'testDebug'
       using: gradlew
-      use-caches: true
+      use-caches: [checkout]
 
     fetches:
       toolchain:
