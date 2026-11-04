@@ -4,10 +4,8 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{
-    encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager},
-    ApiResult as LoginResult, Login, LoginEntry, LoginStore,
-};
+use db_crypto::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
+use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
 use std::sync::Arc;
 use std::{collections::hash_map::RandomState, collections::HashMap};
 
@@ -183,8 +181,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
 
     assert_eq!(
         c0.logins_store.get(&l0id).unwrap().unwrap().times_used,
-        5, // initially 1, touched twice, updated twice (on two accounts!
-        // doing this right requires 3WM)
+        3, // initially 1, touched twice - updates don't count as a use.
         "Times used is wrong (final)"
     );
 }

@@ -3,15 +3,18 @@ apply plugin: 'com.android.library'
 if (!gradle.hasProperty("mozconfig")) {
     apply plugin: 'kotlin-android'
     apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
+    kotlin {
+        jvmToolchain(rootProject.config.jvmTargetCompatibility)
+    }
 }
 
 android {
-    namespace 'org.mozilla.appservices.full_megazord'
+    namespace = 'org.mozilla.appservices.full_megazord'
 
     compileSdk { version = release(config.compileSdkMajorVersion) { minorApiLevel = config.compileSdkMinorVersion } }
 
     defaultConfig {
-        ndkVersion config.ndkVersion
+        ndkVersion = config.ndkVersion
         minSdkVersion config.minSdkVersion
         targetSdkVersion config.targetSdkVersion
 
@@ -28,10 +31,6 @@ android {
 
     // Uncomment to include debug symbols in native library builds.
     // packagingOptions { doNotStrip "**/*.so" }
-}
-
-kotlin {
-    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
@@ -257,7 +256,7 @@ afterEvaluate {
                 artifact tasks['packageLibsForTest']
                 if (!gradle.hasProperty("mozconfig")) {
                     artifact file("${projectDir}/../DEPENDENCIES.md"), {
-                        extension "LICENSES.md"
+                        extension = "LICENSES.md"
                     }
                 }
 

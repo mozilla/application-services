@@ -1,0 +1,22 @@
+---
+# Includes a file that carries its own top level `no-lint` list.
+about:
+  description: Fixture for the lint tests.
+channels:
+  - release
+includes:
+  - included.fml.yaml
+features:
+  including-feature:
+    description: A feature defined in the file that does the including.
+    contacts:
+      - jdoe@example.com
+    documentation:
+      - name: User documentation
+        url: https://example.com/including-feature
+    meta-bug: https://example.com/bugs
+    variables:
+      enabled:
+        description: Whether the including feature does anything at all.
+        type: Boolean
+        default: false

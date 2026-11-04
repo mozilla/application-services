@@ -4,7 +4,8 @@
 
 //! This module defines the types that we export across the UNIFFI interface.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// The list of possible application names that are currently supported.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
@@ -31,6 +32,41 @@ impl SearchApplicationName {
     }
 }
 
+/// The list of possible application names that are supported by
+/// search-config-v3.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "kebab-case")]
+pub enum SearchApplicationNameV3 {
+    FirefoxAndroid = 1,
+    FirefoxIos = 2,
+    FocusAndroid = 3,
+    FocusIos = 4,
+    FirefoxWin = 5,
+    FirefoxMacosx = 6,
+    FirefoxLinux = 7,
+    // This is required for JSON so that Serde has a fallback, however it
+    // is not allowed to be specified as a type for the user environment
+    // specified by the client.
+    #[default]
+    #[serde(other)]
+    Unknown = 8,
+}
+
+impl SearchApplicationNameV3 {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SearchApplicationNameV3::FirefoxWin => "firefox-win",
+            SearchApplicationNameV3::FirefoxMacosx => "firefox-macosx",
+            SearchApplicationNameV3::FirefoxLinux => "firefox-linux",
+            SearchApplicationNameV3::FirefoxAndroid => "firefox-android",
+            SearchApplicationNameV3::FocusAndroid => "focus-android",
+            SearchApplicationNameV3::FirefoxIos => "firefox-ios",
+            SearchApplicationNameV3::FocusIos => "focus-ios",
+            SearchApplicationNameV3::Unknown => "unknown",
+        }
+    }
+}
+
 /// The list of possible update channels for a user's build.
 /// Use `default` for a self-build or an unknown channel.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
@@ -45,12 +81,38 @@ pub enum SearchUpdateChannel {
     Default = 6,
 }
 
+/// The list of possible update channels for a user's build, for
+/// search-config-v3. Use `default` for a self-build or an unknown channel.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchUpdateChannelV3 {
+    Nightly = 1,
+    Aurora = 2,
+    Beta = 3,
+    Release = 4,
+    Esr = 5,
+    #[default]
+    #[serde(other)]
+    Default = 6,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
 #[serde(rename_all = "camelCase")]
 pub enum SearchDeviceType {
     Smartphone = 1,
     Tablet = 2,
     #[default]
+    None = 3,
+}
+
+/// The list of possible device types for search-config-v3.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum SearchDeviceTypeV3 {
+    Smartphone = 1,
+    Tablet = 2,
+    #[default]
+    #[serde(other)]
     None = 3,
 }
 
@@ -83,6 +145,37 @@ pub struct SearchUserEnvironment {
 
     /// The device type that the user is using.
     pub device_type: SearchDeviceType,
+}
+
+/// The user's environment that is used for filtering the search configuration v3.
+#[derive(Clone, Debug, uniffi::Record, Default)]
+pub struct SearchUserEnvironmentV3 {
+    /// The current locale of the application that the user is using.
+    pub locale: String,
+
+    /// The home region that the user is currently identified as being within.
+    /// On desktop & android there is a 14 day lag after detecting a region
+    /// change before the home region changes. TBD: iOS?
+    pub region: String,
+
+    /// The update channel of the user's build.
+    pub update_channel: SearchUpdateChannelV3,
+
+    /// The distribution id for the user's build.
+    pub distribution_id: String,
+
+    /// The search related experiment id that the user is included within. On
+    /// desktop this is the `searchConfiguration.experiment` variable.
+    pub experiment: String,
+
+    /// The application name that the user is using.
+    pub app_name: SearchApplicationNameV3,
+
+    /// The application version that the user is using.
+    pub version: String,
+
+    /// The device type that the user is using.
+    pub device_type: SearchDeviceTypeV3,
 }
 
 /// Parameter definitions for search engine URLs. The name property is always
@@ -189,6 +282,28 @@ impl SearchEngineClassification {
     }
 }
 
+/// The list of acceptable classifications for a search engine in
+/// search-config-v3.
+#[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchEngineClassificationV3 {
+    Ai = 3,
+    General = 2,
+    #[default]
+    #[serde(other)]
+    Unknown = 1,
+}
+
+impl SearchEngineClassificationV3 {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SearchEngineClassificationV3::Unknown => "unknown",
+            SearchEngineClassificationV3::General => "general",
+            SearchEngineClassificationV3::Ai => "ai",
+        }
+    }
+}
+
 /// A definition for an individual search engine to be presented to the user.
 #[derive(Debug, uniffi::Record, PartialEq, Clone, Default)]
 pub struct SearchEngineDefinition {
@@ -245,6 +360,69 @@ pub struct SearchEngineDefinition {
     pub click_url: Option<String>,
 }
 
+#[derive(Debug, uniffi::Record, PartialEq, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchEnginePartnerDetails {
+    /// The partner code to use.
+    pub code: Option<String>,
+
+    /// The telemetry suffix to use.
+    pub telemetry_suffix: Option<String>,
+}
+
+/// A search-config-v3 definition for an individual search engine to be
+/// presented to the user.
+#[derive(Debug, uniffi::Record, PartialEq, Clone, Default)]
+pub struct SearchEngineDefinitionV3 {
+    /// A list of aliases for this engine.
+    pub aliases: Vec<String>,
+
+    /// The character set this engine uses for queries.
+    pub charset: String,
+
+    /// The classification of search engine according to the main search types.
+    pub classification: SearchEngineClassificationV3,
+
+    /// The identifier of the search engine. This is used as an internal
+    /// identifier, e.g. for saving the user's settings for the engine. It is
+    /// also used to form the base telemetry id and may be extended by telemetrySuffix.
+    pub identifier: String,
+
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
+    /// The user visible name of the search engine.
+    pub name: String,
+
+    /// This search engine is presented as an option that the user may enable.
+    /// The application should not include these in the default list of the
+    /// user's engines. If not supported, it should filter them out.
+    pub optional: bool,
+
+    /// The partner details for the engine.
+    /// The key is the search access point to use, e.g. `default`, `newtab`,
+    /// `context`, `widget`, `topsite` (this list may be incomplete, see the
+    /// search-config v3 schema for a full list).
+    pub partner: Option<HashMap<String, SearchEnginePartnerDetails>>,
+
+    /// The URLs associated with the search engine.
+    pub urls: SearchEngineUrls,
+
+    /// A hint to the order that this engine should be in the engine list. This
+    /// is derived from the `engineOrders` section of the search configuration.
+    /// The higher the number, the nearer to the front it should be.
+    /// If the number is not specified, other methods of sorting may be relied
+    /// upon (e.g. alphabetical).
+    pub order_hint: Option<u32>,
+
+    /// Whether the search engine has been deprecated. If this is true, then
+    /// the engine will be removed from the configuration soon. The client should
+    /// not display the configuration engine but may copy the engine details to a
+    /// user-installed engine.
+    pub deprecated: bool,
+}
+
 /// Details of the search engines to display to the user, generated as a result
 /// of processing the search configuration.
 #[derive(Debug, uniffi::Record, PartialEq)]
@@ -274,4 +452,84 @@ pub struct RefinedSearchConfig {
     /// application default engine in private browsing mode.
     /// Only desktop uses this currently.
     pub app_private_default_engine_id: Option<String>,
+}
+
+/// Details of the search engines to display to the user, generated as a result
+/// of processing the search configuration v3.
+#[derive(Debug, uniffi::Record, PartialEq)]
+pub struct RefinedSearchConfigV3 {
+    /// A sorted list of engines. Clients may use the engine in the order that
+    /// this list is specified, or they may implement their own order if they
+    /// have other requirements.
+    ///
+    /// The application default engines should not be assumed from this order in
+    /// case of future changes.
+    ///
+    /// The sort order is:
+    ///
+    /// * Application Default Engine
+    /// * Application Default Engine for Private Mode (if specified & different)
+    /// * Engines sorted by descending `SearchEngineDefinitionV3.orderHint`
+    /// * Any other engines in alphabetical order (locale based comparison)
+    pub engines: Vec<SearchEngineDefinitionV3>,
+
+    /// The identifier of the engine that should be used for the application
+    /// default engine. If this is undefined, an error has occurred, and the
+    /// application should either default to the first engine in the engines
+    /// list or otherwise handle appropriately.
+    pub app_default_engine_id: Option<String>,
+
+    /// If specified, the identifier of the engine that should be used for the
+    /// application default engine in private browsing mode.
+    /// Only desktop uses this currently.
+    pub app_private_default_engine_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_search_application_name_v3_deserializes() {
+        for (value, expected) in [
+            ("firefox-win", SearchApplicationNameV3::FirefoxWin),
+            ("firefox-macosx", SearchApplicationNameV3::FirefoxMacosx),
+            ("firefox-linux", SearchApplicationNameV3::FirefoxLinux),
+            ("firefox-android", SearchApplicationNameV3::FirefoxAndroid),
+            ("firefox-ios", SearchApplicationNameV3::FirefoxIos),
+            ("focus-android", SearchApplicationNameV3::FocusAndroid),
+            ("focus-ios", SearchApplicationNameV3::FocusIos),
+        ] {
+            let result: SearchApplicationNameV3 = serde_json::from_value(json!(value)).unwrap();
+            assert_eq!(result, expected, "Should deserialize {value}");
+            assert_eq!(result.as_str(), value, "Should round trip {value}");
+        }
+    }
+
+    #[test]
+    fn test_v3_enums_fall_back_for_unknown_values() {
+        let app_name: SearchApplicationNameV3 = serde_json::from_value(json!("firefox")).unwrap();
+        assert_eq!(app_name, SearchApplicationNameV3::Unknown);
+
+        let channel: SearchUpdateChannelV3 = serde_json::from_value(json!("unknown")).unwrap();
+        assert_eq!(channel, SearchUpdateChannelV3::Default);
+
+        let device_type: SearchDeviceTypeV3 = serde_json::from_value(json!("unknown")).unwrap();
+        assert_eq!(device_type, SearchDeviceTypeV3::None);
+
+        let classification: SearchEngineClassificationV3 =
+            serde_json::from_value(json!("unknown-type")).unwrap();
+        assert_eq!(classification, SearchEngineClassificationV3::Unknown);
+    }
+
+    #[test]
+    fn test_v2_enums_do_not_fall_back_for_unknown_values() {
+        assert!(serde_json::from_value::<SearchApplicationName>(json!("firefox-win")).is_err());
+        assert!(serde_json::from_value::<SearchUpdateChannel>(json!("unknown")).is_err());
+        assert!(serde_json::from_value::<SearchDeviceType>(json!("unknown")).is_err());
+        assert!(
+            serde_json::from_value::<SearchEngineClassification>(json!("unknown-type")).is_err()
+        );
+    }
 }

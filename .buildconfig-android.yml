@@ -35,6 +35,13 @@ projects:
     - name: fxaclient
       type: aar
     description: Firefox Accounts client.
+  fxcontainers:
+    path: components/fxcontainers/android
+    artifactId: fxcontainers
+    publications:
+    - name: fxcontainers
+      type: aar
+    description: Storage for Firefox containers.
   logins:
     path: components/logins/android
     artifactId: logins
@@ -166,3 +173,10 @@ projects:
       type: aar
     description: Client for Firefox Relay.
 
+  db-crypto:
+    path: components/support/db-crypto/android
+    artifactId: db-crypto
+    publications:
+    - name: db-crypto
+      type: aar
+    description: Database encryption support

@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
     cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
     -- last 4 digits unencrypted. Check no larger than 4 to avoid the full number.
     cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+    -- Encrypted CVV, same encoding and blank-handling as cc_number_enc.
+    -- Blank means no CVV is stored.
+    cc_cvv_enc          TEXT NOT NULL DEFAULT '' CHECK(length(cc_cvv_enc) > 20 OR cc_cvv_enc == ''),
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
     cc_type             TEXT NOT NULL,

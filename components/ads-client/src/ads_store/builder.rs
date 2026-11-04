@@ -5,10 +5,12 @@
 use super::connection_initializer::AdsStoreConnectionInitializer;
 use crate::ads_store::store::AdsStoreHolder;
 use crate::ads_store::AdsStore;
-use crate::common::bytesize::ByteSize;
-use rusqlite::Connection;
-use sql_support::open_database;
-use std::path::PathBuf;
+use crate::bytesize::ByteSize;
+use crate::telemetry;
+use crate::IN_MEMORY_DB_PATH;
+use rusqlite::OpenFlags;
+use sql_support::{open_database, LazyDb};
+use std::path::{Path, PathBuf};
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const MIN_STORE_SIZE: ByteSize = ByteSize::kib(1);
@@ -45,6 +47,32 @@ impl AdsStoreBuilder {
         }
     }
 
+    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
+        self.validate()?;
+
+        // Fall back to a memory db if the file db fails to open.
+        let db = open_connection(&self.db_path)
+            .map_err(AdsStoreBuilderError::from)
+            .inspect_err(telemetry::record_ads_store_error)
+            .or_else(|_| open_connection(Path::new(IN_MEMORY_DB_PATH)))?;
+        let holder = AdsStoreHolder::new(db);
+        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
+        Ok(AdsStore { holder, max_size })
+    }
+
+    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
+        self.validate()?;
+
+        // Fall back to a memory db if the file db fails to open.
+        let db = open_connection(&self.db_path)
+            .map_err(AdsStoreBuilderError::from)
+            .inspect_err(telemetry::record_ads_store_error)
+            .or_else(|_| open_connection(Path::new(IN_MEMORY_DB_PATH)))?;
+        let holder = AdsStoreHolder::new(db);
+        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
+        Ok(AdsStore { holder, max_size })
+    }
+
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
         self.max_size = Some(max_size);
         self
@@ -73,24 +101,24 @@ impl AdsStoreBuilder {
         if let Some(max_size) = self.max_size {
             if max_size < MIN_STORE_SIZE || max_size > MAX_STORE_SIZE {
                 return Err(AdsStoreBuilderError::InvalidMaxSize {
-                    size_bytes: max_size.as_u64(),
-                    min_size: MIN_STORE_SIZE.to_string(),
                     max_size: MAX_STORE_SIZE.to_string(),
+                    min_size: MIN_STORE_SIZE.to_string(),
+                    size_bytes: max_size.as_u64(),
                 });
             }
         }
 
         Ok(())
     }
+}
 
-    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
-        self.validate()?;
-
-        let conn = self.open_connection()?;
-        let holder = AdsStoreHolder::new(conn);
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore { max_size, holder })
-    }
+// Opens the db at `path`, eagerly opening the initial connection so failures surface here.
+fn open_connection(
+    path: &Path,
+) -> Result<LazyDb<AdsStoreConnectionInitializer>, open_database::Error> {
+    let db = LazyDb::new(path, OpenFlags::default(), AdsStoreConnectionInitializer {});
+    drop(db.lock()?);
+    Ok(db)
 }
 
 #[cfg(test)]
@@ -103,17 +131,27 @@ mod tests {
 
     #[test]
     fn test_store_builder_with_defaults() {
-        let builder = make_test_builder("test.db");
-        assert_eq!(builder.db_path, PathBuf::from("test.db"));
+        let builder = make_test_builder(IN_MEMORY_DB_PATH);
+        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
         assert_eq!(builder.max_size, None);
         assert!(builder.build().is_ok());
     }
 
     #[test]
-    fn test_cache_builder_valid_custom() {
-        let builder = make_test_builder("custom.db").max_size(ByteSize::b(1024));
+    fn test_unopenable_path_falls_back_to_memory_db() {
+        // The fallback records telemetry, so don't race the telemetry tests.
+        let _lock = crate::telemetry::test_lock();
+        let store = make_test_builder("this/is/a/test/bad/path")
+            .build()
+            .unwrap();
+        assert!(store.is_memory().unwrap());
+    }
 
-        assert_eq!(builder.db_path, PathBuf::from("custom.db"));
+    #[test]
+    fn test_cache_builder_valid_custom() {
+        let builder = make_test_builder(IN_MEMORY_DB_PATH).max_size(ByteSize::b(1024));
+
+        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
         assert!(builder.build().is_ok());
     }
@@ -126,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_too_small() {
-        let result = make_test_builder("test.db")
+        let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(512))
             .build();
         assert!(matches!(
@@ -141,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_too_large() {
-        let result = make_test_builder("test.db")
+        let result = make_test_builder(IN_MEMORY_DB_PATH)
             .max_size(ByteSize::b(2 * 1024 * 1024 * 1024))
             .build();
         assert!(matches!(
@@ -156,10 +194,10 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_boundaries() {
-        let builder_min = make_test_builder("test.db").max_size(MIN_STORE_SIZE);
+        let builder_min = make_test_builder(IN_MEMORY_DB_PATH).max_size(MIN_STORE_SIZE);
         assert!(builder_min.build().is_ok());
 
-        let builder_max = make_test_builder("test.db").max_size(MAX_STORE_SIZE);
+        let builder_max = make_test_builder(IN_MEMORY_DB_PATH).max_size(MAX_STORE_SIZE);
         assert!(builder_max.build().is_ok());
     }
 }

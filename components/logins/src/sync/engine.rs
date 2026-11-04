@@ -6,13 +6,13 @@ use super::merge::{LocalLogin, MirrorLogin, SyncLoginData};
 use super::update_plan::UpdatePlan;
 use super::SyncStatus;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{EncryptedLogin, FXA_CREDENTIALS_ORIGIN};
 use crate::schema;
 use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
+use db_crypto::EncryptorDecryptor;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::named_params;
 use sql_support::ConnExt;
@@ -540,8 +540,8 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
+    use crate::test_utils::TEST_ENCDEC;
     use crate::{LoginEntry, LoginFields, LoginMeta, SecureLoginFields};
     use nss_as::ensure_initialized;
     use std::collections::HashMap;

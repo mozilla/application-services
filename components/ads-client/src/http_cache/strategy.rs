@@ -11,15 +11,15 @@ use super::{CacheOutcome, HttpCacheSendResult};
 use std::time::Duration;
 use viaduct::{Client, Request};
 
-pub struct CacheFirst {
+pub(super) struct CacheFirst {
+    pub default_ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
     pub hash: RequestHash,
     pub request: Request,
-    pub explicit_ttl: Option<Duration>,
-    pub default_ttl: Duration,
 }
 
 impl CacheFirst {
-    pub fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
+    pub(super) fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
         let mut outcomes = vec![];
         match store.lookup(&self.hash) {
             Ok(Some(response)) => return Ok((response, vec![CacheOutcome::Hit])),
@@ -28,10 +28,10 @@ impl CacheFirst {
         }
 
         let network = NetworkFirst {
+            default_ttl: self.default_ttl,
+            explicit_ttl: self.explicit_ttl,
             hash: self.hash,
             request: self.request,
-            explicit_ttl: self.explicit_ttl,
-            default_ttl: self.default_ttl,
         };
         let (response, mut network_outcomes) = network.apply(client, store)?;
         outcomes.append(&mut network_outcomes);
@@ -39,22 +39,23 @@ impl CacheFirst {
     }
 }
 
-pub struct NetworkFirst {
+pub(super) struct NetworkFirst {
+    pub default_ttl: Duration,
+    pub explicit_ttl: Option<Duration>,
     pub hash: RequestHash,
     pub request: Request,
-    pub explicit_ttl: Option<Duration>,
-    pub default_ttl: Duration,
 }
 
 impl NetworkFirst {
-    pub fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
+    pub(super) fn apply(self, client: &Client, store: &HttpCacheStore) -> HttpCacheSendResult {
         let response = client.send_sync(self.request)?;
         let cache_control = CacheControl::from(&response);
-        let outcome = if cache_control.should_cache() {
+        // An error response is not an answer to cache: the next send retries.
+        let outcome = if response.is_success() && cache_control.should_cache() {
             let ttl = EffectiveTtl {
+                default: self.default_ttl,
                 explicit: self.explicit_ttl,
                 server_max_age: cache_control.max_age_duration(),
-                default: self.default_ttl,
             }
             .resolve();
             if ttl.is_zero() {

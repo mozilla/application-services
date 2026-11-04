@@ -46,7 +46,7 @@ def signing_task(config, tasks):
         )
         resolve_keyed_by(
             task,
-            "worker.cert",
+            "worker.signing-type",
             item_name=task["name"],
             **{
                 "level": config.params["level"],

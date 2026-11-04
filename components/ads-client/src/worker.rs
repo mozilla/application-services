@@ -1,62 +1,73 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+use url::Url;
+
 use crate::{
-    client::error::{BackgroundWorkerError, ComponentError},
-    worker::command::DispatchCommand,
-    MozAdsClientInner,
+    client::{
+        error::{BackgroundWorkerError, ComponentError},
+        AdsClientInner,
+    },
+    mars::{ad_request::AdPlacementRequest, ReportReason},
+    request::RequestQueue,
 };
-use std::{
-    sync::mpsc::{self, Receiver, SyncSender},
-    thread::JoinHandle,
-};
+use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
-pub mod command;
-
-// This is a somewhat arbitrary default value that is overridable.
-pub const ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT: usize = 10000;
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
+
 pub struct BackgroundWorker {
-    _worker_thread: Option<JoinHandle<()>>,
-    worker_dispatch: Option<SyncSender<DispatchCommand>>,
+    // Worker thread is not needed to be accessed, but the handle needs to be held by the structure.
+    // If None, no worker thread is present, and attempts to write to the request queue will be rejected
+    // (because no consumer of the request queue will exist)
+    thread_handle: Option<JoinHandle<()>>,
+    request_queue: RequestQueue,
 }
 
 impl BackgroundWorker {
+    // Create a new worker to handle fire-and-forget requests.
+    // `worker_sleep`: Batch interval, defaulting to `ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT ms`.
     pub fn new(
-        inner_client: MozAdsClientInner,
-        worker_buffer_size: Option<u32>,
+        inner_client: Arc<AdsClientInner>,
+        worker_sleep: Option<Duration>,
     ) -> BackgroundWorker {
-        let worker_buffer_size = worker_buffer_size.and_then(|x| usize::try_from(x).ok());
+        let worker_sleep = worker_sleep.unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
+        let request_queue = RequestQueue::new();
+        let worker_request_queue = request_queue.clone();
 
-        let (tx, rx) = mpsc::sync_channel(
-            worker_buffer_size.unwrap_or(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT),
-        );
+        // Attempt to spawn a background worker thread to handle requests.
+        // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
-            .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-            .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
-                error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
+            .name(ADS_CLIENT_WORKER_THREAD_NAME.to_owned())
+            .spawn(move || worker(&inner_client, &worker_request_queue, worker_sleep)).inspect_err(|err| {
+                // TODO: Replace this log with telemetry.
+                error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}");
             }).ok()
         else {
-            return BackgroundWorker { _worker_thread: None, worker_dispatch: None }
+            return BackgroundWorker { thread_handle: None, request_queue }
         };
 
         BackgroundWorker {
-            _worker_thread: Some(worker_thread),
-            worker_dispatch: Some(tx),
+            thread_handle: Some(worker_thread),
+            request_queue,
         }
     }
 
     pub fn new_empty() -> BackgroundWorker {
         BackgroundWorker {
-            _worker_thread: None,
-            worker_dispatch: None,
+            thread_handle: None,
+            request_queue: RequestQueue::new(),
         }
     }
 
-    pub fn dispatch(&self, command: DispatchCommand) -> Result<(), ComponentError> {
-        if let Some(worker_dispatch) = &self.worker_dispatch {
-            worker_dispatch
-                .try_send(command)
-                .map_err(BackgroundWorkerError::from)?;
-
+    // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
+    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), ComponentError> {
+        if self.thread_handle.is_some() {
+            self.request_queue.push_request(request);
             Ok(())
         } else {
             Err(BackgroundWorkerError::Closed.into())
@@ -64,27 +75,56 @@ impl BackgroundWorker {
     }
 }
 
-// Spawn worker thread from a reference to the client, returning a synchronous channel transmitter to the thread, and its JoinHandle.
-// Returns None if thread fails to build.
-pub fn build_worker_thread(
-    inner_client: MozAdsClientInner,
-    max_channel_size: Option<usize>,
-) -> Option<(SyncSender<DispatchCommand>, JoinHandle<()>)> {
-    let (tx, rx) = mpsc::sync_channel(
-        max_channel_size.unwrap_or(ADS_CLIENT_WORKER_CHANNEL_BUFFER_SIZE_DEFAULT),
-    );
-    let worker_thread_handle = std::thread::Builder::new()
-        .name(ADS_CLIENT_WORKER_THREAD_NAME.to_string())
-        .spawn(move || crate::worker::worker(inner_client, rx)).inspect_err(|err| {
-            error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}")
-        }).ok()?;
-    Some((tx, worker_thread_handle))
+// Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
+fn worker(
+    inner_client: &Arc<AdsClientInner>,
+    request_queue: &RequestQueue,
+    batch_duration: Duration,
+) {
+    loop {
+        let available = request_queue.wait_available(None);
+        if available {
+            // If data is available to be polled, we wait for the batching duration, to allow accumulation, then poll.
+            std::thread::sleep(batch_duration);
+            if let Some(request) = request_queue.next() {
+                // TODO: Request should be logged via telemetry here.
+                if let Err(e) = request.handle_request(Arc::clone(inner_client)) {
+                    error_support::warn!("ads-client background request failed: {e}");
+                }
+            }
+        }
+    }
 }
 
-fn worker(inner_client: MozAdsClientInner, rx: Receiver<DispatchCommand>) {
-    // Synchronously run tasks in the order they are passed in this separate channel.
-    while let Ok(command) = rx.recv() {
-        // Error is naturally logged through `handle_error` conversion macro.
-        let _ = command.run_command(&inner_client);
+// Request dispatch enum for passing different instructions to the background worker thread.
+// `RequestAds` are prefetch mechanisms that query and load data into the local cache.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DispatchRequest {
+    RecordClick {
+        url: Url,
+    },
+    RecordImpression {
+        url: Url,
+    },
+    ReportAd {
+        url: Url,
+        reason: ReportReason,
+    },
+    RequestAds {
+        ad_requests: HashSet<AdPlacementRequest>,
+    },
+}
+
+impl DispatchRequest {
+    // Runs a dispatched command synchronously in it's thread.
+    // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
+    pub fn handle_request(
+        self,
+        _ads_client_inner: Arc<AdsClientInner>,
+    ) -> Result<(), ComponentError> {
+        // TODO: Add 'running a request' logic to here.
+        error_support::error!("Running a request is currently not set up yet: {self:?}");
+
+        Ok(())
     }
 }

@@ -13,6 +13,7 @@ path = "src/sync-pass.rs"
 [dev-dependencies]
 base64 = "0.21"
 logins = { path = "../../components/logins", features = ["keydb"] }
+db-crypto = { path = "../../components/support/db-crypto", features = ["keydb"] }
 sync15 = { path = "../../components/sync15" }
 sync-guid = { path = "../../components/support/guid" }
 log = "0.4"
@@ -27,7 +28,7 @@ tempfile = "3"
 serde_json = "1.0"
 url = "2.2"
 viaduct = { path = "../../components/viaduct"}
-viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 rusqlite = { version = "0.37.0", features = ["limits"] }
 init_rust_components = { path = "../../components/init_rust_components", features = ["keydb"] }
 

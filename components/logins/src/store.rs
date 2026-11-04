@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::db::{LoginDb, LoginsDeletionMetrics};
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{
     BulkResultEntry, EncryptedLogin, Login, LoginCandidate, LoginEntry, LoginEntryWithMeta,
 };
 use crate::LoginsSyncEngine;
+use db_crypto::EncryptorDecryptor;
 use parking_lot::Mutex;
 use sql_support::run_maintenance;
 use std::path::Path;
@@ -132,6 +132,28 @@ impl LoginStore {
         Ok(self
             .lock_db()?
             .get_all()?
+            .into_iter()
+            .map(LoginCandidate::from)
+            .collect())
+    }
+
+    /// Like `list_candidates()`, but only the logins whose origin is one of `origins`, or whose
+    /// host is one of `domains` or a subdomain of one.
+    ///
+    /// This is meant as a pre-filter for consumers who have their own origin matching rules:
+    /// pass every origin you would accept (eg, the `http://` variant too if you allow scheme
+    /// upgrades) and the base domain of each host you would accept subdomains of, then run your
+    /// own matching over the result.  Working out the base domain is up to the caller, since
+    /// this component has no copy of the Public Suffix List.
+    #[handle_error(Error)]
+    pub fn list_candidates_by_origin(
+        &self,
+        origins: Vec<String>,
+        domains: Vec<String>,
+    ) -> ApiResult<Vec<LoginCandidate>> {
+        Ok(self
+            .lock_db()?
+            .get_by_origins_or_domains(&origins, &domains)?
             .into_iter()
             .map(LoginCandidate::from)
             .collect())
@@ -419,8 +441,8 @@ impl Default for RunMaintenanceOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::{create_key, KeyManager, ManagedEncryptorDecryptor};
     use crate::util;
+    use db_crypto::{create_key, KeyManager, ManagedEncryptorDecryptor};
     use nss_as::ensure_initialized;
     use std::cmp::Reverse;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -614,7 +636,7 @@ mod tests {
     }
 
     impl KeyManager for CountingKeyManager {
-        fn get_key(&self) -> ApiResult<Vec<u8>> {
+        fn get_key(&self) -> db_crypto::ApiResult<Vec<u8>> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Ok(self.key.as_bytes().into())
         }
@@ -679,6 +701,50 @@ mod tests {
                 login.time_last_breach_alert_dismissed
             );
         }
+    }
+
+    #[test]
+    fn test_list_candidates_by_origin() {
+        ensure_initialized();
+
+        let key_manager = Arc::new(CountingKeyManager {
+            key: create_key().unwrap(),
+            calls: AtomicUsize::new(0),
+        });
+        let store = store_with_encdec(Arc::new(ManagedEncryptorDecryptor::new(
+            key_manager.clone(),
+        )));
+
+        let a = store
+            .add(test_entry("https://www.a.com", "a-user"))
+            .unwrap();
+        let sub_a = store
+            .add(test_entry("https://login.sub.a.com", "sub-a-user"))
+            .unwrap();
+        let b = store.add(test_entry("http://b.com", "b-user")).unwrap();
+        store
+            .add(test_entry("https://www.c.com", "c-user"))
+            .unwrap();
+        key_manager.calls.store(0, Ordering::SeqCst);
+
+        let mut ids: Vec<String> = store
+            .list_candidates_by_origin(vec!["http://b.com".into()], vec!["a.com".into()])
+            .unwrap()
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
+        ids.sort_unstable();
+        let mut expected = vec![a.id, sub_a.id, b.id];
+        expected.sort_unstable();
+        assert_eq!(ids, expected);
+
+        // Like `list_candidates()`, this must not need the key.
+        assert_eq!(key_manager.calls.load(Ordering::SeqCst), 0);
+
+        assert!(store
+            .list_candidates_by_origin(vec![], vec![])
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -768,13 +834,13 @@ mod tests_keydb {
 
     #[async_trait]
     impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
-        async fn get_primary_password(&self) -> ApiResult<String> {
+        async fn get_primary_password(&self) -> db_crypto::ApiResult<String> {
             Ok(self.password.clone())
         }
-        async fn on_authentication_success(&self) -> ApiResult<()> {
+        async fn on_authentication_success(&self) -> db_crypto::ApiResult<()> {
             Ok(())
         }
-        async fn on_authentication_failure(&self) -> ApiResult<()> {
+        async fn on_authentication_failure(&self) -> db_crypto::ApiResult<()> {
             Ok(())
         }
     }
@@ -792,7 +858,10 @@ mod tests_keydb {
         let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
-        let key_manager = NSSKeyManager::new(Arc::new(primary_password_authenticator));
+        let key_manager = NSSKeyManager::new(
+            crate::KEY_NAME.to_string(),
+            Arc::new(primary_password_authenticator),
+        );
         let encdec = ManagedEncryptorDecryptor::new(Arc::new(key_manager));
         let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
             .expect("store from fixtures");

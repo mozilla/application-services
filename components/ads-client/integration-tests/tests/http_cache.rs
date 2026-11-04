@@ -4,9 +4,10 @@
 */
 
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 use std::time::Duration;
 
-use ads_client::common::bytesize::ByteSize;
+use ads_client::bytesize::ByteSize;
 use ads_client::http_cache::{CacheOutcome, CachePolicy, HttpCache};
 use mockito::mock;
 use viaduct::{Client, ClientSettings, Request};
@@ -25,6 +26,22 @@ impl Hash for TestRequest {
 impl From<TestRequest> for Request {
     fn from(t: TestRequest) -> Self {
         t.0
+    }
+}
+
+// Deletes existing temporary dbs passed to `clear_test_dbs` to reset tests that require making them.
+fn clear_test_dbs(test_db_locations: &[&'static str]) {
+    for test_db_location in test_db_locations {
+        let test_db_location_path = Path::new(test_db_location);
+
+        // A small sanity check to ensure the passed db test is a subfile of the current directory.
+        if test_db_location_path.components().count() != 1 || !test_db_location_path.is_relative() {
+            panic!("Tests provided to `clear_test_dbs` must single-component and in the current directory: {test_db_location}");
+        }
+        match std::fs::remove_file(test_db_location_path) {
+            Ok(()) => println!("Deleted previous test's `{test_db_location}`"),
+            Err(e) => println!("Did not delete previous test's `{test_db_location}`: {e}"),
+        }
     }
 }
 
@@ -58,7 +75,7 @@ fn test_cache_works_using_real_timeouts() {
     let client = Client::new(ClientSettings::default());
     let test_ttl = 2;
 
-    let _m1 = mock("POST", "/v1/ads")
+    let m1 = mock("POST", "/v1/ads")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"{"ok":true}"#)
@@ -83,8 +100,9 @@ fn test_cache_works_using_real_timeouts() {
         .unwrap();
     assert!(matches!(outcomes.last().unwrap(), CacheOutcome::Hit));
     assert_eq!(response.status, 200);
+    m1.assert();
 
-    let _m2 = mock("POST", "/v1/ads")
+    let m2 = mock("POST", "/v1/ads")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"{"ok":true}"#)
@@ -98,4 +116,41 @@ fn test_cache_works_using_real_timeouts() {
         .unwrap();
     assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
     assert_eq!(response.status, 200);
+    m2.assert();
+}
+
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_bad_path_opens_memory_db() {
+    clear_test_dbs(&["good_path.db"]);
+
+    let good_path = HttpCache::builder("good_path_httpstore.db")
+        .build()
+        .expect("Should be able to build a bad path");
+    assert!(
+        !good_path.is_memory().unwrap(),
+        "A valid path should result in a file-based sqlite database"
+    );
+
+    let bad_path = HttpCache::builder("this/is/a/test/bad/path")
+        .build()
+        .expect("Should be able to build a bad path");
+    assert!(
+        bad_path.is_memory().unwrap(),
+        "Invalid path should result in a memory-based sqlite database"
+    );
+
+    let empty_path = HttpCache::builder("").build();
+    assert!(
+        empty_path.is_err(),
+        "An empty string for a path should result in an error (because of validation step)"
+    );
+
+    let no_path = HttpCache::builder_memory()
+        .build()
+        .expect("Should be able to build a memory db");
+    assert!(
+        no_path.is_memory().unwrap(),
+        "`builder_memory` should result in a memory-based sqlite database"
+    )
 }

@@ -170,12 +170,11 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 fn run_maintenance(conn: &PlacesDb, db_size_limit: u32, count: u32) -> Result<()> {
     for _ in 0..count {
-        let prune_metrics = places::storage::run_maintenance_prune(conn, db_size_limit, 6)?;
+        places::storage::run_maintenance_prune(conn, db_size_limit, 6)?;
         places::storage::run_maintenance_vacuum(conn)?;
         places::storage::run_maintenance_optimize(conn)?;
         places::storage::run_maintenance_checkpoint(conn)?;
         println!("Maintenance complete");
-        println!("Prune metrics: {prune_metrics:?}");
     }
     Ok(())
 }
@@ -234,7 +233,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 
     let mut cli = CliFxa::new(get_default_fxa_config(), Some(&cred_file))?;
     cli.ensure_logged_in(&[SYNC_SCOPE])?;

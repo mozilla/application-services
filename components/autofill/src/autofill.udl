@@ -5,32 +5,54 @@ namespace autofill {
     [Throws=AutofillApiError]
     string create_autofill_key();
 
-    /// Encrypt an arbitrary string - `key` must have come from `create_key()`
+    /// Create a Store with StaticKeyManager by passing in a db path and a
+    /// static key
     [Throws=AutofillApiError]
-    string encrypt_string(string key, string cleartext);
-
-    /// Decrypt an arbitrary string - `key` must have come from `create_key()`
-    /// and `ciphertext` must have come from `encrypt_string()`
-    [Throws=AutofillApiError]
-    string decrypt_string(string key, string ciphertext);
+    Store create_autofill_store_with_static_key_manager(string path, string key);
 };
 
-/// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card. The number is given in
+/// cleartext; the store encrypts it and derives the last-4 digits itself.
+/// On update, a null `cc_cvv` keeps the stored CVV and an empty one clears
+/// it.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number_enc;
-    string cc_number_last_4;
+    string cc_number;
+    string? cc_cvv = null;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
 };
 
-/// What you get back as a credit-card.
+/// What you get back as a credit-card. The number comes back decrypted;
+/// it is empty for a scrubbed card or one saved without a number. A number
+/// the key cannot read fails the read.
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number_enc;
+    string cc_number;
+    string? cc_cvv = null;
     string cc_number_last_4;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
+/// A credit card stored in the database, minus the encrypted fields.
+///
+/// Reading these never needs the encryption key, so consumers listing cards by name,
+/// last four digits and expiry can do so without forcing the user to authenticate.
+/// See `list_credit_card_candidates()`.
+dictionary CreditCardCandidate {
+    string guid;
+    string cc_name;
+    string cc_number_last_4;
+    boolean has_cvv;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -206,9 +228,15 @@ interface AutofillApiError {
     UnexpectedAutofillApiError(string reason);
 };
 
+[External = "db_crypto"]
+typedef trait_with_foreign EncryptorDecryptor;
+
+[External = "db_crypto"]
+typedef trait_with_foreign KeyManager;
+
 interface Store {
     [Throws=AutofillApiError]
-    constructor(string dbpath);
+    constructor(string dbpath, EncryptorDecryptor encdec);
 
     [Throws=AutofillApiError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
@@ -218,6 +246,13 @@ interface Store {
 
     [Throws=AutofillApiError]
     sequence<CreditCard> get_all_credit_cards();
+
+    /// Every stored credit card without its encrypted fields. Unlike
+    /// `get_all_credit_cards` this never touches the key, so listing cannot
+    /// prompt for a primary password; read the one card that needs its
+    /// secrets with `get_credit_card`.
+    [Throws=AutofillApiError]
+    sequence<CreditCardCandidate> list_credit_card_candidates();
 
     [Throws=AutofillApiError]
     i64 count_all_credit_cards();
@@ -325,7 +360,7 @@ interface Store {
     /// NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
     /// outside of this use case.
     [Throws=AutofillApiError, Self=ByArc]
-    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement(string local_encryption_key);
+    CreditCardsDeletionMetrics scrub_undecryptable_credit_card_data_for_remote_replacement();
 
     /// Run maintenance on the DB
     ///
@@ -344,12 +379,58 @@ interface Store {
     /// DB, so it cannot fail.
     [Self=ByArc]
     AddressesBridgedEngine addresses_bridged_engine();
+
+    /// Returns a bridged sync engine for credit cards, for use by Desktop's
+    /// Sync framework. Constructing it only assembles structs and never touches
+    /// the DB, so it cannot fail.
+    [Self=ByArc]
+    CreditCardsBridgedEngine credit_cards_bridged_engine();
 };
 
-/// The bridged sync engine for addresses. The canonical docs are in
-/// services/interfaces/mozIBridgedSyncEngine.idl.
+/// The bridged sync engine for addresses, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
 /// NOTE: all timestamps here are milliseconds.
 interface AddressesBridgedEngine {
+    [Throws=AutofillApiError]
+    i64 last_sync();
+
+    [Throws=AutofillApiError]
+    string? sync_id();
+
+    [Throws=AutofillApiError]
+    string reset_sync_id();
+
+    [Throws=AutofillApiError]
+    string ensure_current_sync_id([ByRef]string new_sync_id);
+
+    [Throws=AutofillApiError]
+    void sync_started();
+
+    [Throws=AutofillApiError]
+    void store_incoming(sequence<string> incoming_envelopes_as_json);
+
+    [Throws=AutofillApiError]
+    sequence<string> apply(i64 server_modified_millis);
+
+    [Throws=AutofillApiError]
+    void set_uploaded(i64 new_timestamp, sequence<string> uploaded_ids);
+
+    [Throws=AutofillApiError]
+    void sync_finished();
+
+    [Throws=AutofillApiError]
+    void reset();
+
+    [Throws=AutofillApiError]
+    void wipe();
+};
+
+/// The bridged sync engine for credit cards, which wraps the
+/// `sync15::engine::SyncEngine` implemented by this component (see
+/// `sync15::engine::BridgedEngineWrapper`).
+/// NOTE: all timestamps here are milliseconds.
+interface CreditCardsBridgedEngine {
     [Throws=AutofillApiError]
     i64 last_sync();
 

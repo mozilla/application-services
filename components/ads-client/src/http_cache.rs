@@ -16,8 +16,9 @@ use self::{
     store::HttpCacheStore,
     strategy::{CacheFirst, NetworkFirst},
 };
-use crate::common::bytesize::ByteSize;
+use crate::bytesize::ByteSize;
 
+use sql_support::open_database;
 use std::hash::Hash;
 use viaduct::{Client, Request, Response};
 
@@ -27,8 +28,7 @@ pub use self::request_hash::RequestHash;
 use std::path::Path;
 use std::time::Duration;
 
-pub type HttpCacheSendResult =
-    std::result::Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
+pub type HttpCacheSendResult = Result<(Response, Vec<CacheOutcome>), viaduct::ViaductError>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum CachePolicy {
@@ -50,19 +50,26 @@ pub struct HttpCache {
 
 impl HttpCache {
     pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
-        HttpCacheBuilder::new(db_path.as_ref())
+        HttpCacheBuilder::new(Some(db_path.as_ref()))
     }
 
-    pub fn clear(&self) -> Result<(), rusqlite::Error> {
+    pub fn builder_memory() -> HttpCacheBuilder {
+        HttpCacheBuilder::new(None::<String>)
+    }
+
+    pub fn is_memory(&self) -> Result<bool, open_database::Error> {
+        self.store.is_memory()
+    }
+
+    pub fn clear(&self) -> Result<(), open_database::Error> {
         self.store.clear_all()?;
         Ok(())
     }
 
-    pub fn shutdown_db(self) -> Result<(), rusqlite::Error> {
-        self.store.close()
-    }
-
-    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), rusqlite::Error> {
+    pub fn invalidate_by_hash(
+        &self,
+        request_hash: &RequestHash,
+    ) -> Result<(), open_database::Error> {
         self.store.invalidate_by_hash(request_hash)?;
         Ok(())
     }
@@ -85,17 +92,17 @@ impl HttpCache {
         // Apply the cache policy and collect outcomes
         let (response, mut strategy_outcomes) = match policy {
             CachePolicy::CacheFirst { ttl } => CacheFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
             CachePolicy::NetworkFirst { ttl } => NetworkFirst {
+                default_ttl: self.default_ttl,
+                explicit_ttl: *ttl,
                 hash,
                 request,
-                explicit_ttl: *ttl,
-                default_ttl: self.default_ttl,
             }
             .apply(client, &self.store),
         }?;
@@ -106,12 +113,16 @@ impl HttpCache {
             .iter()
             .any(|o| matches!(o, CacheOutcome::MissStored))
         {
-            if let Err(e) = self.store.trim_to_max_size(&self.max_size) {
+            if let Err(e) = self.store.trim_to_max_size(self.max_size) {
                 outcomes.push(CacheOutcome::TrimFailed(e));
             }
         }
 
         Ok((response, outcomes))
+    }
+
+    pub fn shutdown_db(&self) {
+        self.store.close();
     }
 }
 
@@ -152,7 +163,7 @@ mod tests {
 
     fn make_cache() -> HttpCache {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(60))
             .max_size(ByteSize::mib(1))
             .build()
@@ -161,7 +172,7 @@ mod tests {
 
     fn make_cache_with_ttl(secs: u64) -> HttpCache {
         // In tests our store uses an in-memory DB; filename is irrelevant.
-        HttpCache::builder("ignored_in_tests.db")
+        HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
             .build_for_time_dependent_tests()
@@ -171,11 +182,11 @@ mod tests {
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let cache: Result<HttpCache, _> = HttpCache::builder("test_cache.db").build();
+        let cache: Result<HttpCache, _> = HttpCache::builder_memory().build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let cache_with_config: Result<HttpCache, _> = HttpCache::builder("custom_test.db")
+        let cache_with_config: Result<HttpCache, _> = HttpCache::builder_memory()
             .max_size(ByteSize::mib(1))
             .default_ttl(Duration::from_secs(60))
             .build();
@@ -184,17 +195,17 @@ mod tests {
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Get,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Get,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache
@@ -316,6 +327,34 @@ mod tests {
     }
 
     #[test]
+    fn test_error_response_is_not_cached() {
+        viaduct_dev::init_backend_dev();
+
+        let m = mock("POST", "/ads")
+            .with_status(500)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"unavailable"}"#)
+            .expect(2) // both calls should hit the network: an error is not cached
+            .create();
+
+        let cache = make_cache();
+        let req = make_post_request();
+        let client = make_client();
+
+        for _ in 0..2 {
+            let (response, outcomes) = cache
+                .send_with_policy(&client, req.clone(), &CachePolicy::default())
+                .unwrap();
+            assert_eq!(response.status, 500);
+            assert!(matches!(
+                outcomes.last().unwrap(),
+                CacheOutcome::MissNotCacheable
+            ));
+        }
+        m.assert();
+    }
+
+    #[test]
     fn ttl_resolution_explicit_overrides_server_max_age() {
         viaduct_dev::init_backend_dev();
 
@@ -355,7 +394,7 @@ mod tests {
     fn ttl_resolution_uses_server_max_age_when_no_explicit_override() {
         viaduct_dev::init_backend_dev();
 
-        let _m = mockito::mock("POST", "/ads")
+        let m = mockito::mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("cache-control", "max-age=2") // Server says 2 seconds
@@ -383,6 +422,7 @@ mod tests {
         cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
     }
 
     #[test]
@@ -488,17 +528,17 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache = HttpCache::builder("test_invalidate.db").build().unwrap();
+        let cache: HttpCache = HttpCache::builder_memory().build().unwrap();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));
 
         let response = viaduct::Response {
-            request_method: viaduct::Method::Post,
-            url: "https://example.com/test".parse().unwrap(),
-            status: 200,
-            headers: viaduct::Headers::new(),
             body: b"test response".to_vec(),
+            headers: viaduct::Headers::new(),
+            request_method: viaduct::Method::Post,
+            status: 200,
+            url: "https://example.com/test".parse().unwrap(),
         };
 
         cache

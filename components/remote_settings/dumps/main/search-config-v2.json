@@ -287,39 +287,6 @@
     {
       "base": {
         "aliases": [
-          "amazon"
-        ],
-        "classification": "unknown",
-        "name": "Amazon.com",
-        "urls": {
-          "search": {
-            "base": "https://www.amazon.com/s",
-            "searchTermParamName": "k"
-          }
-        }
-      },
-      "id": "788a2ded-6872-4742-8115-c14dde7a18f9",
-      "identifier": "amazondotcom-us",
-      "last_modified": 1718719100307,
-      "notes": "Amazon.com (us only)",
-      "recordType": "engine",
-      "schema": 1718698346192,
-      "variants": [
-        {
-          "environment": {
-            "applications": [
-              "firefox"
-            ],
-            "regions": [
-              "us"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "base": {
-        "aliases": [
           "百度",
           "baidu"
         ],
@@ -3178,6 +3145,63 @@
     },
     {
       "base": {
+        "aliases": [
+          "mdn"
+        ],
+        "classification": "unknown",
+        "name": "MDN",
+        "urls": {
+          "search": {
+            "base": "https://developer.mozilla.org/api/v1/search/go",
+            "params": [
+              {
+                "name": "locale",
+                "value": "{language}"
+              },
+              {
+                "name": "utm_medium",
+                "value": "firefox-desktop"
+              },
+              {
+                "name": "utm_source",
+                "value": "firefox-search"
+              }
+            ],
+            "searchTermParamName": "q"
+          },
+          "suggestions": {
+            "base": "https://developer.mozilla.org/api/v1/search/suggestions",
+            "params": [
+              {
+                "name": "locale",
+                "value": "{language}"
+              }
+            ],
+            "searchTermParamName": "q"
+          }
+        }
+      },
+      "id": "5879d4ca-68fd-48a4-baf1-7c30f99e4ad7",
+      "identifier": "mdn",
+      "last_modified": 1789051315930,
+      "recordType": "engine",
+      "schema": 1789047336730,
+      "variants": [
+        {
+          "environment": {
+            "applications": [
+              "firefox"
+            ],
+            "channels": [
+              "aurora",
+              "nightly"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "base": {
         "classification": "unknown",
         "name": "MercadoLibre Argentina",
         "urls": {
@@ -3401,7 +3425,7 @@
         "aliases": [
           "perplexity"
         ],
-        "classification": "general",
+        "classification": "unknown",
         "name": "Perplexity",
         "partnerCode": "firefox",
         "urls": {
@@ -3423,9 +3447,9 @@
       },
       "id": "bb836721-7be9-4de6-ac18-520189a69076",
       "identifier": "perplexity",
-      "last_modified": 1772114960787,
+      "last_modified": 1789051315927,
       "recordType": "engine",
-      "schema": 1772067581442,
+      "schema": 1788912008264,
       "variants": [
         {
           "environment": {
@@ -6140,16 +6164,15 @@
       },
       "id": "de65dd23-0d4b-4bf0-bd97-0f536e184ded",
       "identifier": "wikipedia-it",
-      "last_modified": 1702906502476,
+      "last_modified": 1789051315925,
       "recordType": "engine",
-      "schema": 1702901789119,
+      "schema": 1789047337347,
       "variants": [
         {
           "environment": {
             "locales": [
               "fur",
-              "it",
-              "sc"
+              "it"
             ]
           }
         }
@@ -7295,6 +7318,51 @@
           "environment": {
             "locales": [
               "ru"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "base": {
+        "aliases": [
+          "wikipedia"
+        ],
+        "classification": "unknown",
+        "name": "Wikipedia (sc)",
+        "urls": {
+          "search": {
+            "base": "https://sc.wikipedia.org/wiki/Ispetziale:Search",
+            "params": [
+              {
+                "name": "sourceid",
+                "value": "Mozilla-search"
+              }
+            ],
+            "searchTermParamName": "search"
+          },
+          "suggestions": {
+            "base": "https://sc.wikipedia.org/w/api.php",
+            "params": [
+              {
+                "name": "action",
+                "value": "opensearch"
+              }
+            ],
+            "searchTermParamName": "search"
+          }
+        }
+      },
+      "id": "e89dec6a-74f3-428c-8c4b-fc945c1c567c",
+      "identifier": "wikipedia-sc",
+      "last_modified": 1789051315933,
+      "recordType": "engine",
+      "schema": 1789047339762,
+      "variants": [
+        {
+          "environment": {
+            "locales": [
+              "sc"
             ]
           }
         }
@@ -8460,5 +8528,5 @@
       "schema": 1707824831520
     }
   ],
-  "timestamp": 1788287341804
+  "timestamp": 1790703242032
 }

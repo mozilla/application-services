@@ -906,7 +906,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
             "last_modified": 1_602_197_324_372i64,
         }
     ]}))?;
-    client.set_experiments_locally(experiment_json)?;
+    client.set_experiments_locally(experiment_json.clone())?;
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
@@ -914,7 +914,8 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
 
     client.record_event("app.foregrounded".to_string(), 1)?;
 
-    client.set_experiment_participation(true)?;
+    client.set_experiments_locally(experiment_json)?;
+    client.apply_pending_experiments()?;
 
     // The number of non-zero days in our event store is 2, so the first experiment
     // should be applied, but the second experiment will not be.

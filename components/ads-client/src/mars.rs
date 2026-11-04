@@ -3,20 +3,21 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-pub mod ad_request;
-pub mod ad_response;
-pub mod environment;
-pub mod error;
+pub(crate) mod ad_request;
+pub(crate) mod ad_response;
+pub(crate) mod environment;
+pub(crate) mod error;
 mod preflight;
-pub mod report_reason;
+pub(crate) mod report_reason;
 mod transport;
 
-pub use environment::Environment;
-pub use report_reason::ReportReason;
+pub(crate) use environment::Environment;
+pub(crate) use report_reason::ReportReason;
+use sql_support::open_database;
 
 use self::{
-    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags},
-    ad_response::{AdResponse, AdResponseValue},
+    ad_request::{AdPlacementRequest, AdRequest, AdRequestFlags, AdRequestRelevance},
+    ad_response::AdResponse,
     error::{
         CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError,
     },
@@ -25,55 +26,42 @@ use self::{
 };
 use crate::{
     http_cache::{HttpCache, RequestHash},
-    telemetry::Telemetry,
     CachePolicy,
 };
 use url::Url;
 use viaduct::{Headers, Request};
 
-pub struct MARSClient<T>
-where
-    T: Clone + Telemetry,
-{
+pub(crate) struct MARSClient {
     environment: Environment,
-    telemetry: T,
-    transport: MARSTransport<T>,
+    transport: MARSTransport,
 }
 
-impl<T> MARSClient<T>
-where
-    T: Clone + Telemetry,
-{
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>, telemetry: T) -> Self {
-        let transport = MARSTransport::new(http_cache, telemetry.clone());
+impl MARSClient {
+    pub(crate) fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
         Self {
             environment,
-            telemetry,
-            transport,
+            transport: MARSTransport::new(http_cache),
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+    pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.transport.clear_cache()
     }
 
-    #[allow(dead_code)]
-    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
-        self.transport.shutdown_db()
-    }
-
-    pub fn fetch_ads<A>(
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the fields of an ad request, and how to send it"
+    )]
+    pub(crate) fn fetch_ads(
         &self,
-        context_id: String,
+        context_id: Option<String>,
         flags: AdRequestFlags,
         placements: Vec<AdPlacementRequest>,
         cache_policy: CachePolicy,
         ohttp: bool,
         blocks: Vec<String>,
-    ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
-    where
-        A: AdResponseValue,
-    {
+        relevance: AdRequestRelevance,
+    ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
         let mut ad_request = AdRequest::try_new(
             blocks,
             context_id,
@@ -81,34 +69,37 @@ where
             flags,
             ohttp,
             placements,
+            relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
         if ohttp {
             ad_request
                 .headers
-                .extend(Headers::from(self.fetch_preflight()?));
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
-        let ads = AdResponse::<A>::parse(response.json()?, &self.telemetry)?;
+        let ads: AdResponse = response.json()?;
         Ok((ads, request_hash))
     }
 
-    // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
-    #[allow(dead_code)]
-    pub fn invalidate_cache_by_hash(
+    #[expect(
+        dead_code,
+        reason = "cache invalidation on click is off until a Nimbus experiment re-enables it"
+    )]
+    pub(crate) fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> Result<(), open_database::Error> {
         self.transport.invalidate_cache_by_hash(request_hash)
     }
 
-    pub fn record_click(&self, callback: Url, ohttp: bool) -> Result<(), RecordClickError> {
+    pub(crate) fn record_click(&self, callback: Url, ohttp: bool) -> Result<(), RecordClickError> {
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn record_impression(
+    pub(crate) fn record_impression(
         &self,
         callback: Url,
         ohttp: bool,
@@ -116,7 +107,7 @@ where
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn report_ad(
+    pub(crate) fn report_ad(
         &self,
         mut callback: Url,
         reason: ReportReason,
@@ -126,6 +117,10 @@ where
             .query_pairs_mut()
             .append_pair("reason", reason.as_str());
         Ok(self.make_callback_request(callback, ohttp)?)
+    }
+
+    pub(crate) fn shutdown_db(&self) {
+        self.transport.shutdown_db();
     }
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
@@ -146,34 +141,23 @@ where
         if ohttp {
             request
                 .headers
-                .extend(Headers::from(self.fetch_preflight()?));
+                .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
-    }
-
-    #[cfg(test)]
-    pub fn get_telemetry(&self) -> T {
-        self.telemetry.clone()
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::ad_response::AdImage;
     use super::*;
-    use crate::ffi::telemetry::MozAdsTelemetryWrapper;
     use crate::test_utils::{
         get_example_happy_image_response, make_happy_placement_requests, TEST_CONTEXT_ID,
     };
     use mockito::mock;
 
-    fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient<MozAdsTelemetryWrapper> {
-        MARSClient::new(
-            Environment::Test,
-            http_cache,
-            MozAdsTelemetryWrapper::noop(),
-        )
+    fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
+        MARSClient::new(Environment::Test, http_cache)
     }
 
     #[test]
@@ -241,13 +225,14 @@ mod tests {
 
         let client = make_test_client(None);
 
-        let result = client.fetch_ads::<AdImage>(
-            TEST_CONTEXT_ID.to_string(),
+        let result = client.fetch_ads(
+            Some(TEST_CONTEXT_ID.to_string()),
             AdRequestFlags::default(),
             make_happy_placement_requests(),
             CachePolicy::default(),
             false,
             Default::default(),
+            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -266,35 +251,37 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let cache = HttpCache::builder("test_fetch_ads_cache_hit_skips_network.db")
+        let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::common::bytesize::ByteSize::mib(1))
+            .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
         let client = make_test_client(Some(cache));
 
         // First call should be a miss then warm the cache
         let (response1, _) = client
-            .fetch_ads::<AdImage>(
-                TEST_CONTEXT_ID.to_string(),
+            .fetch_ads(
+                Some(TEST_CONTEXT_ID.to_string()),
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
 
         // Second call should be a hit
         let (response2, _) = client
-            .fetch_ads::<AdImage>(
-                TEST_CONTEXT_ID.to_string(),
+            .fetch_ads(
+                Some(TEST_CONTEXT_ID.to_string()),
                 AdRequestFlags::default(),
                 make_happy_placement_requests(),
                 CachePolicy::default(),
                 false,
                 Default::default(),
+                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);
@@ -304,9 +291,9 @@ mod tests {
     #[test]
     fn test_record_click_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_click.db")
+        let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::common::bytesize::ByteSize::mib(1))
+            .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
 
@@ -323,9 +310,9 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder("test_record_impression.db")
+        let cache = HttpCache::builder_memory()
             .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::common::bytesize::ByteSize::mib(1))
+            .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
             .unwrap();
 

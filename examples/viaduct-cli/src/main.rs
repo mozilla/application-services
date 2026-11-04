@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use url::Url;
 #[cfg(feature = "ohttp")]
 use viaduct::{configure_ohttp_channel, OhttpConfig};
@@ -17,7 +17,11 @@ struct Cli {
 
     /// Set a request timeout (ms)
     #[arg(short, long)]
-    timeout: Option<u64>,
+    timeout: Option<u32>,
+
+    /// Set the redirect limit
+    #[arg(long)]
+    redirect_limit: Option<u32>,
 
     #[command(subcommand)]
     command: Commands,
@@ -28,8 +32,8 @@ enum Commands {
     /// Make a simple HTTP request
     Request {
         /// Make a Post request
-        #[arg(short, long)]
-        post: bool,
+        #[arg(short, long = "type")]
+        type_: Option<RequestType>,
     },
     /// Test OHTTP flow with a relay
     #[cfg(feature = "ohttp")]
@@ -54,6 +58,14 @@ enum Commands {
     },
 }
 
+#[derive(Debug, Default, Clone, ValueEnum)]
+enum RequestType {
+    #[default]
+    Get,
+    Post,
+    Redirect,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -67,18 +79,21 @@ fn main() -> Result<()> {
     println!("{cli:?}");
 
     match cli.command {
-        Commands::Request { post } => {
-            let req = if post {
-                make_post_request()?
-            } else {
-                make_request()?
+        Commands::Request { type_ } => {
+            let req = match type_.unwrap_or_default() {
+                RequestType::Get => make_request()?,
+                RequestType::Redirect => make_redirect_request()?,
+                RequestType::Post => make_post_request()?,
             };
 
-            viaduct_hyper::viaduct_init_backend_hyper();
-            let settings = ClientSettings {
-                timeout: cli.timeout.unwrap_or(0) as u32,
-                ..ClientSettings::default()
-            };
+            viaduct_backend_rust::viaduct_init_backend_rust();
+            let mut settings = ClientSettings::default();
+            if let Some(timeout) = cli.timeout {
+                settings.timeout = timeout;
+            }
+            if let Some(redirect_limit) = cli.redirect_limit {
+                settings.redirect_limit = redirect_limit;
+            }
             let client = Client::new(settings);
             print_response(client.send_sync(req));
         }
@@ -99,7 +114,7 @@ fn main() -> Result<()> {
 fn run_ohttp_example(relay_url: String, gateway_host: String, channel: String) -> Result<()> {
     // Step 1: Initialize viaduct backend
     println!("Initializing viaduct backend...");
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
     println!("Backend initialized successfully");
 
     // Step 2: Configure the OHTTP channel
@@ -135,6 +150,15 @@ fn run_ohttp_example(relay_url: String, gateway_host: String, channel: String) -
 fn make_request() -> Result<Request> {
     let url = Url::parse("https://httpbun.com/anything")?;
     let mut req = Request::new(Method::Get, url);
+    req = req.header(header_names::USER_AGENT, "viaduct-cli")?;
+    Ok(req)
+}
+
+fn make_redirect_request() -> Result<Request> {
+    let url1 = Url::parse("https://httpbun.com/anything")?;
+    let url2 = Url::parse_with_params("https://httpbun.com/redirect", &[("url", url1)])?;
+    let url3 = Url::parse_with_params("https://httpbun.com/redirect", &[("url", url2)])?;
+    let mut req = Request::new(Method::Get, url3);
     req = req.header(header_names::USER_AGENT, "viaduct-cli")?;
     Ok(req)
 }

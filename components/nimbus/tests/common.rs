@@ -45,8 +45,15 @@ impl MetricsHandler for NoopMetricsHandler {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn submit_targeting_context(&self) {
+        // do nothing
+    }
+
+    fn record_rollouts_opt_out(&self) {
+        // do nothing
+    }
+
+    fn record_studies_opt_out(&self) {
         // do nothing
     }
 }

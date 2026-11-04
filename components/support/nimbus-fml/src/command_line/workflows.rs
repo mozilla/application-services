@@ -6,12 +6,13 @@ use glob::MatchOptions;
 use std::collections::HashSet;
 
 use super::commands::{
-    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
+    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, LintCmd,
     PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
 };
 use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
+use crate::lints::{self, Finding, LintConfig, LintLevel, LintReport};
 use crate::{
     backends,
     error::{FMLError, Result},
@@ -19,12 +20,23 @@ use crate::{
     parser::Parser,
     util::loaders::{FileLoader, FilePath, LoaderConfig},
 };
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::Path;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Use this when recursively looking for files.
 const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
+
+/// `ColorChoice::Auto` only looks at `TERM`, not at whether stdout is a terminal, so
+/// on its own it writes escape codes into redirected output and CI logs.
+fn stdout_stream() -> StandardStream {
+    let choice = if std::io::stdout().is_terminal() {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    };
+    StandardStream::stdout(choice)
+}
 
 pub(crate) fn generate_struct(cmd: &GenerateStructCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
@@ -171,7 +183,7 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
+fn output_ok(stream: &mut impl WriteColor, title: &str) -> Result<()> {
     write!(stream, "✅ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
     writeln!(stream, "{title}")?;
@@ -180,7 +192,7 @@ fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_note(stream: &mut StandardStream, title: &str) -> Result<()> {
+fn output_note(stream: &mut impl WriteColor, title: &str) -> Result<()> {
     write!(stream, "ℹ️ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
     writeln!(stream, "{title}")?;
@@ -189,16 +201,79 @@ fn output_note(stream: &mut StandardStream, title: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_warn(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
-    write!(stream, "⚠️ ")?;
-    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-    write!(stream, "{title}")?;
+/// The width lint help text wraps to.
+const HELP_WIDTH: usize = 88;
+
+/// The column the message starts in.
+const LINT_NAME_WIDTH: usize = 26;
+
+fn wrapped(text: &str, initial_indent: &str, subsequent_indent: &str) -> String {
+    let options = textwrap::Options::new(HELP_WIDTH)
+        .initial_indent(initial_indent)
+        .subsequent_indent(subsequent_indent)
+        // Lint prose is full of kebab-case names; don't break them at the hyphens.
+        .word_splitter(textwrap::WordSplitter::NoHyphenation);
+    textwrap::fill(text, options)
+}
+
+fn output_finding(stream: &mut impl WriteColor, finding: &Finding) -> Result<()> {
+    let (icon, color) = match finding.level {
+        LintLevel::Error => ("❎", Color::Red),
+        _ => ("⚠️", Color::Yellow),
+    };
+
+    write!(stream, "  {icon} ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(color)))?;
+    write!(stream, "{:<LINT_NAME_WIDTH$}", finding.lint)?;
     stream.reset()?;
-    writeln!(stream, ": {detail}")?;
+    writeln!(stream, "{}", finding.message)?;
+
     Ok(())
 }
 
-fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+/// Print the findings grouped under the feature, object or enum they're about,
+/// followed by the guidance for each lint that fired. The guidance is per lint, not
+/// per finding: eighty features missing a `meta-bug` need telling how once.
+fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
+    // The findings arrive sorted by module and subject, so a change of either starts
+    // the next group.
+    let mut group: Option<(&Option<String>, &String)> = None;
+
+    for finding in &report.findings {
+        let this = (&finding.module, &finding.subject);
+        if group != Some(this) {
+            if group.is_some() {
+                writeln!(stream)?;
+            }
+            group = Some(this);
+
+            stream.set_color(ColorSpec::new().set_bold(true))?;
+            write!(stream, "{}", finding.subject)?;
+            stream.reset()?;
+            match &finding.module {
+                Some(module) => writeln!(stream, " (imported from {module})")?,
+                None => writeln!(stream)?,
+            }
+        }
+        output_finding(stream, finding)?;
+    }
+
+    let lints = report.triggered_lints();
+    if !lints.is_empty() {
+        writeln!(stream, "\nWhat to do about these:")?;
+        for lint in lints {
+            stream.set_color(ColorSpec::new().set_bold(true))?;
+            writeln!(stream, "  {}", lint.name)?;
+            stream.reset()?;
+            writeln!(stream, "{}", wrapped(lint.help, "    ", "    "))?;
+        }
+        writeln!(stream)?;
+    }
+
+    Ok(())
+}
+
+fn output_err(stream: &mut impl WriteColor, title: &str, detail: &str) -> Result<()> {
     writeln!(stream, "❎ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
     writeln!(stream, "{title}")?;
@@ -209,7 +284,7 @@ fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<
 }
 
 pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    let mut stdout = stdout_stream();
 
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
 
@@ -261,59 +336,6 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         ),
     )?;
 
-    writeln!(stdout, "Validating feature metadata:")?;
-    let mut features_with_warnings = 0;
-    for (_, f) in intermediate_representation.iter_all_feature_defs() {
-        let fm = &f.metadata;
-        let mut missing = vec![];
-        if fm.meta_bug.is_none() {
-            missing.push("'meta-bug'");
-        }
-        if fm.documentation.is_empty() {
-            missing.push("'documentation'");
-        }
-        if fm.contacts.is_empty() {
-            missing.push("'contacts'");
-        }
-        if !missing.is_empty() {
-            output_warn(
-                &mut stdout,
-                &format!("'{}' missing metadata", &f.name),
-                &missing.join(", "),
-            )?;
-            features_with_warnings += 1;
-        }
-    }
-
-    if features_with_warnings == 0 {
-        output_ok(&mut stdout, "All feature metadata ok\n")?;
-    } else {
-        let features = if features_with_warnings == 1 {
-            "feature"
-        } else {
-            "features"
-        };
-        writeln!(
-            &mut stdout,
-            "Each feature should have entries for at least:"
-        )?;
-        writeln!(&mut stdout, "  - meta-bug: a URL where to file bugs")?;
-        writeln!(
-            &mut stdout,
-            "  - documentation: a list of one or more URLs documenting the feature"
-        )?;
-        writeln!(&mut stdout, "      e.g. QA docs, user docs")?;
-        writeln!(
-            &mut stdout,
-            "  - contacts: a list of one or more email addresses"
-        )?;
-        writeln!(&mut stdout, "      (with Mozilla Jira accounts)")?;
-        writeln!(
-            &mut stdout,
-            "Metadata warnings detected in {features_with_warnings} {features}\n"
-        )?;
-    }
-
     writeln!(&mut stdout, "Validating manifest for different channels:")?;
 
     let results = channels
@@ -353,6 +375,169 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
             error_count,
             if error_count > 1 { "s" } else { "" }
         )));
+    }
+
+    Ok(())
+}
+
+fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let file_path = files.file_path(&cmd.manifest)?;
+
+    // One parser for both passes: `load_manifest` walks the whole include tree, and
+    // a second one would fetch and parse all of it again.
+    let parser: Parser = Parser::new(files, file_path.clone())?;
+
+    // The top level `no-lint` block lives in the file, not the IR.
+    let mut loading = HashSet::new();
+    let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
+
+    let config = LintConfig::new()
+        .including_imports(cmd.include_imports)
+        .with_file_suppressions(&manifest_front_end.no_lint)
+        .allowing(&cmd.allow)?
+        .denying(&cmd.deny)?;
+
+    // Linting an invalid manifest would report nonsense.
+    let ir = parser
+        .get_intermediate_representation(None)
+        .and_then(|ir| {
+            ir.validate_manifest_with(cmd.loader.lax_gecko_pref_validation)
+                .map(|_| ir)
+        })
+        .map_err(|e| {
+            CliError(format!(
+                "{e}\nA manifest has to be valid before it can be linted; run `nimbus-fml validate` for details"
+            ))
+        })?;
+
+    Ok(lints::lint_manifest(&ir, &config))
+}
+
+pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
+    let mut stdout = stdout_stream();
+
+    let report = lint_report(cmd)?;
+
+    if cmd.as_json {
+        println!("{}", serde_json::to_string_pretty(&json_report(&report))?);
+    } else {
+        output_findings(&mut stdout, &report)?;
+        output_lint_summary(&mut stdout, &report)?;
+    }
+
+    let errors = report.error_count();
+    let warnings = report.warning_count();
+
+    if errors > 0 {
+        return Err(CliError(format!(
+            "Manifest has {} lint error{}",
+            errors,
+            if errors > 1 { "s" } else { "" }
+        )));
+    }
+
+    if cmd.error_on_warning && warnings > 0 {
+        return Err(CliError(format!(
+            "Manifest has {} lint warning{}",
+            warnings,
+            if warnings > 1 { "s" } else { "" }
+        )));
+    }
+
+    Ok(())
+}
+
+/// The shape `--json` emits: the counts a CI job needs, plus the findings.
+fn json_report(report: &LintReport) -> serde_json::Value {
+    serde_json::json!({
+        "errors": report.error_count(),
+        "warnings": report.warning_count(),
+        "suppressed": report.suppressed,
+        "subjects": report.subject_count(),
+        "findings": report.findings,
+    })
+}
+
+fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
+    if report.suppressed == 0 {
+        return Ok(());
+    }
+    output_note(
+        stream,
+        &format!(
+            "{} finding{} silenced by `no-lint`",
+            report.suppressed,
+            if report.suppressed > 1 { "s" } else { "" }
+        ),
+    )
+}
+
+fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
+    if report.is_empty() {
+        output_ok(stream, "No lint findings")?;
+        return output_suppressed(stream, report);
+    }
+
+    let errors = report.error_count();
+    let warnings = report.warning_count();
+    let mut counts = Vec::new();
+    if errors > 0 {
+        counts.push(format!(
+            "{errors} error{}",
+            if errors > 1 { "s" } else { "" }
+        ));
+    }
+    if warnings > 0 {
+        counts.push(format!(
+            "{warnings} warning{}",
+            if warnings > 1 { "s" } else { "" }
+        ));
+    }
+
+    let subjects = report.subject_count();
+    writeln!(
+        stream,
+        "Found {} in {subjects} place{}.",
+        counts.join(" and "),
+        if subjects > 1 { "s" } else { "" }
+    )?;
+    output_suppressed(stream, report)?;
+    writeln!(
+        stream,
+        "{}",
+        wrapped(
+            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` list on that feature, for the whole file with a top level `no-lint:` list, or for this run with `--allow LINT_NAME`.",
+            "",
+            "",
+        )
+    )?;
+
+    Ok(())
+}
+
+pub(crate) fn list_lints() -> Result<()> {
+    output_lint_list(&mut stdout_stream())
+}
+
+fn output_lint_list(stream: &mut impl WriteColor) -> Result<()> {
+    const CATEGORY_WIDTH: usize = 15;
+    const LEVEL_WIDTH: usize = 10;
+
+    writeln!(
+        stream,
+        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}DESCRIPTION",
+        "LINT", "CATEGORY", "DEFAULT"
+    )?;
+    for lint in lints::ALL_LINTS.iter() {
+        writeln!(
+            stream,
+            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}{}",
+            lint.name,
+            lint.category.as_str(),
+            lint.default_level.as_str(),
+            lint.description
+        )?;
     }
 
     Ok(())
@@ -658,6 +843,365 @@ mod test {
             validate(&cmd)?;
         }
         Ok(())
+    }
+
+    fn lint_cmd(path: &str) -> LintCmd {
+        LintCmd {
+            manifest: join(pkg_dir(), path),
+            loader: Default::default(),
+            allow: Default::default(),
+            deny: Default::default(),
+            error_on_warning: false,
+            include_imports: false,
+            as_json: false,
+        }
+    }
+
+    /// The lints a fixture trips, sorted and deduplicated.
+    fn lints_for(path: &str) -> Result<Vec<&'static str>> {
+        let report = lint_report(&lint_cmd(path))?;
+        let mut lints: Vec<_> = report.findings.iter().map(|f| f.lint).collect();
+        lints.sort_unstable();
+        lints.dedup();
+        Ok(lints)
+    }
+
+    #[test]
+    fn test_lint_command_says_nothing_about_a_well_formed_manifest() -> Result<()> {
+        let path = "fixtures/fe/lints/well-formed.fml.yaml";
+        assert_eq!(lints_for(path)?, Vec::<&str>::new());
+
+        // Warnings are all the lints produce by default, so this succeeds.
+        lint(&lint_cmd(path))?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_finds_the_problems_in_a_manifest() -> Result<()> {
+        assert_eq!(
+            lints_for("fixtures/fe/lints/needs-work.fml.yaml")?,
+            vec![
+                "COMMON_PREFIX",
+                "DEEP_NESTING",
+                "ENUM_VARIANT_CASING",
+                "FEATURE_NAME_CASING",
+                "MISSING_CONTACTS",
+                "MISSING_DOCUMENTATION",
+                "MISSING_ENABLED_VARIABLE",
+                "MISSING_META_BUG",
+                "NEGATED_BOOLEAN",
+                "STRINGLY_TYPED",
+                "TERSE_DESCRIPTION",
+                "TODO_IN_DESCRIPTION",
+                "TRIVIAL_ENUM",
+                "TYPE_IN_NAME",
+                "TYPE_NAME_CASING",
+                "UNUSED_TYPE",
+                "VARIABLE_NAME_CASING",
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_honours_no_lint() -> Result<()> {
+        // The file excuses itself from MISSING_META_BUG, its feature from
+        // MISSING_ENABLED_VARIABLE.
+        assert_eq!(
+            lints_for("fixtures/fe/lints/suppressions.fml.yaml")?,
+            // ... but both lists also name a lint that doesn't exist.
+            vec!["UNKNOWN_LINT"]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_reports_unknown_names_at_both_levels() -> Result<()> {
+        let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
+        let unknown: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| f.lint == "UNKNOWN_LINT")
+            .map(|f| (f.subject.as_str(), f.message.as_str()))
+            .collect();
+
+        assert_eq!(
+            unknown,
+            vec![
+                (
+                    "feature `legacy-feature`",
+                    "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
+                ),
+                (
+                    "this manifest",
+                    "`no-lint` names `NOT_A_REAL_FILE_LINT`, which isn't a lint"
+                ),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_says_when_no_lint_silenced_a_finding() -> Result<()> {
+        // The included file silences MISSING_META_BUG, so lint would otherwise call
+        // the manifest clean without saying why.
+        let report = lint_report(&lint_cmd("fixtures/fe/lints/including.fml.yaml"))?;
+        assert!(report.is_empty());
+        assert_eq!(report.suppressed, 1);
+
+        let mut buffer = termcolor::Buffer::no_color();
+        output_suppressed(&mut buffer, &report)?;
+        let output = String::from_utf8(buffer.into_inner()).expect("output is UTF-8");
+        assert!(
+            output.contains("1 finding silenced by `no-lint`"),
+            "{output}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_honours_no_lint_in_an_included_file() -> Result<()> {
+        // The included file excuses what it defines from MISSING_META_BUG; the
+        // including file provides its own.
+        let path = "fixtures/fe/lints/including.fml.yaml";
+        assert_eq!(lints_for(path)?, Vec::<&str>::new());
+        assert_eq!(lint_report(&lint_cmd(path))?.suppressed, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_allow_and_deny() -> Result<()> {
+        let path = "fixtures/fe/lints/needs-work.fml.yaml";
+
+        let mut cmd = lint_cmd(path);
+        cmd.allow = vec!["TRIVIAL_ENUM".to_string()];
+        assert!(!lint_report(&cmd)?
+            .findings
+            .iter()
+            .any(|f| f.lint == "TRIVIAL_ENUM"));
+
+        // Warnings on their own don't fail the run.
+        let mut cmd = lint_cmd(path);
+        lint(&cmd)?;
+
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        assert!(lint(&cmd).is_err());
+
+        let mut cmd = lint_cmd(path);
+        cmd.error_on_warning = true;
+        assert!(lint(&cmd).is_err());
+
+        Ok(())
+    }
+
+    /// Render a report the way `lint` does, minus the colour.
+    fn rendered(report: &LintReport) -> Result<String> {
+        let mut buffer = termcolor::Buffer::no_color();
+        output_findings(&mut buffer, report)?;
+        output_lint_summary(&mut buffer, report)?;
+        Ok(String::from_utf8(buffer.into_inner()).expect("output is UTF-8"))
+    }
+
+    #[test]
+    fn test_every_finding_says_what_it_is_about() -> Result<()> {
+        // Findings are grouped by feature, so two of the same lint in one feature
+        // are only distinguishable by their messages.
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        let report = lint_report(&cmd)?;
+        let output = rendered(&report)?;
+
+        let findings: Vec<_> = output
+            .lines()
+            .filter(|l| l.trim_start().starts_with(['⚠', '❎']))
+            .collect();
+        assert_eq!(findings.len(), report.findings.len());
+
+        let distinct: HashSet<_> = findings.iter().collect();
+        assert_eq!(
+            distinct.len(),
+            findings.len(),
+            "two findings render identically:\n{output}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_help_is_printed_once_per_lint() -> Result<()> {
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        let report = lint_report(&cmd)?;
+        // The help is wrapped, so match against it unwrapped.
+        let output = rendered(&report)?
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // The fixture trips MISSING_META_BUG once and TERSE_DESCRIPTION twice.
+        assert_eq!(output.matches("Add a `meta-bug` URL").count(), 1);
+        assert_eq!(
+            output
+                .matches("use the description to say what changes when the value changes")
+                .count(),
+            1
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_grouping_names_each_subject_once() -> Result<()> {
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        let report = lint_report(&cmd)?;
+        let output = rendered(&report)?;
+
+        for subject in ["feature `myBadFeature`", "object `unusedObject`"] {
+            assert_eq!(
+                output.matches(&format!("\n{subject}\n")).count()
+                    + usize::from(output.starts_with(&format!("{subject}\n"))),
+                1,
+                "{subject} should head exactly one group:\n{output}"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_summary_counts_what_was_found() -> Result<()> {
+        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let report = lint_report(&cmd)?;
+
+        let expected = format!(
+            "Found 1 error and {} warnings in 3 places.",
+            report.warning_count()
+        );
+        assert!(rendered(&report)?.contains(&expected), "{expected}");
+
+        let clean = lint_report(&lint_cmd("fixtures/fe/lints/well-formed.fml.yaml"))?;
+        assert!(rendered(&clean)?.contains("No lint findings"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_counts_suppressed_findings() -> Result<()> {
+        // The fixture silences one lint for the file and one for its feature.
+        let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
+        assert_eq!(report.suppressed, 2);
+        assert!(rendered(&report)?.contains("2 findings silenced by `no-lint`"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_json_carries_the_counts() -> Result<()> {
+        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let report = lint_report(&cmd)?;
+
+        let json = json_report(&report);
+        assert_eq!(json["errors"], 1);
+        assert_eq!(json["warnings"], report.warning_count());
+        assert_eq!(json["suppressed"], 0);
+        assert_eq!(json["subjects"], 3);
+        assert_eq!(
+            json["findings"].as_array().unwrap().len(),
+            report.findings.len()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_rejects_unknown_lint_names() {
+        let mut cmd = lint_cmd("fixtures/fe/lints/well-formed.fml.yaml");
+        cmd.allow = vec!["NOT_A_LINT".to_string()];
+
+        let error = lint(&cmd).expect_err("An unknown lint name should be an error");
+        assert!(error.to_string().contains("NOT_A_LINT"));
+    }
+
+    #[test]
+    fn test_lint_command_ignores_imported_features_by_default() -> Result<()> {
+        let path = "fixtures/fe/importing/simple/app.yaml";
+
+        let cmd = lint_cmd(path);
+        let report = lint_report(&cmd)?;
+        assert!(report.findings.iter().all(|f| f.module.is_none()));
+
+        let mut cmd = lint_cmd(path);
+        cmd.include_imports = true;
+        let report = lint_report(&cmd)?;
+        assert!(report.findings.iter().any(|f| f.module.is_some()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_list_names_every_lint() -> Result<()> {
+        let mut buffer = termcolor::Buffer::no_color();
+        output_lint_list(&mut buffer)?;
+        let output = String::from_utf8(buffer.into_inner()).expect("output is UTF-8");
+
+        // A header, then one row per lint and nothing else.
+        assert_eq!(output.lines().count(), lints::ALL_LINTS.len() + 1);
+
+        for lint in lints::ALL_LINTS.iter() {
+            let row = output
+                .lines()
+                .find(|l| l.starts_with(lint.name))
+                .unwrap_or_else(|| panic!("{} should be listed:\n{output}", lint.name));
+            assert!(row.contains(lint.category.as_str()), "{row}");
+            assert!(row.contains(lint.default_level.as_str()), "{row}");
+            assert!(row.contains(lint.description), "{row}");
+        }
+
+        Ok(())
+    }
+
+    /// A lint no fixture trips is either raising nothing at all, or is only ever
+    /// tested through the module that declares it.
+    #[test]
+    fn test_every_lint_is_tripped_by_a_fixture() -> Result<()> {
+        let mut fired: HashSet<&str> = HashSet::new();
+
+        for entry in std::fs::read_dir(join(pkg_dir(), "fixtures/fe/lints"))? {
+            let name = entry?.file_name().to_string_lossy().to_string();
+            // `invalid.fml.yaml` is there to be rejected before any lint runs.
+            if !name.ends_with(MATCHING_FML_EXTENSION) || name == "invalid.fml.yaml" {
+                continue;
+            }
+
+            let mut cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
+            cmd.include_imports = true;
+            fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
+        }
+
+        let missing: Vec<_> = lints::ALL_LINTS
+            .iter()
+            .map(|l| l.name)
+            .filter(|name| !fired.contains(name))
+            .collect();
+        assert_eq!(
+            missing,
+            Vec::<&str>::new(),
+            "no fixture in fixtures/fe/lints trips these"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lint_command_needs_a_valid_manifest() {
+        let cmd = lint_cmd("fixtures/fe/lints/invalid.fml.yaml");
+
+        let error = lint(&cmd).expect_err("An invalid manifest should be an error");
+        assert!(
+            error.to_string().contains("run `nimbus-fml validate`"),
+            "{error}"
+        );
     }
 
     #[test]

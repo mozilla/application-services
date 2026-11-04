@@ -15,6 +15,12 @@ mod macros;
 /// to ensure the needed version is kept in sync in dependents.
 pub use backtrace;
 
+pub fn initialize() {
+    // Reference `rust_component_errors` to ensure it's loaded/initialized
+    #[cfg(feature = "glean-sym")]
+    let _ = &*glean_metrics::rust_component_errors;
+}
+
 #[cfg(not(feature = "backtrace"))]
 /// A compatibility shim for `backtrace`.
 pub mod backtrace {
@@ -172,6 +178,11 @@ macro_rules! define_error {
             }
         }
     };
+}
+
+#[cfg(feature = "glean-sym")]
+pub mod glean_metrics {
+    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
 }
 
 uniffi::setup_scaffolding!("errorsupport");
