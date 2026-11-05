@@ -22,6 +22,7 @@
 ### Remote Settings
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+- Uptake telemetry reports `cert_fetch_error` when the certificate chain URL is unreachable or has invalid content-type.
 
 ## Breaking Changes
 
