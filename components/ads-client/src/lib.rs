@@ -232,4 +232,21 @@ impl MozAdsClient {
         self.inner.shutdown();
         Ok(())
     }
+
+    /// Sets the underlying MARS settings.
+    /// TODO: Write doc here
+    /// // TODO: note that the api error is because it mnight change
+    #[uniffi::method()]
+    pub fn set_request_settings(
+        &self,
+        new_settings: MozAdsRequestSettingsOptions,
+    ) -> AdsClientApiResult<()> {
+        self.inner.set_request_settings(MARSSettings {
+            flags: new_settings.flags,
+            cache_policy: new_settings.cache_policy.unwrap_or_default().into(),
+            ohttp: new_settings.ohttp,
+            blocks: new_settings.blocks,
+        });
+        Ok(())
+    }
 }

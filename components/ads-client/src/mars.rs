@@ -11,7 +11,6 @@ mod preflight;
 pub(crate) mod report_reason;
 mod transport;
 
-
 pub(crate) use environment::Environment;
 use parking_lot::RwLock;
 pub(crate) use report_reason::ReportReason;

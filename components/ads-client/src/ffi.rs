@@ -29,6 +29,7 @@ use std::sync::Weak;
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
 
+// TODO: Compare both of these
 /// Options for one ad request. Every field has a default.
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
@@ -42,6 +43,20 @@ pub struct MozAdsRequestOptions {
     pub ohttp: bool,
     #[uniffi(default)]
     pub relevance: HashMap<String, f64>, // tiles only
+}
+
+// TODO: re doc this, and rename this
+/// Options for one ad request. Every field has a default.
+#[derive(Default, uniffi::Record)]
+pub struct MozAdsRequestSettingsOptions {
+    #[uniffi(default)]
+    pub blocks: Vec<String>,
+    #[uniffi(default)]
+    pub cache_policy: Option<MozAdsCachePolicy>,
+    #[uniffi(default)]
+    pub flags: HashMap<String, bool>,
+    #[uniffi(default = false)]
+    pub ohttp: bool,
 }
 
 /// Options for a callback request (click, impression or report).
