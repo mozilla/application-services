@@ -21,6 +21,10 @@
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
 
+### Nimbus
+
+- The `rkv-safe-mode` feature has been removed and Nimbus defaults to using the safe backend in stateful (i.e., non-cirrus) configurations. ([#7728](https://github.com/mozilla/application-services/pull/7728))
+
 # v160.0 (_2026-10-22_)
 
 ## ⚠️ Breaking Changes ⚠️
