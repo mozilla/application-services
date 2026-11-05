@@ -99,7 +99,7 @@ builder.build()
 - **`environment(environment)`** - Sets the MARS environment (Prod, Staging, or Test)
 - **`cacheConfig(cacheConfig)`** - Sets the cache configuration
 - **`telemetry(telemetry)`** - Sets the telemetry implementation
-- **`userAgent(userAgent)`** - Sets the browser's user agent, used for OHTTP requests
+- **`userAgent(userAgent)`** - Sets the browser's user agent
 - **`build()`** - Builds and returns the configured client
 
 | Configuration  | Type                       | Description                                                                                            |
@@ -107,7 +107,7 @@ builder.build()
 | `environment`  | `MozAdsEnvironment`        | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. Defaults to Prod. |
 | `cacheConfig`  | `MozAdsCacheConfig \| null`| Optional configuration for the internal cache.                                                         |
 | `telemetry`    | `MozAdsTelemetry \| null`  | Optional telemetry instance for recording metrics. Telemetry is process-wide: the most recently built client's instance receives metrics from every client.    |
-| `userAgent`    | `string \| null`           | The browser's user agent, sent as `X-User-Agent` on OHTTP requests when the preflight returns no normalized user agent. Defaults to viaduct's global default user agent; an OHTTP request with neither fails. |
+| `userAgent`    | `string \| null`           | The browser's user agent, for OHTTP requests (see the OHTTP note). |
 
 ---
 
@@ -299,7 +299,7 @@ client.recordClick(ad.callbacks.click, { ohttp: true });
 client.recordImpression(ad.callbacks.impression, { ohttp: true });
 ```
 
-> **Note:** OHTTP must be configured at the viaduct level before use. When `ohttp` is `true`, the client automatically performs a preflight request to obtain geo-location and user-agent headers, which are injected into the MARS request. MARS needs `X-User-Agent` on every OHTTP request: when the preflight returns no normalized user agent, the client sends the one set with `userAgent` (or viaduct's global default user agent), and the request fails if there is neither.
+> **Note:** OHTTP must be configured at the viaduct level before use. When `ohttp` is `true`, the client automatically performs a preflight request to obtain geo-location and user-agent headers, which are injected into the MARS request. If the preflight returns no user agent, the client sends `userAgent`, else viaduct's global default user agent, else the request fails.
 
 ---
 

@@ -18,6 +18,7 @@ use crate::mars::ad_request::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
+use crate::non_empty_string::NonEmptyString;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -97,7 +98,7 @@ struct MozAdsClientBuilderInner {
     #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
-    user_agent: Option<String>,
+    user_agent: Option<NonEmptyString>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -156,12 +157,10 @@ impl MozAdsClientBuilder {
         self
     }
 
-    /// The browser's user agent. MARS needs a user agent on every OHTTP
-    /// request: this one is sent when the OHTTP preflight returns no
-    /// normalized user agent. Defaults to viaduct's global default user
-    /// agent; an OHTTP request with neither fails.
+    /// The browser's user agent, sent to MARS on OHTTP requests when the
+    /// preflight returns none. Defaults to viaduct's global default user agent.
     pub fn user_agent(self: Arc<Self>, user_agent: String) -> Arc<Self> {
-        self.0.lock().user_agent = Some(user_agent);
+        self.0.lock().user_agent = NonEmptyString::new(user_agent);
         self
     }
 }

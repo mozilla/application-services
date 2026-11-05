@@ -4,15 +4,15 @@
 */
 
 use crate::mars::Environment;
+use crate::non_empty_string::NonEmptyString;
 
 pub(crate) struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
-    /// The browser's user agent, sent as `X-User-Agent` on OHTTP requests
-    /// when the preflight returns no normalized user agent.
-    pub user_agent: Option<String>,
+    /// The browser's user agent, for OHTTP requests.
+    pub user_agent: Option<NonEmptyString>,
 }
 
 #[derive(Clone, Debug)]

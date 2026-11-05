@@ -26,9 +26,7 @@ pub enum CallbackRequestError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error(
-        "No user agent for the OHTTP request: the preflight returned no normalized user agent and none was configured"
-    )]
+    #[error("OHTTP request has no user agent to send")]
     MissingUserAgent,
 
     #[error("Error sending request: {0}")]
