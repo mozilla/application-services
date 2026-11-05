@@ -60,6 +60,11 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 - `CheckAuthorizationStatus` now checks for missing scoped keys
   ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
 
+### Filter Adult
+
+- `import-site-list` now builds `adult_set.bin` from a text file with one base
+  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+
 ### Merino
 
 - Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
