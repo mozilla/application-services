@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+
 # v161.0 (_2026-11-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
@@ -16,7 +22,6 @@
 - The HTTP cache no longer stores error responses: a failed request is retried on the next call instead of being replayed for the cache TTL.
 - Every exported type and method has a docstring in the Kotlin and Swift bindings.
 - `MozAdsRequestOptions.cachePolicy` defaults to `null`, like the record's other fields.
-- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 
 ### Autofill
 
