@@ -6,12 +6,23 @@ static list of base domains for what are considered "adult sites".
 A "base domain" in this context is the same base domain that is returned by
 [nsIEffectiveTLDService.getBaseDomain](https://searchfox.org/mozilla-central/rev/85d6bf1b521040c79ed72f3966274a25a2f987c7/netwerk/dns/nsIEffectiveTLDService.idl#54-94).
 
+## Updating the list
+
+`src/adult_set.bin` contains the bytes for the hash set of adult sites. To
+regenerate it from a text file with one base domain per line:
+
+```shell
+cargo run -p filter_adult --features build-binary --bin import-site-list -- path/to/domains.txt components/filter_adult/src/adult_set.bin
+```
+
+The domain list itself is not checked in.
+
 ## Tests
 
 Tests are run with
 
 ```shell
-cargo test -p filter_adult
+cargo test -p filter_adult --features build-binary
 ```
 
 ## Bugs
