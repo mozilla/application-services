@@ -11,6 +11,8 @@ mod preflight;
 pub(crate) mod report_reason;
 mod transport;
 
+use std::collections::HashMap;
+
 pub(crate) use environment::Environment;
 pub(crate) use report_reason::ReportReason;
 use sql_support::open_database;
@@ -34,13 +36,42 @@ use viaduct::{Headers, Request};
 pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
+    // TODO: Rename
+    settings: MARSSettings,
+}
+
+// TODO: Remove pub maybe?
+// TODO: Maybe From<> the ffi layer one but just letting it drop
+#[derive(Clone)]
+pub struct MARSSettings {
+    pub flags: AdRequestFlags,
+    pub cache_policy: CachePolicy,
+    pub ohttp: bool,
+    pub blocks: Vec<String>,
+}
+
+impl Default for MARSSettings {
+    fn default() -> Self {
+        // TODO: Should default have ohttp off?
+        MARSSettings {
+            flags: HashMap::new(),
+            cache_policy: CachePolicy::default(),
+            ohttp: false,
+            blocks: vec![],
+        }
+    }
 }
 
 impl MARSClient {
-    pub(crate) fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
+    pub(crate) fn new(
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+        settings: MARSSettings,
+    ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
+            settings,
         }
     }
 
@@ -48,38 +79,37 @@ impl MARSClient {
         self.transport.clear_cache()
     }
 
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "the fields of an ad request, and how to send it"
-    )]
     pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
-        flags: AdRequestFlags,
+        request_settings: Option<MARSSettings>,
         placements: Vec<AdPlacementRequest>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        blocks: Vec<String>,
+        // TODO: Should we include relevance?
         relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
+        let request_settings = request_settings.unwrap_or(self.settings.clone());
         let mut ad_request = AdRequest::try_new(
-            blocks,
+            request_settings.blocks,
             context_id,
             self.environment.clone(),
-            flags,
-            ohttp,
+            request_settings.flags,
+            request_settings.ohttp,
             placements,
             relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
-        if ohttp {
+        if request_settings.ohttp {
             ad_request
                 .headers
                 .extend(Headers::try_from(self.fetch_preflight()?)?);
         }
 
-        let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
+        let response = self.transport.send(
+            ad_request,
+            &request_settings.cache_policy,
+            request_settings.ohttp,
+        )?;
         let ads: AdResponse = response.json()?;
         Ok((ads, request_hash))
     }
@@ -157,7 +187,7 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache)
+        MARSClient::new(Environment::Test, http_cache, MARSSettings::default())
     }
 
     #[test]
@@ -227,11 +257,8 @@ mod tests {
 
         let result = client.fetch_ads(
             Some(TEST_CONTEXT_ID.to_string()),
-            AdRequestFlags::default(),
+            None,
             make_happy_placement_requests(),
-            CachePolicy::default(),
-            false,
-            Default::default(),
             AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
@@ -262,11 +289,8 @@ mod tests {
         let (response1, _) = client
             .fetch_ads(
                 Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
                 AdRequestRelevance::default(),
             )
             .unwrap();
@@ -276,11 +300,8 @@ mod tests {
         let (response2, _) = client
             .fetch_ads(
                 Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
                 AdRequestRelevance::default(),
             )
             .unwrap();
