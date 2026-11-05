@@ -10,7 +10,11 @@ pub(crate) struct NonEmptyString(String);
 impl NonEmptyString {
     pub(crate) fn new(value: impl Into<String>) -> Option<Self> {
         let value = value.into();
-        (!value.is_empty()).then_some(Self(value))
+        match value.trim() {
+            "" => None,
+            trimmed if trimmed.len() == value.len() => Some(Self(value)),
+            trimmed => Some(Self(trimmed.to_owned())),
+        }
     }
 
     pub(crate) fn deserialize_option<'de, D: Deserializer<'de>>(
@@ -37,8 +41,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_only_the_empty_string() {
+    fn trims_and_rejects_blank_strings() {
         assert_eq!(NonEmptyString::new(""), None);
-        assert_eq!(NonEmptyString::new(" ").unwrap().as_ref(), " ");
+        assert_eq!(NonEmptyString::new(" \t\n"), None);
+        assert_eq!(
+            NonEmptyString::new(" Firefox/140.0 ").unwrap().as_ref(),
+            "Firefox/140.0"
+        );
     }
 }
