@@ -94,6 +94,8 @@ impl RemoteSettingsTelemetry for NoopRemoteSettingsTelemetry {
 /// Wrapper around [RemoteSettingsTelemetry] used internally.
 #[derive(Clone)]
 pub struct RemoteSettingsTelemetryWrapper {
+    // Unused with `glean-sym`: metrics are recorded directly from Rust.
+    #[cfg_attr(feature = "glean-sym", allow(dead_code))]
     inner: Arc<dyn RemoteSettingsTelemetry>,
 }
 
@@ -108,8 +110,40 @@ impl RemoteSettingsTelemetryWrapper {
         }
     }
 
+    #[cfg(feature = "glean-sym")]
+    fn report_uptake(&self, event: UptakeEventExtras) {
+        // With glean-sym, telemetry is sent directly from the
+        // Glean SDK. The wrapped inner implementation is not
+        // called.
+        // This allows us to transition to glean-sym without
+        // breaking changes.
+        // Once this ships and gets enabled in builds, we can
+        // remove the telemetry wrapper code in iOS and Android.
+        use crate::glean_metrics::remote_settings::{
+            uptake_remotesettings, UptakeRemotesettingsExtra,
+        };
+        uptake_remotesettings.record(UptakeRemotesettingsExtra {
+            value: event.value,
+            source: event.source,
+            age: event.age,
+            trigger: event.trigger,
+            timestamp: event.timestamp,
+            duration: event.duration,
+            errorname: event.error_name,
+        });
+    }
+
+    #[cfg(not(feature = "glean-sym"))]
+    fn report_uptake(&self, event: UptakeEventExtras) {
+        // Call the native implementation of Glean.
+        // Note: feature is disabled on desktop.
+        // When `glean-sym` is enabled, the wrapper isn't called at all
+        // and events are sent directly by the Glean SDK.
+        self.inner.report_uptake(event)
+    }
+
     pub fn report_uptake_success(&self, source: &str, duration: Option<u64>) {
-        self.inner.report_uptake(UptakeEventExtras {
+        self.report_uptake(UptakeEventExtras {
             value: Some(SyncStatus::Success.to_string()),
             source: Some(source.to_string()),
             age: None,
@@ -121,7 +155,7 @@ impl RemoteSettingsTelemetryWrapper {
     }
 
     pub fn report_uptake_up_to_date(&self, source: &str, duration: Option<u64>) {
-        self.inner.report_uptake(UptakeEventExtras {
+        self.report_uptake(UptakeEventExtras {
             value: Some(SyncStatus::UpToDate.to_string()),
             source: Some(source.to_string()),
             age: None,
@@ -143,7 +177,8 @@ impl RemoteSettingsTelemetryWrapper {
             .unwrap_or("")
             .trim()
             .to_string();
-        self.inner.report_uptake(UptakeEventExtras {
+
+        self.report_uptake(UptakeEventExtras {
             value: Some(error_to_status(error).to_string()),
             source: Some(source.to_string()),
             age: None,
