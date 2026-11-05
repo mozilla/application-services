@@ -128,7 +128,6 @@ impl MARSClient {
         self.transport.shutdown_db();
     }
 
-    /// The headers MARS needs on an OHTTP request, from the preflight.
     fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
         self.fetch_preflight()?
             .into_headers(self.user_agent.as_ref())

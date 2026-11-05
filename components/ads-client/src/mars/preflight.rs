@@ -35,9 +35,6 @@ pub struct PreflightResponse {
 }
 
 impl PreflightResponse {
-    /// The headers MARS reads from an OHTTP request. `X-User-Agent` is the
-    /// preflight's `normalized_ua`, else `browser_user_agent` (set on the
-    /// builder), else viaduct's global default user agent.
     pub fn into_headers(
         self,
         browser_user_agent: Option<&NonEmptyString>,
@@ -98,8 +95,6 @@ mod tests {
         );
     }
 
-    // The only test that touches viaduct's process-wide user agent: the
-    // others always have a preflight or browser user agent, so never read it.
     #[test]
     fn falls_back_to_viaducts_user_agent_else_is_an_error() {
         GLOBAL_SETTINGS.write().default_user_agent = None;

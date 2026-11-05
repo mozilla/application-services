@@ -4,19 +4,15 @@
 
 use serde::{Deserialize, Deserializer};
 
-/// A string that is never empty.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NonEmptyString(String);
 
 impl NonEmptyString {
-    /// `None` for an empty string.
     pub(crate) fn new(value: impl Into<String>) -> Option<Self> {
         let value = value.into();
         (!value.is_empty()).then_some(Self(value))
     }
 
-    /// For `#[serde(default, deserialize_with = ...)]`: an empty or null
-    /// string is `None`.
     pub(crate) fn deserialize_option<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Option<Self>, D::Error> {

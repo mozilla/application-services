@@ -11,7 +11,6 @@ pub(crate) struct AdsClientConfig {
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
-    /// The browser's user agent, for OHTTP requests.
     pub user_agent: Option<NonEmptyString>,
 }
 
