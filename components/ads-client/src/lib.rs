@@ -30,7 +30,7 @@ pub mod worker;
 
 pub use ffi::*;
 
-use crate::mars::MARSSettings;
+use crate::mars::MARSRequestOptions;
 
 /// Path that makes SQLite open a private in-memory database.
 pub(crate) const IN_MEMORY_DB_PATH: &str = ":memory:";
@@ -121,8 +121,7 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
         // TODO: Is this conversion the right way to do it?
-        let mars_settings = options.map(|opt| MARSSettings {
-            // TODO: The AdsRequestFlags::from thing is a bit of a strange antipattern
+        let mars_options = options.map(|opt| MARSRequestOptions {
             flags: AdRequestFlags::from(&opt),
             cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
             ohttp: opt.ohttp,
@@ -130,7 +129,7 @@ impl MozAdsClient {
         });
         let response = self
             .inner
-            .request_image_ads(requests, mars_settings)
+            .request_image_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -145,10 +144,7 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-
-        // TODO: Is this conversion the right way to do it?
-        let mars_settings = options.map(|opt| MARSSettings {
-            // TODO: The AdsRequestFlags::from thing is a bit of a strange antipattern
+        let mars_options = options.map(|opt| MARSRequestOptions {
             flags: AdRequestFlags::from(&opt),
             cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
             ohttp: opt.ohttp,
@@ -156,7 +152,7 @@ impl MozAdsClient {
         });
         let response = self
             .inner
-            .request_spoc_ads(requests, mars_settings)
+            .request_spoc_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -175,9 +171,7 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsImageOrSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        // TODO: Is this conversion the right way to do it?
-        let mars_settings = options.map(|opt| MARSSettings {
-            // TODO: The AdsRequestFlags::from thing is a bit of a strange antipattern
+        let mars_options = options.map(|opt| MARSRequestOptions {
             flags: AdRequestFlags::from(&opt),
             cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
             ohttp: opt.ohttp,
@@ -185,7 +179,7 @@ impl MozAdsClient {
         });
         let response = self
             .inner
-            .request_spoc_or_image_ads(requests, mars_settings)
+            .request_spoc_or_image_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -203,14 +197,11 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        // TODO: Is this conversion the right way to do it?
         let relevance = options
             .as_ref()
             .map(|opt| opt.relevance.clone())
             .unwrap_or_default();
-        // TODO: Is this conversion the right way to do it?
-        let mars_settings = options.map(|opt| MARSSettings {
-            // TODO: The AdsRequestFlags::from thing is a bit of a strange antipattern
+        let mars_options = options.map(|opt| MARSRequestOptions {
             flags: AdRequestFlags::from(&opt),
             cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
             ohttp: opt.ohttp,
@@ -218,7 +209,7 @@ impl MozAdsClient {
         });
         let response = self
             .inner
-            .request_tile_ads(requests, mars_settings, relevance)
+            .request_tile_ads(requests, mars_options, relevance)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -237,16 +228,11 @@ impl MozAdsClient {
     /// TODO: Write doc here
     /// // TODO: note that the api error is because it mnight change
     #[uniffi::method()]
-    pub fn set_request_settings(
+    pub fn set_request_options(
         &self,
         new_settings: MozAdsRequestSettingsOptions,
     ) -> AdsClientApiResult<()> {
-        self.inner.set_request_settings(MARSSettings {
-            flags: new_settings.flags,
-            cache_policy: new_settings.cache_policy.unwrap_or_default().into(),
-            ohttp: new_settings.ohttp,
-            blocks: new_settings.blocks,
-        });
+        self.inner.set_request_options(MARSRequestOptions::from(new_settings));
         Ok(())
     }
 }

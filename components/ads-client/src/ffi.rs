@@ -16,7 +16,7 @@ use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
 };
-use crate::mars::Environment;
+use crate::mars::{Environment, MARSRequestOptions};
 use crate::mars::ReportReason;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
@@ -47,7 +47,7 @@ pub struct MozAdsRequestOptions {
 
 // TODO: re doc this, and rename this
 /// Options for one ad request. Every field has a default.
-#[derive(Default, uniffi::Record)]
+#[derive(Default, Clone, uniffi::Record)]
 pub struct MozAdsRequestSettingsOptions {
     #[uniffi(default)]
     pub blocks: Vec<String>,
@@ -57,6 +57,12 @@ pub struct MozAdsRequestSettingsOptions {
     pub flags: HashMap<String, bool>,
     #[uniffi(default = false)]
     pub ohttp: bool,
+}
+
+impl From<MozAdsRequestSettingsOptions> for MARSRequestOptions {
+    fn from(opt: MozAdsRequestSettingsOptions) -> Self {
+        MARSRequestOptions { flags: opt.flags, cache_policy: opt.cache_policy.unwrap_or_default().into(), ohttp: opt.ohttp, blocks: opt.blocks }
+    }
 }
 
 /// Options for a callback request (click, impression or report).
@@ -112,6 +118,7 @@ struct MozAdsClientBuilderInner {
     #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    request_options: Option<MozAdsRequestSettingsOptions>
 }
 
 impl Default for MozAdsClientBuilder {
@@ -142,6 +149,7 @@ impl MozAdsClientBuilder {
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            request_options: inner.request_options.clone().unwrap_or_default().into()
         };
 
         let client = AdsClient::new(client_config);
@@ -153,6 +161,12 @@ impl MozAdsClientBuilder {
     /// cached.
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
         self.0.lock().cache_config = Some(cache_config);
+        self
+    }
+
+    // TODO: Doc
+    pub fn request_options(self: Arc<Self>, request_options: MozAdsRequestSettingsOptions) -> Arc<Self> {
+        self.0.lock().request_options = Some(request_options);
         self
     }
 

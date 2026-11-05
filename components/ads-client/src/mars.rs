@@ -36,14 +36,14 @@ pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
     // TODO: Rename
-    settings: RwLock<MARSSettings>,
+    settings: RwLock<MARSRequestOptions>,
 }
 
 impl MARSClient {
     pub(crate) fn new(
         environment: Environment,
         http_cache: Option<HttpCache>,
-        settings: MARSSettings,
+        settings: MARSRequestOptions,
     ) -> Self {
         Self {
             environment,
@@ -53,7 +53,7 @@ impl MARSClient {
     }
 
     // TODO: Should we be able to do this as separate fields?
-    pub fn set_settings(&self, new_settings: MARSSettings) {
+    pub fn set_settings(&self, new_settings: MARSRequestOptions) {
         let mut settings = self.settings.write();
         *settings = new_settings;
     }
@@ -65,7 +65,7 @@ impl MARSClient {
     pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
-        request_settings: Option<MARSSettings>,
+        request_settings: Option<MARSRequestOptions>,
         placements: Vec<AdPlacementRequest>,
         // TODO: Should we include relevance?
         relevance: AdRequestRelevance,
@@ -162,10 +162,9 @@ impl MARSClient {
 }
 
 // TODO: Remove pub maybe?
-// TODO: Maybe From<> the ffi layer one but just letting it drop
-// TODO: is 'marssettings' the best place for this? is it even mars settings? or is it only for ads requests?
+// TODO: is 'MARSRequestOptions' the best place for this? is it even mars settings? or is it only for ads requests?
 #[derive(Clone, Default)]
-pub struct MARSSettings {
+pub struct MARSRequestOptions {
     pub flags: AdRequestFlags,
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
@@ -182,7 +181,7 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache, MARSSettings::default())
+        MARSClient::new(Environment::Test, http_cache, MARSRequestOptions::default())
     }
 
     #[test]

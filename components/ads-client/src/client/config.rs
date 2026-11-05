@@ -3,11 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::mars::Environment;
+use crate::mars::{Environment, MARSRequestOptions};
 
 pub(crate) struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
     pub environment: Environment,
+    pub request_options: MARSRequestOptions,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
 }
