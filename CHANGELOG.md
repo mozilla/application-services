@@ -1,6 +1,10 @@
-# v161.0 (In progress)
+# v162.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v161.0 (_2026-11-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
 
 ## ✨ What's Changed ✨
 
