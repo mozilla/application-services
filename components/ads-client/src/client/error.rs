@@ -7,8 +7,6 @@
 use std::sync::mpsc::{RecvTimeoutError, TrySendError};
 
 use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
-#[cfg(feature = "stateful")]
-use crate::worker::command;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
@@ -57,12 +55,13 @@ pub enum BackgroundWorkerError {
     TimedOut(#[from] RecvTimeoutError),
 }
 
-#[cfg(feature = "stateful")]
-impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
-    fn from(value: TrySendError<command::DispatchCommand>) -> Self {
-        match value {
-            TrySendError::Disconnected(_) => BackgroundWorkerError::Closed,
-            TrySendError::Full(_) => BackgroundWorkerError::Full,
-        }
-    }
-}
+// TODO: Is this still needed?
+// #[cfg(feature = "stateful")]
+// impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
+//     fn from(value: TrySendError<command::DispatchCommand>) -> Self {
+//         match value {
+//             TrySendError::Disconnected(_) => BackgroundWorkerError::Closed,
+//             TrySendError::Full(_) => BackgroundWorkerError::Full,
+//         }
+//     }
+// }

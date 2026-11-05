@@ -12,7 +12,12 @@ use crate::{
     mars::{ad_request::AdPlacementRequest, ReportReason},
     request::RequestQueue,
 };
-use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::{mpsc::SyncSender, Arc},
+    thread::JoinHandle,
+    time::Duration,
+};
 
 pub const ADS_CLIENT_WORKER_THREAD_NAME: &str = "ads-client.worker";
 
@@ -65,12 +70,12 @@ impl BackgroundWorker {
     }
 
     // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
-    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), ComponentError> {
+    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), BackgroundWorkerError> {
         if self.thread_handle.is_some() {
             self.request_queue.push_request(request);
             Ok(())
         } else {
-            Err(BackgroundWorkerError::Closed.into())
+            Err(BackgroundWorkerError::Closed)
         }
     }
 }
@@ -98,8 +103,9 @@ fn worker(
 
 // Request dispatch enum for passing different instructions to the background worker thread.
 // `RequestAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum DispatchRequest {
+    Ping(SyncSender<()>),
     RecordClick {
         url: Url,
     },
@@ -126,5 +132,43 @@ impl DispatchRequest {
         error_support::error!("Running a request is currently not set up yet: {self:?}");
 
         Ok(())
+    }
+}
+
+// TODO: Better way to do this?
+// TODO: Comment
+#[cfg(test)]
+impl PartialEq for DispatchRequest {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DispatchRequest::Ping(_), DispatchRequest::Ping(_)) => true,
+            (
+                DispatchRequest::RecordClick { url: url0 },
+                DispatchRequest::RecordClick { url: url1 },
+            ) => url0 == url1,
+            (
+                DispatchRequest::RecordImpression { url: url0 },
+                DispatchRequest::RecordImpression { url: url1 },
+            ) => url0 == url1,
+            (
+                DispatchRequest::ReportAd {
+                    url: url0,
+                    reason: reason0,
+                },
+                DispatchRequest::ReportAd {
+                    url: url1,
+                    reason: reason1,
+                },
+            ) => url0 == url1 && reason0 == reason1,
+            (
+                DispatchRequest::RequestAds {
+                    ad_requests: ad_requests0,
+                },
+                DispatchRequest::RequestAds {
+                    ad_requests: ad_requests1,
+                },
+            ) => ad_requests0 == ad_requests1,
+            _ => false,
+        }
     }
 }

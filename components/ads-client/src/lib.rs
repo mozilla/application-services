@@ -8,9 +8,8 @@ use std::{collections::HashMap, sync::Arc};
 use client::error::ComponentError;
 use error_support::handle_error;
 use mars::error::CallbackRequestError;
-pub use std::{collections::HashMap, sync::Arc};
 #[cfg(feature = "stateful")]
-use std::{sync::mpsc, time::Duration};
+use std::time::Duration;
 use url::Url as AdsClientUrl;
 
 use client::AdsClient;
@@ -31,6 +30,8 @@ pub mod telemetry;
 #[cfg(feature = "stateful")]
 pub mod worker;
 
+#[cfg(feature = "stateful")]
+use crate::ads::PlacementId;
 pub use ffi::*;
 
 /// Path that makes SQLite open a private in-memory database.
@@ -49,14 +50,15 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[cfg(feature = "stateful")]
 uniffi::custom_type!(PlacementId, String);
 
+// TODO: Best way to do this?
+#[cfg(feature = "stateful")]
+uniffi::custom_newtype!(MozAd, serde_json::Value);
+
 /// Requests ads from MARS and records their clicks, impressions and reports.
 /// Build it with [`MozAdsClientBuilder`], ideally once per app.
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Arc<AdsClient>,
-    shutdown_references: ShutdownReferences<MozAdsTelemetryWrapper>,
-    #[cfg(feature = "stateful")]
-    worker: BackgroundWorker,
 }
 
 #[uniffi::export]
@@ -242,218 +244,34 @@ impl MozAdsClient {
         let cache_policy: CachePolicy = options.into();
 
         // Sort the ads to batch them into separate requests.
-        // TODO: We will refactor some of the MARS backend to be able to do this in one request, and therefore not need sorting, nor will it need this conversion away from a central type.
-        let mut image_ad_requests = vec![];
-        let mut spoc_ad_requests = vec![];
-        let mut tile_ad_requests = vec![];
-        for ad in ad_requests {
-            match ad.ad_type {
-                MozAdType::Image => image_ad_requests.push(MozAdsPlacementRequest {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                }),
-                MozAdType::Spoc => spoc_ad_requests.push(MozAdsPlacementRequestWithCount {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                    count: ad.count.unwrap_or(1),
-                }),
-                MozAdType::Tile => tile_ad_requests.push(MozAdsPlacementRequest {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                }),
-            }
-        }
 
-        // Dispatch image requests
-        if !image_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestImageAds {
-                image_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-        // Dispatch spoc requests
-        if !spoc_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestSpocAds {
-                spoc_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-
-        // Dispatch tiles requests
-        if !tile_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestTileAds {
-                tile_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
+        // TODO: Need to pass along OHTTP, etc
+        // ohttp,
+        // cache_policy,
+        // flags: flags.clone(),
+        // blocks: blocks.clone(),
+        self.inner.prefetch_ads(ad_requests)?;
 
         Ok(())
     }
 
     #[uniffi::method()]
-    pub fn query_image_ads(&self, placement_id: PlacementId) -> Option<MozAdsImage> {
-        use crate::mars::ad_response::AdImage;
-        let inner = self.inner.lock();
-        let image_ad: AdImage = inner.get_stored_ad_images(&placement_id)?;
-        Some(image_ad.into())
+    pub fn query_ads(&self, placement_id: PlacementId) -> Option<Vec<MozAd>> {
+        let ads = self.inner.get_stored_ads(&placement_id)?;
+        // TODO: Log an error on deserialization failure here
+        Some(
+            ads.into_iter()
+                .filter_map(|ad| ad.try_into().ok())
+                .collect(),
+        )
     }
 
-    #[uniffi::method()]
-    pub fn query_spoc_ads(&self, placement_id: PlacementId) -> Option<Vec<MozAdsSpoc>> {
-        use crate::mars::ad_response::AdSpoc;
-        let inner = self.inner.lock();
-        let spoc_ads: Vec<AdSpoc> = inner.get_stored_ad_spocs(&placement_id)?;
-        Some(spoc_ads.into_iter().map(|ad| ad.into()).collect())
-    }
-
-    #[uniffi::method()]
-    pub fn query_tile_ads(&self, placement_id: PlacementId) -> Option<MozAdsTile> {
-        use crate::mars::ad_response::AdTile;
-        let inner = self.inner.lock();
-        let tile_ad: AdTile = inner.get_stored_ad_tile(&placement_id)?;
-        Some(tile_ad.into())
-    }
-
-    // Pings the background worker and waits for a response back, for use in tests.
+    // Pings the background worker and waits for a response back.
     // Because the background worker is synchronous, this returns if the worker is empty,
-    // making it useful for integration tests to wait until all tasks have completed.
+    // making it useful to wait and ensure all tasks are completed/flushed.
     #[handle_error(ComponentError)]
     pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
-        let (tx, rx) = mpsc::sync_channel(0);
-        self.worker.dispatch(DispatchCommand::Ping(tx))?;
-
-        if let Some(timeout) = timeout {
-            rx.recv_timeout(timeout)
-                .map_err(BackgroundWorkerError::from)?;
-        } else {
-            rx.recv().map_err(|_| BackgroundWorkerError::Closed)?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "stateful")]
-#[uniffi::export]
-impl MozAdsClient {
-    // TODO: Can we make this one request?
-    #[handle_error(ComponentError)]
-    #[uniffi::method(default(ad_requests = [], options = None))]
-    pub fn prefetch_ads(
-        &self,
-        ad_requests: Vec<MozAdsPlacementRequestGeneric>,
-        options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<()> {
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let blocks = options.blocks.clone();
-        let cache_policy: CachePolicy = options.into();
-
-        // Sort the ads to batch them into separate requests.
-        // TODO: We will refactor some of the MARS backend to be able to do this in one request, and therefore not need sorting, nor will it need this conversion away from a central type.
-        let mut image_ad_requests = vec![];
-        let mut spoc_ad_requests = vec![];
-        let mut tile_ad_requests = vec![];
-        for ad in ad_requests {
-            match ad.ad_type {
-                MozAdType::Image => image_ad_requests.push(MozAdsPlacementRequest {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                }),
-                MozAdType::Spoc => spoc_ad_requests.push(MozAdsPlacementRequestWithCount {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                    count: ad.count.unwrap_or(1),
-                }),
-                MozAdType::Tile => tile_ad_requests.push(MozAdsPlacementRequest {
-                    iab_content: ad.iab_content,
-                    placement_id: ad.placement_id.into(),
-                }),
-            }
-        }
-
-        // Dispatch image requests
-        if !image_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestImageAds {
-                image_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-        // Dispatch spoc requests
-        if !spoc_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestSpocAds {
-                spoc_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-
-        // Dispatch tiles requests
-        if !tile_ad_requests.is_empty() {
-            self.worker.dispatch(DispatchCommand::RequestTileAds {
-                tile_ad_requests,
-                ohttp,
-                cache_policy,
-                flags: flags.clone(),
-                blocks: blocks.clone(),
-            })?;
-        }
-
-        Ok(())
-    }
-
-    #[uniffi::method()]
-    pub fn query_image_ads(&self, placement_id: PlacementId) -> Option<MozAdsImage> {
-        use crate::mars::ad_response::AdImage;
-        let inner = self.inner.lock();
-        let image_ad: AdImage = inner.get_stored_ad_images(&placement_id)?;
-        Some(image_ad.into())
-    }
-
-    #[uniffi::method()]
-    pub fn query_spoc_ads(&self, placement_id: PlacementId) -> Option<Vec<MozAdsSpoc>> {
-        use crate::mars::ad_response::AdSpoc;
-        let inner = self.inner.lock();
-        let spoc_ads: Vec<AdSpoc> = inner.get_stored_ad_spocs(&placement_id)?;
-        Some(spoc_ads.into_iter().map(|ad| ad.into()).collect())
-    }
-
-    #[uniffi::method()]
-    pub fn query_tile_ads(&self, placement_id: PlacementId) -> Option<MozAdsTile> {
-        use crate::mars::ad_response::AdTile;
-        let inner = self.inner.lock();
-        let tile_ad: AdTile = inner.get_stored_ad_tile(&placement_id)?;
-        Some(tile_ad.into())
-    }
-
-    // Pings the background worker and waits for a response back, for use in tests.
-    // Because the background worker is synchronous, this returns if the worker is empty,
-    // making it useful for integration tests to wait until all tasks have completed.
-    #[handle_error(ComponentError)]
-    pub fn ping_background_worker(&self, timeout: Option<Duration>) -> AdsClientApiResult<()> {
-        let (tx, rx) = mpsc::sync_channel(0);
-        self.worker.dispatch(DispatchCommand::Ping(tx))?;
-
-        if let Some(timeout) = timeout {
-            rx.recv_timeout(timeout)
-                .map_err(BackgroundWorkerError::from)?;
-        } else {
-            rx.recv().map_err(|_| BackgroundWorkerError::Closed)?;
-        }
+        self.inner.ping_background_worker(timeout)?;
         Ok(())
     }
 }

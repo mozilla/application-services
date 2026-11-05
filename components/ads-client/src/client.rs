@@ -3,10 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#[cfg(feature = "stateful")]
+use crate::ads::{Ad, PlacementId};
 use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
-use crate::ads_store::{AdsStore, PlacementId, StorableAd};
+use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
+use crate::client::error::BackgroundWorkerError;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
@@ -15,12 +18,15 @@ use crate::mars::error::FetchAdsError;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
+use crate::worker::{self, BackgroundWorker, DispatchRequest};
+#[cfg(feature = "stateful")]
+use crate::MozAdsPlacementRequestGeneric;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
@@ -34,6 +40,8 @@ const DEFAULT_ROTATION_DAYS: u8 = 3;
 
 pub(crate) struct AdsClient {
     inner: Arc<AdsClientInner>,
+    #[cfg(feature = "stateful")]
+    worker: BackgroundWorker,
 }
 
 pub struct AdsClientInner {
@@ -44,9 +52,13 @@ pub struct AdsClientInner {
 }
 
 impl AdsClient {
+    // TODO: It makes more sense for field to be IN the config itself.
     pub(crate) fn new(client_config: AdsClientConfig) -> Self {
         let inner = Arc::new(AdsClientInner::new(client_config));
-        AdsClient { inner }
+
+        // TODO: The sleep needs to be passed here.
+        let worker = worker::BackgroundWorker::new(inner.clone(), None);
+        AdsClient { inner, worker }
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -138,6 +150,45 @@ impl AdsClient {
         self.inner.shutdown();
     }
 
+    #[cfg(feature = "stateful")]
+    pub fn prefetch_ads(
+        &self,
+        ad_requests: Vec<MozAdsPlacementRequestGeneric>,
+    ) -> Result<(), BackgroundWorkerError> {
+        self.worker.dispatch(DispatchRequest::RequestAds {
+            ad_requests: ad_requests.into_iter().map(|x| (&x).into()).collect(),
+        })?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
+        self.inner.store_ads(ads)
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
+        self.inner.get_stored_ads(placement_id)
+    }
+
+    pub fn ping_background_worker(
+        &self,
+        timeout: Option<Duration>,
+    ) -> Result<(), BackgroundWorkerError> {
+        let (tx, rx) = mpsc::sync_channel(0);
+        self.worker.dispatch(DispatchRequest::Ping(tx))?;
+
+        if let Some(timeout) = timeout {
+            rx.recv_timeout(timeout)
+                .map_err(BackgroundWorkerError::from)?;
+        } else {
+            rx.recv().map_err(|_| BackgroundWorkerError::Closed)?;
+        }
+
+        Ok(())
+    }
+
     #[cfg(test)]
     fn request_ads(
         &self,
@@ -225,12 +276,8 @@ impl AdsClientInner {
     }
 
     #[cfg(feature = "stateful")]
-    pub fn store_ads(
-        &mut self,
-        ads: HashMap<PlacementId, StorableAd>,
-    ) -> Result<(), FetchAdsError> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
+    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
+        if let Some(ads_store) = self.ads_store.as_ref() {
             ads_store.store_ads(ads)?;
             Ok(())
         } else {
@@ -238,120 +285,42 @@ impl AdsClientInner {
         }
     }
 
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_images(&self, placement_id: &PlacementId) -> Option<AdImage> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_image()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
+    // TODO: Do we want to have a 'force' option that allows guaranteed forcible deserialization into a certain type?
+    // #[cfg(feature = "stateful")]
+    // pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
+    //     let Some(ads_store) = self.ads_store.as_ref() else {
+    //         // TODO: Telemetry should be added here for the database being shut down.
+    //         return None;
+    //     };
+
+    //     // todo: tidy up
+    //     let ads = match ads_store.lookup(placement_id) {
+    //             Ok(ad) => ad,
+    //             Err(_) => {
+    //                 // TODO: Telemetry should return an error here (eg: some internal sqlite error)
+    //                 None
+    //             }
+    //         }?;
+
+    //         // Todo: tidy up
+    //     let converted_ads = ads.into_iter().filter_map(|x| AdSpoc::try_from(x).inspect_err(|e| {
+    //         // TODO: telemetry error for wrong ad type?
+    //         // TODO: Also, is there any better thing to do with UnexpectedAdType? what else uses this
+    //     }).ok() ).collect();
+    //     Some(converted_ads)
+    // }
 
     #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_spocs()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
+    pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
+        let Some(ads_store) = self.ads_store.as_ref() else {
             // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
+            return None;
+        };
 
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_tile(&self, placement_id: &PlacementId) -> Option<AdTile> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_tile()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
+        ads_store.lookup(placement_id).unwrap_or_else(|err| {
+            // TODO: Telemetry should return an error here (eg: some internal sqlite error)
             None
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub(crate) fn store_ads(
-        &mut self,
-        ads: HashMap<PlacementId, StorableAd>,
-    ) -> Result<(), FetchAdsError> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            ads_store.store_ads(ads)?;
-            Ok(())
-        } else {
-            Err(FetchAdsError::SqliteShutdown)
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_images(&self, placement_id: &PlacementId) -> Option<AdImage> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_image()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_spocs()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
-    }
-
-    #[cfg(feature = "stateful")]
-    pub fn get_stored_ad_tile(&self, placement_id: &PlacementId) -> Option<AdTile> {
-        let ads_store = self.ads_store.lock();
-        if let Some(ads_store) = ads_store.as_ref() {
-            match ads_store.lookup(placement_id) {
-                Ok(ad) => ad.and_then(|ad| ad.into_tile()),
-                Err(_) => {
-                    // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-                    None
-                }
-            }
-        } else {
-            // TODO: Telemetry should be added here for the database being shut down.
-            None
-        }
+        })
     }
 
     pub(crate) fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -618,6 +587,8 @@ mod tests {
         });
         AdsClient {
             inner: inner.clone(),
+            // TODO: This should not be empty
+            worker: worker::BackgroundWorker::new_empty(),
         }
     }
 

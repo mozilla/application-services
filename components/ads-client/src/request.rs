@@ -12,7 +12,7 @@ use crate::{
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
+    sync::{mpsc::SyncSender, Arc},
     time::Duration,
 };
 
@@ -117,6 +117,9 @@ impl RequestQueue {
             DispatchRequest::ReportAd { url, reason } => {
                 self.push_queued_request(QueuedRequest::ReportAd { url, reason });
             }
+            DispatchRequest::Ping(sender) => {
+                self.push_queued_request(QueuedRequest::Ping(sender));
+            }
         }
     }
 
@@ -152,8 +155,9 @@ impl RequestQueueInner {
 }
 
 // Queue-able command (ReportAd, etc.)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 enum QueuedRequest {
+    Ping(SyncSender<()>),
     RecordClick { url: Url },
     RecordImpression { url: Url },
     ReportAd { reason: ReportReason, url: Url },
@@ -162,6 +166,7 @@ enum QueuedRequest {
 impl From<QueuedRequest> for DispatchRequest {
     fn from(value: QueuedRequest) -> Self {
         match value {
+            QueuedRequest::Ping(sender) => DispatchRequest::Ping(sender),
             QueuedRequest::ReportAd { reason, url } => DispatchRequest::ReportAd { reason, url },
             QueuedRequest::RecordClick { url } => DispatchRequest::RecordClick { url },
             QueuedRequest::RecordImpression { url } => DispatchRequest::RecordImpression { url },

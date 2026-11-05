@@ -51,19 +51,7 @@ impl AdsStoreBuilder {
         self.validate()?;
 
         // Fall back to a memory db if the file db fails to open.
-        let db = open_connection(&self.db_path)
-            .map_err(AdsStoreBuilderError::from)
-            .inspect_err(telemetry::record_ads_store_error)
-            .or_else(|_| open_connection(Path::new(IN_MEMORY_DB_PATH)))?;
-        let holder = AdsStoreHolder::new(db);
-        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
-        Ok(AdsStore { holder, max_size })
-    }
-
-    pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
-        self.validate()?;
-
-        // Fall back to a memory db if the file db fails to open.
+        // TODO: Copy pattern for HttpCache
         let db = open_connection(&self.db_path)
             .map_err(AdsStoreBuilderError::from)
             .inspect_err(telemetry::record_ads_store_error)
@@ -81,16 +69,6 @@ impl AdsStoreBuilder {
     pub fn in_memory(mut self, memory: bool) -> Self {
         self.memory = memory;
         self
-    }
-
-    fn open_connection(&self) -> Result<Connection, AdsStoreBuilderError> {
-        let initializer = AdsStoreConnectionInitializer {};
-        let conn = if cfg!(test) || self.memory {
-            open_database::open_memory_database(&initializer)?
-        } else {
-            open_database::open_database(&self.db_path, &initializer)?
-        };
-        Ok(conn)
     }
 
     fn validate(&self) -> Result<(), AdsStoreBuilderError> {

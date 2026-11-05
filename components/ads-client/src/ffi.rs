@@ -5,10 +5,11 @@
 
 pub mod error;
 pub(crate) mod telemetry;
+#[cfg(feature = "stateful")]
+use crate::ads::PlacementId;
 use crate::ads::{
-    AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
-};#[cfg(feature = "stateful")]
-use crate::ads_store::PlacementId;
+    Ad, AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+};
 #[cfg(feature = "stateful")]
 use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
@@ -19,8 +20,6 @@ use crate::mars::ad_request::{
 };
 use crate::mars::Environment;
 use crate::mars::ReportReason;
-#[cfg(feature = "stateful")]
-use crate::worker;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -88,32 +87,6 @@ pub struct MozAdsPlacementRequestGeneric {
     #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
     pub placement_id: PlacementId,
-    pub ad_type: MozAdType,
-}
-
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum MozAdType {
-    Image,
-    Spoc, // todo: maybe put the count IN spoc?
-    Tile,
-}
-
-#[cfg(feature = "stateful")]
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacementRequestGeneric {
-    // This is passed as a count to MARS, but does not always apply. Currently, this only applies to spoc, in which case it defaults to `1`.
-    pub count: Option<u32>,
-    #[uniffi(default = None)]
-    pub iab_content: Option<MozAdsIABContent>,
-    pub placement_id: PlacementId,
-    pub ad_type: MozAdType,
-}
-
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum MozAdType {
-    Image,
-    Spoc, // todo: maybe put the count IN spoc?
-    Tile,
 }
 
 /// The callback URLs of an ad: pass them to `record_click`,
@@ -161,13 +134,13 @@ impl MozAdsClientBuilder {
         if let Some(callback) = inner.telemetry.take() {
             telemetry::install(callback);
         }
-        #[cfg(feature = "stateful")]
-        let store_set = inner.store_config.is_some();
-        #[cfg(feature = "stateful")]
-        let worker_buffer_size = inner
-            .store_config
-            .as_ref()
-            .and_then(|x| x.worker_buffer_size);
+
+        // TODO: where does this go?
+        // #[cfg(feature = "stateful")]
+        // let worker_buffer_size = inner
+        //     .store_config
+        //     .as_ref()
+        //     .and_then(|x| x.worker_buffer_size);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
@@ -176,8 +149,9 @@ impl MozAdsClientBuilder {
         };
 
         let client = AdsClient::new(client_config);
-        let inner = Arc::new(client);
-        MozAdsClient { inner }
+        MozAdsClient {
+            inner: Arc::new(client),
+        }
     }
 
     /// Enables the HTTP cache with this configuration. Without it, nothing is
@@ -343,6 +317,21 @@ pub struct MozAdsSpoc {
 pub enum MozAdsImageOrSpoc {
     Image(MozAdsImage),
     Spoc(MozAdsSpoc),
+}
+
+// TODO: Explore a better way to do this. Passing an enum means that every struct is deserialized with a layer (see MozAdsImageOrSpoc)
+// Could also be a struct that encapsulates several vecs?
+// TODO: documentation
+// TODO: Does this even work the way you want?
+#[derive(Debug, PartialEq)]
+
+pub struct MozAd(pub serde_json::Value);
+
+impl TryFrom<Ad> for MozAd {
+    type Error = serde_json::Error;
+    fn try_from(value: Ad) -> Result<Self, Self::Error> {
+        Ok(MozAd(serde_json::to_value(value)?))
+    }
 }
 
 /// Frequency capping information for a spoc.
@@ -579,6 +568,16 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
             content: request.iab_content.as_ref().map(Into::into),
             count: request.count,
             placement: request.placement_id.clone(),
+        }
+    }
+}
+
+impl From<&MozAdsPlacementRequestGeneric> for AdPlacementRequest {
+    fn from(request: &MozAdsPlacementRequestGeneric) -> Self {
+        Self {
+            content: request.iab_content.as_ref().map(Into::into),
+            count: request.count.unwrap_or(1),
+            placement: request.placement_id.clone().into_inner(),
         }
     }
 }

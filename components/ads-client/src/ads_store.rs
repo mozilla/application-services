@@ -7,12 +7,13 @@ pub mod connection_initializer;
 pub mod store;
 
 use crate::{
-    ads::PlacementId,
+    ads::{Ad, PlacementId},
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     bytesize::ByteSize,
+    mars::error::FetchAdsError,
 };
 use sql_support::open_database;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
@@ -38,13 +39,13 @@ impl AdsStore {
         Ok(())
     }
 
-    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<StorableAd>, FetchAdsError> {
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
         self.holder.lookup(placement_id)
     }
 
-    pub fn store_ads(&self, ads: HashMap<PlacementId, StorableAd>) -> Result<(), FetchAdsError> {
+    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
         for (placement_id, ad) in ads {
-            self.holder.store_ad(&placement_id, ad)?;
+            self.holder.store_ad(&placement_id, &ad)?;
         }
         Ok(())
     }
