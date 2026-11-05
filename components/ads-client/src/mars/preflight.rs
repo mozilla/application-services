@@ -6,7 +6,7 @@
 use serde::Deserialize;
 use std::hash::{Hash, Hasher};
 use url::Url;
-use viaduct::{Headers, Request};
+use viaduct::{Headers, Request, GLOBAL_SETTINGS};
 
 use super::error::CallbackRequestError;
 use crate::non_empty_string::NonEmptyString;
@@ -36,14 +36,22 @@ pub struct PreflightResponse {
 
 impl PreflightResponse {
     /// The headers MARS reads from an OHTTP request. `X-User-Agent` is the
-    /// preflight's `normalized_ua`, else `fallback_user_agent`.
+    /// preflight's `normalized_ua`, else `browser_user_agent` (set on the
+    /// builder), else viaduct's global default user agent.
     pub fn into_headers(
         self,
-        fallback_user_agent: Option<NonEmptyString>,
+        browser_user_agent: Option<NonEmptyString>,
     ) -> Result<Headers, CallbackRequestError> {
         let user_agent = self
             .normalized_ua
-            .or(fallback_user_agent)
+            .or(browser_user_agent)
+            .or_else(|| {
+                GLOBAL_SETTINGS
+                    .read()
+                    .default_user_agent
+                    .clone()
+                    .and_then(NonEmptyString::new)
+            })
             .ok_or(CallbackRequestError::MissingUserAgent)?;
         let mut headers = Headers::new();
         headers.insert("X-Geo-Location", self.geo_location)?;
@@ -90,14 +98,21 @@ mod tests {
         );
     }
 
+    // The only test that touches viaduct's process-wide user agent: the
+    // others always have a preflight or browser user agent, so never read it.
     #[test]
-    fn no_user_agent_at_all_is_an_error() {
+    fn falls_back_to_viaducts_user_agent_else_is_an_error() {
+        GLOBAL_SETTINGS.write().default_user_agent = None;
         let result = preflight("US-CA", "").into_headers(None);
-
         assert!(matches!(
             result,
             Err(CallbackRequestError::MissingUserAgent)
         ));
+
+        viaduct::settings::set_global_default_user_agent("viaduct-user-agent".into());
+        let headers = preflight("US-CA", "").into_headers(None).unwrap();
+        GLOBAL_SETTINGS.write().default_user_agent = None;
+        assert_eq!(headers.get("X-User-Agent"), Some("viaduct-user-agent"));
     }
 
     #[test]

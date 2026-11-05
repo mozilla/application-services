@@ -30,7 +30,7 @@ use crate::{
     CachePolicy,
 };
 use url::Url;
-use viaduct::{Headers, Request, GLOBAL_SETTINGS};
+use viaduct::{Headers, Request};
 
 pub(crate) struct MARSClient {
     environment: Environment,
@@ -128,21 +128,10 @@ impl MARSClient {
         self.transport.shutdown_db();
     }
 
-    /// The browser's user agent: the builder's, else viaduct's global default.
-    fn browser_user_agent(&self) -> Option<NonEmptyString> {
-        self.user_agent.clone().or_else(|| {
-            GLOBAL_SETTINGS
-                .read()
-                .default_user_agent
-                .clone()
-                .and_then(NonEmptyString::new)
-        })
-    }
-
     /// The headers MARS needs on an OHTTP request, from the preflight.
     fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
         self.fetch_preflight()?
-            .into_headers(self.browser_user_agent())
+            .into_headers(self.user_agent.clone())
     }
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
@@ -178,23 +167,6 @@ mod tests {
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
         MARSClient::new(Environment::Test, http_cache, None)
-    }
-
-    #[test]
-    fn browser_user_agent_is_the_builders_then_viaducts() {
-        viaduct::settings::set_global_default_user_agent("global-user-agent".into());
-        let browser_user_agent =
-            |user_agent| MARSClient::new(Environment::Test, None, user_agent).browser_user_agent();
-
-        let builder_user_agent = NonEmptyString::new("builder-user-agent");
-        assert_eq!(
-            browser_user_agent(builder_user_agent.clone()),
-            builder_user_agent
-        );
-        assert_eq!(
-            browser_user_agent(None),
-            NonEmptyString::new("global-user-agent")
-        );
     }
 
     #[test]
