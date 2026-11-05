@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::request::{
-    BatchPoster, InfoCollections, InfoConfiguration, PostQueue, PostResponse, PostResponseHandler,
+    BatchPoster, CollectionLimits, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
+    PostResponseHandler,
 };
 use super::token;
 use crate::bso::{IncomingBso, IncomingEncryptedBso, OutgoingBso, OutgoingEncryptedBso};
@@ -399,7 +400,7 @@ impl Sync15StorageClient {
     pub fn new_post_queue<'a, F: PostResponseHandler>(
         &'a self,
         coll: &'a CollectionName,
-        config: &InfoConfiguration,
+        config: CollectionLimits,
         ts: ServerTimestamp,
         on_response: F,
     ) -> error::Result<PostQueue<PostWrapper<'a>, F>> {
