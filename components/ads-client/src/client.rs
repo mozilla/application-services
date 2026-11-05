@@ -118,6 +118,12 @@ impl AdsClient {
         self.inner.shutdown();
     }
 
+    // TODO: request 'options' maybe? 'set_request_settings' sounds bad..
+    // TODO: Expose., think what to do about multiple similar MozSettings ones
+    pub(crate) fn set_request_settings(&self, new_settings: MARSSettings) {
+        self.inner.set_request_settings(new_settings);
+    }
+
     #[cfg(test)]
     fn request_ads(
         &self,
@@ -374,6 +380,11 @@ impl AdsClientInner {
         self.client.shutdown_db();
     }
 
+    // TODO: request 'options' maybe? 'set_request_settings' sounds bad.
+    pub(crate) fn set_request_settings(&self, new_settings: MARSSettings) {
+        self.client.set_settings(new_settings);
+    }
+
     fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
@@ -400,6 +411,7 @@ mod tests {
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
+        http_cache::CachePolicy,
         mars::{Environment, MARSSettings},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
@@ -641,5 +653,113 @@ mod tests {
 
         m1.assert();
         m2.assert();
+    }
+
+    #[test]
+    fn test_default_settings_are_sent_to_mars() {
+        viaduct_dev::init_backend_dev();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            environment: Environment::Test,
+            #[cfg(feature = "stateful")]
+            store_config: None,
+        };
+        let client = AdsClient::new(config);
+
+        // TODO: test should have (or another test) defaults passable in AdsClientConfig
+        // Sets default settings.
+        // TODO: Should cachepolicy be included here?
+        // TODO: Test more than just block
+        client.set_request_settings(MARSSettings {
+            flags: HashMap::new(),
+            cache_policy: CachePolicy::default(),
+            ohttp: false,
+            blocks: vec!["test_block".to_string()],
+        });
+
+        let mockito_adder = |blocks: Vec<String>| {
+            // Matcher::Json compares the whole body, ignoring key order, so any
+            // extra key such as context_id makes the request go unmatched.
+            // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
+            // Any new fields must be considered along side relevence scores.
+            let expected_response = get_example_happy_uatile_response();
+
+            let mut body = serde_json::json!({
+                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap(),
+                "relevance": {"sports": 0.8},
+            });
+            if !blocks.is_empty() {
+                body["blocks"] = blocks.into();
+            }
+            let m: mockito::Mock = mockito::mock("POST", "/ads")
+                .match_body(mockito::Matcher::Json(body))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(serde_json::to_string(&expected_response.data).unwrap())
+                .create();
+            m
+        };
+
+        let m = mockito_adder(vec!["test_block".to_string()]);
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            None,
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Test again, but with changed blocks
+        client.set_request_settings(MARSSettings {
+            flags: HashMap::new(),
+            cache_policy: CachePolicy::default(),
+            ohttp: false,
+            blocks: vec!["test_block_1".to_string()],
+        });
+        let m = mockito_adder(vec!["test_block_1".to_string()]);
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            None,
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Test again, but with manually overridden blocks.
+        let m = mockito_adder(vec!["test_block_2".to_string()]);
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            // TODO: Not sure if I like this defaulting here
+            Some(MARSSettings {
+                blocks: vec!["test_block_2".to_string()],
+                ..Default::default()
+            }),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Manual 'removal' works, too.
+        let m = mockito_adder(vec![]);
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            // TODO: Not sure if I like this defaulting here
+            Some(MARSSettings {
+                blocks: vec![],
+                ..Default::default()
+            }),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
     }
 }

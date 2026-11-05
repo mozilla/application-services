@@ -11,9 +11,9 @@ mod preflight;
 pub(crate) mod report_reason;
 mod transport;
 
-use std::collections::HashMap;
 
 pub(crate) use environment::Environment;
+use parking_lot::RwLock;
 pub(crate) use report_reason::ReportReason;
 use sql_support::open_database;
 
@@ -37,29 +37,7 @@ pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
     // TODO: Rename
-    settings: MARSSettings,
-}
-
-// TODO: Remove pub maybe?
-// TODO: Maybe From<> the ffi layer one but just letting it drop
-#[derive(Clone)]
-pub struct MARSSettings {
-    pub flags: AdRequestFlags,
-    pub cache_policy: CachePolicy,
-    pub ohttp: bool,
-    pub blocks: Vec<String>,
-}
-
-impl Default for MARSSettings {
-    fn default() -> Self {
-        // TODO: Should default have ohttp off?
-        MARSSettings {
-            flags: HashMap::new(),
-            cache_policy: CachePolicy::default(),
-            ohttp: false,
-            blocks: vec![],
-        }
-    }
+    settings: RwLock<MARSSettings>,
 }
 
 impl MARSClient {
@@ -71,8 +49,14 @@ impl MARSClient {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
-            settings,
+            settings: RwLock::new(settings),
         }
+    }
+
+    // TODO: Should we be able to do this as separate fields?
+    pub fn set_settings(&self, new_settings: MARSSettings) {
+        let mut settings = self.settings.write();
+        *settings = new_settings;
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -87,7 +71,8 @@ impl MARSClient {
         // TODO: Should we include relevance?
         relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
-        let request_settings = request_settings.unwrap_or(self.settings.clone());
+        // Get a temporary lock on settings- enough to clone.
+        let request_settings = request_settings.unwrap_or(self.settings.read().clone());
         let mut ad_request = AdRequest::try_new(
             request_settings.blocks,
             context_id,
@@ -175,6 +160,17 @@ impl MARSClient {
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
     }
+}
+
+// TODO: Remove pub maybe?
+// TODO: Maybe From<> the ffi layer one but just letting it drop
+// TODO: is 'marssettings' the best place for this? is it even mars settings? or is it only for ads requests?
+#[derive(Clone, Default)]
+pub struct MARSSettings {
+    pub flags: AdRequestFlags,
+    pub cache_policy: CachePolicy,
+    pub ohttp: bool,
+    pub blocks: Vec<String>,
 }
 
 #[cfg(test)]
