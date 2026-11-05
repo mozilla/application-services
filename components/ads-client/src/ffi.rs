@@ -97,6 +97,7 @@ struct MozAdsClientBuilderInner {
     #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    user_agent: Option<String>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -127,6 +128,7 @@ impl MozAdsClientBuilder {
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            user_agent: inner.user_agent.clone(),
         };
 
         let client = AdsClient::new(client_config);
@@ -151,6 +153,15 @@ impl MozAdsClientBuilder {
     /// [`MozAdsTelemetry`].
     pub fn telemetry(self: Arc<Self>, telemetry: Box<dyn MozAdsTelemetry>) -> Arc<Self> {
         self.0.lock().telemetry = Some(Arc::from(telemetry));
+        self
+    }
+
+    /// The browser's user agent. MARS needs a user agent on every OHTTP
+    /// request: this one is sent when the OHTTP preflight returns no
+    /// normalized user agent. Defaults to viaduct's global default user
+    /// agent; an OHTTP request with neither fails.
+    pub fn user_agent(self: Arc<Self>, user_agent: String) -> Arc<Self> {
+        self.0.lock().user_agent = Some(user_agent);
         self
     }
 }

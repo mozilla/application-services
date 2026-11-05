@@ -10,6 +10,9 @@ pub(crate) struct AdsClientConfig {
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
+    /// The browser's user agent, sent as `X-User-Agent` on OHTTP requests
+    /// when the preflight returns no normalized user agent.
+    pub user_agent: Option<String>,
 }
 
 #[derive(Clone, Debug)]

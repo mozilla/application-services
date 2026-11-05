@@ -29,18 +29,24 @@ use crate::{
     CachePolicy,
 };
 use url::Url;
-use viaduct::{Headers, Request};
+use viaduct::{Headers, Request, GLOBAL_SETTINGS};
 
 pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
+    user_agent: Option<String>,
 }
 
 impl MARSClient {
-    pub(crate) fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
+    pub(crate) fn new(
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+        user_agent: Option<String>,
+    ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
+            user_agent,
         }
     }
 
@@ -74,9 +80,7 @@ impl MARSClient {
         let request_hash = RequestHash::new(&ad_request);
 
         if ohttp {
-            ad_request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            ad_request.headers.extend(self.preflight_headers()?);
         }
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
@@ -123,6 +127,21 @@ impl MARSClient {
         self.transport.shutdown_db();
     }
 
+    /// The browser's user agent: the one set on the builder, else viaduct's
+    /// global default user agent.
+    fn browser_user_agent(&self) -> Option<String> {
+        self.user_agent
+            .clone()
+            .filter(|ua| !ua.is_empty())
+            .or_else(|| GLOBAL_SETTINGS.read().default_user_agent.clone())
+    }
+
+    /// The headers MARS needs on an OHTTP request, from the preflight.
+    fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
+        self.fetch_preflight()?
+            .into_headers(self.browser_user_agent().as_deref())
+    }
+
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
         let response = self.transport.send(
             PreflightRequest(self.environment.clone().into_url("ads-preflight")),
@@ -139,9 +158,7 @@ impl MARSClient {
     ) -> Result<(), CallbackRequestError> {
         let mut request = Request::get(callback);
         if ohttp {
-            request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            request.headers.extend(self.preflight_headers()?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
     }
@@ -157,7 +174,29 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache)
+        MARSClient::new(Environment::Test, http_cache, None)
+    }
+
+    #[test]
+    fn browser_user_agent_prefers_the_configured_one() {
+        viaduct::settings::set_global_default_user_agent("global-user-agent".into());
+        let client = MARSClient::new(Environment::Test, None, Some("builder-user-agent".into()));
+        assert_eq!(
+            client.browser_user_agent().as_deref(),
+            Some("builder-user-agent")
+        );
+    }
+
+    #[test]
+    fn browser_user_agent_falls_back_to_viaducts_global_default() {
+        viaduct::settings::set_global_default_user_agent("global-user-agent".into());
+        for user_agent in [None, Some(String::new())] {
+            let client = MARSClient::new(Environment::Test, None, user_agent);
+            assert_eq!(
+                client.browser_user_agent().as_deref(),
+                Some("global-user-agent")
+            );
+        }
     }
 
     #[test]

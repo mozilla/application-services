@@ -12,6 +12,7 @@
 - The HTTP cache no longer stores error responses: a failed request is retried on the next call instead of being replayed for the cache TTL.
 - Every exported type and method has a docstring in the Kotlin and Swift bindings.
 - `MozAdsRequestOptions.cachePolicy` defaults to `null`, like the record's other fields.
+- OHTTP requests always send `X-User-Agent` to MARS. When the preflight returns no normalized user agent, the client sends the browser's user agent, set with the new `MozAdsClientBuilder.userAgent()` or taken from viaduct's global default user agent. An OHTTP request with neither fails instead of going out without one.
 
 ### Autofill
 
