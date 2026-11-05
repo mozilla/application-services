@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+
 # v161.0 (_2026-11-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
