@@ -40,11 +40,11 @@ impl PreflightResponse {
     /// builder), else viaduct's global default user agent.
     pub fn into_headers(
         self,
-        browser_user_agent: Option<NonEmptyString>,
+        browser_user_agent: Option<&NonEmptyString>,
     ) -> Result<Headers, CallbackRequestError> {
         let user_agent = self
             .normalized_ua
-            .or(browser_user_agent)
+            .or_else(|| browser_user_agent.cloned())
             .or_else(|| {
                 GLOBAL_SETTINGS
                     .read()
@@ -55,7 +55,7 @@ impl PreflightResponse {
             .ok_or(CallbackRequestError::MissingUserAgent)?;
         let mut headers = Headers::new();
         headers.insert("X-Geo-Location", self.geo_location)?;
-        headers.insert("X-User-Agent", user_agent.as_ref())?;
+        headers.insert("X-User-Agent", user_agent)?;
         Ok(headers)
     }
 }
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn normalized_ua_wins_over_the_fallback() {
         let headers = preflight("US-CA", "Firefox/140.0")
-            .into_headers(browser_user_agent())
+            .into_headers(browser_user_agent().as_ref())
             .unwrap();
 
         assert_eq!(headers.get("X-Geo-Location"), Some("US-CA"));
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn empty_normalized_ua_falls_back_to_the_browser_user_agent() {
         let headers = preflight("US-CA", "")
-            .into_headers(browser_user_agent())
+            .into_headers(browser_user_agent().as_ref())
             .unwrap();
 
         assert_eq!(

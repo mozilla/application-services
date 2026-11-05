@@ -30,6 +30,12 @@ impl AsRef<str> for NonEmptyString {
     }
 }
 
+impl From<NonEmptyString> for String {
+    fn from(value: NonEmptyString) -> Self {
+        value.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

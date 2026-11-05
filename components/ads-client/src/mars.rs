@@ -131,7 +131,7 @@ impl MARSClient {
     /// The headers MARS needs on an OHTTP request, from the preflight.
     fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
         self.fetch_preflight()?
-            .into_headers(self.user_agent.clone())
+            .into_headers(self.user_agent.as_ref())
     }
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
