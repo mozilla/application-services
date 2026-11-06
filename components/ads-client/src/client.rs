@@ -660,6 +660,13 @@ mod tests {
         m2.assert();
     }
 
+    /// Tests that `MARSRequestOptions` values are sent as expected:
+    /// 1. The client-set values are used if no per-request options are passed.
+    /// 2. Those values can be changed by a setting.
+    /// 3. Manual override per-request to new values is possible.
+    /// 4. Manual override 'negatively' (eg: removing blocks) is possible.
+    /// TODO: Confirm (4).
+    /// Currently this only tests for `blocks` and `flags`.
     #[test]
     fn test_default_settings_are_sent_to_mars() {
         viaduct_dev::init_backend_dev();
@@ -671,12 +678,14 @@ mod tests {
             store_config: None,
             request_options: MARSRequestOptions {
                 blocks: vec!["test_block_0".to_string()],
+                flags: HashMap::from_iter([("test_flag_0".to_owned(), true)]),
                 ..Default::default()
             },
         };
         let client = AdsClient::new(config);
 
-        let mockito_adder = |blocks: Vec<String>| {
+        // Closure to quickly generate mock mockito test with certain expected results.
+        let mockito_adder = |blocks: Vec<String>, flags: HashMap<String, bool>| {
             // Matcher::Json compares the whole body, ignoring key order, so any
             // extra key such as context_id makes the request go unmatched.
             // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
@@ -690,6 +699,9 @@ mod tests {
             if !blocks.is_empty() {
                 body["blocks"] = blocks.into();
             }
+            if !flags.is_empty() {
+                body["flags"] = serde_json::to_value(flags).unwrap();
+            }
             let m: mockito::Mock = mockito::mock("POST", "/ads")
                 .match_body(mockito::Matcher::Json(body))
                 .with_status(200)
@@ -700,7 +712,10 @@ mod tests {
         };
 
         // Confirm default `test_block_0` from initialization is successfully passed.
-        let m = mockito_adder(vec!["test_block_0".to_string()]);
+        let m = mockito_adder(
+            vec!["test_block_0".to_string()],
+            HashMap::from_iter([("test_flag_0".to_owned(), true)]),
+        );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             None,
@@ -711,15 +726,16 @@ mod tests {
         drop(m);
         client.clear_cache().unwrap();
 
-        // TODO: test should have (or another test) defaults passable in AdsClientConfig
         // Sets default settings.
         client.set_request_options(MARSRequestOptions {
-            flags: HashMap::new(),
-            cache_policy: CachePolicy::default(),
-            ohttp: false,
+            flags: HashMap::from_iter([("test_flag_1".to_owned(), true)]),
             blocks: vec!["test_block_1".to_string()],
+            ..Default::default()
         });
-        let m = mockito_adder(vec!["test_block_1".to_string()]);
+        let m = mockito_adder(
+            vec!["test_block_1".to_string()],
+            HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+        );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             None,
@@ -733,9 +749,13 @@ mod tests {
         // Test again, but with changed blocks
         client.set_request_options(MARSRequestOptions {
             blocks: vec!["test_block_2".to_string()],
+            flags: HashMap::from_iter([("test_flag_2".to_owned(), true)]),
             ..Default::default()
         });
-        let m = mockito_adder(vec!["test_block_2".to_string()]);
+        let m = mockito_adder(
+            vec!["test_block_2".to_string()],
+            HashMap::from_iter([("test_flag_2".to_owned(), true)]),
+        );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             None,
@@ -747,11 +767,15 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Test again, but with manually overridden blocks.
-        let m = mockito_adder(vec!["test_block_3".to_string()]);
+        let m = mockito_adder(
+            vec!["test_block_3".to_string()],
+            HashMap::from_iter([("test_flag_3".to_owned(), true)]),
+        );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             Some(MARSRequestOptions {
                 blocks: vec!["test_block_3".to_string()],
+                flags: HashMap::from_iter([("test_flag_3".to_owned(), true)]),
                 ..Default::default()
             }),
             HashMap::from([("sports".to_string(), 0.8)]),
@@ -762,11 +786,12 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Manual 'removal' over an existing default works, too.
-        let m = mockito_adder(vec![]);
+        let m = mockito_adder(vec![], HashMap::new());
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             Some(MARSRequestOptions {
                 blocks: vec![],
+                flags: HashMap::new(),
                 ..Default::default()
             }),
             HashMap::from([("sports".to_string(), 0.8)]),
