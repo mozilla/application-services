@@ -4,8 +4,8 @@
 
 //! Lints about feature metadata and ownership.
 
-use super::{feature_path, LintInfo, Linter, RawFinding};
 use crate::intermediate_representation::{FeatureDef, FeatureManifest};
+use crate::lints::{define_lints, feature_path, LintInfo, Linter, UnreportedIssue};
 
 define_lints! {
     MISSING_CONTACTS: Metadata =
@@ -16,29 +16,30 @@ define_lints! {
         "Contacts are used to route QA questions, so they need to be addresses that can be written to.";
 }
 
-pub(crate) struct Metadata;
+/// Lints for feature metadata.
+pub(crate) struct MetadataLints;
 
-impl Linter for Metadata {
+impl Linter for MetadataLints {
     fn lints(&self) -> &'static [&'static LintInfo] {
         LINTS
     }
 
-    fn check_feature(
+    fn lint_feature(
         &self,
         feature: &FeatureDef,
         _manifest: &FeatureManifest,
-        out: &mut Vec<RawFinding>,
+        out: &mut Vec<UnreportedIssue>,
     ) {
-        check_feature(feature, out);
+        lint_feature(feature, out);
     }
 }
 
-fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
+fn lint_feature(feature: &FeatureDef, out: &mut Vec<UnreportedIssue>) {
     let metadata = &feature.metadata;
     let path = feature_path(feature);
 
     if metadata.contacts.is_empty() {
-        out.push(RawFinding::new(
+        out.push(UnreportedIssue::new(
             &MISSING_CONTACTS,
             path.clone(),
             "No `contacts`",
@@ -47,7 +48,7 @@ fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
 
     for contact in &metadata.contacts {
         if !is_email_address(contact) {
-            out.push(RawFinding::new(
+            out.push(UnreportedIssue::new(
                 &INVALID_CONTACT,
                 path.clone(),
                 format!("`{contact}` doesn't look like an email address"),
@@ -86,7 +87,7 @@ mod unit_tests {
 
     fn lints(feature: &FeatureDef) -> Vec<&'static str> {
         let mut out = Vec::new();
-        check_feature(feature, &mut out);
+        lint_feature(feature, &mut out);
         out.iter().map(|f| f.lint.name).collect()
     }
 

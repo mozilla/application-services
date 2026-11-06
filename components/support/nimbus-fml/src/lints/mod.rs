@@ -2,61 +2,16 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Custom lints for Nimbus feature manifests.
+//! Lints for Nimbus feature manifests.
 //!
-//! Where validation asks whether a manifest can generate working code, these ask
-//! whether the feature is one an experiment owner can work with. They never stop
-//! code generation, and they're reported by `nimbus-fml lint` alone.
+//! These lints attempt to guide developers towards writing good, maintainable
+//! features.
 //!
-//! A lint can be silenced by a `no-lint` list on a feature.
-
-/// Register the lints for a module.
-macro_rules! define_lints {
-    ($($name:ident: $category:ident = $description:literal, $help:literal;)*) => {
-        $(
-            pub static $name: $crate::lints::LintInfo = $crate::lints::LintInfo {
-                name: stringify!($name),
-                description: $description,
-                help: $help,
-                category: $crate::lints::LintCategory::$category,
-            };
-        )*
-
-        pub static LINTS: &[&$crate::lints::LintInfo] = &[$(&$name),*];
-    };
-}
-
-/// Declares [`LintCategory`] together with the [`Linter`] owning each category, so a
-/// module of lints can't be declared without being registered: [`define_lints!`]
-/// can't name a category that doesn't exist, and a category can't exist here without
-/// a linter to run.
-macro_rules! define_categories {
-    ($($(#[$doc:meta])* $variant:ident = $name:literal => $linter:expr;)*) => {
-        /// What a lint is about, as reported by `nimbus-fml lint --list`.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
-        pub enum LintCategory {
-            $(
-                $(#[$doc])*
-                #[serde(rename = $name)]
-                $variant,
-            )*
-        }
-
-        impl LintCategory {
-            pub fn as_str(&self) -> &'static str {
-                match self {
-                    $(Self::$variant => $name,)*
-                }
-            }
-        }
-
-        /// Every module of lints, in `--list` order.
-        static LINTERS: &[&dyn Linter] = &[$(&$linter),*];
-    };
-}
+//! A lint can be silenced by a `no-lint` annotation on a feature.
 
 mod design;
 mod documentation;
+mod macros;
 mod metadata;
 mod naming;
 
@@ -67,6 +22,7 @@ use serde::Serialize;
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
+pub(crate) use crate::lints::macros::*;
 
 define_lints! {
     UNKNOWN_LINT: Lints =
@@ -74,53 +30,57 @@ define_lints! {
         "Run `nimbus-fml lint --list` to see the available lints.";
 }
 
-/// The lints of one [`LintCategory`]. Every check has a do-nothing default, so an
-/// implementation writes only the ones its lints have something to say about.
+/// A linter for a specific category.
+///
+/// By default each method does not report any issues. Implementors only need to
+/// implement relevent methods.
 pub(crate) trait Linter: Sync {
     /// The `LINTS` slice [`define_lints!`] generated for the module.
     fn lints(&self) -> &'static [&'static LintInfo];
 
-    fn check_feature(
+    /// Lint a feature.
+    fn lint_feature(
         &self,
         _feature: &FeatureDef,
         _manifest: &FeatureManifest,
-        _out: &mut Vec<RawFinding>,
+        _out: &mut Vec<UnreportedIssue>,
     ) {
     }
 
-    fn check_object(&self, _object: &ObjectDef, _out: &mut Vec<RawFinding>) {}
+    /// Lint an object definition.
+    fn lint_object(&self, _object: &ObjectDef, _out: &mut Vec<UnreportedIssue>) {}
 
-    fn check_enum(&self, _enum_def: &EnumDef, _out: &mut Vec<RawFinding>) {}
+    /// Lint an enumeration.
+    fn lint_enum(&self, _enum_def: &EnumDef, _out: &mut Vec<UnreportedIssue>) {}
 
-    /// Run once per manifest, for lints which need to see every feature at once.
-    fn check_manifest(&self, _manifest: &FeatureManifest, _out: &mut Vec<RawFinding>) {}
+    /// Lint a manifest.
+    fn lint_manifest(&self, _manifest: &FeatureManifest, _out: &mut Vec<UnreportedIssue>) {}
 }
 
 define_categories! {
-    Metadata = "metadata" => metadata::Metadata;
-    Documentation = "documentation" => documentation::Documentation;
+    Metadata = "metadata" => metadata::MetadataLints;
+    Documentation = "documentation" => documentation::DocumentationLints;
     Naming = "naming" => naming::Naming;
-    Design = "design" => design::Design;
-    /// Lints about the lints themselves.
-    Lints = "lints" => Lints;
+    Design = "design" => design::DesignLints;
+    Lints = "lints" => LintLints;
 }
 
-/// The file level `no-lint` list is checked by [`lint_manifest`] instead, since it
-/// belongs to no feature.
-struct Lints;
+/// Lints about lints, e.g., attempting to suppress unknown lints with no-lint
+/// annotations.
+struct LintLints;
 
-impl Linter for Lints {
+impl Linter for LintLints {
     fn lints(&self) -> &'static [&'static LintInfo] {
         LINTS
     }
 
-    fn check_feature(
+    fn lint_feature(
         &self,
         feature: &FeatureDef,
         _manifest: &FeatureManifest,
-        out: &mut Vec<RawFinding>,
+        out: &mut Vec<UnreportedIssue>,
     ) {
-        check_no_lint_names(
+        lint_feature_no_lint_annotation(
             feature.metadata.no_lint.iter().map(String::as_str),
             feature_path(feature),
             out,
@@ -128,17 +88,24 @@ impl Linter for Lints {
     }
 }
 
+/// Information about a lint.
 #[derive(Debug)]
 pub struct LintInfo {
+    /// The name of the lint.
     pub name: &'static str,
+
+    /// A detailed description of the issue reported by the lint.
     pub description: &'static str,
-    /// What to do about it. Shown once per report, not once per finding.
+
+    /// Instructions on how to fix issues reported by the lint.
     pub help: &'static str,
+
+    /// The category the lint belongs to.
     pub category: LintCategory,
 }
 
 lazy_static::lazy_static! {
-    /// Every lint, in `--list` order.
+    /// All the lints that nimbus-fml lint can report.
     pub static ref ALL_LINTS: Vec<&'static LintInfo> = LINTERS
         .iter()
         .flat_map(|linter| linter.lints())
@@ -150,11 +117,15 @@ pub fn find_lint(name: &str) -> Option<&'static LintInfo> {
     ALL_LINTS.iter().find(|l| l.name == name).copied()
 }
 
-/// Where in the manifest a finding is. The `subject` is what findings are grouped
-/// under when reported, so it is the feature, object or enum, never a member of one.
+/// The location of an issue in a manifest.
 #[derive(Debug, Clone)]
 pub(crate) struct Location {
+    /// The name of the feature, object, or enum.
     subject: String,
+
+    /// The member of the subject.
+    ///
+    /// This is only Some for feature variables and enum variants.
     member: Option<String>,
 }
 
@@ -178,20 +149,23 @@ impl Location {
     }
 }
 
-/// A finding before the runner has decided whether to report it.
+/// An issue that has not yet been reported.
+///
+/// If it is a feature lint, it may yet be suppressed by a `no-lint` annotation
+/// on that feature.
 #[derive(Debug, Clone)]
-pub(crate) struct RawFinding {
+pub(crate) struct UnreportedIssue {
     lint: &'static LintInfo,
     location: Location,
     message: String,
 }
 
-impl RawFinding {
+impl UnreportedIssue {
     pub(crate) fn new(
         lint: &'static LintInfo,
         location: Location,
         message: impl Into<String>,
-    ) -> RawFinding {
+    ) -> UnreportedIssue {
         Self {
             lint,
             location,
@@ -201,13 +175,18 @@ impl RawFinding {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct Finding {
+pub struct Issue {
     pub lint: &'static str,
-    /// Set if the finding came from an imported manifest.
+
+    /// The module that the issue was reported in.
+    ///
+    /// Only set when the issue was reported in an imported manifest.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
+
     /// e.g. ``feature `homescreen` ``.
     pub subject: String,
+
     /// e.g. ``variable `enabled` ``.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member: Option<String>,
@@ -216,24 +195,23 @@ pub struct Finding {
 
 #[derive(Debug, Clone, Default)]
 pub struct LintReport {
-    pub findings: Vec<Finding>,
-    /// How many findings `no-lint` silenced, so that a manifest can't opt out of
-    /// everything and look clean.
+    pub issues: Vec<Issue>,
+    /// How many issues were suppressed by `no-lint` annotations.
     pub suppressed: usize,
 }
 
 impl LintReport {
     pub fn is_empty(&self) -> bool {
-        self.findings.is_empty()
+        self.issues.is_empty()
     }
 
-    pub fn finding_count(&self) -> usize {
-        self.findings.len()
+    pub fn issue_count(&self) -> usize {
+        self.issues.len()
     }
 
-    /// How many features, objects and enums have findings.
+    /// How many features, objects and enums have issues.
     pub fn subject_count(&self) -> usize {
-        self.findings
+        self.issues
             .iter()
             .map(|f| (&f.module, &f.subject))
             .collect::<HashSet<_>>()
@@ -242,12 +220,79 @@ impl LintReport {
 
     /// The lints that fired, in registration order.
     pub fn triggered_lints(&self) -> Vec<&'static LintInfo> {
-        let fired: HashSet<_> = self.findings.iter().map(|f| f.lint).collect();
+        let fired: HashSet<_> = self.issues.iter().map(|f| f.lint).collect();
         ALL_LINTS
             .iter()
             .filter(|l| fired.contains(l.name))
             .copied()
             .collect()
+    }
+
+    pub fn lint_module(&mut self, fm: &FeatureManifest, module: Option<String>) {
+        for feature in fm.iter_feature_defs() {
+            let mut unreported = Vec::new();
+            for linter in LINTERS {
+                linter.lint_feature(feature, fm, &mut unreported);
+            }
+
+            let allowed_lints: HashSet<&str> = feature
+                .metadata
+                .no_lint
+                .iter()
+                .map(String::as_str)
+                .collect();
+
+            self.report_issues(unreported, &allowed_lints, module.as_deref());
+        }
+
+        let allowed_lints = HashSet::new();
+
+        for object in fm.iter_object_defs() {
+            let mut unreported = Vec::new();
+            for linter in LINTERS {
+                linter.lint_object(object, &mut unreported);
+            }
+            self.report_issues(unreported, &allowed_lints, module.as_deref());
+        }
+
+        for enum_def in fm.iter_enum_defs() {
+            let mut unreported = Vec::new();
+            for linter in LINTERS {
+                linter.lint_enum(enum_def, &mut unreported);
+            }
+            self.report_issues(unreported, &allowed_lints, module.as_deref());
+        }
+
+        let mut unreported = Vec::new();
+        for linter in LINTERS {
+            linter.lint_manifest(fm, &mut unreported);
+        }
+
+        self.report_issues(unreported, &allowed_lints, module.as_deref());
+    }
+
+    fn report_issues(
+        &mut self,
+        unreported: Vec<UnreportedIssue>,
+        allowed_lints: &HashSet<&str>,
+        module: Option<&str>,
+    ) {
+        for issue in unreported {
+            let name = issue.lint.name;
+
+            if allowed_lints.contains(name) {
+                self.suppressed += 1;
+                continue;
+            }
+
+            self.issues.push(Issue {
+                lint: name,
+                module: module.map(Into::into),
+                subject: issue.location.subject,
+                member: issue.location.member,
+                message: issue.message,
+            });
+        }
     }
 }
 
@@ -256,93 +301,28 @@ impl LintReport {
 pub fn lint_manifest(fm: &FeatureManifest) -> LintReport {
     let mut report = LintReport::default();
 
-    lint_module(fm, None, &mut report);
+    report.lint_module(fm, None);
 
     for (id, child) in &fm.all_imports {
-        lint_module(child, Some(id.to_string()), &mut report);
+        report.lint_module(child, Some(id.to_string()));
     }
 
     // Group issues by location.
-    report.findings.sort_by(|a, b| {
+    report.issues.sort_by(|a, b| {
         (&a.module, &a.subject, a.lint, &a.member).cmp(&(&b.module, &b.subject, b.lint, &b.member))
     });
 
     report
 }
 
-fn lint_module(fm: &FeatureManifest, module: Option<String>, out: &mut LintReport) {
-    for feature in fm.iter_feature_defs() {
-        let mut raw = Vec::new();
-        for linter in LINTERS {
-            linter.check_feature(feature, fm, &mut raw);
-        }
-
-        let allowed_lints: HashSet<&str> = feature
-            .metadata
-            .no_lint
-            .iter()
-            .map(String::as_str)
-            .collect();
-        collect_findings(raw, &allowed_lints, module.as_deref(), out);
-    }
-
-    let allowed_lints = HashSet::new();
-
-    for object in fm.iter_object_defs() {
-        let mut raw = Vec::new();
-        for linter in LINTERS {
-            linter.check_object(object, &mut raw);
-        }
-        collect_findings(raw, &allowed_lints, module.as_deref(), out);
-    }
-
-    for enum_def in fm.iter_enum_defs() {
-        let mut raw = Vec::new();
-        for linter in LINTERS {
-            linter.check_enum(enum_def, &mut raw);
-        }
-        collect_findings(raw, &allowed_lints, module.as_deref(), out);
-    }
-
-    let mut raw = Vec::new();
-    for linter in LINTERS {
-        linter.check_manifest(fm, &mut raw);
-    }
-    collect_findings(raw, &allowed_lints, module.as_deref(), out);
-}
-
-fn collect_findings(
-    raw: Vec<RawFinding>,
-    allowed_lints: &HashSet<&str>,
-    module: Option<&str>,
-    out: &mut LintReport,
-) {
-    for finding in raw {
-        let name = finding.lint.name;
-
-        if allowed_lints.contains(name) {
-            out.suppressed += 1;
-            continue;
-        }
-
-        out.findings.push(Finding {
-            lint: name,
-            module: module.map(Into::into),
-            subject: finding.location.subject,
-            member: finding.location.member,
-            message: finding.message,
-        });
-    }
-}
-
-fn check_no_lint_names<'a>(
+fn lint_feature_no_lint_annotation<'a>(
     names: impl IntoIterator<Item = &'a str>,
     location: Location,
-    out: &mut Vec<RawFinding>,
+    out: &mut Vec<UnreportedIssue>,
 ) {
     for name in names {
         if find_lint(name).is_none() {
-            out.push(RawFinding::new(
+            out.push(UnreportedIssue::new(
                 &UNKNOWN_LINT,
                 location.clone(),
                 format!("`no-lint` names `{name}`, which isn't a lint"),
@@ -467,7 +447,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_suppressed_findings_are_counted() {
+    fn test_suppressed_issues_are_counted() {
         let mut suppressed = empty_feature("suppressed");
         suppressed.metadata.no_lint = vec!["NO_VARIABLES".to_string()];
 
@@ -479,12 +459,12 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_findings_are_reported_once_per_lint() {
+    fn test_issues_are_reported_once_per_lint() {
         let mut fm = FeatureManifest::default();
         fm.add_feature(empty_feature("my-feature"));
 
         let report = lint_manifest(&fm);
-        let mut lints: Vec<_> = report.findings.iter().map(|f| f.lint).collect();
+        let mut lints: Vec<_> = report.issues.iter().map(|f| f.lint).collect();
         lints.sort_unstable();
         let deduped = lints.iter().collect::<HashSet<_>>();
         assert_eq!(lints.len(), deduped.len());
@@ -505,7 +485,7 @@ mod unit_tests {
 
         let report = lint_manifest(&fm);
         let features: Vec<_> = report
-            .findings
+            .issues
             .iter()
             .filter(|f| f.lint == "NO_VARIABLES")
             .map(|f| f.subject.as_str())
@@ -523,7 +503,7 @@ mod unit_tests {
 
         let report = lint_manifest(&fm);
         assert!(report
-            .findings
+            .issues
             .iter()
             .any(|f| f.lint == "UNKNOWN_LINT" && f.message.contains("NOT_A_LINT")));
     }
@@ -555,10 +535,6 @@ mod unit_tests {
 
         // Metadata lints are expected; nothing else should fire.
         let report = lint_manifest(&fm);
-        assert!(
-            report.is_empty(),
-            "unexpected findings: {:?}",
-            report.findings
-        );
+        assert!(report.is_empty(), "unexpected issues: {:?}", report.issues);
     }
 }
