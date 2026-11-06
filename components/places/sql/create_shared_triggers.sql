@@ -324,7 +324,8 @@ END;
 -- Equivalent to `FOREIGN KEY(parent) ... ON DELETE CASCADE`. Since the
 -- BEFORE INSERT / UPDATE triggers already enforce the FOREIGN KEY
 -- relationship, we use an AFTER DELETE trigger for the ON DELETE
--- action to avoid extra work.
+-- action to avoid extra work. This relies on `recursive_triggers` being 
+-- enabled, otherwise only direct children are deleted (bug 2084607).
 CREATE TEMP TRIGGER moz_bookmarks_parent_afterdelete_trigger
 AFTER DELETE ON moz_bookmarks
 BEGIN
