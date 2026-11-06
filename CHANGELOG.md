@@ -25,6 +25,12 @@
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
 
 
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus
+
+- FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
+
 # v161.0 (_2026-11-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
