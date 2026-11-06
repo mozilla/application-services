@@ -1,6 +1,14 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+
+use anyhow::{Error, Result as AnyhowResult, bail};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+
 use crate::defaults::{DefaultsHasher, DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
@@ -9,11 +17,6 @@ use crate::frontend::{
 };
 use crate::schema::{SchemaHasher, SchemaValidator, TypeQuery};
 use crate::util::loaders::FilePath;
-use anyhow::{Error, Result as AnyhowResult, bail};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum TargetLanguage {

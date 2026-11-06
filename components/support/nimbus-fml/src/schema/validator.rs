@@ -1,15 +1,15 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::{BTreeMap, HashSet};
+
+use regex::Regex;
 
 use crate::error::FMLError;
+use crate::error::Result;
+use crate::intermediate_representation::{EnumDef, ObjectDef};
 use crate::intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder, TypeRef};
-use crate::{
-    error::Result,
-    intermediate_representation::{EnumDef, ObjectDef},
-};
-use regex::Regex;
-use std::collections::{BTreeMap, HashSet};
 
 const DISALLOWED_PREFS: &[(&str, &str)] = &[
     (

@@ -1,28 +1,27 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::HashSet;
+use std::io::{IsTerminal, Write};
+use std::path::Path;
 
 use glob::MatchOptions;
-use std::collections::HashSet;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use super::commands::{
+use crate::backends;
+use crate::backends::info::ManifestInfo;
+use crate::command_line::commands::{
     GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, LintCmd,
     PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
 };
-use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
+use crate::error::{FMLError, Result};
 use crate::frontend::ManifestFrontEnd;
+use crate::intermediate_representation::{FeatureManifest, TargetLanguage};
 use crate::lints::{self, Issue, LintReport};
-use crate::{
-    backends,
-    error::{FMLError, Result},
-    intermediate_representation::{FeatureManifest, TargetLanguage},
-    parser::Parser,
-    util::loaders::{FileLoader, FilePath, LoaderConfig},
-};
-use std::io::{IsTerminal, Write};
-use std::path::Path;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use crate::parser::Parser;
+use crate::util::loaders::{FileLoader, FilePath, LoaderConfig};
 
 /// Use this when recursively looking for files.
 const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
