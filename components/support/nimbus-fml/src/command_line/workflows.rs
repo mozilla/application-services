@@ -393,7 +393,6 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
 
     let config = LintConfig::new()
-        .including_imports(cmd.include_imports)
         .with_file_suppressions(&manifest_front_end.no_lint)
         .allowing(&cmd.allow)?
         .denying(&cmd.deny)?;
@@ -852,7 +851,6 @@ mod test {
             allow: Default::default(),
             deny: Default::default(),
             error_on_warning: false,
-            include_imports: false,
             as_json: false,
         }
     }
@@ -1106,15 +1104,10 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_ignores_imported_features_by_default() -> Result<()> {
+    fn test_lint_command_includes_imported_features_by_default() -> Result<()> {
         let path = "fixtures/fe/importing/simple/app.yaml";
 
         let cmd = lint_cmd(path);
-        let report = lint_report(&cmd)?;
-        assert!(report.findings.iter().all(|f| f.module.is_none()));
-
-        let mut cmd = lint_cmd(path);
-        cmd.include_imports = true;
         let report = lint_report(&cmd)?;
         assert!(report.findings.iter().any(|f| f.module.is_some()));
 
@@ -1156,8 +1149,7 @@ mod test {
                 continue;
             }
 
-            let mut cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
-            cmd.include_imports = true;
+            let cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
             fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
         }
 
