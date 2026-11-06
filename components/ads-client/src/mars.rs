@@ -35,27 +35,25 @@ use viaduct::{Headers, Request};
 pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
-    // TODO: Rename
-    settings: RwLock<MARSRequestOptions>,
+    request_options: RwLock<MARSRequestOptions>,
 }
 
 impl MARSClient {
     pub(crate) fn new(
         environment: Environment,
         http_cache: Option<HttpCache>,
-        settings: MARSRequestOptions,
+        request_options: MARSRequestOptions,
     ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
-            settings: RwLock::new(settings),
+            request_options: RwLock::new(request_options),
         }
     }
 
-    // TODO: Should we be able to do this as separate fields?
-    pub fn set_settings(&self, new_settings: MARSRequestOptions) {
-        let mut settings = self.settings.write();
-        *settings = new_settings;
+    pub fn set_request_options(&self, new_options: MARSRequestOptions) {
+        let mut request_options = self.request_options.write();
+        *request_options = new_options;
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -65,25 +63,24 @@ impl MARSClient {
     pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
-        request_settings: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptions>,
         placements: Vec<AdPlacementRequest>,
-        // TODO: Should we include relevance?
         relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
         // Get a temporary lock on settings- enough to clone.
-        let request_settings = request_settings.unwrap_or(self.settings.read().clone());
+        let request_options = request_options.unwrap_or(self.request_options.read().clone());
         let mut ad_request = AdRequest::try_new(
-            request_settings.blocks,
+            request_options.blocks,
             context_id,
             self.environment.clone(),
-            request_settings.flags,
-            request_settings.ohttp,
+            request_options.flags,
+            request_options.ohttp,
             placements,
             relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
-        if request_settings.ohttp {
+        if request_options.ohttp {
             ad_request
                 .headers
                 .extend(Headers::try_from(self.fetch_preflight()?)?);
@@ -91,8 +88,8 @@ impl MARSClient {
 
         let response = self.transport.send(
             ad_request,
-            &request_settings.cache_policy,
-            request_settings.ohttp,
+            &request_options.cache_policy,
+            request_options.ohttp,
         )?;
         let ads: AdResponse = response.json()?;
         Ok((ads, request_hash))
@@ -161,8 +158,6 @@ impl MARSClient {
     }
 }
 
-// TODO: Remove pub maybe?
-// TODO: is 'MARSRequestOptions' the best place for this? is it even mars settings? or is it only for ads requests?
 #[derive(Clone, Default)]
 pub struct MARSRequestOptions {
     pub flags: AdRequestFlags,

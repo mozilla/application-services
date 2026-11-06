@@ -118,7 +118,6 @@ impl AdsClient {
         self.inner.shutdown();
     }
 
-    // TODO: Expose., think what to do about multiple similar MozSettings ones
     pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
         self.inner.set_request_options(new_options);
     }
@@ -130,7 +129,8 @@ impl AdsClient {
         request_options: Option<MARSRequestOptions>,
         relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
-        self.inner.request_ads(placements, request_options, relevance)
+        self.inner
+            .request_ads(placements, request_options, relevance)
     }
 }
 
@@ -379,9 +379,8 @@ impl AdsClientInner {
         self.client.shutdown_db();
     }
 
-    // TODO: request 'options' maybe? 'set_request_options' sounds bad.
     pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
-        self.client.set_settings(new_options);
+        self.client.set_request_options(new_options);
     }
 
     fn request_ads(
@@ -448,7 +447,7 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            request_options: MARSRequestOptions::default()
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -525,7 +524,7 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            request_options: MARSRequestOptions::default()
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
 
@@ -558,7 +557,7 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            request_options: MARSRequestOptions::default()
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
 
@@ -618,7 +617,11 @@ mod tests {
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder_memory().build().unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache), MARSRequestOptions::default());
+        let mars_client = MARSClient::new(
+            Environment::Test,
+            Some(cache),
+            MARSRequestOptions::default(),
+        );
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();
@@ -666,7 +669,10 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
-            request_options: MARSRequestOptions { blocks: vec!["test_block_0".to_string()], ..Default::default()}
+            request_options: MARSRequestOptions {
+                blocks: vec!["test_block_0".to_string()],
+                ..Default::default()
+            },
         };
         let client = AdsClient::new(config);
 
@@ -693,7 +699,7 @@ mod tests {
             m
         };
 
-        // todo: thisi s the default one from passed args
+        // Confirm default `test_block_0` from initialization is successfully passed.
         let m = mockito_adder(vec!["test_block_0".to_string()]);
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
@@ -705,11 +711,8 @@ mod tests {
         drop(m);
         client.clear_cache().unwrap();
 
-
         // TODO: test should have (or another test) defaults passable in AdsClientConfig
         // Sets default settings.
-        // TODO: Should cachepolicy be included here?
-        // TODO: Test more than just block
         client.set_request_options(MARSRequestOptions {
             flags: HashMap::new(),
             cache_policy: CachePolicy::default(),
@@ -729,10 +732,8 @@ mod tests {
 
         // Test again, but with changed blocks
         client.set_request_options(MARSRequestOptions {
-            flags: HashMap::new(),
-            cache_policy: CachePolicy::default(),
-            ohttp: false,
             blocks: vec!["test_block_2".to_string()],
+            ..Default::default()
         });
         let m = mockito_adder(vec!["test_block_2".to_string()]);
         let result = client.request_tile_ads(
@@ -749,7 +750,6 @@ mod tests {
         let m = mockito_adder(vec!["test_block_3".to_string()]);
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            // TODO: Not sure if I like this defaulting here
             Some(MARSRequestOptions {
                 blocks: vec!["test_block_3".to_string()],
                 ..Default::default()
@@ -765,7 +765,6 @@ mod tests {
         let m = mockito_adder(vec![]);
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            // TODO: Not sure if I like this defaulting here
             Some(MARSRequestOptions {
                 blocks: vec![],
                 ..Default::default()

@@ -120,7 +120,6 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        // TODO: Is this conversion the right way to do it?
         let mars_options = options.map(|opt| MARSRequestOptions {
             flags: AdRequestFlags::from(&opt),
             cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
@@ -224,15 +223,14 @@ impl MozAdsClient {
         Ok(())
     }
 
-    /// Sets the underlying MARS settings.
-    /// TODO: Write doc here
-    /// // TODO: note that the api error is because it mnight change
+    /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
     #[uniffi::method()]
     pub fn set_request_options(
         &self,
-        new_settings: MozAdsRequestSettingsOptions,
+        new_settings: MozAdsRequestConfigOptions,
     ) -> AdsClientApiResult<()> {
-        self.inner.set_request_options(MARSRequestOptions::from(new_settings));
+        self.inner
+            .set_request_options(MARSRequestOptions::from(new_settings));
         Ok(())
     }
 }
