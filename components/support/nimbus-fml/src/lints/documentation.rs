@@ -2,8 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Lints about descriptions, which are what an experiment owner reads in
-//! Experimenter when deciding what to put in a branch.
+//! Lints about feature documentation.
 
 use super::{
     enum_path, enum_variant_path, feature_path, object_field_path, object_path, variable_path,
