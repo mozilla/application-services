@@ -10,24 +10,18 @@
 //!
 //! A lint can be silenced by a `no-lint` list on a feature.
 
-/// Declares a [`LintInfo`] static per lint, plus the `LINTS` slice the module's
-/// [`Linter`] returns, so declaring a lint registers it.
-///
-/// Must stay above the `mod` declarations below, which is what puts it in scope for
-/// them.
+/// Register the lints for a module.
 macro_rules! define_lints {
-    ($($name:ident: $category:ident, $level:ident = $description:literal, $help:literal;)*) => {
+    ($($name:ident: $category:ident = $description:literal, $help:literal;)*) => {
         $(
             pub static $name: $crate::lints::LintInfo = $crate::lints::LintInfo {
                 name: stringify!($name),
                 description: $description,
                 help: $help,
                 category: $crate::lints::LintCategory::$category,
-                default_level: $crate::lints::LintLevel::$level,
             };
         )*
 
-        /// Every lint declared in this module.
         pub static LINTS: &[&$crate::lints::LintInfo] = &[$(&$name),*];
     };
 }
@@ -66,22 +60,16 @@ mod documentation;
 mod metadata;
 mod naming;
 
-use std::{
-    cmp::Reverse,
-    collections::{BTreeMap, BTreeSet, HashSet},
-};
+use std::collections::HashSet;
 
 use serde::Serialize;
 
-use crate::{
-    error::{FMLError, Result},
-    intermediate_representation::{
-        EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
-    },
+use crate::intermediate_representation::{
+    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 
 define_lints! {
-    UNKNOWN_LINT: Lints, Warning =
+    UNKNOWN_LINT: Lints =
         "A `no-lint` entry names a lint that doesn't exist.",
         "Run `nimbus-fml lint --list` to see the available lints.";
 }
@@ -140,27 +128,6 @@ impl Linter for Lints {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LintLevel {
-    /// Switched off; findings are discarded.
-    Allow,
-    /// Reported, but doesn't fail the run.
-    Warning,
-    /// Reported, and fails the run.
-    Error,
-}
-
-impl LintLevel {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Allow => "allow",
-            Self::Warning => "warning",
-            Self::Error => "error",
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct LintInfo {
     pub name: &'static str,
@@ -168,7 +135,6 @@ pub struct LintInfo {
     /// What to do about it. Shown once per report, not once per finding.
     pub help: &'static str,
     pub category: LintCategory,
-    pub default_level: LintLevel,
 }
 
 lazy_static::lazy_static! {
@@ -182,39 +148,6 @@ lazy_static::lazy_static! {
 
 pub fn find_lint(name: &str) -> Option<&'static LintInfo> {
     ALL_LINTS.iter().find(|l| l.name == name).copied()
-}
-
-/// Which lints run, and how loudly.
-#[derive(Debug, Clone, Default)]
-pub struct LintConfig {
-    levels: BTreeMap<&'static str, LintLevel>,
-    file_suppressions: BTreeSet<String>,
-}
-
-impl LintConfig {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn denying(self, names: &[String]) -> Result<Self> {
-        self.with_level(names, LintLevel::Error)
-    }
-
-    fn with_level(mut self, names: &[String], level: LintLevel) -> Result<Self> {
-        for name in names {
-            let lint = find_lint(name).ok_or_else(|| {
-                FMLError::CliError(format!(
-                    "`{name}` isn't a lint. Run `nimbus-fml lint --list` to see the available lints"
-                ))
-            })?;
-            self.levels.insert(lint.name, level);
-        }
-        Ok(self)
-    }
-
-    fn level_for(&self, lint: &'static LintInfo) -> LintLevel {
-        *self.levels.get(lint.name).unwrap_or(&lint.default_level)
-    }
 }
 
 /// Where in the manifest a finding is. The `subject` is what findings are grouped
@@ -270,7 +203,6 @@ impl RawFinding {
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub lint: &'static str,
-    pub level: LintLevel,
     /// Set if the finding came from an imported manifest.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
@@ -295,16 +227,8 @@ impl LintReport {
         self.findings.is_empty()
     }
 
-    pub fn error_count(&self) -> usize {
-        self.count_of(LintLevel::Error)
-    }
-
-    pub fn warning_count(&self) -> usize {
-        self.count_of(LintLevel::Warning)
-    }
-
-    fn count_of(&self, level: LintLevel) -> usize {
-        self.findings.iter().filter(|f| f.level == level).count()
+    pub fn finding_count(&self) -> usize {
+        self.findings.len()
     }
 
     /// How many features, objects and enums have findings.
@@ -329,67 +253,47 @@ impl LintReport {
 
 /// Run the lints against a manifest that has already been through
 /// [`FeatureManifest::validate_manifest`].
-pub fn lint_manifest(fm: &FeatureManifest, config: &LintConfig) -> LintReport {
+pub fn lint_manifest(fm: &FeatureManifest) -> LintReport {
     let mut report = LintReport::default();
 
-    // The top level `no-lint` list belongs to the file, not to any one feature.
-    let mut raw = Vec::new();
-    check_no_lint_names(
-        config.file_suppressions.iter().map(String::as_str),
-        manifest_path(),
-        &mut raw,
-    );
-    collect(raw, config, &HashSet::new(), &None, &mut report);
-
-    lint_module(fm, config, None, &mut report);
+    lint_module(fm, None, &mut report);
 
     for (id, child) in &fm.all_imports {
-        lint_module(child, config, Some(id.to_string()), &mut report);
+        lint_module(child, Some(id.to_string()), &mut report);
     }
 
-    // Group by location, worst first, so a feature's findings are reported together.
+    // Group issues by location.
     report.findings.sort_by(|a, b| {
-        (&a.module, &a.subject, Reverse(a.level), a.lint, &a.member).cmp(&(
-            &b.module,
-            &b.subject,
-            Reverse(b.level),
-            b.lint,
-            &b.member,
-        ))
+        (&a.module, &a.subject, a.lint, &a.member).cmp(&(&b.module, &b.subject, b.lint, &b.member))
     });
 
     report
 }
 
-fn lint_module(
-    fm: &FeatureManifest,
-    config: &LintConfig,
-    module: Option<String>,
-    out: &mut LintReport,
-) {
+fn lint_module(fm: &FeatureManifest, module: Option<String>, out: &mut LintReport) {
     for feature in fm.iter_feature_defs() {
         let mut raw = Vec::new();
         for linter in LINTERS {
             linter.check_feature(feature, fm, &mut raw);
         }
 
-        let suppressions: HashSet<&str> = feature
+        let allowed_lints: HashSet<&str> = feature
             .metadata
             .no_lint
             .iter()
             .map(String::as_str)
             .collect();
-        collect(raw, config, &suppressions, &module, out);
+        collect_findings(raw, &allowed_lints, module.as_deref(), out);
     }
 
-    let no_suppressions = HashSet::new();
+    let allowed_lints = HashSet::new();
 
     for object in fm.iter_object_defs() {
         let mut raw = Vec::new();
         for linter in LINTERS {
             linter.check_object(object, &mut raw);
         }
-        collect(raw, config, &no_suppressions, &module, out);
+        collect_findings(raw, &allowed_lints, module.as_deref(), out);
     }
 
     for enum_def in fm.iter_enum_defs() {
@@ -397,42 +301,33 @@ fn lint_module(
         for linter in LINTERS {
             linter.check_enum(enum_def, &mut raw);
         }
-        collect(raw, config, &no_suppressions, &module, out);
+        collect_findings(raw, &allowed_lints, module.as_deref(), out);
     }
 
     let mut raw = Vec::new();
     for linter in LINTERS {
         linter.check_manifest(fm, &mut raw);
     }
-    collect(raw, config, &no_suppressions, &module, out);
+    collect_findings(raw, &allowed_lints, module.as_deref(), out);
 }
 
-fn collect(
+fn collect_findings(
     raw: Vec<RawFinding>,
-    config: &LintConfig,
-    suppressions: &HashSet<&str>,
-    module: &Option<String>,
+    allowed_lints: &HashSet<&str>,
+    module: Option<&str>,
     out: &mut LintReport,
 ) {
     for finding in raw {
         let name = finding.lint.name;
 
-        let level = config.level_for(finding.lint);
-        if level == LintLevel::Allow {
-            continue;
-        }
-
-        // Counted, but only now that the lint is known to be one which would have
-        // been shown.
-        if suppressions.contains(name) || config.file_suppressions.contains(name) {
+        if allowed_lints.contains(name) {
             out.suppressed += 1;
             continue;
         }
 
         out.findings.push(Finding {
             lint: name,
-            level,
-            module: module.clone(),
+            module: module.map(Into::into),
             subject: finding.location.subject,
             member: finding.location.member,
             message: finding.message,
@@ -463,10 +358,6 @@ pub(crate) fn is_boolean(typ: &TypeRef) -> bool {
         TypeRef::Option(inner) => is_boolean(inner),
         _ => false,
     }
-}
-
-pub(crate) fn manifest_path() -> Location {
-    Location::subject("this manifest".to_string())
 }
 
 pub(crate) fn feature_path(feature: &FeatureDef) -> Location {
@@ -505,10 +396,7 @@ pub(crate) fn enum_variant_path(enum_def: &EnumDef, variant: &str) -> Location {
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use crate::{
-        error::Result,
-        intermediate_representation::{FeatureDef, PropDef, TypeRef},
-    };
+    use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
     use serde_json::json;
 
     #[test]
@@ -535,13 +423,6 @@ mod unit_tests {
             assert!(
                 lint.help.ends_with('.'),
                 "{}'s help should be a sentence",
-                lint.name
-            );
-            // A lint that defaults to `Allow` would never be seen.
-            assert_ne!(
-                lint.default_level,
-                LintLevel::Allow,
-                "{} defaults to being switched off",
                 lint.name
             );
         }
@@ -593,7 +474,7 @@ mod unit_tests {
         let mut fm = FeatureManifest::default();
         fm.add_feature(suppressed);
 
-        let report = lint_manifest(&fm, &LintConfig::new());
+        let report = lint_manifest(&fm);
         assert_eq!(report.suppressed, 1);
     }
 
@@ -602,7 +483,7 @@ mod unit_tests {
         let mut fm = FeatureManifest::default();
         fm.add_feature(empty_feature("my-feature"));
 
-        let report = lint_manifest(&fm, &LintConfig::new());
+        let report = lint_manifest(&fm);
         let mut lints: Vec<_> = report.findings.iter().map(|f| f.lint).collect();
         lints.sort_unstable();
         let deduped = lints.iter().collect::<HashSet<_>>();
@@ -614,24 +495,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_deny_makes_a_lint_an_error() -> Result<()> {
-        let mut fm = FeatureManifest::default();
-        fm.add_feature(empty_feature("my-feature"));
-
-        let config = LintConfig::new().denying(&["NO_VARIABLES".to_string()])?;
-        let report = lint_manifest(&fm, &config);
-        let finding = report
-            .findings
-            .iter()
-            .find(|f| f.lint == "NO_VARIABLES")
-            .expect("NO_VARIABLES should be reported");
-        assert_eq!(finding.level, LintLevel::Error);
-        assert_eq!(report.error_count(), 1);
-
-        Ok(())
-    }
-
-    #[test]
     fn test_feature_suppressions() {
         let mut suppressed = empty_feature("suppressed");
         suppressed.metadata.no_lint = vec!["NO_VARIABLES".to_string()];
@@ -640,7 +503,7 @@ mod unit_tests {
         fm.add_feature(suppressed);
         fm.add_feature(empty_feature("not-suppressed"));
 
-        let report = lint_manifest(&fm, &LintConfig::new());
+        let report = lint_manifest(&fm);
         let features: Vec<_> = report
             .findings
             .iter()
@@ -658,7 +521,7 @@ mod unit_tests {
         let mut fm = FeatureManifest::default();
         fm.add_feature(feature);
 
-        let report = lint_manifest(&fm, &LintConfig::new());
+        let report = lint_manifest(&fm);
         assert!(report
             .findings
             .iter()
@@ -691,8 +554,7 @@ mod unit_tests {
         fm.add_feature(feature);
 
         // Metadata lints are expected; nothing else should fire.
-        let config = LintConfig::new();
-        let report = lint_manifest(&fm, &config);
+        let report = lint_manifest(&fm);
         assert!(
             report.is_empty(),
             "unexpected findings: {:?}",

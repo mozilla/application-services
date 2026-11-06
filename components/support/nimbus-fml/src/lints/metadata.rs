@@ -8,10 +8,10 @@ use super::{feature_path, LintInfo, Linter, RawFinding};
 use crate::intermediate_representation::{FeatureDef, FeatureManifest};
 
 define_lints! {
-    MISSING_CONTACTS: Metadata, Warning =
+    MISSING_CONTACTS: Metadata =
         "Features should name at least one person to ask about them.",
         "Add a `contacts` list of one or more email addresses (with Mozilla Jira accounts), so that questions about the feature reach someone who can answer them.";
-    INVALID_CONTACT: Metadata, Warning =
+    INVALID_CONTACT: Metadata =
         "Contacts should be email addresses.",
         "Contacts are used to route QA questions, so they need to be addresses that can be written to.";
 }

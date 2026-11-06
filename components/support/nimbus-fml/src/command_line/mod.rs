@@ -191,7 +191,6 @@ fn create_lint_command_from_cli(cmd: &cli::Lint, cwd: &Path) -> Result<CliCmd> {
     Ok(CliCmd::Lint(LintCmd {
         manifest,
         loader,
-        deny: cmd.deny.clone(),
         as_json: cmd.json,
     }))
 }
