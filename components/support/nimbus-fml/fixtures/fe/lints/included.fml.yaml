@@ -2,8 +2,6 @@
 # Included by including.fml.yaml; excuses what it defines from a lint.
 about:
   description: Fixture for the lint tests.
-no-lint:
-  - MISSING_CONTACTS
 features:
   included-feature:
     description: A feature defined in a file that another file includes.

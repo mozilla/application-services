@@ -131,10 +131,6 @@ pub struct Lint {
     #[command(flatten)]
     pub loader_info: LoaderInfo,
 
-    /// Switch a lint off for this run. May be repeated.
-    #[arg(long, value_name = "LINT")]
-    pub allow: Vec<String>,
-
     /// Turn a lint into an error for this run. May be repeated.
     #[arg(long, value_name = "LINT")]
     pub deny: Vec<String>,

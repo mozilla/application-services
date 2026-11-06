@@ -296,12 +296,6 @@ pub struct ManifestFrontEnd {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) imports: Vec<ImportBlock>,
 
-    /// Lints everything in this file is excused from, by name.
-    #[serde(default)]
-    #[serde(rename = "no-lint")]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) no_lint: Vec<String>,
-
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) features: BTreeMap<String, FeatureBody>,
