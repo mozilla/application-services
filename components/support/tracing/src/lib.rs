@@ -13,7 +13,7 @@ pub use filters::{
 
 pub use layer::{
     register_event_sink, register_event_sink_box, simple_event_layer, unregister_event_sink,
-    EventSinkId, EventSinkSpecification, EventTarget, SimpleEventFilter,
+    EventSinkId, EventSinkSpecification, EventTarget,
 };
 // Re-export tracing so that our dependencies can use it.
 pub use tracing;
