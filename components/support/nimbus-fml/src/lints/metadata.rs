@@ -2,19 +2,12 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Lints about a feature's metadata: who owns it, where it's documented, and where
-//! to file bugs against it.
+//! Lints about feature metadata and ownership.
 
 use super::{feature_path, LintInfo, Linter, RawFinding};
 use crate::intermediate_representation::{FeatureDef, FeatureManifest};
 
 define_lints! {
-    MISSING_META_BUG: Metadata, Warning =
-        "Features should say where bugs against them are filed.",
-        "Add a `meta-bug` URL, so that QA and experiment owners know where to file issues with the feature.";
-    MISSING_DOCUMENTATION: Metadata, Warning =
-        "Features should link to at least one document describing them.",
-        "Add a `documentation` list of named URLs, e.g. user docs, QA docs or the feature's design document.";
     MISSING_CONTACTS: Metadata, Warning =
         "Features should name at least one person to ask about them.",
         "Add a `contacts` list of one or more email addresses (with Mozilla Jira accounts), so that questions about the feature reach someone who can answer them.";
@@ -43,22 +36,6 @@ impl Linter for Metadata {
 fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     let metadata = &feature.metadata;
     let path = feature_path(feature);
-
-    if metadata.meta_bug.is_none() {
-        out.push(RawFinding::new(
-            &MISSING_META_BUG,
-            path.clone(),
-            "No `meta-bug`",
-        ));
-    }
-
-    if metadata.documentation.is_empty() {
-        out.push(RawFinding::new(
-            &MISSING_DOCUMENTATION,
-            path.clone(),
-            "No `documentation`",
-        ));
-    }
 
     if metadata.contacts.is_empty() {
         out.push(RawFinding::new(
@@ -115,14 +92,7 @@ mod unit_tests {
 
     #[test]
     fn test_empty_metadata() {
-        assert_eq!(
-            lints(&feature()),
-            vec![
-                "MISSING_META_BUG",
-                "MISSING_DOCUMENTATION",
-                "MISSING_CONTACTS"
-            ]
-        );
+        assert_eq!(lints(&feature()), vec!["MISSING_CONTACTS"]);
     }
 
     #[test]

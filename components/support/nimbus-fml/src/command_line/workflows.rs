@@ -883,21 +883,14 @@ mod test {
             vec![
                 "COMMON_PREFIX",
                 "DEEP_NESTING",
-                "ENUM_VARIANT_CASING",
-                "FEATURE_NAME_CASING",
                 "MISSING_CONTACTS",
-                "MISSING_DOCUMENTATION",
-                "MISSING_ENABLED_VARIABLE",
-                "MISSING_META_BUG",
                 "NEGATED_BOOLEAN",
-                "STRINGLY_TYPED",
                 "TERSE_DESCRIPTION",
                 "TODO_IN_DESCRIPTION",
                 "TRIVIAL_ENUM",
                 "TYPE_IN_NAME",
                 "TYPE_NAME_CASING",
                 "UNUSED_TYPE",
-                "VARIABLE_NAME_CASING",
             ]
         );
         Ok(())
@@ -905,8 +898,8 @@ mod test {
 
     #[test]
     fn test_lint_command_honours_no_lint() -> Result<()> {
-        // The file excuses itself from MISSING_META_BUG, its feature from
-        // MISSING_ENABLED_VARIABLE.
+        // The file excuses itself from MISSING_CONTACTS, its feature from
+        // TYPE_IN_NAME.
         assert_eq!(
             lints_for("fixtures/fe/lints/suppressions.fml.yaml")?,
             // ... but both lists also name a lint that doesn't exist.
@@ -943,7 +936,7 @@ mod test {
 
     #[test]
     fn test_lint_says_when_no_lint_silenced_a_finding() -> Result<()> {
-        // The included file silences MISSING_META_BUG, so lint would otherwise call
+        // The included file silences MISSING_CONTACTS, so lint would otherwise call
         // the manifest clean without saying why.
         let report = lint_report(&lint_cmd("fixtures/fe/lints/including.fml.yaml"))?;
         assert!(report.is_empty());
@@ -957,16 +950,6 @@ mod test {
             "{output}"
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_command_honours_no_lint_in_an_included_file() -> Result<()> {
-        // The included file excuses what it defines from MISSING_META_BUG; the
-        // including file provides its own.
-        let path = "fixtures/fe/lints/including.fml.yaml";
-        assert_eq!(lints_for(path)?, Vec::<&str>::new());
-        assert_eq!(lint_report(&lint_cmd(path))?.suppressed, 1);
         Ok(())
     }
 
@@ -1037,8 +1020,7 @@ mod test {
             .collect::<Vec<_>>()
             .join(" ");
 
-        // The fixture trips MISSING_META_BUG once and TERSE_DESCRIPTION twice.
-        assert_eq!(output.matches("Add a `meta-bug` URL").count(), 1);
+        // The fixture trips TERSE_DESCRIPTION twice.
         assert_eq!(
             output
                 .matches("use the description to say what changes when the value changes")
