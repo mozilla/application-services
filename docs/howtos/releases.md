@@ -1,5 +1,14 @@
 # Application Services Release Process
 
+## How changes reach Firefox
+
+- **Desktop Firefox** builds from a copy of application-services vendored into mozilla-central.
+  Changes reach Desktop when a new revision is
+  [vendored](vendoring-into-mozilla-central.md).
+- **Android and iOS** consume the nightly and tagged release builds described on this page.
+  Nightlies are built from `main` daily. Releases are cut by Release Management on each merge day,
+  in step with the Firefox release cycle, from whatever is on `main` at that point.
+
 ## Nightly builds
 
 Nightly builds are automatically generated using a taskcluster cron task.
