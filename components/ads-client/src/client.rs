@@ -7,11 +7,11 @@ use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
-use crate::http_cache::{CachePolicy, HttpCache};
-use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
+use crate::http_cache::HttpCache;
+use crate::mars::ad_request::{AdPlacementRequest, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
-use crate::mars::{MARSClient, ReportReason};
+use crate::mars::{MARSClient, MARSRequestOptions, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -80,74 +80,57 @@ impl AdsClient {
     pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         self.inner
-            .request_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+            .request_image_ads(ad_placement_requests, request_options)
     }
 
     pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
         self.inner
-            .request_spoc_ads(ad_placement_requests, flags, options, ohttp, blocks)
+            .request_spoc_ads(ad_placement_requests, request_options)
     }
 
     pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        self.inner.request_tile_ads(
-            ad_placement_requests,
-            flags,
-            options,
-            ohttp,
-            blocks,
-            relevance,
-        )
+        self.inner
+            .request_tile_ads(ad_placement_requests, request_options, relevance)
     }
 
     pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
         self.inner
-            .request_spoc_or_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
+            .request_spoc_or_image_ads(ad_placement_requests, request_options)
     }
 
     pub(crate) fn shutdown(&self) {
         self.inner.shutdown();
     }
 
+    pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
+        self.inner.set_request_options(new_options);
+    }
+
     #[cfg(test)]
     fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
         relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
         self.inner
-            .request_ads(placements, flags, options, ohttp, blocks, relevance)
+            .request_ads(placements, request_options, relevance)
     }
 }
 
@@ -209,7 +192,12 @@ impl AdsClientInner {
                     }
                 });
 
-        let client = MARSClient::new(environment, http_cache, client_config.user_agent);
+        let client = MARSClient::new(
+            environment,
+            http_cache,
+            client_config.user_agent,
+            client_config.request_options,
+        );
         telemetry::record_client_operation(ClientOperation::New);
         Self {
             #[cfg(feature = "stateful")]
@@ -308,18 +296,12 @@ impl AdsClientInner {
     pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
             .request_ads(
                 ad_placement_requests,
-                flags,
-                options,
-                ohttp,
-                blocks,
+                request_options,
                 AdRequestRelevance::default(),
             )
             .inspect_err(|e| {
@@ -333,17 +315,11 @@ impl AdsClientInner {
     pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
         let result = self.request_ads(
             ad_placement_requests,
-            flags,
-            options,
-            ohttp,
-            blocks,
+            request_options,
             AdRequestRelevance::default(),
         );
         result
@@ -363,17 +339,11 @@ impl AdsClientInner {
     pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
         let result = self.request_ads(
             ad_placement_requests,
-            flags,
-            options,
-            ohttp,
-            blocks,
+            request_options,
             AdRequestRelevance::default(),
         );
         result
@@ -389,20 +359,10 @@ impl AdsClientInner {
     pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads(
-            ad_placement_requests,
-            flags,
-            options,
-            ohttp,
-            blocks,
-            relevance,
-        );
+        let result = self.request_ads(ad_placement_requests, request_options, relevance);
         result
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
@@ -424,13 +384,14 @@ impl AdsClientInner {
         self.client.shutdown_db();
     }
 
+    pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
+        self.client.set_request_options(new_options);
+    }
+
     fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        request_options: Option<MARSRequestOptions>,
         relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
         let context_id = if relevance.is_empty() {
@@ -439,16 +400,9 @@ impl AdsClientInner {
             None
         };
 
-        let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads(
-            context_id,
-            flags,
-            placements,
-            cache_policy,
-            ohttp,
-            blocks,
-            relevance,
-        )?;
+        let (mut response, request_hash) =
+            self.client
+                .fetch_ads(context_id, request_options, placements, relevance)?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -460,7 +414,8 @@ mod tests {
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
-        mars::Environment,
+        http_cache::CachePolicy,
+        mars::{Environment, MARSRequestOptions},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,
@@ -498,6 +453,7 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -515,16 +471,11 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None);
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_image_ads(
-            make_happy_placement_requests(),
-            AdRequestFlags::default(),
-            None,
-            false,
-            Default::default(),
-        );
+        let result = ads_client.request_image_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
     }
@@ -540,16 +491,11 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None);
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_spoc_ads(
-            make_happy_placement_requests(),
-            AdRequestFlags::default(),
-            None,
-            false,
-            Default::default(),
-        );
+        let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
     }
@@ -565,15 +511,13 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None);
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_tile_ads(
             make_happy_placement_requests(),
-            AdRequestFlags::default(),
             None,
-            false,
-            Default::default(),
             AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
@@ -590,6 +534,7 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
 
@@ -608,13 +553,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let result = client.request_image_ads(
-            make_happy_placement_requests(),
-            AdRequestFlags::default(),
-            None,
-            false,
-            Default::default(),
-        );
+        let result = client.request_image_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
     }
@@ -629,6 +568,7 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            request_options: MARSRequestOptions::default(),
         };
         let client = AdsClient::new(config);
 
@@ -649,10 +589,7 @@ mod tests {
 
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            AdRequestFlags::default(),
             None,
-            false,
-            Default::default(),
             HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
@@ -662,7 +599,8 @@ mod tests {
     #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
-        let mars_client = MARSClient::new(Environment::Test, None, None);
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let base_url = mockito::server_url();
@@ -691,7 +629,12 @@ mod tests {
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder_memory().build().unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache), None);
+        let mars_client = MARSClient::new(
+            Environment::Test,
+            Some(cache),
+            None,
+            MARSRequestOptions::default(),
+        );
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();
@@ -704,13 +647,7 @@ mod tests {
             .create();
 
         let response = ads_client
-            .request_image_ads(
-                make_happy_placement_requests(),
-                AdRequestFlags::default(),
-                None,
-                false,
-                Default::default(),
-            )
+            .request_image_ads(make_happy_placement_requests(), None)
             .unwrap();
         let callback_url = response.values().next().unwrap().callbacks.click.clone();
 
@@ -719,13 +656,7 @@ mod tests {
             .create();
 
         ads_client
-            .request_image_ads(
-                make_happy_placement_requests(),
-                AdRequestFlags::default(),
-                None,
-                false,
-                Default::default(),
-            )
+            .request_image_ads(make_happy_placement_requests(), None)
             .unwrap();
 
         ads_client.record_click(callback_url, false).unwrap();
@@ -733,15 +664,155 @@ mod tests {
         ads_client
             .request_ads(
                 make_happy_placement_requests(),
-                AdRequestFlags::default(),
-                Some(CachePolicy::default()),
-                false,
-                Default::default(),
+                None,
                 AdRequestRelevance::default(),
             )
             .unwrap();
 
         m1.assert();
         m2.assert();
+    }
+
+    /// Tests that `MARSRequestOptions` values are sent as expected:
+    /// 1. The client-set values are used if no per-request options are passed.
+    /// 2. Those values can be changed by a setting.
+    /// 3. Manual override per-request to new values is possible.
+    /// 4. Manual override 'negatively' (eg: removing blocks) is possible. (eg: the fields are not included in the request)
+    /// Currently this only tests for `blocks` and `flags`.
+    #[test]
+    fn test_default_settings_are_sent_to_mars() {
+        viaduct_dev::init_backend_dev();
+
+        let config = AdsClientConfig {
+            cache_config: None,
+            environment: Environment::Test,
+            #[cfg(feature = "stateful")]
+            store_config: None,
+            user_agent: None,
+            request_options: MARSRequestOptions {
+                blocks: vec!["test_block_0".to_string()],
+                flags: HashMap::from_iter([("test_flag_0".to_owned(), true)]),
+                ..Default::default()
+            },
+        };
+        let client = AdsClient::new(config);
+
+        // Closure to quickly generate mock mockito test with certain expected results.
+        let mockito_adder = |blocks: Vec<String>, flags: HashMap<String, bool>| {
+            // Matcher::Json compares the whole body, ignoring key order, so any
+            // extra key such as context_id makes the request go unmatched.
+            // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
+            // Any new fields must be considered along side relevence scores.
+            let expected_response = get_example_happy_uatile_response();
+
+            let mut body = serde_json::json!({
+                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap(),
+                "relevance": {"sports": 0.8},
+            });
+            if !blocks.is_empty() {
+                body["blocks"] = blocks.into();
+            }
+            if !flags.is_empty() {
+                body["flags"] = serde_json::to_value(flags).unwrap();
+            }
+            let m: mockito::Mock = mockito::mock("POST", "/ads")
+                .match_body(mockito::Matcher::Json(body))
+                .with_status(200)
+                .with_header("content-type", "application/json")
+                .with_body(serde_json::to_string(&expected_response.data).unwrap())
+                .create();
+            m
+        };
+
+        // Confirm default `test_block_0` from initialization is successfully passed.
+        let m = mockito_adder(
+            vec!["test_block_0".to_string()],
+            HashMap::from_iter([("test_flag_0".to_owned(), true)]),
+        );
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            None,
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Sets default settings.
+        client.set_request_options(MARSRequestOptions {
+            flags: HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+            blocks: vec!["test_block_1".to_string()],
+            ..Default::default()
+        });
+        let m = mockito_adder(
+            vec!["test_block_1".to_string()],
+            HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+        );
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            None,
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Test again, but with changed blocks
+        client.set_request_options(MARSRequestOptions {
+            blocks: vec!["test_block_2".to_string()],
+            flags: HashMap::from_iter([("test_flag_2".to_owned(), true)]),
+            ..Default::default()
+        });
+        let m = mockito_adder(
+            vec!["test_block_2".to_string()],
+            HashMap::from_iter([("test_flag_2".to_owned(), true)]),
+        );
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            None,
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Test again, but with manually overridden blocks.
+        let m = mockito_adder(
+            vec!["test_block_3".to_string()],
+            HashMap::from_iter([("test_flag_3".to_owned(), true)]),
+        );
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            Some(MARSRequestOptions {
+                blocks: vec!["test_block_3".to_string()],
+                flags: HashMap::from_iter([("test_flag_3".to_owned(), true)]),
+                ..Default::default()
+            }),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Manual 'removal' over an existing default works, too.
+        // (eg: the fields are not included in the request)
+        let m = mockito_adder(vec![], HashMap::new());
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            Some(MARSRequestOptions {
+                blocks: vec![],
+                flags: HashMap::new(),
+                ..Default::default()
+            }),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
     }
 }

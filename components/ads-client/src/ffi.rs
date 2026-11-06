@@ -16,8 +16,8 @@ use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
 };
-use crate::mars::Environment;
 use crate::mars::ReportReason;
+use crate::mars::{Environment, MARSRequestOptions};
 use crate::non_empty_string::NonEmptyString;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
@@ -43,6 +43,32 @@ pub struct MozAdsRequestOptions {
     pub ohttp: bool,
     #[uniffi(default)]
     pub relevance: HashMap<String, f64>, // tiles only
+}
+
+/// Client level reusable set options for requests.
+/// These mimic `MozAdsRequestOptions` for fields that can be reused from request to request.
+/// They are overridden by any fields passed in a request as part of `MozAdsRequestOptions`.
+#[derive(Default, Clone, uniffi::Record)]
+pub struct MozAdsRequestConfigOptions {
+    #[uniffi(default)]
+    pub blocks: Vec<String>,
+    #[uniffi(default)]
+    pub cache_policy: Option<MozAdsCachePolicy>,
+    #[uniffi(default)]
+    pub flags: HashMap<String, bool>,
+    #[uniffi(default = false)]
+    pub ohttp: bool,
+}
+
+impl From<MozAdsRequestConfigOptions> for MARSRequestOptions {
+    fn from(opt: MozAdsRequestConfigOptions) -> Self {
+        MARSRequestOptions {
+            flags: opt.flags,
+            cache_policy: opt.cache_policy.unwrap_or_default().into(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        }
+    }
 }
 
 /// Options for a callback request (click, impression or report).
@@ -99,6 +125,7 @@ struct MozAdsClientBuilderInner {
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
     user_agent: Option<NonEmptyString>,
+    request_options: Option<MozAdsRequestConfigOptions>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -130,6 +157,7 @@ impl MozAdsClientBuilder {
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
             user_agent: inner.user_agent.clone(),
+            request_options: inner.request_options.clone().unwrap_or_default().into(),
         };
 
         let client = AdsClient::new(client_config);
@@ -141,6 +169,15 @@ impl MozAdsClientBuilder {
     /// cached.
     pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
         self.0.lock().cache_config = Some(cache_config);
+        self
+    }
+
+    /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
+    pub fn request_options(
+        self: Arc<Self>,
+        request_options: MozAdsRequestConfigOptions,
+    ) -> Arc<Self> {
+        self.0.lock().request_options = Some(request_options);
         self
     }
 

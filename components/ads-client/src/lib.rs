@@ -31,6 +31,8 @@ pub mod worker;
 
 pub use ffi::*;
 
+use crate::mars::MARSRequestOptions;
+
 /// Path that makes SQLite open a private in-memory database.
 pub(crate) const IN_MEMORY_DB_PATH: &str = ":memory:";
 
@@ -119,14 +121,15 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let cache_policy = options.cache_policy.map(CachePolicy::from);
-        let blocks = options.blocks;
+        let mars_options = options.map(|opt| MARSRequestOptions {
+            flags: AdRequestFlags::from(&opt),
+            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        });
         let response = self
             .inner
-            .request_image_ads(requests, flags, cache_policy, ohttp, blocks)
+            .request_image_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -141,14 +144,15 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let cache_policy = options.cache_policy.map(CachePolicy::from);
-        let blocks = options.blocks;
+        let mars_options = options.map(|opt| MARSRequestOptions {
+            flags: AdRequestFlags::from(&opt),
+            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        });
         let response = self
             .inner
-            .request_spoc_ads(requests, flags, cache_policy, ohttp, blocks)
+            .request_spoc_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -167,14 +171,15 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsImageOrSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let cache_policy = options.cache_policy.map(CachePolicy::from);
-        let blocks = options.blocks;
+        let mars_options = options.map(|opt| MARSRequestOptions {
+            flags: AdRequestFlags::from(&opt),
+            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        });
         let response = self
             .inner
-            .request_spoc_or_image_ads(requests, flags, cache_policy, ohttp, blocks)
+            .request_spoc_or_image_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response
             .into_iter()
@@ -192,15 +197,19 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let cache_policy = options.cache_policy.map(CachePolicy::from);
-        let blocks = options.blocks;
-        let relevance = options.relevance;
+        let relevance = options
+            .as_ref()
+            .map(|opt| opt.relevance.clone())
+            .unwrap_or_default();
+        let mars_options = options.map(|opt| MARSRequestOptions {
+            flags: AdRequestFlags::from(&opt),
+            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        });
         let response = self
             .inner
-            .request_tile_ads(requests, flags, cache_policy, ohttp, blocks, relevance)
+            .request_tile_ads(requests, mars_options, relevance)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
@@ -212,6 +221,17 @@ impl MozAdsClient {
     #[uniffi::method()]
     pub fn shutdown(&self) -> AdsClientApiResult<()> {
         self.inner.shutdown();
+        Ok(())
+    }
+
+    /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
+    #[uniffi::method()]
+    pub fn set_request_options(
+        &self,
+        new_settings: MozAdsRequestConfigOptions,
+    ) -> AdsClientApiResult<()> {
+        self.inner
+            .set_request_options(MARSRequestOptions::from(new_settings));
         Ok(())
     }
 }
