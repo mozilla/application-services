@@ -4,11 +4,11 @@
 
 //! Lints about feature documentation.
 
-use super::{
-    enum_path, enum_variant_path, feature_path, object_field_path, object_path, variable_path,
-    LintInfo, Linter, Location, RawFinding,
-};
 use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef};
+use crate::lints::{
+    define_lints, enum_path, enum_variant_path, feature_path, object_field_path, object_path,
+    variable_path, LintInfo, Linter, Location, UnreportedIsssue,
+};
 
 define_lints! {
     MISSING_DESCRIPTION: Documentation =
@@ -22,38 +22,41 @@ define_lints! {
         "Placeholder descriptions ship to Experimenter as-is.";
 }
 
-/// Shorter than this is almost certainly a restatement of the name.
-const MINIMUM_WORDS: usize = 3;
+/// The minimum amount of wrods allowed for a description.
+///
+/// Encourage descriptions to be descriptive.
+const DESCRIPTION_MINIMUM_WORDS: usize = 3;
 
 const PLACEHOLDERS: &[&str] = &["todo", "fixme", "tbd", "xxx", "wip"];
 
-pub(crate) struct Documentation;
+/// Lints for feature documentation.
+pub(crate) struct DocumentationLints;
 
-impl Linter for Documentation {
+impl Linter for DocumentationLints {
     fn lints(&self) -> &'static [&'static LintInfo] {
         LINTS
     }
 
-    fn check_feature(
+    fn lint_feature(
         &self,
         feature: &FeatureDef,
         _manifest: &FeatureManifest,
-        out: &mut Vec<RawFinding>,
+        out: &mut Vec<UnreportedIsssue>,
     ) {
-        check_feature(feature, out);
+        lint_feature(feature, out);
     }
 
-    fn check_object(&self, object: &ObjectDef, out: &mut Vec<RawFinding>) {
-        check_object(object, out);
+    fn lint_object(&self, object: &ObjectDef, out: &mut Vec<UnreportedIsssue>) {
+        lint_object(object, out);
     }
 
-    fn check_enum(&self, enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
-        check_enum(enum_def, out);
+    fn lint_enum(&self, enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
+        lint_enum(enum_def, out);
     }
 }
 
-fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
-    check_description(
+fn lint_feature(feature: &FeatureDef, out: &mut Vec<UnreportedIsssue>) {
+    lint_description(
         "feature",
         &feature.name,
         &feature.metadata.description,
@@ -61,7 +64,7 @@ fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
         out,
     );
     for prop in &feature.props {
-        check_description(
+        lint_description(
             "variable",
             &prop.name,
             &prop.doc,
@@ -71,8 +74,8 @@ fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
-    check_description(
+fn lint_object(object: &ObjectDef, out: &mut Vec<UnreportedIsssue>) {
+    lint_description(
         "object",
         &object.name,
         &object.doc,
@@ -80,7 +83,7 @@ fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
         out,
     );
     for prop in &object.props {
-        check_description(
+        lint_description(
             "field",
             &prop.name,
             &prop.doc,
@@ -90,8 +93,8 @@ fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
-    check_description(
+fn lint_enum(enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
+    lint_description(
         "enum",
         &enum_def.name,
         &enum_def.doc,
@@ -99,7 +102,7 @@ fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
         out,
     );
     for variant in &enum_def.variants {
-        check_description(
+        lint_description(
             "variant",
             &variant.name,
             &variant.doc,
@@ -109,17 +112,16 @@ fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-fn check_description(
+fn lint_description(
     what: &str,
     name: &str,
     description: &str,
     path: Location,
-    out: &mut Vec<RawFinding>,
+    out: &mut Vec<UnreportedIsssue>,
 ) {
     let description = description.trim();
 
-    // Findings are grouped under their feature, object or enum, so only members
-    // have to name themselves.
+    // Issues are grouped by path.
     let subject = if path.is_member() {
         format!("`{name}`")
     } else {
@@ -127,7 +129,7 @@ fn check_description(
     };
 
     if description.is_empty() {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &MISSING_DESCRIPTION,
             path,
             format!("{subject} has no description"),
@@ -135,8 +137,8 @@ fn check_description(
         return;
     }
 
-    if let Some(placeholder) = placeholder_in(description) {
-        out.push(RawFinding::new(
+    if let Some(placeholder) = contains_placeholder(description) {
+        out.push(UnreportedIsssue::new(
             &TODO_IN_DESCRIPTION,
             path.clone(),
             format!("The description of {subject} is still marked `{placeholder}`"),
@@ -144,8 +146,8 @@ fn check_description(
     }
 
     let words = description.split_whitespace().count();
-    if words < MINIMUM_WORDS {
-        out.push(RawFinding::new(
+    if words < DESCRIPTION_MINIMUM_WORDS {
+        out.push(UnreportedIsssue::new(
             &TERSE_DESCRIPTION,
             path,
             format!(
@@ -153,8 +155,8 @@ fn check_description(
                 if words == 1 { "" } else { "s" }
             ),
         ));
-    } else if restates_name(name, description) {
-        out.push(RawFinding::new(
+    } else if does_restate_name(name, description) {
+        out.push(UnreportedIsssue::new(
             &TERSE_DESCRIPTION,
             path,
             format!("The description of {subject} just restates its name"),
@@ -162,7 +164,7 @@ fn check_description(
     }
 }
 
-fn placeholder_in(description: &str) -> Option<&'static str> {
+fn contains_placeholder(description: &str) -> Option<&'static str> {
     let words: Vec<String> = description
         .split(|c: char| !c.is_alphanumeric())
         .map(str::to_ascii_lowercase)
@@ -173,7 +175,7 @@ fn placeholder_in(description: &str) -> Option<&'static str> {
         .copied()
 }
 
-fn restates_name(name: &str, description: &str) -> bool {
+fn does_restate_name(name: &str, description: &str) -> bool {
     normalize(name) == normalize(description)
 }
 
@@ -204,7 +206,7 @@ mod unit_tests {
 
     fn lints(name: &str, description: &str) -> Vec<&'static str> {
         let mut out = Vec::new();
-        check_description("variable", name, description, test_location(), &mut out);
+        lint_description("variable", name, description, test_location(), &mut out);
         out.iter().map(|f| f.lint.name).collect()
     }
 
@@ -263,10 +265,9 @@ mod unit_tests {
         enum_def.variants[0].doc = String::new();
 
         let mut out = Vec::new();
-        check_object(&object, &mut out);
-        check_enum(&enum_def, &mut out);
+        lint_object(&object, &mut out);
+        lint_enum(&enum_def, &mut out);
 
-        // Members name themselves; the object or enum they're under doesn't have to.
         let messages: Vec<_> = out.iter().map(|f| f.message.as_str()).collect();
         assert_eq!(
             messages,

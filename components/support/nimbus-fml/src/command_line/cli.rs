@@ -131,7 +131,7 @@ pub struct Lint {
     #[command(flatten)]
     pub loader_info: LoaderInfo,
 
-    /// If present, then print the findings as JSON.
+    /// If present, then print the issues as JSON.
     #[arg(long)]
     pub json: bool,
 
