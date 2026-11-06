@@ -1026,10 +1026,7 @@ PRAGMA user_version=16;
         db_file.assert_schema_matches_new_database();
     }
 
-    /// Test that `clear_database()` works correctly during migrations.
-    ///
-    /// TODO: This only checks `ingested_records` for now since it's very
-    /// important, but ideally this would test all tables.
+    /// Test that `clear_database()` works correctly during migrations and empties all tables.
     #[test]
     fn test_clear_database() -> anyhow::Result<()> {
         // Start with the v16 schema.
@@ -1051,13 +1048,68 @@ PRAGMA user_version=16;
         db_file.upgrade_to(VERSION);
         db_file.assert_schema_matches_new_database();
 
-        // `ingested_records` should be empty.
+        // `ingested_records` should be empty after migration.
         let conn = db_file.open();
         assert_eq!(
             conn.conn_ext_query_one::<i32>("SELECT count(*) FROM ingested_records")?,
             0,
-            "ingested_records should be empty"
+            "ingested_records should be empty after migration"
         );
+
+        // Populate all tables that clear_database() is expected to clear.
+        conn.execute_batch(
+            "
+            INSERT INTO meta(key, value) VALUES('test_key', 'test_value');
+            INSERT INTO suggestions(id, record_id, provider, title, url, score) VALUES(1, 'rec1', 1, 'title', 'https://example.com', 1.0);
+            INSERT INTO keywords(keyword, suggestion_id, full_keyword_id, rank) VALUES('test', 1, NULL, 0);
+            INSERT INTO keywords_i18n(keyword, suggestion_id, full_keyword_id, rank) VALUES('test_i18n', 1, NULL, 0);
+            INSERT INTO keywords_metrics(record_id, record_type, max_len, max_word_count) VALUES('rec1', 'type', 10, 2);
+            INSERT INTO full_keywords(id, suggestion_id, full_keyword) VALUES(1, 1, 'full keyword');
+            INSERT INTO prefix_keywords(keyword_prefix, keyword_suffix, confidence, rank, suggestion_id) VALUES('pre', 'fix', 0, 0, 1);
+            INSERT INTO serp_categories(suggestion_id, category) VALUES(1, 2);
+            INSERT INTO icons(id, data, mimetype) VALUES('icon1', X'1234', 'image/png');
+            INSERT INTO yelp_subjects(keyword, subject_type, record_id) VALUES('food', 0, 'rec1');
+            INSERT INTO yelp_modifiers(type, keyword, record_id) VALUES(1, 'cheap', 'rec1');
+            INSERT INTO yelp_custom_details(icon_id, score, record_id) VALUES('icon1', 4.5, 'rec1');
+            INSERT INTO geonames(id, record_id, name, latitude, longitude, feature_class, feature_code, country_code, admin1_code, population)
+                VALUES(1, 'geo1', 'City', 12.34, 56.78, 'P', 'PPL', 'US', 'CA', 1000);
+            INSERT INTO geonames_metrics(record_id, max_name_length, max_name_word_count) VALUES('geo1', 10, 2);
+            INSERT INTO ingested_records(id, collection, type, last_modified) VALUES('rec1', 'col', 'type', 1);
+            ",
+        )?;
+
+        // Verify that tables actually contain the inserted rows.
+        let tables_to_check = [
+            "meta",
+            "keywords",
+            "keywords_i18n",
+            "keywords_metrics",
+            "full_keywords",
+            "prefix_keywords",
+            "serp_categories",
+            "suggestions",
+            "icons",
+            "yelp_subjects",
+            "yelp_modifiers",
+            "yelp_custom_details",
+            "geonames",
+            "geonames_metrics",
+            "ingested_records",
+        ];
+
+        for table in tables_to_check {
+            let count: i32 = conn.conn_ext_query_one(&format!("SELECT count(*) FROM {table}"))?;
+            assert!(count > 0, "Table {table} should have rows before clear_database");
+        }
+
+        // Call clear_database and verify every table is emptied.
+        clear_database(&conn)?;
+
+        for table in tables_to_check {
+            let count: i32 = conn.conn_ext_query_one(&format!("SELECT count(*) FROM {table}"))?;
+            assert_eq!(count, 0, "Table {table} should be empty after clear_database");
+        }
+
         conn.close().expect("Connection should be closed");
 
         Ok(())
