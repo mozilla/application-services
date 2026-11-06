@@ -3946,6 +3946,8 @@ dependencies = [
  "error-support",
  "expect-test",
  "firefox-versioning",
+ "glean-build",
+ "glean-sym",
  "jexl-eval",
  "mockall",
  "mockito",

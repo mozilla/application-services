@@ -20,6 +20,11 @@ pub mod telemetry;
 pub(crate) mod jexl_filter;
 mod macros;
 
+#[cfg(feature = "glean-sym")]
+mod glean_metrics {
+    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
+}
+
 pub use client::{Attachment, RemoteSettingsRecord, RsJsonObject};
 pub use config::{BaseUrl, RemoteSettingsConfig, RemoteSettingsServer};
 pub use context::RemoteSettingsContext;
