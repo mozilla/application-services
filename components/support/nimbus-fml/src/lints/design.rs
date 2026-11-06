@@ -12,19 +12,19 @@ use crate::intermediate_representation::{
 };
 
 define_lints! {
-    NO_VARIABLES: Design, Warning =
+    NO_VARIABLES: Design =
         "Features should have something an experiment can change.",
         "An experiment on a feature with no variables can only enrol users; it can't change what they see. Add at least a boolean `enabled` variable.";
-    TOO_MANY_VARIABLES: Design, Warning =
+    TOO_MANY_VARIABLES: Design =
         "Features with a lot of variables are hard to configure correctly.",
         "Every variable is something an experiment owner has to understand. Consider splitting the feature up, or grouping related variables into objects.";
-    DEEP_NESTING: Design, Warning =
+    DEEP_NESTING: Design =
         "Deeply nested configuration is hard to write by hand.",
         "Experiment owners write these values out as JSON by hand. Consider flattening the value, or adding an `examples` block showing a complete one.";
-    TRIVIAL_ENUM: Design, Warning =
+    TRIVIAL_ENUM: Design =
         "An enum should offer a choice.",
         "An enum that can only take one value can't be varied by an experiment. Add the other variants, or use a boolean.";
-    UNUSED_TYPE: Design, Warning =
+    UNUSED_TYPE: Design =
         "Objects and enums should be used by at least one feature.",
         "Unused types are still generated into Kotlin and Swift, and still have to be maintained. Delete it, or use it.";
 }

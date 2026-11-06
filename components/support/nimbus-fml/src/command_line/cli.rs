@@ -131,10 +131,6 @@ pub struct Lint {
     #[command(flatten)]
     pub loader_info: LoaderInfo,
 
-    /// Turn a lint into an error for this run. May be repeated.
-    #[arg(long, value_name = "LINT")]
-    pub deny: Vec<String>,
-
     /// If present, then print the findings as JSON.
     #[arg(long)]
     pub json: bool,
