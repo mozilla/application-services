@@ -163,17 +163,13 @@ impl MARSClient {
     }
 }
 
-#[derive(Clone)]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct MARSRequestOptions {
     pub flags: AdRequestFlags,
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
     pub blocks: Vec<String>,
 }
-
-// Explicit definition of Default implementation.
-// If new fields are added, their defaults should be explicitly considered.
 
 #[cfg(test)]
 mod tests {
