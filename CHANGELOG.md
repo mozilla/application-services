@@ -17,6 +17,7 @@
 ### Nimbus
 
 - FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
+- Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
 
 # v161.0 (_2026-11-05_)
 

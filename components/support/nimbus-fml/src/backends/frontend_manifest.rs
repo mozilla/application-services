@@ -27,7 +27,6 @@ impl From<FeatureManifest> for ManifestFrontEnd {
             channels,
             includes: Default::default(),
             imports: Default::default(),
-            no_lint: Default::default(),
             features,
             legacy_types: None,
             types: Types { enums, objects },
