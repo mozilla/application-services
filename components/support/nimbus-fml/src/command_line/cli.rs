@@ -135,10 +135,6 @@ pub struct Lint {
     #[arg(long, value_name = "LINT")]
     pub deny: Vec<String>,
 
-    /// Exit with an error if there are any warnings.
-    #[arg(long)]
-    pub error_on_warning: bool,
-
     /// If present, then print the findings as JSON.
     #[arg(long)]
     pub json: bool,
