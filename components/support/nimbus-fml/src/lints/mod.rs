@@ -747,11 +747,7 @@ mod unit_tests {
         fm.add_feature(feature);
 
         // Metadata lints are expected; nothing else should fire.
-        let config = LintConfig::new().allowing(&[
-            "MISSING_META_BUG".to_string(),
-            "MISSING_DOCUMENTATION".to_string(),
-            "MISSING_CONTACTS".to_string(),
-        ]);
+        let config = LintConfig::new().allowing(&["MISSING_CONTACTS".to_string()]);
         let report = lint_manifest(&fm, &config.unwrap());
         assert!(
             report.is_empty(),
