@@ -52,7 +52,7 @@ RUN apt-get update -qq \
         # If you add anything below, please update building.md.
         ####################
         # Android builds
-        openjdk-17-jdk \
+        openjdk-25-jdk \
         # Required by gyp but also CI scripts.
         python3 \
         python3-pip \
