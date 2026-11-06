@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import uniffi.InternalException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -18,7 +19,7 @@ class CrashTestHelpersTest {
         try {
             triggerRustPanic()
         } catch (e: InternalException) {
-            assertEquals(e.message, "Panic! In The Rust Code.")
+            assertEquals(e.message, "Rust panic: Panic! In The Rust Code.")
         }
     }
 
