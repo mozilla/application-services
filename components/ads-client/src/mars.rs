@@ -27,6 +27,7 @@ use self::{
 };
 use crate::{
     http_cache::{HttpCache, RequestHash},
+    non_empty_string::NonEmptyString,
     CachePolicy,
 };
 use url::Url;
@@ -35,18 +36,24 @@ use viaduct::{Headers, Request};
 pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
+    user_agent: Option<NonEmptyString>,
     request_options: RwLock<MARSRequestOptions>,
 }
 
 impl MARSClient {
     pub(crate) fn new(
+        
         environment: Environment,
+       
         http_cache: Option<HttpCache>,
+        user_agent: Option<NonEmptyString>,
+    ,
         request_options: MARSRequestOptions,
     ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
+            user_agent,
             request_options: RwLock::new(request_options),
         }
     }
@@ -81,9 +88,7 @@ impl MARSClient {
         let request_hash = RequestHash::new(&ad_request);
 
         if request_options.ohttp {
-            ad_request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            ad_request.headers.extend(self.preflight_headers()?);
         }
 
         let response = self.transport.send(
@@ -134,6 +139,11 @@ impl MARSClient {
         self.transport.shutdown_db();
     }
 
+    fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
+        self.fetch_preflight()?
+            .into_headers(self.user_agent.as_ref())
+    }
+
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
         let response = self.transport.send(
             PreflightRequest(self.environment.clone().into_url("ads-preflight")),
@@ -150,9 +160,7 @@ impl MARSClient {
     ) -> Result<(), CallbackRequestError> {
         let mut request = Request::get(callback);
         if ohttp {
-            request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            request.headers.extend(self.preflight_headers()?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
     }
@@ -176,7 +184,7 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache, MARSRequestOptions::default())
+        MARSClient::new(Environment::Test, http_cache, None, MARSRequestOptions::default())
     }
 
     #[test]

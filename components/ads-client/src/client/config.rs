@@ -4,6 +4,7 @@
 */
 
 use crate::mars::{Environment, MARSRequestOptions};
+use crate::non_empty_string::NonEmptyString;
 
 pub(crate) struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
@@ -11,6 +12,7 @@ pub(crate) struct AdsClientConfig {
     pub request_options: MARSRequestOptions,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
+    pub user_agent: Option<NonEmptyString>,
 }
 
 #[derive(Clone, Debug)]

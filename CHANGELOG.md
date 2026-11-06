@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+
 # v161.0 (_2026-11-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
@@ -23,15 +29,25 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
+<<<<<<< HEAD
 ### Remote Settings
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+=======
+### Merino
+
+- `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
+>>>>>>> 4bc0c2b04 ([DISCO-4526] merino: add seq and sid field)
 
 ## Breaking Changes
 
 ### Autofill
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
+
+### Nimbus
+
+- The `rkv-safe-mode` feature has been removed and Nimbus defaults to using the safe backend in stateful (i.e., non-cirrus) configurations. ([#7728](https://github.com/mozilla/application-services/pull/7728))
 
 # v160.0 (_2026-10-22_)
 
