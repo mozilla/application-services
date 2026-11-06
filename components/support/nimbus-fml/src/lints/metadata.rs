@@ -5,7 +5,7 @@
 //! Lints about feature metadata and ownership.
 
 use crate::intermediate_representation::{FeatureDef, FeatureManifest};
-use crate::lints::{define_lints, feature_path, LintInfo, Linter, UnreportedIsssue};
+use crate::lints::{LintInfo, Linter, UnreportedIsssue, define_lints, feature_path};
 
 define_lints! {
     MISSING_CONTACTS: Metadata =

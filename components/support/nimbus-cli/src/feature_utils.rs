@@ -9,9 +9,9 @@ use std::{
 
 use anyhow::Result;
 use heck::ToKebabCase;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::{value_utils, NimbusApp};
+use crate::{NimbusApp, value_utils};
 
 pub(crate) fn create_experiment(
     app: &NimbusApp,

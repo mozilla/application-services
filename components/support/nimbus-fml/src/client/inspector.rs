@@ -4,10 +4,10 @@
 
 pub use crate::editing::FmlEditorError;
 use crate::{
+    FmlClient, JsonObject,
     editing::{CursorPosition, ErrorConverter},
     error::{ClientError, FMLError, Result},
     intermediate_representation::{FeatureDef, FeatureExample, FeatureManifest},
-    FmlClient, JsonObject,
 };
 use serde_json::Value;
 use std::sync::Arc;

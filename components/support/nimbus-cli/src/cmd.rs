@@ -5,18 +5,18 @@
 #[cfg(feature = "server")]
 use crate::output::server;
 use crate::{
+    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
     output::{deeplink, fml_cli},
     protocol::StartAppProtocol,
     sources::ManifestSource,
     value_utils::{
-        self, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
-        try_find_features_from_branch, CliUtils,
+        self, CliUtils, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
+        try_find_features_from_branch,
     },
-    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use nimbus_fml::intermediate_representation::FeatureManifest;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
@@ -420,12 +420,12 @@ impl LaunchableApp {
 
         for line in lines {
             let words = line.splitn(2, '\t').collect::<Vec<_>>();
-            if let [_, dir] = words.as_slice() {
-                if !dir.is_empty() {
-                    prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
-                    let _ = std::fs::remove_dir_all(dir);
-                    let _ = std::fs::create_dir_all(dir);
-                }
+            if let [_, dir] = words.as_slice()
+                && !dir.is_empty()
+            {
+                prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
+                let _ = std::fs::remove_dir_all(dir);
+                let _ = std::fs::create_dir_all(dir);
             }
         }
         Ok(true)
@@ -692,7 +692,9 @@ impl LaunchableApp {
             if let Some(deeplink) = self.deeplink(open)? {
                 let deeplink = deeplink::longform_deeplink_url(&deeplink, &app_protocol)?;
                 if deeplink.len() >= 2047 {
-                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard")
+                    anyhow::bail!(
+                        "Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard"
+                    )
                 }
                 args.push("openurl".to_string());
                 args.extend_from_slice(starting_args);

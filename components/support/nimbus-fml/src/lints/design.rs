@@ -10,8 +10,8 @@ use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 use crate::lints::{
-    define_lints, enum_path, feature_path, object_path, variable_path, LintInfo, Linter,
-    UnreportedIsssue,
+    LintInfo, Linter, UnreportedIsssue, define_lints, enum_path, feature_path, object_path,
+    variable_path,
 };
 
 define_lints! {
