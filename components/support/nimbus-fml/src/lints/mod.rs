@@ -502,10 +502,12 @@ mod unit_tests {
         fm.add_feature(feature);
 
         let report = lint_manifest(&fm);
-        assert!(report
-            .issues
-            .iter()
-            .any(|f| f.lint == "UNKNOWN_LINT" && f.message.contains("NOT_A_LINT")));
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|f| f.lint == "UNKNOWN_LINT" && f.message.contains("NOT_A_LINT"))
+        );
     }
 
     #[test]

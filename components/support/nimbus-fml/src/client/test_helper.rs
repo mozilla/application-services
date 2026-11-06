@@ -3,10 +3,10 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    FmlClient,
     editing::{CursorPosition, CursorSpan},
     error::Result,
     intermediate_representation::FeatureManifest,
-    FmlClient,
 };
 
 pub(crate) fn client(path: &str, channel: &str) -> Result<FmlClient> {

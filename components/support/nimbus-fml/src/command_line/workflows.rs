@@ -70,11 +70,11 @@ fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, cwd: &P
         let pb = entry.path();
         if pb.is_dir() {
             generate_struct_from_dir(files, cmd, &pb)?;
-        } else if let Some(nm) = pb.file_name().map(|s| s.to_str().unwrap_or_default()) {
-            if nm.ends_with(MATCHING_FML_EXTENSION) {
-                let path = pb.as_path().into();
-                generate_struct_single(files, path, cmd)?;
-            }
+        } else if let Some(nm) = pb.file_name().map(|s| s.to_str().unwrap_or_default())
+            && nm.ends_with(MATCHING_FML_EXTENSION)
+        {
+            let path = pb.as_path().into();
+            generate_struct_single(files, path, cmd)?;
         }
     }
     Ok(())
@@ -299,12 +299,15 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
                 iter_includes.collect::<Vec<String>>().join("\n- ")
             ),
         )?;
-        output_ok(&mut stdout, &format!(
-            "{}\n{}\n{}",
-            "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
-            "- A `channels` list",
-            "- An `about` block",
-        ))?;
+        output_ok(
+            &mut stdout,
+            &format!(
+                "{}\n{}\n{}",
+                "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
+                "- A `channels` list",
+                "- An `about` block",
+            ),
+        )?;
         return Ok(());
     }
     let intermediate_representation =
@@ -1137,7 +1140,7 @@ mod test_jsonschema {
     use jsonschema::JSONSchema;
     use tempfile::NamedTempFile;
 
-    use super::test::{create_experimenter_manifest_cmd, MANIFEST_PATHS};
+    use super::test::{MANIFEST_PATHS, create_experimenter_manifest_cmd};
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::util::{join, pkg_dir};

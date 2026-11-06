@@ -13,7 +13,7 @@ mod updater;
 mod value_utils;
 mod version_utils;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Parser;
 use cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
 use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
@@ -463,7 +463,9 @@ impl CliCommand {
                             && open.deeplink.is_some()
                             && !matches!(self, Self::Open { .. })
                         {
-                            bail!("--deeplink requires --legacy-open for fenix and is not compatible with newer releases");
+                            bail!(
+                                "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
+                            );
                         }
                     }
 

@@ -196,20 +196,22 @@ impl<'a> SchemaValidator<'a> {
             let t = unaccounted.first().unwrap();
             return Err(FMLError::ValidationError(
                 path.to_string(),
-                format!("A string-alias {t} is used by– but has not been defined in– the {feature} feature"),
+                format!(
+                    "A string-alias {t} is used by– but has not been defined in– the {feature} feature"
+                ),
             ));
         }
         for t in types {
-            if let TypeRef::Object(nm) = t {
-                if let Some(obj) = self.get_object(nm) {
-                    let types = obj.all_types();
-                    self.validate_string_alias_declarations(
-                        &format!("objects/{nm}"),
-                        feature,
-                        &types,
-                        string_aliases,
-                    )?;
-                }
+            if let TypeRef::Object(nm) = t
+                && let Some(obj) = self.get_object(nm)
+            {
+                let types = obj.all_types();
+                self.validate_string_alias_declarations(
+                    &format!("objects/{nm}"),
+                    feature,
+                    &types,
+                    string_aliases,
+                )?;
             }
         }
         Ok(())
@@ -244,7 +246,7 @@ impl<'a> SchemaValidator<'a> {
                         format!(
                             "Map key must be a String, string-alias or enum, found: {key_type:?}",
                         ),
-                    ))
+                    ));
                 }
             },
             TypeRef::List(list_type) => self.validate_type_ref(path, list_type)?,

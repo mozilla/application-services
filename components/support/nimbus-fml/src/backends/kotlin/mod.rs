@@ -50,7 +50,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
             "about".to_string(),
             format!(
                 "The `about` block is missing a valid `android` or `kotlin` entry: {}",
-                &cmd.manifest
+                cmd.manifest
             ),
         ));
     }
@@ -78,7 +78,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
 ))]
 pub mod test {
     use crate::util::{join, pkg_dir, sdk_dir};
-    use anyhow::{bail, Result};
+    use anyhow::{Result, bail};
     use std::path::Path;
     use std::process::Command;
 
