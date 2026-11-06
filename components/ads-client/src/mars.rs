@@ -164,7 +164,7 @@ impl MARSClient {
 }
 
 /// Common request options to MARS.
-/// If new fields are added, their defaults should be explicitly considered, 
+/// If new fields are added, their defaults should be explicitly considered,
 /// and an explicit implementation should be created if needed.
 #[derive(Clone, Default)]
 pub struct MARSRequestOptions {
