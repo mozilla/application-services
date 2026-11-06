@@ -1,10 +1,11 @@
-// /* This Source Code Form is subject to the terms of the Mozilla Public
-//  * License, v. 2.0. If a copy of the MPL was not distributed with this
-//  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use super::{ConcreteCodeOracle, common};
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 
+use crate::backends::kotlin::gen_structs::{ConcreteCodeOracle, common};
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::{Literal, PrefBranch};
 

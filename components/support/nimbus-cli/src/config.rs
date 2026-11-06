@@ -4,12 +4,11 @@
 
 use std::path::PathBuf;
 
-use crate::{
-    LaunchableApp, NimbusApp,
-    cli::Cli,
-    version_utils::{is_before, pad_major, pad_major_minor, pad_major_minor_patch},
-};
 use anyhow::{Result, bail};
+
+use crate::cli::Cli;
+use crate::version_utils::{is_before, pad_major, pad_major_minor, pad_major_minor_patch};
+use crate::{LaunchableApp, NimbusApp};
 
 impl TryFrom<&Cli> for LaunchableApp {
     type Error = anyhow::Error;

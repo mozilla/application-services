@@ -1,6 +1,6 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -8,15 +8,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
-use crate::{
-    defaults::DefaultsMerger,
-    error::Result,
-    intermediate_representation::{
-        EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
-        TargetLanguage, TypeRef, VariantDef,
-    },
-    parser::get_typeref_from_string,
+use crate::defaults::DefaultsMerger;
+use crate::error::Result;
+use crate::intermediate_representation::{
+    EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
+    TargetLanguage, TypeRef, VariantDef,
 };
+use crate::parser::get_typeref_from_string;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
