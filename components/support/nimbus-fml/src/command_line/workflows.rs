@@ -418,22 +418,12 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
         output_lint_summary(&mut stdout, &report)?;
     }
 
-    let errors = report.error_count();
-    let warnings = report.warning_count();
+    let error_count = report.error_count();
+    let warning_count = report.warning_count();
 
-    if errors > 0 {
+    if error_count > 0 || warning_count > 0 {
         return Err(CliError(format!(
-            "Manifest has {} lint error{}",
-            errors,
-            if errors > 1 { "s" } else { "" }
-        )));
-    }
-
-    if cmd.error_on_warning && warnings > 0 {
-        return Err(CliError(format!(
-            "Manifest has {} lint warning{}",
-            warnings,
-            if warnings > 1 { "s" } else { "" }
+            "Manifest has {warning_count} lint warning(s) and {error_count} lint error(s)",
         )));
     }
 
@@ -499,7 +489,7 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
         stream,
         "{}",
         wrapped(
-            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` annotation list on that feature.",
+            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` annotation on that feature.",
             "",
             "",
         )
@@ -842,7 +832,6 @@ mod test {
             manifest: join(pkg_dir(), path),
             loader: Default::default(),
             deny: Default::default(),
-            error_on_warning: false,
             as_json: false,
         }
     }
@@ -910,15 +899,10 @@ mod test {
     fn test_lint_command_allow_and_deny() -> Result<()> {
         let path = "fixtures/fe/lints/needs-work.fml.yaml";
 
-        // Warnings on their own don't fail the run.
         let mut cmd = lint_cmd(path);
-        lint(&cmd)?;
-
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
         assert!(lint(&cmd).is_err());
 
-        let mut cmd = lint_cmd(path);
-        cmd.error_on_warning = true;
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
         assert!(lint(&cmd).is_err());
 
         Ok(())
