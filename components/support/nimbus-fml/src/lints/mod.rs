@@ -190,7 +190,6 @@ pub fn find_lint(name: &str) -> Option<&'static LintInfo> {
 pub struct LintConfig {
     levels: BTreeMap<&'static str, LintLevel>,
     file_suppressions: BTreeSet<String>,
-    include_imports: bool,
 }
 
 impl LintConfig {
@@ -221,11 +220,6 @@ impl LintConfig {
     /// Lints named by a top level `no-lint` block.
     pub fn with_file_suppressions(mut self, names: &[String]) -> Self {
         self.file_suppressions = names.iter().cloned().collect();
-        self
-    }
-
-    pub fn including_imports(mut self, include_imports: bool) -> Self {
-        self.include_imports = include_imports;
         self
     }
 
@@ -360,10 +354,8 @@ pub fn lint_manifest(fm: &FeatureManifest, config: &LintConfig) -> LintReport {
 
     lint_module(fm, config, None, &mut report);
 
-    if config.include_imports {
-        for (id, child) in &fm.all_imports {
-            lint_module(child, config, Some(id.to_string()), &mut report);
-        }
+    for (id, child) in &fm.all_imports {
+        lint_module(child, config, Some(id.to_string()), &mut report);
     }
 
     // Group by location, worst first, so a feature's findings are reported together.
