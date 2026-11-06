@@ -42,12 +42,9 @@ pub(crate) struct MARSClient {
 
 impl MARSClient {
     pub(crate) fn new(
-        
         environment: Environment,
-       
         http_cache: Option<HttpCache>,
         user_agent: Option<NonEmptyString>,
-    ,
         request_options: MARSRequestOptions,
     ) -> Self {
         Self {
@@ -166,13 +163,17 @@ impl MARSClient {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
+#[derive(Default)]
 pub struct MARSRequestOptions {
     pub flags: AdRequestFlags,
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
     pub blocks: Vec<String>,
 }
+
+// Explicit definition of Default implementation.
+// If new fields are added, their defaults should be explicitly considered.
 
 #[cfg(test)]
 mod tests {
@@ -184,7 +185,12 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache, None, MARSRequestOptions::default())
+        MARSClient::new(
+            Environment::Test,
+            http_cache,
+            None,
+            MARSRequestOptions::default(),
+        )
     }
 
     #[test]

@@ -17,8 +17,8 @@ use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
 };
 use crate::mars::ReportReason;
-use crate::non_empty_string::NonEmptyString;
 use crate::mars::{Environment, MARSRequestOptions};
+use crate::non_empty_string::NonEmptyString;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
@@ -30,7 +30,6 @@ use std::sync::Weak;
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
 
-// TODO: Compare both of these
 /// Options for one ad request. Every field has a default.
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {

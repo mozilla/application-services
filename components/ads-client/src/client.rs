@@ -192,7 +192,12 @@ impl AdsClientInner {
                     }
                 });
 
-        let client = MARSClient::new(environment, http_cache, client_config.user_agent, client_config.request_options);
+        let client = MARSClient::new(
+            environment,
+            http_cache,
+            client_config.user_agent,
+            client_config.request_options,
+        );
         telemetry::record_client_operation(ClientOperation::New);
         Self {
             #[cfg(feature = "stateful")]
@@ -466,7 +471,8 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_image_ads(make_happy_placement_requests(), None);
@@ -485,7 +491,8 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_spoc_ads(make_happy_placement_requests(), None);
@@ -504,7 +511,8 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_tile_ads(
@@ -591,7 +599,8 @@ mod tests {
     #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
-        let mars_client = MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
+        let mars_client =
+            MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
         let base_url = mockito::server_url();
@@ -622,7 +631,8 @@ mod tests {
         let cache = HttpCache::builder_memory().build().unwrap();
         let mars_client = MARSClient::new(
             Environment::Test,
-            Some(cache), None,
+            Some(cache),
+            None,
             MARSRequestOptions::default(),
         );
         let ads_client = new_with_mars_client(mars_client);
@@ -667,8 +677,7 @@ mod tests {
     /// 1. The client-set values are used if no per-request options are passed.
     /// 2. Those values can be changed by a setting.
     /// 3. Manual override per-request to new values is possible.
-    /// 4. Manual override 'negatively' (eg: removing blocks) is possible.
-    /// TODO: Confirm (4).
+    /// 4. Manual override 'negatively' (eg: removing blocks) is possible. (eg: the fields are not included in the request)
     /// Currently this only tests for `blocks` and `flags`.
     #[test]
     fn test_default_settings_are_sent_to_mars() {
@@ -679,6 +688,7 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            user_agent: None,
             request_options: MARSRequestOptions {
                 blocks: vec!["test_block_0".to_string()],
                 flags: HashMap::from_iter([("test_flag_0".to_owned(), true)]),
@@ -789,6 +799,7 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Manual 'removal' over an existing default works, too.
+        // (eg: the fields are not included in the request)
         let m = mockito_adder(vec![], HashMap::new());
         let result = client.request_tile_ads(
             make_happy_placement_requests(),

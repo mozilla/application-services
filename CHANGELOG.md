@@ -7,6 +7,7 @@
 ### Ads-Client
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+- Client-stored fallback default settings for request options (ohttp, blocks, etc) can now be stored on initialization in `MozAdsRequestConfigOptions` or set with `set_request_options`.
 
 # v161.0 (_2026-11-05_)
 
