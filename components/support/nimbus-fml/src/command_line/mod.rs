@@ -192,7 +192,7 @@ fn create_lint_command_from_cli(cmd: &cli::Lint, cwd: &Path) -> Result<CliCmd> {
     Ok(CliCmd::Lint(LintCmd {
         manifest,
         loader,
-        as_json: cmd.json,
+        code_review_json: cmd.code_review_json.clone(),
     }))
 }
 

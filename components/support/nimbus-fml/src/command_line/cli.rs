@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::path::PathBuf;
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::intermediate_representation::TargetLanguage;
@@ -132,8 +134,8 @@ pub struct Lint {
     pub loader_info: LoaderInfo,
 
     /// If present, then print the issues as JSON.
-    #[arg(long)]
-    pub json: bool,
+    #[arg(long, value_name = "PATH")]
+    pub code_review_json: Option<PathBuf>,
 
     /// Print the available lints and exit.
     #[arg(long)]

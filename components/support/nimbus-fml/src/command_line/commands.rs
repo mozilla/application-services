@@ -51,10 +51,11 @@ pub(crate) struct ValidateCmd {
     pub(crate) loader: LoaderConfig,
 }
 
+#[derive(Default)]
 pub(crate) struct LintCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
-    pub(crate) as_json: bool,
+    pub(crate) code_review_json: Option<PathBuf>,
 }
 
 pub(crate) struct PrintChannelsCmd {
