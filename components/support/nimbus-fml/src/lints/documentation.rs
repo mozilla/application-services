@@ -11,13 +11,13 @@ use super::{
 use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef};
 
 define_lints! {
-    MISSING_DESCRIPTION: Documentation, Warning =
+    MISSING_DESCRIPTION: Documentation =
         "Everything in a manifest should have a description.",
         "Descriptions are shown to experiment owners in Experimenter: say what the thing is for, and what changes when it changes.";
-    TERSE_DESCRIPTION: Documentation, Warning =
+    TERSE_DESCRIPTION: Documentation =
         "Descriptions should say more than the name already does.",
         "The name is already visible next to the description; use the description to say what changes when the value changes.";
-    TODO_IN_DESCRIPTION: Documentation, Warning =
+    TODO_IN_DESCRIPTION: Documentation =
         "Descriptions shouldn't be left as placeholders.",
         "Placeholder descriptions ship to Experimenter as-is.";
 }

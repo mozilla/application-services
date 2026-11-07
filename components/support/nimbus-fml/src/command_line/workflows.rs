@@ -12,7 +12,7 @@ use super::commands::{
 use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
-use crate::lints::{self, Finding, LintConfig, LintLevel, LintReport};
+use crate::lints::{self, Finding, LintReport};
 use crate::{
     backends,
     error::{FMLError, Result},
@@ -217,13 +217,8 @@ fn wrapped(text: &str, initial_indent: &str, subsequent_indent: &str) -> String 
 }
 
 fn output_finding(stream: &mut impl WriteColor, finding: &Finding) -> Result<()> {
-    let (icon, color) = match finding.level {
-        LintLevel::Error => ("❎", Color::Red),
-        _ => ("⚠️", Color::Yellow),
-    };
-
-    write!(stream, "  {icon} ")?;
-    stream.set_color(ColorSpec::new().set_fg(Some(color)))?;
+    write!(stream, "  ⚠️  ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
     write!(stream, "{:<LINT_NAME_WIDTH$}", finding.lint)?;
     stream.reset()?;
     writeln!(stream, "{}", finding.message)?;
@@ -388,8 +383,6 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     // a second one would fetch and parse all of it again.
     let parser: Parser = Parser::new(files, file_path.clone())?;
 
-    let config = LintConfig::new().denying(&cmd.deny)?;
-
     // Linting an invalid manifest would report nonsense.
     let ir = parser
         .get_intermediate_representation(None)
@@ -403,7 +396,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
             ))
         })?;
 
-    Ok(lints::lint_manifest(&ir, &config))
+    Ok(lints::lint_manifest(&ir))
 }
 
 pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
@@ -418,12 +411,10 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
         output_lint_summary(&mut stdout, &report)?;
     }
 
-    let error_count = report.error_count();
-    let warning_count = report.warning_count();
-
-    if error_count > 0 || warning_count > 0 {
+    let error_count = report.finding_count();
+    if error_count > 0 {
         return Err(CliError(format!(
-            "Manifest has {warning_count} lint warning(s) and {error_count} lint error(s)",
+            "Manifest has {error_count} lint error(s)",
         )));
     }
 
@@ -433,8 +424,7 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
 /// The shape `--json` emits: the counts a CI job needs, plus the findings.
 fn json_report(report: &LintReport) -> serde_json::Value {
     serde_json::json!({
-        "errors": report.error_count(),
-        "warnings": report.warning_count(),
+        "errors": report.finding_count(),
         "suppressed": report.suppressed,
         "subjects": report.subject_count(),
         "findings": report.findings,
@@ -447,11 +437,7 @@ fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Resul
     }
     output_note(
         stream,
-        &format!(
-            "{} finding{} silenced by `no-lint`",
-            report.suppressed,
-            if report.suppressed > 1 { "s" } else { "" }
-        ),
+        &format!("{} finding(s) silenced by `no-lint`", report.suppressed,),
     )
 }
 
@@ -461,28 +447,11 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
         return output_suppressed(stream, report);
     }
 
-    let errors = report.error_count();
-    let warnings = report.warning_count();
-    let mut counts = Vec::new();
-    if errors > 0 {
-        counts.push(format!(
-            "{errors} error{}",
-            if errors > 1 { "s" } else { "" }
-        ));
-    }
-    if warnings > 0 {
-        counts.push(format!(
-            "{warnings} warning{}",
-            if warnings > 1 { "s" } else { "" }
-        ));
-    }
-
-    let subjects = report.subject_count();
+    let error_count = report.finding_count();
+    let subject_count = report.subject_count();
     writeln!(
         stream,
-        "Found {} in {subjects} place{}.",
-        counts.join(" and "),
-        if subjects > 1 { "s" } else { "" }
+        "Found {error_count} error(s) in {subject_count} location(s).",
     )?;
     output_suppressed(stream, report)?;
     writeln!(
@@ -504,20 +473,18 @@ pub(crate) fn list_lints() -> Result<()> {
 
 fn output_lint_list(stream: &mut impl WriteColor) -> Result<()> {
     const CATEGORY_WIDTH: usize = 15;
-    const LEVEL_WIDTH: usize = 10;
 
     writeln!(
         stream,
-        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}DESCRIPTION",
-        "LINT", "CATEGORY", "DEFAULT"
+        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}DESCRIPTION",
+        "LINT", "CATEGORY"
     )?;
     for lint in lints::ALL_LINTS.iter() {
         writeln!(
             stream,
-            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}{}",
+            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{}",
             lint.name,
             lint.category.as_str(),
-            lint.default_level.as_str(),
             lint.description
         )?;
     }
@@ -831,7 +798,6 @@ mod test {
         LintCmd {
             manifest: join(pkg_dir(), path),
             loader: Default::default(),
-            deny: Default::default(),
             as_json: false,
         }
     }
@@ -892,19 +858,6 @@ mod test {
                 "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
             ),]
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_command_allow_and_deny() -> Result<()> {
-        let path = "fixtures/fe/lints/needs-work.fml.yaml";
-
-        let mut cmd = lint_cmd(path);
-        assert!(lint(&cmd).is_err());
-
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
-        assert!(lint(&cmd).is_err());
-
         Ok(())
     }
 
@@ -981,15 +934,13 @@ mod test {
 
     #[test]
     fn test_summary_counts_what_was_found() -> Result<()> {
-        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         let report = lint_report(&cmd)?;
 
-        let expected = format!(
-            "Found 1 error and {} warnings in 3 places.",
-            report.warning_count()
-        );
-        assert!(rendered(&report)?.contains(&expected), "{expected}");
+        let expected = "Found 12 error(s) in 3 location(s).";
+
+        println!("{}", rendered(&report)?);
+        assert!(rendered(&report)?.contains(expected), "{expected}");
 
         let clean = lint_report(&lint_cmd("fixtures/fe/lints/well-formed.fml.yaml"))?;
         assert!(rendered(&clean)?.contains("No lint findings"));
@@ -999,13 +950,10 @@ mod test {
 
     #[test]
     fn test_lint_command_json_carries_the_counts() -> Result<()> {
-        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         let report = lint_report(&cmd)?;
 
         let json = json_report(&report);
-        assert_eq!(json["errors"], 1);
-        assert_eq!(json["warnings"], report.warning_count());
         assert_eq!(json["suppressed"], 0);
         assert_eq!(json["subjects"], 3);
         assert_eq!(
@@ -1042,7 +990,6 @@ mod test {
                 .find(|l| l.starts_with(lint.name))
                 .unwrap_or_else(|| panic!("{} should be listed:\n{output}", lint.name));
             assert!(row.contains(lint.category.as_str()), "{row}");
-            assert!(row.contains(lint.default_level.as_str()), "{row}");
             assert!(row.contains(lint.description), "{row}");
         }
 

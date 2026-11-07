@@ -16,16 +16,16 @@ use crate::intermediate_representation::{
 };
 
 define_lints! {
-    TYPE_NAME_CASING: Naming, Warning =
+    TYPE_NAME_CASING: Naming =
         "Objects and enums should be UpperCamelCase.",
         "Objects and enums become classes and types in the generated Kotlin and Swift.";
-    COMMON_PREFIX: Naming, Warning =
+    COMMON_PREFIX: Naming =
         "Variables shouldn't repeat the name of the feature they belong to.",
         "Variables are always read together with the feature they belong to, so a shared prefix only makes them longer. Drop it, or group the variables into an object if the prefix is really a thing in its own right.";
-    TYPE_IN_NAME: Naming, Warning =
+    TYPE_IN_NAME: Naming =
         "Variable names shouldn't repeat the name of their type.",
         "The type is shown next to the name everywhere the name is; repeating it only makes the name longer.";
-    NEGATED_BOOLEAN: Naming, Warning =
+    NEGATED_BOOLEAN: Naming =
         "Booleans should be named for what is true, not what is false.",
         "Everyone setting this in an experiment has to work out what `false` means. Name the variable for the behaviour that is switched on, and flip the default.";
 }
