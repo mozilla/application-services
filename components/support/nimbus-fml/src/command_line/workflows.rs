@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::HashSet;
+use std::fs::OpenOptions;
 use std::io::{IsTerminal, Write};
 use std::path::Path;
 
@@ -403,30 +404,51 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
 
     let report = lint_report(cmd)?;
 
-    if cmd.as_json {
-        println!("{}", serde_json::to_string_pretty(&json_report(&report))?);
-    } else {
-        output_issues(&mut stdout, &report)?;
-        output_lint_summary(&mut stdout, &report)?;
+    output_issues(&mut stdout, &report)?;
+    output_lint_summary(&mut stdout, &report)?;
+
+    if let Some(code_review_json_path) = &cmd.code_review_json {
+        write_code_review_json(&cmd.manifest, &report, &code_review_json_path)?;
     }
+
+    writeln!(stdout, "")?;
 
     let error_count = report.issue_count();
     if error_count > 0 {
-        return Err(CliError(format!(
-            "Manifest has {error_count} lint error(s)",
-        )));
+        return Err(CliError("Manifest has lint error(s)".into()));
     }
 
     Ok(())
 }
 
-fn json_report(report: &LintReport) -> serde_json::Value {
-    serde_json::json!({
-        "errors": report.issue_count(),
-        "suppressed": report.suppressed,
-        "subjects": report.subject_count(),
-        "issues": report.issues,
-    })
+fn write_code_review_json(manifest_path: &str, report: &LintReport, path: &Path) -> Result<()> {
+    let payload = generate_code_review_json(manifest_path, report);
+
+    let mut f = OpenOptions::new().write(true).create(true).open(path)?;
+    serde_json::to_writer(&mut f, &payload)?;
+    write!(f, "\n")?;
+
+    Ok(())
+}
+
+fn generate_code_review_json(manifest_path: &str, report: &LintReport) -> serde_json::Value {
+    let error_count = report.issue_count();
+
+    if error_count > 0 {
+        serde_json::json!({
+            manifest_path: [
+                {
+                    "path": manifest_path,
+                    "line": null,
+                    "column": null,
+                    "level": "error",
+                    "message": format!("There are {error_count} error(s) in this Feature Manifest. Check the task for the full list or run:\n\n./mach android nimbus-cli fml lint {manifest_path}"),
+                }
+            ],
+        })
+    } else {
+        serde_json::json!({})
+    }
 }
 
 fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
@@ -449,7 +471,7 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
     let subject_count = report.subject_count();
     writeln!(
         stream,
-        "Found {error_count} error(s) in {subject_count} location(s).",
+        "Found {error_count} error(s) in {subject_count} location(s).\n",
     )?;
     output_suppressed(stream, report)?;
     writeln!(
@@ -795,8 +817,7 @@ mod test {
     fn lint_cmd(path: &str) -> LintCmd {
         LintCmd {
             manifest: join(pkg_dir(), path),
-            loader: Default::default(),
-            as_json: false,
+            ..Default::default()
         }
     }
 
@@ -947,16 +968,32 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_json_carries_the_counts() -> Result<()> {
-        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
+    fn test_lint_command_code_review_json() -> Result<()> {
+        const PATH: &str = "fixtures/fe/lints/needs-work.fml.yaml";
+
+        let cmd = lint_cmd(PATH);
         let report = lint_report(&cmd)?;
 
-        let json = json_report(&report);
-        assert_eq!(json["suppressed"], 0);
-        assert_eq!(json["subjects"], 3);
+        let json = generate_code_review_json(PATH, &report);
+
+        assert!(json.is_object());
+        assert!(json[PATH].is_array());
+
+        let entries = json[PATH].as_array().unwrap();
+
+        assert_eq!(entries.len(), 1);
+
+        let entry = &entries[0];
+
+        assert_eq!(entry["path"], PATH);
+        assert_eq!(entry["line"], serde_json::Value::Null);
+        assert_eq!(entry["column"], serde_json::Value::Null);
+        assert_eq!(entry["level"], "error");
         assert_eq!(
-            json["issues"].as_array().unwrap().len(),
-            report.issues.len()
+            entry["message"],
+            format!(
+                "There are 12 error(s) in this Feature Manifest. Check the task for the full list or run:\n\n./mach android nimbus-cli fml lint {PATH}"
+            )
         );
 
         Ok(())
