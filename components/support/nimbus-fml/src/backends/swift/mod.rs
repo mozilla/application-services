@@ -29,7 +29,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
             "about".to_string(),
             format!(
                 "The `about` block is missing a valid `ios` or `swift` entry: {}",
-                &cmd.manifest
+                cmd.manifest
             ),
         ));
     }
@@ -60,7 +60,7 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
 ))]
 pub mod test {
     use crate::util::{join, pkg_dir, sdk_dir};
-    use anyhow::{bail, Context, Result};
+    use anyhow::{Context, Result, bail};
     use std::{
         ffi::OsString,
         path::{Path, PathBuf},

@@ -1,7 +1,7 @@
 // /* This Source Code Form is subject to the terms of the Mozilla Public
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use super::{common, ConcreteCodeOracle};
+use super::{ConcreteCodeOracle, common};
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 
@@ -82,7 +82,10 @@ where
     if let Some(getter) = ct.preference_getter(oracle, &prefs, &pref_key) {
         Ok(getter)
     } else {
-        unreachable!("The preference for type {} isn't available. This is a bug in Nimbus FML Kotlin generator", type_.borrow());
+        unreachable!(
+            "The preference for type {} isn't available. This is a bug in Nimbus FML Kotlin generator",
+            type_.borrow()
+        );
     }
 }
 
@@ -129,7 +132,7 @@ pub fn comment<T>(txt: T, _: &dyn askama::Values, spaces: &str) -> Result<String
 where
     T: fmt::Display,
 {
-    use textwrap::{fill, Options};
+    use textwrap::{Options, fill};
 
     let indent_start = "/** ".to_string();
     let indent_mid = format!("{} * ", spaces);

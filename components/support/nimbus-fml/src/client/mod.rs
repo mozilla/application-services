@@ -156,7 +156,7 @@ mod unit_tests {
         fixtures::intermediate_representation::get_feature_manifest,
         intermediate_representation::{FeatureDef, ModuleId, PropDef, TypeRef},
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::collections::{BTreeMap, HashMap};
 
     fn create_manifest() -> FeatureManifest {

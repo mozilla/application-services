@@ -368,13 +368,16 @@ impl Parser {
             }
         }
 
-        if let Some(about) = &child.about {
-            if !about.is_includable() {
-                return Err(FMLError::ValidationError(
+        if let Some(about) = &child.about
+            && !about.is_includable()
+        {
+            return Err(FMLError::ValidationError(
                 "about".to_string(),
-                format!("Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}", child_path),
+                format!(
+                    "Only files that don't already correspond to generated files may be included: file has a `class` and `package`/`module` name: {}",
+                    child_path
+                ),
             ));
-            }
         }
 
         let mut map = Default::default();
@@ -406,16 +409,16 @@ impl Parser {
             let id = &b.path;
             let channel = &b.channel;
             let existing = map.insert(id.clone(), channel.clone());
-            if let Some(v) = existing {
-                if &v != channel {
-                    return Err(FMLError::FMLModuleError(
-                        path.try_into()?,
-                        format!(
-                            "File {} is imported with two different channels: {} and {}",
-                            id, v, &channel
-                        ),
-                    ));
-                }
+            if let Some(v) = existing
+                && &v != channel
+            {
+                return Err(FMLError::FMLModuleError(
+                    path.try_into()?,
+                    format!(
+                        "File {} is imported with two different channels: {} and {}",
+                        id, v, channel
+                    ),
+                ));
             }
         }
         Ok(())
@@ -524,7 +527,7 @@ fn check_can_import_list(
             key.to_string(),
             format!(
                 "`{}` types {:?} conflict when {} imports {}",
-                key, &intersection, &parent.id, &child.id
+                key, intersection, parent.id, child.id
             ),
         ))
     } else {
@@ -557,7 +560,9 @@ impl FeatureAdditionChoices {
     fn merge(&mut self, other: &Self) {
         match (self, other) {
             (Self::FeatureAdditions(a), Self::FeatureAdditions(b)) => a.merge(b),
-            _ => unreachable!("FeatureAdditionChoices should have been rationalized already. This is a bug in nimbus-fml"),
+            _ => unreachable!(
+                "FeatureAdditionChoices should have been rationalized already. This is a bug in nimbus-fml"
+            ),
         };
     }
 }
@@ -1088,18 +1093,22 @@ mod unit_tests {
             ..Default::default()
         };
 
-        assert!(parser
-            .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
-            .is_ok());
+        assert!(
+            parser
+                .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
+                .is_ok()
+        );
 
         let child = ManifestFrontEnd {
             channels: vec!["eve".to_string()],
             ..Default::default()
         };
 
-        assert!(parser
-            .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
-            .is_err());
+        assert!(
+            parser
+                .check_can_merge_manifest(&parent_path, &parent, &child_path, &child)
+                .is_err()
+        );
 
         Ok(())
     }

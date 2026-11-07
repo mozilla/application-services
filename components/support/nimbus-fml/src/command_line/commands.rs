@@ -4,7 +4,7 @@
 
 use crate::intermediate_representation::TargetLanguage;
 use crate::util::loaders::LoaderConfig;
-use anyhow::{bail, Error, Result};
+use anyhow::{Error, Result, bail};
 use std::path::Path;
 use std::path::PathBuf;
 

@@ -6,8 +6,8 @@
 
 use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef};
 use crate::lints::{
-    define_lints, enum_path, enum_variant_path, feature_path, object_field_path, object_path,
-    variable_path, LintInfo, Linter, Location, UnreportedIsssue,
+    LintInfo, Linter, Location, UnreportedIsssue, define_lints, enum_path, enum_variant_path,
+    feature_path, object_field_path, object_path, variable_path,
 };
 
 define_lints! {
@@ -218,11 +218,13 @@ mod unit_tests {
 
     #[test]
     fn test_good_description() {
-        assert!(lints(
-            "max-rows",
-            "The largest number of rows the widget can grow to."
-        )
-        .is_empty());
+        assert!(
+            lints(
+                "max-rows",
+                "The largest number of rows the widget can grow to."
+            )
+            .is_empty()
+        );
     }
 
     #[test]

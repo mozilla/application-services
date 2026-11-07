@@ -573,11 +573,7 @@ impl DefaultBlock {
         }
 
         let res: Vec<String> = res.into_iter().collect();
-        if res.is_empty() {
-            None
-        } else {
-            Some(res)
-        }
+        if res.is_empty() { None } else { Some(res) }
     }
 }
 
