@@ -12,7 +12,7 @@ use super::commands::{
 use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
-use crate::lints::{self, Finding, LintReport};
+use crate::lints::{self, Issue, LintReport};
 use crate::{
     backends,
     error::{FMLError, Result},
@@ -216,26 +216,25 @@ fn wrapped(text: &str, initial_indent: &str, subsequent_indent: &str) -> String 
     textwrap::fill(text, options)
 }
 
-fn output_finding(stream: &mut impl WriteColor, finding: &Finding) -> Result<()> {
+fn output_issue(stream: &mut impl WriteColor, report: &Issue) -> Result<()> {
     write!(stream, "  ⚠️  ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-    write!(stream, "{:<LINT_NAME_WIDTH$}", finding.lint)?;
+    write!(stream, "{:<LINT_NAME_WIDTH$}", report.lint)?;
     stream.reset()?;
-    writeln!(stream, "{}", finding.message)?;
+    writeln!(stream, "{}", report.message)?;
 
     Ok(())
 }
 
-/// Print the findings grouped under the feature, object or enum they're about,
-/// followed by the guidance for each lint that fired. The guidance is per lint, not
-/// per finding: eighty features missing a `meta-bug` need telling how once.
-fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
-    // The findings arrive sorted by module and subject, so a change of either starts
-    // the next group.
+/// Print the issues grouped by location, followed by the guidance for each lint
+/// that fired.
+///
+/// Guidance is only shown once per issue, not once per lint.
+fn output_issues(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
     let mut group: Option<(&Option<String>, &String)> = None;
 
-    for finding in &report.findings {
-        let this = (&finding.module, &finding.subject);
+    for issue in &report.issues {
+        let this = (&issue.module, &issue.subject);
         if group != Some(this) {
             if group.is_some() {
                 writeln!(stream)?;
@@ -243,14 +242,14 @@ fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<
             group = Some(this);
 
             stream.set_color(ColorSpec::new().set_bold(true))?;
-            write!(stream, "{}", finding.subject)?;
+            write!(stream, "{}", issue.subject)?;
             stream.reset()?;
-            match &finding.module {
+            match &issue.module {
                 Some(module) => writeln!(stream, " (imported from {module})")?,
                 None => writeln!(stream)?,
             }
         }
-        output_finding(stream, finding)?;
+        output_issue(stream, issue)?;
     }
 
     let lints = report.triggered_lints();
@@ -379,8 +378,6 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let file_path = files.file_path(&cmd.manifest)?;
 
-    // One parser for both passes: `load_manifest` walks the whole include tree, and
-    // a second one would fetch and parse all of it again.
     let parser: Parser = Parser::new(files, file_path.clone())?;
 
     // Linting an invalid manifest would report nonsense.
@@ -407,11 +404,11 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
     if cmd.as_json {
         println!("{}", serde_json::to_string_pretty(&json_report(&report))?);
     } else {
-        output_findings(&mut stdout, &report)?;
+        output_issues(&mut stdout, &report)?;
         output_lint_summary(&mut stdout, &report)?;
     }
 
-    let error_count = report.finding_count();
+    let error_count = report.issue_count();
     if error_count > 0 {
         return Err(CliError(format!(
             "Manifest has {error_count} lint error(s)",
@@ -421,13 +418,12 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
     Ok(())
 }
 
-/// The shape `--json` emits: the counts a CI job needs, plus the findings.
 fn json_report(report: &LintReport) -> serde_json::Value {
     serde_json::json!({
-        "errors": report.finding_count(),
+        "errors": report.issue_count(),
         "suppressed": report.suppressed,
         "subjects": report.subject_count(),
-        "findings": report.findings,
+        "issues": report.issues,
     })
 }
 
@@ -437,17 +433,17 @@ fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Resul
     }
     output_note(
         stream,
-        &format!("{} finding(s) silenced by `no-lint`", report.suppressed,),
+        &format!("{} issue(s) silenced by `no-lint`", report.suppressed,),
     )
 }
 
 fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
     if report.is_empty() {
-        output_ok(stream, "No lint findings")?;
+        output_ok(stream, "No issues.")?;
         return output_suppressed(stream, report);
     }
 
-    let error_count = report.finding_count();
+    let error_count = report.issue_count();
     let subject_count = report.subject_count();
     writeln!(
         stream,
@@ -805,7 +801,7 @@ mod test {
     /// The lints a fixture trips, sorted and deduplicated.
     fn lints_for(path: &str) -> Result<Vec<&'static str>> {
         let report = lint_report(&lint_cmd(path))?;
-        let mut lints: Vec<_> = report.findings.iter().map(|f| f.lint).collect();
+        let mut lints: Vec<_> = report.issues.iter().map(|f| f.lint).collect();
         lints.sort_unstable();
         lints.dedup();
         Ok(lints)
@@ -845,7 +841,7 @@ mod test {
     fn test_lint_command_reports_unknown_names_at_both_levels() -> Result<()> {
         let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
         let unknown: Vec<_> = report
-            .findings
+            .issues
             .iter()
             .filter(|f| f.lint == "UNKNOWN_LINT")
             .map(|f| (f.subject.as_str(), f.message.as_str()))
@@ -864,30 +860,30 @@ mod test {
     /// Render a report the way `lint` does, minus the colour.
     fn rendered(report: &LintReport) -> Result<String> {
         let mut buffer = termcolor::Buffer::no_color();
-        output_findings(&mut buffer, report)?;
+        output_issues(&mut buffer, report)?;
         output_lint_summary(&mut buffer, report)?;
         Ok(String::from_utf8(buffer.into_inner()).expect("output is UTF-8"))
     }
 
     #[test]
-    fn test_every_finding_says_what_it_is_about() -> Result<()> {
-        // Findings are grouped by feature, so two of the same lint in one feature
+    fn test_every_issue_says_what_it_is_about() -> Result<()> {
+        // Issues are grouped by feature, so two of the same lint in one feature
         // are only distinguishable by their messages.
         let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         let report = lint_report(&cmd)?;
         let output = rendered(&report)?;
 
-        let findings: Vec<_> = output
+        let issues: Vec<_> = output
             .lines()
             .filter(|l| l.trim_start().starts_with(['⚠', '❎']))
             .collect();
-        assert_eq!(findings.len(), report.findings.len());
+        assert_eq!(issues.len(), report.issues.len());
 
-        let distinct: HashSet<_> = findings.iter().collect();
+        let distinct: HashSet<_> = issues.iter().collect();
         assert_eq!(
             distinct.len(),
-            findings.len(),
-            "two findings render identically:\n{output}"
+            issues.len(),
+            "two issues render identically:\n{output}"
         );
 
         Ok(())
@@ -943,7 +939,7 @@ mod test {
         assert!(rendered(&report)?.contains(expected), "{expected}");
 
         let clean = lint_report(&lint_cmd("fixtures/fe/lints/well-formed.fml.yaml"))?;
-        assert!(rendered(&clean)?.contains("No lint findings"));
+        assert!(rendered(&clean)?.contains("No issues"));
 
         Ok(())
     }
@@ -957,8 +953,8 @@ mod test {
         assert_eq!(json["suppressed"], 0);
         assert_eq!(json["subjects"], 3);
         assert_eq!(
-            json["findings"].as_array().unwrap().len(),
-            report.findings.len()
+            json["issues"].as_array().unwrap().len(),
+            report.issues.len()
         );
 
         Ok(())
@@ -970,7 +966,7 @@ mod test {
 
         let cmd = lint_cmd(path);
         let report = lint_report(&cmd)?;
-        assert!(report.findings.iter().any(|f| f.module.is_some()));
+        assert!(report.issues.iter().any(|f| f.module.is_some()));
 
         Ok(())
     }
@@ -1010,7 +1006,7 @@ mod test {
             }
 
             let cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
-            fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
+            fired.extend(lint_report(&cmd)?.issues.iter().map(|f| f.lint));
         }
 
         let missing: Vec<_> = lints::ALL_LINTS

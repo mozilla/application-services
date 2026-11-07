@@ -6,9 +6,12 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use super::{enum_path, feature_path, object_path, variable_path, LintInfo, Linter, RawFinding};
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+};
+use crate::lints::{
+    define_lints, enum_path, feature_path, object_path, variable_path, LintInfo, Linter,
+    UnreportedIsssue,
 };
 
 define_lints! {
@@ -31,37 +34,40 @@ define_lints! {
 
 const MAX_VARIABLES: usize = 25;
 
-/// A feature's variables are level 1, the fields of an object they hold level 2.
+/// How many nested levels of objects are allowed.
+///
+/// A feature with no object types has a depth of 1.
 const MAX_NESTING_DEPTH: usize = 3;
 
-pub(crate) struct Design;
+/// Lints about the design of features.
+pub(crate) struct DesignLints;
 
-impl Linter for Design {
+impl Linter for DesignLints {
     fn lints(&self) -> &'static [&'static LintInfo] {
         LINTS
     }
 
-    fn check_feature(
+    fn lint_feature(
         &self,
         feature: &FeatureDef,
         manifest: &FeatureManifest,
-        out: &mut Vec<RawFinding>,
+        out: &mut Vec<UnreportedIsssue>,
     ) {
-        check_feature(feature, manifest, out);
+        lint_feature(feature, manifest, out);
     }
 
-    fn check_enum(&self, enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
-        check_enum(enum_def, out);
+    fn lint_enum(&self, enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
+        lint_enum(enum_def, out);
     }
 
-    fn check_manifest(&self, manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
-        check_manifest(manifest, out);
+    fn lint_manifest(&self, manifest: &FeatureManifest, out: &mut Vec<UnreportedIsssue>) {
+        lint_manifest(manifest, out);
     }
 }
 
-fn check_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
+fn lint_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec<UnreportedIsssue>) {
     if feature.props.is_empty() {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &NO_VARIABLES,
             feature_path(feature),
             "This feature has no variables",
@@ -71,7 +77,7 @@ fn check_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec
     }
 
     if feature.props.len() > MAX_VARIABLES {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &TOO_MANY_VARIABLES,
             feature_path(feature),
             format!(
@@ -82,13 +88,13 @@ fn check_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec
     }
 
     for prop in &feature.props {
-        check_nesting(feature, prop, &manifest.obj_defs, out);
+        lint_feature_nesting(feature, prop, &manifest.obj_defs, out);
     }
 }
 
-fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+fn lint_enum(enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
     if enum_def.variants.len() < 2 {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &TRIVIAL_ENUM,
             enum_path(enum_def),
             format!(
@@ -104,8 +110,7 @@ fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
     }
 }
 
-fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
-    // A manifest with no features is a library of types to include elsewhere.
+fn lint_manifest(manifest: &FeatureManifest, out: &mut Vec<UnreportedIsssue>) {
     if manifest.feature_defs.is_empty() {
         return;
     }
@@ -119,7 +124,7 @@ fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
 
     for object in manifest.iter_object_defs() {
         if !used.contains(&TypeRef::Object(object.name.clone())) {
-            out.push(RawFinding::new(
+            out.push(UnreportedIsssue::new(
                 &UNUSED_TYPE,
                 object_path(object),
                 "No feature in this manifest uses this object",
@@ -129,7 +134,7 @@ fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
 
     for enum_def in manifest.iter_enum_defs() {
         if !used.contains(&TypeRef::Enum(enum_def.name.clone())) {
-            out.push(RawFinding::new(
+            out.push(UnreportedIsssue::new(
                 &UNUSED_TYPE,
                 enum_path(enum_def),
                 "No feature in this manifest uses this enum",
@@ -138,8 +143,7 @@ fn check_manifest(manifest: &FeatureManifest, out: &mut Vec<RawFinding>) {
     }
 }
 
-/// Record every type reachable from `typ`. Unlike `TypeQuery`, this tolerates an
-/// undefined object rather than panicking.
+/// Record every type reachable from `typ`.
 fn mark_used(typ: &TypeRef, objects: &BTreeMap<String, ObjectDef>, used: &mut HashSet<TypeRef>) {
     if !used.insert(typ.clone()) {
         return;
@@ -164,16 +168,16 @@ fn mark_used(typ: &TypeRef, objects: &BTreeMap<String, ObjectDef>, used: &mut Ha
     }
 }
 
-fn check_nesting(
+fn lint_feature_nesting(
     feature: &FeatureDef,
     prop: &PropDef,
     objects: &BTreeMap<String, ObjectDef>,
-    out: &mut Vec<RawFinding>,
+    out: &mut Vec<UnreportedIsssue>,
 ) {
     let mut visiting = HashSet::new();
-    let depth = 1 + type_depth(&prop.typ, objects, &mut visiting);
+    let depth = 1 + compute_type_depth(&prop.typ, objects, &mut visiting);
     if depth > MAX_NESTING_DEPTH {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &DEEP_NESTING,
             variable_path(feature, prop),
             format!(
@@ -184,17 +188,17 @@ fn check_nesting(
     }
 }
 
-/// How many levels of object are underneath this type.
-fn type_depth(
+/// How many levels of objects are underneath this type.
+fn compute_type_depth(
     typ: &TypeRef,
     objects: &BTreeMap<String, ObjectDef>,
     visiting: &mut HashSet<String>,
 ) -> usize {
     match typ {
         TypeRef::Option(inner) | TypeRef::List(inner) | TypeRef::StringMap(inner) => {
-            type_depth(inner, objects, visiting)
+            compute_type_depth(inner, objects, visiting)
         }
-        TypeRef::EnumMap(_, values) => type_depth(values, objects, visiting),
+        TypeRef::EnumMap(_, values) => compute_type_depth(values, objects, visiting),
         TypeRef::Object(name) => {
             if !visiting.insert(name.clone()) {
                 // Stop at a cycle; it is already deep enough to report.
@@ -205,7 +209,7 @@ fn type_depth(
                 .map(|o| {
                     o.props
                         .iter()
-                        .map(|p| type_depth(&p.typ, objects, visiting))
+                        .map(|p| compute_type_depth(&p.typ, objects, visiting))
                         .max()
                         .unwrap_or_default()
                 })
@@ -236,14 +240,14 @@ mod unit_tests {
 
     fn lints_with(feature: &FeatureDef, manifest: &FeatureManifest) -> Vec<&'static str> {
         let mut out = Vec::new();
-        check_feature(feature, manifest, &mut out);
+        lint_feature(feature, manifest, &mut out);
         out.iter().map(|f| f.lint.name).collect()
     }
 
     #[test]
     fn test_no_variables() {
-        let findings = lints(&feature(Default::default()));
-        assert_eq!(findings, vec!["NO_VARIABLES"]);
+        let issues = lints(&feature(Default::default()));
+        assert_eq!(issues, vec!["NO_VARIABLES"]);
     }
 
     #[test]
@@ -294,14 +298,14 @@ mod unit_tests {
     #[test]
     fn test_trivial_enum() {
         let mut out = Vec::new();
-        check_enum(&EnumDef::new("OnlyOne", &["only"]), &mut out);
+        lint_enum(&EnumDef::new("OnlyOne", &["only"]), &mut out);
         assert_eq!(
             out.iter().map(|f| f.lint.name).collect::<Vec<_>>(),
             vec!["TRIVIAL_ENUM"]
         );
 
         let mut out = Vec::new();
-        check_enum(&EnumDef::new("TwoOfThem", &["this", "that"]), &mut out);
+        lint_enum(&EnumDef::new("TwoOfThem", &["this", "that"]), &mut out);
         assert!(out.is_empty());
     }
 
@@ -322,7 +326,7 @@ mod unit_tests {
         manifest.add_feature(feature(vec![prop("used", &used)]));
 
         let mut out = Vec::new();
-        check_manifest(&manifest, &mut out);
+        lint_manifest(&manifest, &mut out);
         let paths: Vec<_> = out.iter().map(|f| f.location.subject.as_str()).collect();
         assert_eq!(paths, vec!["object `Unused`", "enum `UnusedStyle`"]);
     }
@@ -344,7 +348,7 @@ mod unit_tests {
         )]));
 
         let mut out = Vec::new();
-        check_manifest(&manifest, &mut out);
+        lint_manifest(&manifest, &mut out);
         assert_eq!(
             out.iter()
                 .map(|f| f.location.subject.as_str())
@@ -364,7 +368,7 @@ mod unit_tests {
         };
 
         let mut out = Vec::new();
-        check_manifest(&manifest, &mut out);
+        lint_manifest(&manifest, &mut out);
         assert!(out.is_empty());
     }
 }

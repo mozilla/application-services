@@ -7,12 +7,12 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::{
-    enum_path, feature_path, is_boolean, object_field_path, object_path, variable_path, LintInfo,
-    Linter, Location, RawFinding,
-};
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+};
+use crate::lints::{
+    define_lints, enum_path, feature_path, is_boolean, object_field_path, object_path,
+    variable_path, LintInfo, Linter, Location, UnreportedIsssue,
 };
 
 define_lints! {
@@ -62,36 +62,36 @@ impl Linter for Naming {
         LINTS
     }
 
-    fn check_feature(
+    fn lint_feature(
         &self,
         feature: &FeatureDef,
         _manifest: &FeatureManifest,
-        out: &mut Vec<RawFinding>,
+        out: &mut Vec<UnreportedIsssue>,
     ) {
-        check_feature(feature, out);
+        lint_feature(feature, out);
     }
 
-    fn check_object(&self, object: &ObjectDef, out: &mut Vec<RawFinding>) {
-        check_object(object, out);
+    fn lint_object(&self, object: &ObjectDef, out: &mut Vec<UnreportedIsssue>) {
+        lint_object(object, out);
     }
 
-    fn check_enum(&self, enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
-        check_enum(enum_def, out);
+    fn lint_enum(&self, enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
+        lint_enum(enum_def, out);
     }
 }
 
-fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
+fn lint_feature(feature: &FeatureDef, out: &mut Vec<UnreportedIsssue>) {
     for prop in &feature.props {
-        check_type_in_name(prop, variable_path(feature, prop), out);
-        check_negated_boolean(prop, variable_path(feature, prop), out);
+        lint_type_in_name(prop, variable_path(feature, prop), out);
+        lint_negated_boolean(prop, variable_path(feature, prop), out);
     }
 
-    check_common_prefix(feature, out);
+    lint_common_prefix(feature, out);
 }
 
-fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
+fn lint_object(object: &ObjectDef, out: &mut Vec<UnreportedIsssue>) {
     if !UPPER_CAMEL_CASE.is_match(&object.name) {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &TYPE_NAME_CASING,
             object_path(object),
             format!("`{}` isn't UpperCamelCase", object.name),
@@ -99,14 +99,14 @@ fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
     }
 
     for prop in &object.props {
-        check_type_in_name(prop, object_field_path(object, prop), out);
-        check_negated_boolean(prop, object_field_path(object, prop), out);
+        lint_type_in_name(prop, object_field_path(object, prop), out);
+        lint_negated_boolean(prop, object_field_path(object, prop), out);
     }
 }
 
-fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
+fn lint_enum(enum_def: &EnumDef, out: &mut Vec<UnreportedIsssue>) {
     if !UPPER_CAMEL_CASE.is_match(&enum_def.name) {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &TYPE_NAME_CASING,
             enum_path(enum_def),
             format!("`{}` isn't UpperCamelCase", enum_def.name),
@@ -115,7 +115,7 @@ fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
 }
 
 /// `sections-list: List<Section>` says "list" twice.
-fn check_type_in_name(prop: &PropDef, path: Location, out: &mut Vec<RawFinding>) {
+fn lint_type_in_name(prop: &PropDef, path: Location, out: &mut Vec<UnreportedIsssue>) {
     let Some((_, last)) = prop.name.rsplit_once('-') else {
         return;
     };
@@ -141,7 +141,7 @@ fn check_type_in_name(prop: &PropDef, path: Location, out: &mut Vec<RawFinding>)
     };
 
     if redundant {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &TYPE_IN_NAME,
             path,
             format!(
@@ -153,7 +153,7 @@ fn check_type_in_name(prop: &PropDef, path: Location, out: &mut Vec<RawFinding>)
 }
 
 /// `disable-sync: false` takes a moment to read; `sync-enabled: true` doesn't.
-fn check_negated_boolean(prop: &PropDef, path: Location, out: &mut Vec<RawFinding>) {
+fn lint_negated_boolean(prop: &PropDef, path: Location, out: &mut Vec<UnreportedIsssue>) {
     if !is_boolean(&prop.typ) {
         return;
     }
@@ -164,7 +164,7 @@ fn check_negated_boolean(prop: &PropDef, path: Location, out: &mut Vec<RawFindin
         .find(|word| NEGATIVE_WORDS.contains(&word.to_ascii_lowercase().as_str()));
 
     if let Some(word) = negative {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &NEGATED_BOOLEAN,
             path,
             format!("`{}` is a boolean named with `{word}`", prop.name),
@@ -173,7 +173,7 @@ fn check_negated_boolean(prop: &PropDef, path: Location, out: &mut Vec<RawFindin
 }
 
 /// A feature called `homescreen` doesn't need variables called `homescreen-*`.
-fn check_common_prefix(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
+fn lint_common_prefix(feature: &FeatureDef, out: &mut Vec<UnreportedIsssue>) {
     let feature_prefix = format!("{}-", feature.name);
     let mut prefixed = Vec::new();
 
@@ -184,7 +184,7 @@ fn check_common_prefix(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     }
 
     for prop in &prefixed {
-        out.push(RawFinding::new(
+        out.push(UnreportedIsssue::new(
             &COMMON_PREFIX,
             variable_path(feature, prop),
             format!(
@@ -198,7 +198,7 @@ fn check_common_prefix(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
     // A prefix shared by every variable is noise even when it isn't the feature name.
     if prefixed.is_empty() && feature.props.len() > 1 {
         if let Some(shared) = shared_prefix(&feature.props) {
-            out.push(RawFinding::new(
+            out.push(UnreportedIsssue::new(
                 &COMMON_PREFIX,
                 feature_path(feature),
                 format!(
@@ -241,14 +241,14 @@ mod unit_tests {
 
     fn lints(feature: &FeatureDef) -> Vec<&'static str> {
         let mut out = Vec::new();
-        check_feature(feature, &mut out);
+        lint_feature(feature, &mut out);
         out.iter().map(|f| f.lint.name).collect()
     }
 
     #[test]
     fn test_object_fields_are_checked_like_variables() {
         let mut out = Vec::new();
-        check_object(
+        lint_object(
             &ObjectDef::new(
                 "Section",
                 &[
@@ -336,13 +336,13 @@ mod unit_tests {
             ],
         );
         let mut out = Vec::new();
-        check_feature(&feature, &mut out);
-        let findings: Vec<_> = out
+        lint_feature(&feature, &mut out);
+        let issues: Vec<_> = out
             .iter()
             .filter(|f| f.lint.name == "COMMON_PREFIX")
             .collect();
-        assert_eq!(findings.len(), 2);
-        assert!(findings[0].message.contains("rename it to `enabled`"));
+        assert_eq!(issues.len(), 2);
+        assert!(issues[0].message.contains("rename it to `enabled`"));
     }
 
     #[test]
