@@ -1,15 +1,13 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::fmt::Display;
 
-use super::common::{self, code_type};
+use crate::backends::kotlin::gen_structs::common::{self, code_type};
+use crate::backends::{CodeOracle, CodeType, TypeIdentifier};
 use crate::backends::{LiteralRenderer, VariablesType};
-use crate::{
-    backends::{CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::Literal,
-};
+use crate::intermediate_representation::Literal;
 
 pub(crate) struct OptionalCodeType {
     inner: TypeIdentifier,

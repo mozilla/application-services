@@ -1,21 +1,19 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde_json::Value;
 
-use crate::{
-    defaults::DefaultsMerger,
-    error::{FMLError, Result},
-    frontend::{
-        ExampleBlock, FeatureAdditionChoices, FeatureAdditions, ImportBlock, InlineExampleBlock,
-        ManifestFrontEnd, PartialExampleBlock, PathOnly, Types,
-    },
-    intermediate_representation::{FeatureManifest, ModuleId, TypeRef},
-    util::loaders::{FileLoader, FilePath},
+use crate::defaults::DefaultsMerger;
+use crate::error::{FMLError, Result};
+use crate::frontend::{
+    ExampleBlock, FeatureAdditionChoices, FeatureAdditions, ImportBlock, InlineExampleBlock,
+    ManifestFrontEnd, PartialExampleBlock, PathOnly, Types,
 };
+use crate::intermediate_representation::{FeatureManifest, ModuleId, TypeRef};
+use crate::util::loaders::{FileLoader, FilePath};
 
 fn parse_typeref_string(input: String) -> Result<(String, Option<String>)> {
     // Split the string into the TypeRef and the name

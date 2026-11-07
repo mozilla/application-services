@@ -2,25 +2,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(feature = "server")]
-use crate::output::server;
-use crate::{
-    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
-    output::{deeplink, fml_cli},
-    protocol::StartAppProtocol,
-    sources::ManifestSource,
-    value_utils::{
-        self, CliUtils, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
-        try_find_features_from_branch,
-    },
-};
-use anyhow::{Result, bail};
-use nimbus_fml::intermediate_representation::FeatureManifest;
-use serde_json::{Value, json};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+
+use anyhow::{Result, bail};
+use nimbus_fml::intermediate_representation::FeatureManifest;
+use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+#[cfg(feature = "server")]
+use crate::output::server;
+use crate::output::{deeplink, fml_cli};
+use crate::protocol::StartAppProtocol;
+use crate::sources::ManifestSource;
+use crate::value_utils::{
+    self, CliUtils, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
+    try_find_features_from_branch,
+};
+use crate::{
+    AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
+};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
