@@ -17,6 +17,7 @@ use self::{
     strategy::{CacheFirst, NetworkFirst},
 };
 use crate::bytesize::ByteSize;
+use crate::clock::Clock;
 
 use sql_support::open_database;
 use std::hash::Hash;
@@ -43,6 +44,7 @@ impl Default for CachePolicy {
 }
 
 pub struct HttpCache {
+    clock: Clock,
     default_ttl: Duration,
     max_size: ByteSize,
     store: HttpCacheStore,
@@ -85,7 +87,7 @@ impl HttpCache {
         let mut outcomes = vec![];
 
         // Clean up expired entries before applying the policy
-        if let Err(e) = self.store.delete_expired_entries() {
+        if let Err(e) = self.store.delete_expired_entries(self.clock.now()) {
             outcomes.push(CacheOutcome::CleanupFailed(e));
         }
 
@@ -97,14 +99,14 @@ impl HttpCache {
                 hash,
                 request,
             }
-            .apply(client, &self.store),
+            .apply(client, &self.store, &self.clock),
             CachePolicy::NetworkFirst { ttl } => NetworkFirst {
                 default_ttl: self.default_ttl,
                 explicit_ttl: *ttl,
                 hash,
                 request,
             }
-            .apply(client, &self.store),
+            .apply(client, &self.store, &self.clock),
         }?;
         outcomes.append(&mut strategy_outcomes);
 
@@ -132,6 +134,8 @@ mod tests {
     use std::hash::{Hash, Hasher};
 
     use super::*;
+    use crate::clock::MockClock;
+    use std::sync::Arc;
     use viaduct::ClientSettings;
 
     fn make_client() -> Client {
@@ -170,13 +174,24 @@ mod tests {
             .expect("cache build should succeed")
     }
 
-    fn make_cache_with_ttl(secs: u64) -> HttpCache {
+    fn make_cache_with_ttl(secs: u64) -> (HttpCache, Arc<MockClock>) {
+        let (clock, mock) = Clock::mock();
         // In tests our store uses an in-memory DB; filename is irrelevant.
-        HttpCache::builder_memory()
+        let cache = HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
-            .build_for_time_dependent_tests()
-            .expect("cache build should succeed")
+            .build_with_clock(clock)
+            .expect("cache build should succeed");
+        (cache, mock)
+    }
+
+    /// Moves the cache's clock forward, then drops what expired by then.
+    fn advance_and_expire(cache: &HttpCache, clock: &MockClock, secs: u64) {
+        clock.advance(Duration::from_secs(secs));
+        cache
+            .store
+            .delete_expired_entries(cache.clock.now())
+            .unwrap();
     }
 
     #[test]
@@ -210,7 +225,12 @@ mod tests {
 
         cache
             .store
-            .store_with_ttl(&hash, &response, &Duration::from_secs(300))
+            .store_with_ttl(
+                &hash,
+                &response,
+                &Duration::from_secs(300),
+                cache.clock.now(),
+            )
             .unwrap();
 
         // Verify it's cached
@@ -366,7 +386,7 @@ mod tests {
             .expect(1)
             .create();
 
-        let cache = make_cache_with_ttl(300);
+        let (cache, clock) = make_cache_with_ttl(300);
         let req = make_post_request();
         let hash = RequestHash::new(&req);
         let policy = CachePolicy::CacheFirst {
@@ -379,13 +399,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Past the server max-age (1s) but still under the explicit TTL (20s) — entry is still there.
-        cache.store.get_clock().advance(2);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 2);
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Past the explicit TTL — entry should be expired.
-        cache.store.get_clock().advance(20);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 20);
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -403,7 +421,7 @@ mod tests {
             .create();
 
         // Configured default is 300s — should be ignored in favor of server max-age.
-        let cache = make_cache_with_ttl(300);
+        let (cache, clock) = make_cache_with_ttl(300);
         let req = make_post_request();
         let hash = RequestHash::new(&req);
 
@@ -414,13 +432,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Still cached at ~1s.
-        cache.store.get_clock().advance(1);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 1);
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after exceeding server max-age.
-        cache.store.get_clock().advance(2);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 2);
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -436,7 +452,7 @@ mod tests {
             .expect(1)
             .create();
 
-        let cache = make_cache_with_ttl(60);
+        let (cache, clock) = make_cache_with_ttl(60);
         let req = make_post_request();
         let hash = RequestHash::new(&req);
         let policy = CachePolicy::CacheFirst {
@@ -449,13 +465,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired yet at ~1s
-        cache.store.get_clock().advance(1);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 1);
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~2s
-        cache.store.get_clock().advance(2);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 2);
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -472,7 +486,7 @@ mod tests {
             .expect(1)
             .create();
 
-        let cache = make_cache_with_ttl(2);
+        let (cache, clock) = make_cache_with_ttl(2);
         let req = make_post_request();
         let hash = RequestHash::new(&req);
         let client = make_client();
@@ -483,13 +497,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired at ~1s
-        cache.store.get_clock().advance(1);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 1);
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~3s
-        cache.store.get_clock().advance(3);
-        cache.store.delete_expired_entries().unwrap();
+        advance_and_expire(&cache, &clock, 3);
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -505,7 +517,7 @@ mod tests {
             .expect(2) // both calls should hit the network — second after the entry expires
             .create();
 
-        let cache = make_cache_with_ttl(2);
+        let (cache, clock) = make_cache_with_ttl(2);
         let req = make_post_request();
         let client = make_client();
 
@@ -516,7 +528,7 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Advance clock past the TTL
-        cache.store.get_clock().advance(3);
+        clock.advance(Duration::from_secs(3));
 
         // Second call: expired entry must be a miss, not a hit
         let (_, outcomes) = cache
@@ -543,12 +555,22 @@ mod tests {
 
         cache
             .store
-            .store_with_ttl(&hash1, &response, &Duration::from_secs(300))
+            .store_with_ttl(
+                &hash1,
+                &response,
+                &Duration::from_secs(300),
+                cache.clock.now(),
+            )
             .unwrap();
 
         cache
             .store
-            .store_with_ttl(&hash2, &response, &Duration::from_secs(300))
+            .store_with_ttl(
+                &hash2,
+                &response,
+                &Duration::from_secs(300),
+                cache.clock.now(),
+            )
             .unwrap();
 
         assert!(cache.store.lookup(&hash1).unwrap().is_some());
