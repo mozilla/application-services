@@ -414,7 +414,6 @@ mod tests {
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
-        http_cache::CachePolicy,
         mars::{Environment, MARSRequestOptions},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
