@@ -16,8 +16,8 @@ use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
     AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
 };
-use crate::mars::ReportReason;
 use crate::mars::{Environment, MARSRequestOptions};
+use crate::mars::{MARSRequestOptionPatch, ReportReason};
 use crate::non_empty_string::NonEmptyString;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
@@ -45,26 +45,40 @@ pub struct MozAdsRequestOptions {
     pub relevance: HashMap<String, f64>, // tiles only
 }
 
+// TODO: Before re-review, this needs to get deleted and we need to consider MozAdsRequestOptions to have Option<> fields
+// (for in-field overriding, like the other ones).
+// Note: the `relevance` field is dropped in this conversion.
+impl From<MozAdsRequestOptions> for MARSRequestOptions {
+    fn from(opt: MozAdsRequestOptions) -> Self {
+        MARSRequestOptions {
+            flags: opt.flags,
+            cache_policy: opt.cache_policy.unwrap_or_default().into(),
+            ohttp: opt.ohttp,
+            blocks: opt.blocks,
+        }
+    }
+}
+
 /// Client level reusable set options for requests.
 /// These mimic `MozAdsRequestOptions` for fields that can be reused from request to request.
 /// They are overridden by any fields passed in a request as part of `MozAdsRequestOptions`.
 #[derive(Default, Clone, uniffi::Record)]
-pub struct MozAdsRequestConfigOptions {
+pub struct MozAdsRequestConfigOptionsPatch {
     #[uniffi(default)]
-    pub blocks: Vec<String>,
+    pub blocks: Option<Vec<String>>,
     #[uniffi(default)]
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
-    pub flags: HashMap<String, bool>,
-    #[uniffi(default = false)]
-    pub ohttp: bool,
+    pub flags: Option<HashMap<String, bool>>,
+    #[uniffi(default)]
+    pub ohttp: Option<bool>,
 }
 
-impl From<MozAdsRequestConfigOptions> for MARSRequestOptions {
-    fn from(opt: MozAdsRequestConfigOptions) -> Self {
-        MARSRequestOptions {
+impl From<MozAdsRequestConfigOptionsPatch> for MARSRequestOptionPatch {
+    fn from(opt: MozAdsRequestConfigOptionsPatch) -> Self {
+        MARSRequestOptionPatch {
             flags: opt.flags,
-            cache_policy: opt.cache_policy.unwrap_or_default().into(),
+            cache_policy: opt.cache_policy.map(|x| x.into()),
             ohttp: opt.ohttp,
             blocks: opt.blocks,
         }
@@ -125,7 +139,7 @@ struct MozAdsClientBuilderInner {
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
     user_agent: Option<NonEmptyString>,
-    request_options: Option<MozAdsRequestConfigOptions>,
+    request_options: MARSRequestOptions,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -157,7 +171,7 @@ impl MozAdsClientBuilder {
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
             user_agent: inner.user_agent.clone(),
-            request_options: inner.request_options.clone().unwrap_or_default().into(),
+            request_options: inner.request_options.clone(),
         };
 
         let client = AdsClient::new(client_config);
@@ -173,11 +187,13 @@ impl MozAdsClientBuilder {
     }
 
     /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
+    /// Each new request is another patch (eg: calling this repeatedly for each individual setting, or
+    /// calling it once with all of them, should result in the same behavior).
     pub fn request_options(
         self: Arc<Self>,
-        request_options: MozAdsRequestConfigOptions,
+        request_options: MozAdsRequestConfigOptionsPatch,
     ) -> Arc<Self> {
-        self.0.lock().request_options = Some(request_options);
+        self.0.lock().request_options.patch(request_options.into());
         self
     }
 

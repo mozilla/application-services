@@ -11,7 +11,7 @@ use crate::http_cache::HttpCache;
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
-use crate::mars::{MARSClient, MARSRequestOptions, ReportReason};
+use crate::mars::{MARSClient, MARSRequestOptionPatch, MARSRequestOptions, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -118,8 +118,8 @@ impl AdsClient {
         self.inner.shutdown();
     }
 
-    pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
-        self.inner.set_request_options(new_options);
+    pub(crate) fn set_request_options(&self, new_options: impl Into<MARSRequestOptionPatch>) {
+        self.inner.set_request_options(new_options.into());
     }
 
     #[cfg(test)]
@@ -384,7 +384,7 @@ impl AdsClientInner {
         self.client.shutdown_db();
     }
 
-    pub(crate) fn set_request_options(&self, new_options: MARSRequestOptions) {
+    pub(crate) fn set_request_options(&self, new_options: MARSRequestOptionPatch) {
         self.client.set_request_options(new_options);
     }
 
@@ -672,6 +672,8 @@ mod tests {
         m2.assert();
     }
 
+    // TODO: Before rereview, split this test up and add more tests.
+    // You are now doing ful field-based overwriting.
     /// Currently this only tests for `blocks` and `flags`.
     /// Tests that `MARSRequestOptions` values are sent as expected:
     /// 1. The client-set values are used if no per-request options are passed.
@@ -739,9 +741,9 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Sets default settings.
-        client.set_request_options(MARSRequestOptions {
-            flags: HashMap::from_iter([("test_flag_1".to_owned(), true)]),
-            blocks: vec!["test_block_1".to_string()],
+        client.set_request_options(MARSRequestOptionPatch {
+            flags: Some(HashMap::from_iter([("test_flag_1".to_owned(), true)])),
+            blocks: Some(vec!["test_block_1".to_string()]),
             ..Default::default()
         });
         let m = mockito_adder(
@@ -759,9 +761,9 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Test again, but with changed blocks
-        client.set_request_options(MARSRequestOptions {
-            blocks: vec!["test_block_2".to_string()],
-            flags: HashMap::from_iter([("test_flag_2".to_owned(), true)]),
+        client.set_request_options(MARSRequestOptionPatch {
+            blocks: Some(vec!["test_block_2".to_string()]),
+            flags: Some(HashMap::from_iter([("test_flag_2".to_owned(), true)])),
             ..Default::default()
         });
         let m = mockito_adder(

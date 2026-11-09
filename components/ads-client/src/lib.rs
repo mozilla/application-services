@@ -12,7 +12,7 @@ pub use url::Url as AdsClientUrl;
 
 use client::AdsClient;
 use http_cache::CachePolicy;
-use mars::ad_request::{AdPlacementRequest, AdRequestFlags};
+use mars::ad_request::AdPlacementRequest;
 mod ads;
 #[cfg(feature = "stateful")]
 pub mod ads_store;
@@ -30,8 +30,6 @@ pub mod telemetry;
 pub mod worker;
 
 pub use ffi::*;
-
-use crate::mars::MARSRequestOptions;
 
 /// Path that makes SQLite open a private in-memory database.
 pub(crate) const IN_MEMORY_DB_PATH: &str = ":memory:";
@@ -121,12 +119,7 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let mars_options = options.map(|opt| MARSRequestOptions {
-            flags: AdRequestFlags::from(&opt),
-            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
-            ohttp: opt.ohttp,
-            blocks: opt.blocks,
-        });
+        let mars_options = options.map(Into::into);
         let response = self
             .inner
             .request_image_ads(requests, mars_options)
@@ -144,12 +137,7 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let mars_options = options.map(|opt| MARSRequestOptions {
-            flags: AdRequestFlags::from(&opt),
-            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
-            ohttp: opt.ohttp,
-            blocks: opt.blocks,
-        });
+        let mars_options = options.map(Into::into);
         let response = self
             .inner
             .request_spoc_ads(requests, mars_options)
@@ -171,12 +159,7 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsImageOrSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let mars_options = options.map(|opt| MARSRequestOptions {
-            flags: AdRequestFlags::from(&opt),
-            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
-            ohttp: opt.ohttp,
-            blocks: opt.blocks,
-        });
+        let mars_options = options.map(Into::into);
         let response = self
             .inner
             .request_spoc_or_image_ads(requests, mars_options)
@@ -201,12 +184,7 @@ impl MozAdsClient {
             .as_ref()
             .map(|opt| opt.relevance.clone())
             .unwrap_or_default();
-        let mars_options = options.map(|opt| MARSRequestOptions {
-            flags: AdRequestFlags::from(&opt),
-            cache_policy: opt.cache_policy.map(CachePolicy::from).unwrap_or_default(),
-            ohttp: opt.ohttp,
-            blocks: opt.blocks,
-        });
+        let mars_options = options.map(Into::into);
         let response = self
             .inner
             .request_tile_ads(requests, mars_options, relevance)
@@ -225,13 +203,14 @@ impl MozAdsClient {
     }
 
     /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
+    /// Each flag is individually overridable- if None is passed in `new_options`, that field will remain unchanged.
+    /// (If request options were never set, it would remain as the default).
     #[uniffi::method()]
     pub fn set_request_options(
         &self,
-        new_settings: MozAdsRequestConfigOptions,
+        new_options: MozAdsRequestConfigOptionsPatch,
     ) -> AdsClientApiResult<()> {
-        self.inner
-            .set_request_options(MARSRequestOptions::from(new_settings));
+        self.inner.set_request_options(new_options);
         Ok(())
     }
 }

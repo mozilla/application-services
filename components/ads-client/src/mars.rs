@@ -55,9 +55,8 @@ impl MARSClient {
         }
     }
 
-    pub fn set_request_options(&self, new_options: MARSRequestOptions) {
-        let mut request_options = self.request_options.write();
-        *request_options = new_options;
+    pub fn set_request_options(&self, new_options: MARSRequestOptionPatch) {
+        self.request_options.write().patch(new_options);
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -172,6 +171,27 @@ pub struct MARSRequestOptions {
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
     pub blocks: Vec<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct MARSRequestOptionPatch {
+    pub flags: Option<AdRequestFlags>,
+    pub cache_policy: Option<CachePolicy>,
+    pub ohttp: Option<bool>,
+    pub blocks: Option<Vec<String>>,
+}
+
+impl MARSRequestOptions {
+    pub fn patch(&mut self, patch: MARSRequestOptionPatch) -> &mut MARSRequestOptions {
+        *self = MARSRequestOptions {
+            flags: patch.flags.unwrap_or(self.flags.clone()),
+            cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
+            ohttp: patch.ohttp.unwrap_or(self.ohttp),
+            blocks: patch.blocks.unwrap_or(self.blocks.clone()),
+        };
+
+        self
+    }
 }
 
 #[cfg(test)]
