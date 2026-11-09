@@ -673,12 +673,12 @@ mod tests {
         m2.assert();
     }
 
+    /// Currently this only tests for `blocks` and `flags`.
     /// Tests that `MARSRequestOptions` values are sent as expected:
     /// 1. The client-set values are used if no per-request options are passed.
     /// 2. Those values can be changed by a setting.
     /// 3. Manual override per-request to new values is possible.
     /// 4. Manual override 'negatively' (eg: removing blocks) is possible. (eg: the fields are not included in the request)
-    /// Currently this only tests for `blocks` and `flags`.
     #[test]
     fn test_default_settings_are_sent_to_mars() {
         viaduct_dev::init_backend_dev();
