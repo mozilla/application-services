@@ -180,7 +180,8 @@ mod tests {
         let cache = HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
-            .build_with_clock(clock)
+            .clock(clock)
+            .build()
             .expect("cache build should succeed");
         (cache, mock)
     }

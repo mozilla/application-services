@@ -48,6 +48,7 @@ pub enum HttpCacheBuilderError {
 }
 
 pub struct HttpCacheBuilder {
+    clock: Clock,
     db_path: Option<PathBuf>,
     default_ttl: Option<Duration>,
     max_size: Option<ByteSize>,
@@ -57,6 +58,7 @@ impl HttpCacheBuilder {
     // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in-memory.
     pub fn new(db_path: Option<impl Into<PathBuf>>) -> Self {
         Self {
+            clock: Clock::default(),
             db_path: db_path.map(Into::into),
             default_ttl: None,
             max_size: None,
@@ -66,7 +68,21 @@ impl HttpCacheBuilder {
     // Attempt to build the HttpCache. If a file path exists and can be built successfully, we build
     // a FS sqlite database. Otherwise, we fall back to memory.
     pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
-        self.build_with_clock(Clock::default())
+        self.validate()?;
+
+        Ok(HttpCache {
+            clock: self.clock.clone(),
+            default_ttl: self.default_ttl.unwrap_or(DEFAULT_TTL),
+            max_size: self.max_size.unwrap_or(DEFAULT_MAX_SIZE),
+            store: HttpCacheStore::new(self.open_db()?),
+        })
+    }
+
+    /// Replaces the system clock, for tests that move time.
+    #[cfg(test)]
+    pub(crate) fn clock(mut self, clock: Clock) -> Self {
+        self.clock = clock;
+        self
     }
 
     pub fn default_ttl(mut self, ttl: Duration) -> Self {
@@ -77,20 +93,6 @@ impl HttpCacheBuilder {
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
         self.max_size = Some(max_size);
         self
-    }
-
-    pub(super) fn build_with_clock(
-        &self,
-        clock: Clock,
-    ) -> Result<HttpCache, HttpCacheBuilderError> {
-        self.validate()?;
-
-        Ok(HttpCache {
-            clock,
-            default_ttl: self.default_ttl.unwrap_or(DEFAULT_TTL),
-            max_size: self.max_size.unwrap_or(DEFAULT_MAX_SIZE),
-            store: HttpCacheStore::new(self.open_db()?),
-        })
     }
 
     // Opens the db at `db_path`, or a memory db if there is no path or it fails to open.
