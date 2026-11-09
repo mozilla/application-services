@@ -193,9 +193,7 @@ impl HttpCacheStore {
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
         let size_bytes = (response_headers.len() + response.body.len()) as i64;
-        let ttl_seconds = ttl.as_secs();
-        let cached_at = now.timestamp();
-        let expires_at = cached_at + ttl_seconds as i64;
+        let expires_at = now + *ttl;
 
         let (conn, _) = self.db.lock()?;
         conn.execute(
@@ -223,8 +221,8 @@ impl HttpCacheStore {
                 size_bytes=excluded.size_bytes,
                 ttl_seconds=excluded.ttl_seconds",
             params![
-                cached_at,
-                expires_at,
+                now.timestamp(),
+                expires_at.timestamp(),
                 request_hash.to_string(),
                 response.request_method.as_str(),
                 response.url.as_str(),
@@ -232,7 +230,7 @@ impl HttpCacheStore {
                 response_headers,
                 response.status,
                 size_bytes,
-                ttl_seconds as i64,
+                ttl.as_secs(),
             ],
         )?;
         Ok(())
@@ -426,7 +424,11 @@ mod tests {
 
         assert_eq!(
             fetch_timestamps(&store, &hash),
-            (now.timestamp(), now.timestamp() + 5, 5)
+            (
+                now.timestamp(),
+                (now + Duration::from_secs(5)).timestamp(),
+                5
+            )
         );
     }
 

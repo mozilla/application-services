@@ -117,7 +117,7 @@ impl AdsStoreHolder {
         let placement_id_str: &str = placement_id.as_ref();
         let ad_body = serde_json::to_vec(&ads)?;
         let size_bytes = ad_body.len() as i64;
-        let now = self.clock.now().timestamp();
+        let now = self.clock.now();
 
         let (conn, _) = self.db.lock()?;
         conn.execute(
@@ -132,7 +132,7 @@ impl AdsStoreHolder {
                 stored_at=excluded.stored_at,
                 ad_body=excluded.ad_body,
                 size_bytes=excluded.size_bytes",
-            params![now, placement_id_str, ad_body, size_bytes,],
+            params![now.timestamp(), placement_id_str, ad_body, size_bytes,],
         )
         .map_err(open_database::Error::from)?;
         Ok(())
