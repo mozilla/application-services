@@ -3,12 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use md5::{Digest, Md5};
 use std::collections::BTreeSet;
 use std::fs::{read_to_string, write};
 use std::path::PathBuf;
-use std::process::exit;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "A tool for generating the adult_set.bin from a list of base domains.", long_about = None)]
@@ -22,26 +22,25 @@ struct Cli {
     output_file: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     let contents = read_to_string(&cli.input_file)
-        .unwrap_or_else(|_| panic!("Unable to read {}", cli.input_file.display()));
+        .with_context(|| format!("Unable to read {}", cli.input_file.display()))?;
 
-    let domains = parse_domains(&contents).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        exit(1);
-    });
+    let domains = parse_domains(&contents)?;
 
     write(&cli.output_file, hash_domains(&domains))
-        .unwrap_or_else(|_| panic!("Unable to write {}", cli.output_file.display()));
+        .with_context(|| format!("Unable to write {}", cli.output_file.display()))?;
     println!(
         "Wrote {} domains to {}",
         domains.len(),
         cli.output_file.display()
     );
+
+    Ok(())
 }
 
-fn parse_domains(contents: &str) -> Result<BTreeSet<String>, String> {
+fn parse_domains(contents: &str) -> Result<BTreeSet<String>> {
     let mut domains = BTreeSet::new();
     for (index, line) in contents.lines().enumerate() {
         let domain = line.trim().to_lowercase();
@@ -53,11 +52,7 @@ fn parse_domains(contents: &str) -> Result<BTreeSet<String>, String> {
             && !domain.ends_with('.')
             && !domain.contains(|c: char| c.is_whitespace() || "/:?#@".contains(c));
         if !is_valid {
-            return Err(format!(
-                "Line {}: {:?} is not a base domain",
-                index + 1,
-                line
-            ));
+            bail!("Line {}: {:?} is not a valid domain", index + 1, line);
         }
         domains.insert(domain);
     }
@@ -96,7 +91,7 @@ mod tests {
             "# example.com",
         ] {
             let err = parse_domains(&format!("ok.com\n{bad}\n")).unwrap_err();
-            assert!(err.starts_with("Line 2:"), "{bad}: {err}");
+            assert!(err.to_string().starts_with("Line 2:"), "{bad}: {err}");
         }
     }
 
