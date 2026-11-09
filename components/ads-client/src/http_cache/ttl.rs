@@ -22,6 +22,9 @@ pub(super) struct EffectiveTtl {
     pub explicit: Option<Duration>,
     /// `Cache-Control: max-age` from the server response, if present.
     pub server_max_age: Option<Duration>,
+    /// How old the response already was when received. Counts against
+    /// `server_max_age` only.
+    pub current_age: Duration,
     /// The cache's configured default TTL.
     pub default: Duration,
 }
@@ -29,14 +32,17 @@ pub(super) struct EffectiveTtl {
 impl EffectiveTtl {
     /// Resolve the TTL by priority (highest to lowest):
     /// 1. `explicit` — caller-provided per-request override.
-    /// 2. `server_max_age` — value of `Cache-Control: max-age` on the response.
+    /// 2. `server_max_age` — value of `Cache-Control: max-age` on the response,
+    ///    minus `current_age`.
     /// 3. `default` — the cache's configured default.
     ///
     /// The result is capped at [`MAX_TTL`].
     pub(super) fn resolve(&self) -> Duration {
         let chosen = self
             .explicit
-            .or(self.server_max_age)
+            .or(self
+                .server_max_age
+                .map(|max_age| max_age.saturating_sub(self.current_age)))
             .unwrap_or(self.default);
         chosen.min(MAX_TTL)
     }
@@ -52,6 +58,7 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: Some(Duration::from_secs(60)),
             server_max_age: Some(Duration::from_secs(3600)),
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(60));
@@ -63,6 +70,7 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::from_secs(3600)),
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(3600));
@@ -74,6 +82,7 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: None,
             server_max_age: None,
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, Duration::from_secs(300));
@@ -86,9 +95,60 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::ZERO),
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, Duration::ZERO);
+    }
+
+    #[test]
+    fn current_age_reduces_server_max_age() {
+        let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
+            explicit: None,
+            server_max_age: Some(Duration::from_secs(86400)),
+            current_age: Duration::from_secs(72000),
+        }
+        .resolve();
+        assert_eq!(ttl, Duration::from_secs(14400));
+    }
+
+    #[test]
+    fn current_age_at_or_past_server_max_age_yields_zero() {
+        for age in [3600, 7200] {
+            let ttl = EffectiveTtl {
+                default: Duration::from_secs(300),
+                explicit: None,
+                server_max_age: Some(Duration::from_secs(3600)),
+                current_age: Duration::from_secs(age),
+            }
+            .resolve();
+            assert_eq!(ttl, Duration::ZERO);
+        }
+    }
+
+    #[test]
+    fn current_age_does_not_reduce_explicit_ttl() {
+        let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
+            explicit: Some(Duration::from_secs(60)),
+            server_max_age: Some(Duration::from_secs(3600)),
+            current_age: Duration::from_secs(7200),
+        }
+        .resolve();
+        assert_eq!(ttl, Duration::from_secs(60));
+    }
+
+    #[test]
+    fn current_age_does_not_reduce_default_ttl() {
+        let ttl = EffectiveTtl {
+            default: Duration::from_secs(300),
+            explicit: None,
+            server_max_age: None,
+            current_age: Duration::from_secs(7200),
+        }
+        .resolve();
+        assert_eq!(ttl, Duration::from_secs(300));
     }
 
     #[test]
@@ -97,6 +157,7 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: None,
             server_max_age: Some(Duration::from_secs(365 * 24 * 60 * 60)),
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);
@@ -108,6 +169,7 @@ mod tests {
             default: Duration::from_secs(300),
             explicit: Some(Duration::from_secs(30 * 24 * 60 * 60)),
             server_max_age: None,
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);
@@ -119,6 +181,7 @@ mod tests {
             default: Duration::from_secs(30 * 24 * 60 * 60),
             explicit: None,
             server_max_age: None,
+            current_age: Duration::ZERO,
         }
         .resolve();
         assert_eq!(ttl, MAX_TTL);

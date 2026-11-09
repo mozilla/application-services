@@ -7,6 +7,7 @@ mod cache_control;
 mod connection_initializer;
 mod outcome;
 mod request_hash;
+mod response_age;
 mod store;
 mod strategy;
 mod ttl;
@@ -438,6 +439,139 @@ mod tests {
         // Expired after exceeding server max-age.
         advance_and_expire(&cache, &clock, Duration::from_secs(2));
         assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
+    }
+
+    fn make_get_request(path: &str) -> TestRequest {
+        let url = format!("{}{path}", mockito::server_url()).parse().unwrap();
+        TestRequest(Request::get(url))
+    }
+
+    #[test]
+    fn ttl_resolution_subtracts_age_header_from_server_max_age() {
+        viaduct_dev::init_backend_dev();
+
+        // What MARS sends, as a lower cache would hand it over 20 hours later.
+        let m = mockito::mock("GET", "/v1/ads-preflight")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header(
+                "cache-control",
+                "max-age=86400, public, immutable, stale-while-revalidate=3600, stale-if-error=3600",
+            )
+            .with_header("age", "72000")
+            .with_body(r#"{"geo_location":"US-CA","normalized_ua":""}"#)
+            .expect(1)
+            .create();
+
+        let (cache, clock) = make_cache_with_ttl(300);
+        let req = make_get_request("/v1/ads-preflight");
+        let hash = RequestHash::new(&req);
+
+        let client = make_client();
+        let (_, outcomes) = cache
+            .send_with_policy(&client, req, &CachePolicy::default())
+            .unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+
+        // Stored for the 14400s of freshness left, not for another 86400s.
+        advance_and_expire(&cache, &clock, Duration::from_secs(14_399));
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
+
+        advance_and_expire(&cache, &clock, Duration::from_secs(1));
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
+    }
+
+    #[test]
+    fn ttl_resolution_subtracts_time_since_date_from_server_max_age() {
+        viaduct_dev::init_backend_dev();
+
+        let (cache, clock) = make_cache_with_ttl(300);
+        let date = (clock.now() - Duration::from_secs(3000))
+            .format("%a, %d %b %Y %H:%M:%S GMT")
+            .to_string();
+        let m = mockito::mock("GET", "/dated")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "max-age=3600")
+            .with_header("date", &date)
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let req = make_get_request("/dated");
+        let hash = RequestHash::new(&req);
+
+        let client = make_client();
+        let (_, outcomes) = cache
+            .send_with_policy(&client, req, &CachePolicy::default())
+            .unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+
+        advance_and_expire(&cache, &clock, Duration::from_secs(599));
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
+
+        advance_and_expire(&cache, &clock, Duration::from_secs(1));
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
+        m.assert();
+    }
+
+    #[test]
+    fn response_older_than_server_max_age_is_not_stored() {
+        viaduct_dev::init_backend_dev();
+
+        let m = mockito::mock("GET", "/stale")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "max-age=3600")
+            .with_header("age", "3600")
+            .with_body(r#"{"ok":true}"#)
+            .expect(2) // both calls go to the network: nothing was stored
+            .create();
+
+        let (cache, _) = make_cache_with_ttl(300);
+        let req = make_get_request("/stale");
+        let hash = RequestHash::new(&req);
+        let client = make_client();
+
+        for _ in 0..2 {
+            let (response, outcomes) = cache
+                .send_with_policy(&client, req.clone(), &CachePolicy::default())
+                .unwrap();
+            assert_eq!(response.status, 200);
+            assert!(matches!(outcomes.last().unwrap(), CacheOutcome::NoCache));
+            assert!(cache.store.lookup(&hash).unwrap().is_none());
+        }
+        m.assert();
+    }
+
+    #[test]
+    fn ttl_resolution_explicit_ignores_response_age() {
+        viaduct_dev::init_backend_dev();
+
+        let m = mockito::mock("GET", "/explicit-stale")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "max-age=60")
+            .with_header("age", "120")
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let (cache, clock) = make_cache_with_ttl(300);
+        let req = make_get_request("/explicit-stale");
+        let hash = RequestHash::new(&req);
+        let policy = CachePolicy::CacheFirst {
+            ttl: Some(Duration::from_secs(20)),
+        };
+
+        let client = make_client();
+        let (_, outcomes) = cache.send_with_policy(&client, req, &policy).unwrap();
+        assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
+
+        advance_and_expire(&cache, &clock, Duration::from_secs(19));
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
         m.assert();
     }
 

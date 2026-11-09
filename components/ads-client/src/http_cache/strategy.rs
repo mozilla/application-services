@@ -5,6 +5,7 @@
 
 use super::cache_control::CacheControl;
 use super::request_hash::RequestHash;
+use super::response_age::ResponseAge;
 use super::store::HttpCacheStore;
 use super::ttl::EffectiveTtl;
 use super::{CacheOutcome, HttpCacheSendResult};
@@ -60,6 +61,7 @@ impl NetworkFirst {
         clock: &Clock,
     ) -> HttpCacheSendResult {
         let response = client.send_sync(self.request)?;
+        let now = clock.now();
         let cache_control = CacheControl::from(&response);
         // An error response is not an answer to cache: the next send retries.
         let outcome = if response.is_success() && cache_control.should_cache() {
@@ -67,12 +69,13 @@ impl NetworkFirst {
                 default: self.default_ttl,
                 explicit: self.explicit_ttl,
                 server_max_age: cache_control.max_age_duration(),
+                current_age: ResponseAge::from(&response).at(now),
             }
             .resolve();
             if ttl.is_zero() {
                 return Ok((response, vec![CacheOutcome::NoCache]));
             }
-            match store.store_with_ttl(&self.hash, &response, ttl, clock.now()) {
+            match store.store_with_ttl(&self.hash, &response, ttl, now) {
                 Ok(()) => CacheOutcome::MissStored,
                 Err(e) => CacheOutcome::StoreFailed(e),
             }
