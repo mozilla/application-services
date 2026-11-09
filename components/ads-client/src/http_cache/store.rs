@@ -192,7 +192,7 @@ impl HttpCacheStore {
         }
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
-        let size_bytes = (response_headers.len() + response.body.len()) as i64;
+        let size_bytes = response_headers.len() + response.body.len();
         let expires_at = now + ttl;
 
         let (conn, _) = self.db.lock()?;

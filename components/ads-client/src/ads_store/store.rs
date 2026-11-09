@@ -116,7 +116,7 @@ impl AdsStoreHolder {
         }
         let placement_id_str: &str = placement_id.as_ref();
         let ad_body = serde_json::to_vec(&ads)?;
-        let size_bytes = ad_body.len() as i64;
+        let size_bytes = ad_body.len();
         let now = self.clock.now();
 
         let (conn, _) = self.db.lock()?;
