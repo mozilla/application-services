@@ -30,7 +30,7 @@ ohttp = { version = "0.7.2", features = ["client", "server", "app-svc", "externa
 #
 # Without this, builds will often succeed because other crates will bring in `rusqlite`, however
 # some combinations will fail.  `cargo -p ads-client -p context_id` is one example (2026/06/25).
-rusqlite = { version = "0.37.0", features = [ "bundled" ], optional = true }
+rusqlite = { version = "0.41.0", features = [ "bundled" ], optional = true }
 
 [features]
 default = []

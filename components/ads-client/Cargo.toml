@@ -15,7 +15,7 @@ chrono = "0.4"
 context_id = { path = "../context_id" }
 error-support = { path = "../support/error" }
 parking_lot = "0.12"
-rusqlite = { version = "0.37.0", features = [
+rusqlite = { version = "0.41.0", features = [
   "functions",
   "bundled",
   "serde_json",
