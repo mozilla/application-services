@@ -67,7 +67,7 @@ pub enum Error {
     SignatureError(#[from] rc_crypto::Error),
     /// The certificate chain URL is unreachable or has invalid content-type.
     #[error("Certificate chain could not be fetched: {0}")]
-    CertFetchError(Box<Error>),
+    CertificateError(Box<Error>),
 }
 
 /// Error payload returned by the Remote Settings server (Kinto).

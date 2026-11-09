@@ -20,7 +20,7 @@ pub enum SyncStatus {
     /// Content signature verification failed.
     SignatureError,
     /// The certificate chain URL is unreachable or has invalid content-type.
-    CertFetchError,
+    CertificateError,
     /// Server error (5xx status)
     ServerError,
     /// An unknown error occurred.
@@ -35,7 +35,7 @@ impl fmt::Display for SyncStatus {
             SyncStatus::NetworkError => "network_error",
             SyncStatus::BackoffError => "backoff_error",
             SyncStatus::SignatureError => "signature_error",
-            SyncStatus::CertFetchError => "cert_fetch_error",
+            SyncStatus::CertificateError => "certificate_error",
             SyncStatus::ServerError => "server_error",
             SyncStatus::UnknownError => "unknown_error",
         };
@@ -167,7 +167,7 @@ fn error_to_status(error: &Error) -> SyncStatus {
         Error::IncompleteSignatureDataError(_) => SyncStatus::SignatureError,
         #[cfg(feature = "signatures")]
         Error::SignatureError(_) => SyncStatus::SignatureError,
-        Error::CertFetchError(_) => SyncStatus::CertFetchError,
+        Error::CertificateError(_) => SyncStatus::CertificateError,
         _ => SyncStatus::UnknownError,
     }
 }

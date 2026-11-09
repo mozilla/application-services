@@ -533,7 +533,7 @@ mod test {
 
     #[cfg(feature = "signatures")]
     #[test]
-    fn test_telemetry_on_collection_cert_fetch_error() {
+    fn test_telemetry_on_collection_certificate_error() {
         viaduct_dev::init_backend_dev();
         let collection = "cid";
         let timestamp = 1774420582054u64;
@@ -559,8 +559,8 @@ mod test {
         let events = telemetry.events.lock().unwrap();
         assert_eq!(events.len(), 2);
         assert_eq!(events[1].source, Some(format!("main/{collection}")));
-        assert_eq!(events[1].value, Some("cert_fetch_error".to_string()));
-        assert_eq!(events[1].error_name, Some("CertFetchError".to_string()));
+        assert_eq!(events[1].value, Some("certificate_error".to_string()));
+        assert_eq!(events[1].error_name, Some("CertificateError".to_string()));
     }
 
     #[cfg(not(feature = "signatures"))]

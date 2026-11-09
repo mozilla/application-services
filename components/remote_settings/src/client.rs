@@ -730,9 +730,9 @@ impl ApiClient for ViaductApiClient {
     fn fetch_cert(&mut self, x5u: &str) -> Result<Vec<u8>> {
         let resp = Request::get(Url::parse(x5u)?)
             .send()
-            .map_err(|err| Error::CertFetchError(Box::new(err.into())))?;
+            .map_err(|err| Error::CertificateError(Box::new(err.into())))?;
         if !resp.is_success() {
-            return Err(Error::CertFetchError(Box::new(Error::response_error(
+            return Err(Error::CertificateError(Box::new(Error::response_error(
                 &resp,
             ))));
         }
@@ -741,7 +741,7 @@ impl ApiClient for ViaductApiClient {
             .get(viaduct::header_names::CONTENT_TYPE)
             .unwrap_or_default();
         if !content_type.contains("text/plain") {
-            return Err(Error::CertFetchError(Box::new(Error::ResponseError {
+            return Err(Error::CertificateError(Box::new(Error::ResponseError {
                 url: resp.url.to_string(),
                 message: format!("unexpected content-type: {content_type:?}"),
             })));
