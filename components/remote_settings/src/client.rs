@@ -728,14 +728,9 @@ impl ApiClient for ViaductApiClient {
     }
 
     fn fetch_cert(&mut self, x5u: &str) -> Result<Vec<u8>> {
-        let resp = Request::get(Url::parse(x5u)?)
-            .send()
-            .map_err(|err| Error::CertificateError(Box::new(err.into())))?;
-        if !resp.is_success() {
-            return Err(Error::CertificateError(Box::new(Error::response_error(
-                &resp,
-            ))));
-        }
+        let resp = self
+            .make_request(Url::parse(x5u)?)
+            .map_err(|err| Error::CertificateError(Box::new(err)))?;
         let content_type = resp
             .headers
             .get(viaduct::header_names::CONTENT_TYPE)
