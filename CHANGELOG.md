@@ -4,6 +4,10 @@
 
 ## ✨ What's Changed ✨
 
+### Android
+
+- Upgraded NDK from r29 to r30.
+
 ### Ads-Client
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.

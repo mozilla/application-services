@@ -172,6 +172,9 @@ subprojects {
 ext.cargoExec = { spec, toolchain ->
     spec.environment("NSS_STATIC", "1")
     spec.environment("NSS_DIR",               new File(rootProject.rootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    if (toolchain.folder.startsWith("android/")) {
+        spec.environment("BINDGEN_EXTRA_CLANG_ARGS", "--target=${toolchain.compilerTriple}${rootProject.config.minSdkVersion}")
+    }
 }
 
 detekt {
