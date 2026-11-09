@@ -186,8 +186,8 @@ mod tests {
     }
 
     /// Moves the cache's clock forward, then drops what expired by then.
-    fn advance_and_expire(cache: &HttpCache, clock: &MockClock, secs: u64) {
-        clock.advance(Duration::from_secs(secs));
+    fn advance_and_expire(cache: &HttpCache, clock: &MockClock, by: Duration) {
+        clock.advance(by);
         cache
             .store
             .delete_expired_entries(cache.clock.now())
@@ -228,7 +228,7 @@ mod tests {
             .store_with_ttl(
                 &hash,
                 &response,
-                &Duration::from_secs(300),
+                Duration::from_secs(300),
                 cache.clock.now(),
             )
             .unwrap();
@@ -399,11 +399,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Past the server max-age (1s) but still under the explicit TTL (20s) — entry is still there.
-        advance_and_expire(&cache, &clock, 2);
+        advance_and_expire(&cache, &clock, Duration::from_secs(2));
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Past the explicit TTL — entry should be expired.
-        advance_and_expire(&cache, &clock, 20);
+        advance_and_expire(&cache, &clock, Duration::from_secs(20));
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -432,11 +432,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Still cached at ~1s.
-        advance_and_expire(&cache, &clock, 1);
+        advance_and_expire(&cache, &clock, Duration::from_secs(1));
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after exceeding server max-age.
-        advance_and_expire(&cache, &clock, 2);
+        advance_and_expire(&cache, &clock, Duration::from_secs(2));
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -465,11 +465,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired yet at ~1s
-        advance_and_expire(&cache, &clock, 1);
+        advance_and_expire(&cache, &clock, Duration::from_secs(1));
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~2s
-        advance_and_expire(&cache, &clock, 2);
+        advance_and_expire(&cache, &clock, Duration::from_secs(2));
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -497,11 +497,11 @@ mod tests {
         assert!(matches!(outcomes.last().unwrap(), CacheOutcome::MissStored));
 
         // Not expired at ~1s
-        advance_and_expire(&cache, &clock, 1);
+        advance_and_expire(&cache, &clock, Duration::from_secs(1));
         assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~3s
-        advance_and_expire(&cache, &clock, 3);
+        advance_and_expire(&cache, &clock, Duration::from_secs(3));
         assert!(cache.store.lookup(&hash).unwrap().is_none());
         m.assert();
     }
@@ -558,7 +558,7 @@ mod tests {
             .store_with_ttl(
                 &hash1,
                 &response,
-                &Duration::from_secs(300),
+                Duration::from_secs(300),
                 cache.clock.now(),
             )
             .unwrap();
@@ -568,7 +568,7 @@ mod tests {
             .store_with_ttl(
                 &hash2,
                 &response,
-                &Duration::from_secs(300),
+                Duration::from_secs(300),
                 cache.clock.now(),
             )
             .unwrap();

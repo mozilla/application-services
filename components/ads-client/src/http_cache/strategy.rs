@@ -72,7 +72,7 @@ impl NetworkFirst {
             if ttl.is_zero() {
                 return Ok((response, vec![CacheOutcome::NoCache]));
             }
-            match store.store_with_ttl(&self.hash, &response, &ttl, clock.now()) {
+            match store.store_with_ttl(&self.hash, &response, ttl, clock.now()) {
                 Ok(()) => CacheOutcome::MissStored,
                 Err(e) => CacheOutcome::StoreFailed(e),
             }
