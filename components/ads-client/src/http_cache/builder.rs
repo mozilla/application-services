@@ -6,6 +6,8 @@ use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
 use crate::bytesize::ByteSize;
 use crate::clock::Clock;
+#[cfg(test)]
+use crate::clock::MockClock;
 use crate::http_cache::HttpCache;
 use crate::telemetry;
 use crate::IN_MEMORY_DB_PATH;
@@ -78,10 +80,10 @@ impl HttpCacheBuilder {
         })
     }
 
-    /// Replaces the system clock, for tests that move time.
+    /// Replaces the system clock with `clock`, for tests that move time.
     #[cfg(test)]
-    pub(crate) fn clock(mut self, clock: Clock) -> Self {
-        self.clock = clock;
+    pub(crate) fn mock_clock(mut self, clock: MockClock) -> Self {
+        self.clock = clock.into();
         self
     }
 

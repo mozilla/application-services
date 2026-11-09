@@ -135,7 +135,6 @@ mod tests {
 
     use super::*;
     use crate::clock::MockClock;
-    use std::sync::Arc;
     use viaduct::ClientSettings;
 
     fn make_client() -> Client {
@@ -174,16 +173,16 @@ mod tests {
             .expect("cache build should succeed")
     }
 
-    fn make_cache_with_ttl(secs: u64) -> (HttpCache, Arc<MockClock>) {
-        let (clock, mock) = Clock::mock();
+    fn make_cache_with_ttl(secs: u64) -> (HttpCache, MockClock) {
+        let clock = MockClock::new();
         // In tests our store uses an in-memory DB; filename is irrelevant.
         let cache = HttpCache::builder_memory()
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
-            .clock(clock)
+            .mock_clock(clock.clone())
             .build()
             .expect("cache build should succeed");
-        (cache, mock)
+        (cache, clock)
     }
 
     /// Moves the cache's clock forward, then drops what expired by then.

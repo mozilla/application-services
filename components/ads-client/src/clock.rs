@@ -16,7 +16,7 @@ enum Source {
     #[default]
     System,
     #[cfg(test)]
-    Mock(Arc<MockClock>),
+    Mock(MockClock),
 }
 
 impl Clock {
@@ -24,32 +24,41 @@ impl Clock {
         match &self.0 {
             Source::System => Utc::now(),
             #[cfg(test)]
-            Source::Mock(mock) => *mock.now.lock(),
+            Source::Mock(mock) => mock.now(),
         }
-    }
-
-    /// A clock that stands still at the current second until the returned
-    /// handle moves it.
-    #[cfg(test)]
-    pub(crate) fn mock() -> (Self, Arc<MockClock>) {
-        use chrono::SubsecRound;
-
-        let mock = Arc::new(MockClock {
-            now: parking_lot::Mutex::new(Utc::now().trunc_subsecs(0)),
-        });
-        (Self(Source::Mock(Arc::clone(&mock))), mock)
     }
 }
 
 #[cfg(test)]
-pub(crate) struct MockClock {
-    now: parking_lot::Mutex<DateTime<Utc>>,
+impl From<MockClock> for Clock {
+    fn from(mock: MockClock) -> Self {
+        Self(Source::Mock(mock))
+    }
 }
+
+/// A clock that stands still at the second it was created until advanced.
+/// Clones share the same time, so a test keeps one to move the clock it
+/// handed over.
+#[cfg(test)]
+#[derive(Clone)]
+pub(crate) struct MockClock(Arc<parking_lot::Mutex<DateTime<Utc>>>);
 
 #[cfg(test)]
 impl MockClock {
+    pub(crate) fn new() -> Self {
+        use chrono::SubsecRound;
+
+        Self(Arc::new(parking_lot::Mutex::new(
+            Utc::now().trunc_subsecs(0),
+        )))
+    }
+
     pub(crate) fn advance(&self, by: Duration) {
-        *self.now.lock() += by;
+        *self.0.lock() += by;
+    }
+
+    pub(crate) fn now(&self) -> DateTime<Utc> {
+        *self.0.lock()
     }
 }
 
@@ -59,19 +68,19 @@ mod tests {
 
     #[test]
     fn mock_moves_only_when_advanced() {
-        let (clock, mock) = Clock::mock();
-        let start = clock.now();
-        assert_eq!(clock.now(), start);
+        let mock = MockClock::new();
+        let start = mock.now();
+        assert_eq!(mock.now(), start);
 
         mock.advance(Duration::from_secs(90));
-        assert_eq!(clock.now(), start + Duration::from_secs(90));
+        assert_eq!(mock.now(), start + Duration::from_secs(90));
     }
 
     #[test]
-    fn clones_share_the_mock() {
-        let (clock, mock) = Clock::mock();
-        let copy = clock.clone();
+    fn clock_follows_the_mock_it_was_given() {
+        let mock = MockClock::new();
+        let clock = Clock::from(mock.clone());
         mock.advance(Duration::from_secs(5));
-        assert_eq!(copy.now(), clock.now());
+        assert_eq!(clock.now(), mock.now());
     }
 }
