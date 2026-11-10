@@ -5,6 +5,8 @@
 use serde_derive::{Deserialize, Serialize};
 
 use crate::EnrollmentStatus;
+#[cfg(feature = "stateful")]
+use crate::enrollment::DisqualifiedReason;
 use crate::enrollment::ExperimentEnrollment;
 #[cfg(feature = "stateful")]
 pub use crate::enrollment::PreviousGeckoPrefState;
@@ -25,6 +27,8 @@ pub struct EnrollmentStatusExtraDef {
     #[cfg(feature = "stateful")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_gecko_pref_states: Option<Vec<PreviousGeckoPrefState>>,
+    #[cfg(feature = "stateful")]
+    pub language: Option<String>,
 }
 
 impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
@@ -53,6 +57,22 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
                 error_value = Some(reason.to_owned());
             }
         }
+        #[cfg(feature = "stateful")]
+        let language = match &enrollment.status {
+            EnrollmentStatus::Disqualified {
+                reason:
+                    DisqualifiedReason::L10nMissingEntry { language }
+                    | DisqualifiedReason::L10nMissingLanguage { language },
+                ..
+            } => language.clone(),
+            EnrollmentStatus::NotEnrolled {
+                reason:
+                    NotEnrolledReason::L10nMissingEntry { language }
+                    | NotEnrolledReason::L10nMissingLanguage { language },
+                ..
+            } => language.clone(),
+            _ => None,
+        };
         EnrollmentStatusExtraDef {
             branch: branch_value,
             conflict_slug: conflict_slug_value,
@@ -64,6 +84,8 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             user_id: None,
             #[cfg(feature = "stateful")]
             prev_gecko_pref_states: None,
+            #[cfg(feature = "stateful")]
+            language,
         }
     }
 }

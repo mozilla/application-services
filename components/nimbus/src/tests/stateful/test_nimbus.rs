@@ -131,6 +131,7 @@ fn test_telemetry_reset() -> Result<()> {
             reason: Some("optout".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["foo".into()],
+            language: None,
         },]
     );
 
@@ -1932,6 +1933,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
                 reason: Some("pref_failed_to_set".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["test_feature".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "rollout-1".into(),
@@ -1939,6 +1941,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
                 reason: Some("pref_failed_to_set".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["test_feature".into()],
+                language: None,
             },
         ]
     );
@@ -2074,6 +2077,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
                 reason: Some("pref_changed".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "rollout-1".into(),
@@ -2081,6 +2085,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
                 reason: Some("pref_changed".into()),
                 change: EnrollmentChangeEventType::Disqualification,
                 feature_ids: vec!["test_feature".into(), "test_feature_2".into()],
+                language: None,
             }
         ]
     );
@@ -2442,6 +2447,7 @@ fn test_opt_out_events() -> Result<()> {
             reason: Some("optout".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some-feature-1".into()],
+            language: None,
         },]
     );
 
@@ -2493,6 +2499,7 @@ fn test_opt_in_with_branch_events() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["some-feature-1".into()],
+            language: None,
         },]
     );
 
@@ -2722,7 +2729,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["lab-feature-1".into()]
+                feature_ids: vec!["lab-feature-1".into()],
+                language: None,
             }],
         }
     );
@@ -2773,7 +2781,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "N/A".into(),
                 reason: Some("already-enrolled".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec![]
+                feature_ids: vec![],
+                language: None,
             }],
         }
     );
@@ -2788,7 +2797,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: Some("FirefoxLabsOptOut".into()),
                 change: EnrollmentChangeEventType::Disqualification,
-                feature_ids: vec!["lab-feature-1".into()]
+                feature_ids: vec!["lab-feature-1".into()],
+                language: None,
             }],
         }
     );
@@ -2839,7 +2849,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "N/A".into(),
                 reason: Some("already-unenrolled".into()),
                 change: EnrollmentChangeEventType::UnenrollFailed,
-                feature_ids: vec![]
+                feature_ids: vec![],
+                language: None,
             }],
         }
     );
@@ -2854,7 +2865,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "N/A".into(),
                 reason: Some("lab-does-not-exist".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec![]
+                feature_ids: vec![],
+                language: None,
             }],
         }
     );
@@ -2869,7 +2881,8 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 branch_slug: "N/A".into(),
                 reason: Some("not-lab".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec![]
+                feature_ids: vec![],
+                language: None,
             }],
         }
     );
@@ -2885,6 +2898,7 @@ fn test_firefox_labs_enroll_unenroll() -> Result<()> {
                 reason: Some("not-lab".into()),
                 change: EnrollmentChangeEventType::UnenrollFailed,
                 feature_ids: vec![],
+                language: None,
             }],
         }
     );
@@ -2913,6 +2927,7 @@ fn test_firefox_labs_feature_conflict() -> Result<()> {
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
                 feature_ids: vec![],
+                language: None,
             }],
         }
     );

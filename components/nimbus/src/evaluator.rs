@@ -10,6 +10,8 @@ use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
 use crate::error::{NimbusError, Result, debug, info};
+#[cfg(feature = "stateful")]
+use crate::json;
 use crate::sampling;
 #[cfg(feature = "stateful")]
 pub use crate::stateful::evaluator::*;
@@ -145,6 +147,34 @@ pub fn can_enroll<'aru>(
             Ok(false) => return CanEnrollResult::NotTargeted,
             Ok(true) => {}
         };
+    }
+
+    #[cfg(feature = "stateful")]
+    if let Some(localizations) = &experiment.localizations {
+        let Some(language) = targeting_helper.get_language() else {
+            return CanEnrollResult::Unavailable {
+                reason: NotEnrolledReason::L10nNoClientLanguage,
+            };
+        };
+        let Some(translations) = localizations.get(language) else {
+            return CanEnrollResult::Unavailable {
+                reason: NotEnrolledReason::L10nMissingLanguage {
+                    language: Some(language.to_owned()),
+                },
+            };
+        };
+        for branch in &experiment.branches {
+            for feature in branch.get_feature_configs() {
+                let mut values = feature.value.clone();
+                if json::replace_l10n_in_map(&mut values, translations).is_err() {
+                    return CanEnrollResult::Unavailable {
+                        reason: NotEnrolledReason::L10nMissingEntry {
+                            language: Some(language.to_owned()),
+                        },
+                    };
+                }
+            }
+        }
     }
 
     let Some(randomization_id) =

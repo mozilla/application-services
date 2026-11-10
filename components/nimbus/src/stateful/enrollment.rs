@@ -119,20 +119,23 @@ pub fn opt_in_with_branch(
     writer: &mut Writer,
     experiment_slug: &str,
     branch: &str,
+    language: Option<&str>,
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
     if let Ok(Some(exp)) = db
         .get_store(StoreId::Experiments)
         .get::<Experiment, Writer>(writer, experiment_slug)
     {
-        let enrollment = ExperimentEnrollment::from_explicit_opt_in(
+        if let Ok(enrollment) = ExperimentEnrollment::from_explicit_opt_in(
             &exp,
             branch,
             EnrolledReason::OptIn,
+            language,
             &mut events,
-        );
-        db.get_store(StoreId::Enrollments)
-            .put(writer, experiment_slug, &enrollment.unwrap())?;
+        ) {
+            db.get_store(StoreId::Enrollments)
+                .put(writer, experiment_slug, &enrollment)?;
+        }
     } else {
         events.push(EnrollmentChangeEvent {
             experiment_slug: experiment_slug.to_string(),
@@ -140,6 +143,7 @@ pub fn opt_in_with_branch(
             reason: Some("does-not-exist".to_string()),
             change: EnrollmentChangeEventType::EnrollFailed,
             feature_ids: vec![],
+            language: None,
         });
     }
 
@@ -151,6 +155,7 @@ pub fn enroll_in_firefox_lab(
     writer: &mut Writer,
     slug: &str,
     feature_conflict: Option<bool>,
+    language: Option<&str>,
 ) -> Result<FirefoxLabsEnrollResult> {
     let mut events = vec![];
 
@@ -185,12 +190,17 @@ pub fn enroll_in_firefox_lab(
                     &experiment,
                     &experiment.branches[0].slug,
                     EnrolledReason::FirefoxLabsOptIn,
+                    language,
                     &mut events,
                 )?;
-                db.get_store(StoreId::Enrollments)
-                    .put(writer, slug, &new_enrollment)?;
+                if new_enrollment.status.is_enrolled() {
+                    db.get_store(StoreId::Enrollments)
+                        .put(writer, slug, &new_enrollment)?;
 
-                FirefoxLabsEnrollStatus::Enrolled
+                    FirefoxLabsEnrollStatus::Enrolled
+                } else {
+                    FirefoxLabsEnrollStatus::Error
+                }
             }
 
             Err(_) => FirefoxLabsEnrollStatus::Error,
@@ -214,6 +224,7 @@ pub fn enroll_in_firefox_lab(
             ),
             change: EnrollmentChangeEventType::EnrollFailed,
             feature_ids: vec![],
+            language: None,
         });
     }
 
@@ -271,6 +282,7 @@ pub fn unenroll_from_firefox_lab(
             ),
             change: EnrollmentChangeEventType::UnenrollFailed,
             feature_ids: vec![],
+            language: None,
         });
     }
 
@@ -365,6 +377,7 @@ pub fn opt_out(
                 reason: Some("does-not-exist".to_string()),
                 change: EnrollmentChangeEventType::UnenrollFailed,
                 feature_ids: vec![],
+                language: None,
             });
         }
     }
@@ -403,6 +416,7 @@ pub fn unenroll_for_pref(
                 reason: Some("does-not-exist".to_string()),
                 change: EnrollmentChangeEventType::UnenrollFailed,
                 feature_ids: vec![],
+                language: None,
             });
         }
     }

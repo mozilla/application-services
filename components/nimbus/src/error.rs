@@ -101,6 +101,10 @@ pub enum NimbusError {
     #[error("Rkv error: {0}")]
     RkvError(#[from] rkv::StoreError),
 
+    #[cfg(feature = "stateful")]
+    #[error("Localization error: {0}")]
+    LocalizationError(String),
+
     // Cirrus-only errors.
     #[cfg(not(feature = "stateful"))]
     #[error("Error in Cirrus: {0}")]
@@ -201,6 +205,7 @@ impl ErrorCode for NimbusError {
             Self::UrlParsingError(..) => "UrlParsingError".into(),
             Self::UuidError(..) => "UuidError".into(),
             Self::VersionParsingError(..) => "VersionParsingError".into(),
+            Self::LocalizationError(..) => "LocalizationError".into(),
         }
     }
 }
