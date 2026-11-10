@@ -143,10 +143,6 @@ pub struct Lint {
     #[arg(long)]
     pub error_on_warning: bool,
 
-    /// Also lint the features of imported manifests.
-    #[arg(long)]
-    pub include_imports: bool,
-
     /// If present, then print the findings as JSON.
     #[arg(long)]
     pub json: bool,
