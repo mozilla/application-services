@@ -967,6 +967,32 @@ mod tests {
         assert_eq!(engine.fetch_outgoing().unwrap().len(), 0);
     }
 
+    #[test]
+    fn test_stage_incoming_in_batches() {
+        ensure_initialized();
+        let store = Arc::new(LoginStore::new_in_memory());
+        let engine = LoginsSyncEngine::new(Arc::clone(&store)).unwrap();
+        let incoming = (1..=3)
+            .map(|i| {
+                IncomingBso::from_test_content(serde_json::json!({
+                    "id": format!("dummy_00000{i}"),
+                    "formSubmitURL": "https://www.example.com/submit",
+                    "hostname": format!("https://www{i}.example.com"),
+                    "username": "test",
+                    "password": "test",
+                }))
+            })
+            .collect();
+
+        let mut telem = sync15::telemetry::Engine::new("passwords");
+        sync15::engine::test_utils::stage_in_batches(&engine, incoming, 1, &mut telem).unwrap();
+        engine
+            .apply(ServerTimestamp::from_millis(1000), &mut telem)
+            .unwrap();
+
+        assert_eq!(store.count().unwrap(), 3);
+    }
+
     fn make_enc_login(
         username: &str,
         password: &str,

@@ -603,6 +603,15 @@ mod tests {
         do_test_staged_to_mirror(&ai, &tx, record, bso, "addresses_mirror");
     }
 
+    // Stage each record with its own call, as the sync client does when the
+    // records arrive in different download batches.
+    fn stage_each(ai: &IncomingAddressesImpl, tx: &Transaction<'_>, bsos: Vec<IncomingBso>) {
+        for bso in bsos {
+            ai.stage_incoming(tx, vec![bso], &NeverInterrupts)
+                .expect("should stage");
+        }
+    }
+
     // Plans and applies the staged records in the order of `guids`, which must
     // list every staged guid; `fetch_incoming_states` has no defined order.
     fn apply_staged(
@@ -642,15 +651,14 @@ mod tests {
         let ai = IncomingAddressesImpl {};
 
         add_internal_address(&tx, &record_with_guid('C', 'D')).expect("should insert");
-        ai.stage_incoming(
+        stage_each(
+            &ai,
             &tx,
             vec![
                 record_with_guid('C', 'D').into_test_incoming_bso(),
                 record_with_guid('C', 'A').into_test_incoming_bso(),
             ],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ai, &tx, apply_order).expect("should apply");
 
@@ -685,15 +693,14 @@ mod tests {
 
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
-        ai.stage_incoming(
+        stage_each(
+            &ai,
             &tx,
             vec![
                 record_with_guid('C', 'A').into_test_incoming_bso(),
                 record_with_guid('C', 'D').into_test_incoming_bso(),
             ],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ai, &tx, &['A', 'D']).expect("should apply");
 
@@ -709,16 +716,15 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = IncomingAddressesImpl {};
 
-        ai.stage_incoming(
+        stage_each(
+            &ai,
             &tx,
             vec![
                 record_with_guid('C', 'A').into_test_incoming_bso(),
                 record_with_guid('C', 'B').into_test_incoming_bso(),
                 record_with_guid('C', 'D').into_test_incoming_bso(),
             ],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ai, &tx, &['A', 'B', 'D']).expect("should apply");
 
@@ -734,12 +740,11 @@ mod tests {
         let ai = IncomingAddressesImpl {};
 
         add_internal_address(&tx, &record_with_guid('C', 'L')).expect("should insert");
-        ai.stage_incoming(
+        stage_each(
+            &ai,
             &tx,
             vec![record_with_guid('C', 'A').into_test_incoming_bso()],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ai, &tx, &['A']).expect("should apply");
 

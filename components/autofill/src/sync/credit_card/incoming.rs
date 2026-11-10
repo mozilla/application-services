@@ -636,6 +636,15 @@ mod tests {
         assert!(get_credit_card(&db.writer, &incoming_guid).is_ok());
     }
 
+    // Stage each record with its own call, as the sync client does when the
+    // records arrive in different download batches.
+    fn stage_each(ci: &IncomingCreditCardsImpl, tx: &Transaction<'_>, bsos: Vec<IncomingBso>) {
+        for bso in bsos {
+            ci.stage_incoming(tx, vec![bso], &NeverInterrupts)
+                .expect("should stage");
+        }
+    }
+
     // Plans and applies the staged records in the order of `guids`, which must
     // list every staged guid; `fetch_incoming_states` has no defined order.
     fn apply_staged(
@@ -681,12 +690,11 @@ mod tests {
         };
 
         add_internal_credit_card(&tx, &record_with_guid(&ci, 'D')).expect("should insert");
-        ci.stage_incoming(
+        stage_each(
+            &ci,
             &tx,
             vec![incoming_bso(&ci, 'D'), incoming_bso(&ci, 'A')],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ci, &tx, apply_order).expect("should apply");
 
@@ -723,12 +731,11 @@ mod tests {
             .expect("should delete");
 
         let tx = db.transaction().expect("should get tx");
-        ci.stage_incoming(
+        stage_each(
+            &ci,
             &tx,
             vec![incoming_bso(&ci, 'A'), incoming_bso(&ci, 'D')],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ci, &tx, &['A', 'D']).expect("should apply");
 
@@ -747,16 +754,15 @@ mod tests {
             encdec: Arc::new(random_key_encryptor().unwrap()),
         };
 
-        ci.stage_incoming(
+        stage_each(
+            &ci,
             &tx,
             vec![
                 incoming_bso(&ci, 'A'),
                 incoming_bso(&ci, 'B'),
                 incoming_bso(&ci, 'D'),
             ],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ci, &tx, &['A', 'B', 'D']).expect("should apply");
 
@@ -781,12 +787,11 @@ mod tests {
             ..record_with_guid(&ci, 'D')
         };
         add_internal_credit_card(&tx, &scrubbed).expect("should insert");
-        ci.stage_incoming(
+        stage_each(
+            &ci,
             &tx,
             vec![incoming_bso(&ci, 'A'), incoming_bso(&ci, 'D')],
-            &NeverInterrupts,
-        )
-        .expect("should stage");
+        );
 
         apply_staged(&ci, &tx, &['A', 'D']).expect("should apply");
 
@@ -812,8 +817,7 @@ mod tests {
             ..record_with_guid(&ci, 'L')
         };
         add_internal_credit_card(&tx, &empty_number).expect("should insert");
-        ci.stage_incoming(&tx, vec![incoming_bso(&ci, 'A')], &NeverInterrupts)
-            .expect("should stage");
+        stage_each(&ci, &tx, vec![incoming_bso(&ci, 'A')]);
 
         apply_staged(&ci, &tx, &['A']).expect("should apply");
 
@@ -837,8 +841,7 @@ mod tests {
             ..record_with_guid(&ci, 'L')
         };
         add_internal_credit_card(&tx, &undecryptable).expect("should insert");
-        ci.stage_incoming(&tx, vec![incoming_bso(&ci, 'A')], &NeverInterrupts)
-            .expect("should stage");
+        stage_each(&ci, &tx, vec![incoming_bso(&ci, 'A')]);
 
         apply_staged(&ci, &tx, &['A']).expect("should apply");
 

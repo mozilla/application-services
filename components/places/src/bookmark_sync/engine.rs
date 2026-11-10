@@ -2041,8 +2041,9 @@ mod tests {
         incoming: Vec<IncomingBso>,
     ) -> Vec<OutgoingBso> {
         let mut telem = telemetry::Engine::new(engine.collection_name());
-        engine
-            .stage_incoming(incoming, &mut telem)
+        // One record per call, so every test checks that the merge doesn't
+        // depend on parents and children being staged together.
+        sync15::engine::test_utils::stage_in_batches(engine, incoming, 1, &mut telem)
             .expect("Should stage incoming");
         engine
             .apply(ServerTimestamp(0), &mut telem)

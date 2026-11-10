@@ -310,6 +310,99 @@ pub mod test {
     use serde_json::json;
     use sync15::bso::IncomingBso;
 
+    // `stage_incoming()` cleans up pending closures for the devices in each
+    // batch it's given. When a download is split into batches, each device's
+    // closures must be handled by the batch containing that device, and left
+    // alone by the others.
+    #[test]
+    fn test_pending_closures_cleaned_up_across_batches() {
+        use crate::RemoteCommand;
+        error_support::init_for_tests();
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-closures-across-batches",
+        )));
+
+        // A pending close for each device: one tab has since closed, one hasn't.
+        {
+            let mut storage = engine.store.storage.lock().unwrap();
+            for (device, url) in [
+                ("device-a", "https://closed-a.example/"),
+                ("device-b", "https://closed-b.example/"),
+                ("device-b", "https://still-open.example/"),
+            ] {
+                storage
+                    .add_remote_tab_command(device, &RemoteCommand::CloseTab { url: url.into() })
+                    .unwrap();
+            }
+        }
+        let unsent_urls = |engine: &TabsEngine| -> Vec<(String, String)> {
+            let mut urls: Vec<_> = engine
+                .store
+                .storage
+                .lock()
+                .unwrap()
+                .get_unsent_commands()
+                .unwrap()
+                .into_iter()
+                .map(|c| {
+                    let RemoteCommand::CloseTab { url } = c.command;
+                    (c.device_id, url)
+                })
+                .collect();
+            urls.sort();
+            urls
+        };
+
+        let record = |id: &str, url: &str| {
+            IncomingBso::from_test_content(json!({
+                "id": id,
+                "clientName": id,
+                "tabs": [{
+                    "title": "t",
+                    "urlHistory": [url],
+                    "icon": null,
+                    "lastUsed": 1643764207
+                }]
+            }))
+        };
+        let mut telem = telemetry::Engine::new("tabs");
+
+        // The first batch only has device-a, so only device-a's closure is
+        // resolved; device-b's are untouched.
+        engine
+            .stage_incoming(
+                vec![record("device-a", "https://other-a.example/")],
+                &mut telem,
+            )
+            .unwrap();
+        assert_eq!(
+            unsent_urls(&engine),
+            vec![
+                ("device-b".into(), "https://closed-b.example/".into()),
+                ("device-b".into(), "https://still-open.example/".into()),
+            ]
+        );
+
+        // The second batch has device-b: its closed tab is resolved, and the
+        // one still open stays pending. device-a isn't affected again.
+        engine
+            .stage_incoming(
+                vec![record("device-b", "https://still-open.example/")],
+                &mut telem,
+            )
+            .unwrap();
+        assert_eq!(
+            unsent_urls(&engine),
+            vec![("device-b".into(), "https://still-open.example/".into())]
+        );
+
+        engine.apply(ServerTimestamp(0), &mut telem).unwrap();
+        assert_eq!(
+            unsent_urls(&engine),
+            vec![("device-b".into(), "https://still-open.example/".into())]
+        );
+    }
+
     #[test]
     fn test_incoming_tabs() {
         error_support::init_for_tests();
@@ -399,8 +492,7 @@ pub mod test {
             .into_iter()
             .map(IncomingBso::from_test_content)
             .collect();
-        engine
-            .stage_incoming(incoming, &mut telem)
+        sync15::engine::test_utils::stage_in_batches(&engine, incoming, 1, &mut telem)
             .expect("Should apply incoming and stage outgoing records");
         let outgoing = engine
             .apply(ServerTimestamp(0), &mut telem)

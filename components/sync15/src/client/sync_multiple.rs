@@ -318,6 +318,7 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 &mut telem_engine,
                 self.interruptee,
             );
+            let result = soften_engine_result(&name, result, &mut telem_engine);
 
             match result {
                 Ok(()) => info!("Sync of {} was successful!", name),
@@ -486,5 +487,95 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 PersistedGlobalState::default()
             }
         }
+    }
+}
+
+/// Some engine errors are expected and fix themselves - currently only the
+/// collection changing on the server while we were paging through it. Those
+/// shouldn't be reported to the app as a failure, cause backoff, or stop the
+/// remaining engines from syncing, so we record them in telemetry and then
+/// treat the engine's sync as successful. The next sync will download the
+/// collection again, because no engine advances its timestamp before `apply()`.
+fn soften_engine_result(
+    name: &str,
+    result: Result<(), Error>,
+    telem_engine: &mut telemetry::Engine,
+) -> Result<(), Error> {
+    match result {
+        Err(e @ Error::CollectionChangedDuringDownload) => {
+            info!(
+                "{} changed on the server while we were downloading it; will retry next sync",
+                name
+            );
+            telem_engine.failure(&e);
+            Ok(())
+        }
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::error::ErrorResponse;
+
+    // An engine's telemetry can only be serialized once it's finished, which
+    // happens when it's added to a sync - just as `sync_engines` does.
+    fn failure_reason(telem: telemetry::Engine) -> serde_json::Value {
+        let mut sync = telemetry::SyncTelemetry::new();
+        sync.engine(telem);
+        sync.finished();
+        serde_json::to_value(&sync).unwrap()["engines"][0]["failureReason"].clone()
+    }
+
+    #[test]
+    fn test_collection_changed_is_softened() {
+        let mut telem = telemetry::Engine::new("test");
+        let result = soften_engine_result(
+            "test",
+            Err(Error::CollectionChangedDuringDownload),
+            &mut telem,
+        );
+
+        assert!(result.is_ok(), "reported to the app as a success");
+        assert_eq!(
+            failure_reason(telem),
+            serde_json::json!({
+                "name": "othererror",
+                "error": "The collection changed on the server while it was being downloaded",
+            }),
+            "but still visible in telemetry"
+        );
+    }
+
+    #[test]
+    fn test_other_errors_are_unchanged() {
+        let mut telem = telemetry::Engine::new("test");
+        let result = soften_engine_result(
+            "test",
+            // A first-page 412 isn't the soft case.
+            Err(Error::StorageHttpError(ErrorResponse::PreconditionFailed {
+                route: "storage/test".into(),
+            })),
+            &mut telem,
+        );
+
+        assert!(matches!(
+            result,
+            Err(Error::StorageHttpError(
+                ErrorResponse::PreconditionFailed { .. }
+            ))
+        ));
+        // Recording real failures is still `sync_engines`' job.
+        assert!(failure_reason(telem).is_null());
+    }
+
+    #[test]
+    fn test_success_is_unchanged() {
+        let mut telem = telemetry::Engine::new("test");
+        let result = soften_engine_result("test", Ok(()), &mut telem);
+
+        assert!(result.is_ok());
+        assert!(failure_reason(telem).is_null());
     }
 }
