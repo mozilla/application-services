@@ -8,8 +8,13 @@ A "base domain" in this context is the same base domain that is returned by
 
 ## Updating the list
 
-`src/adult_set.bin` contains the bytes for the hash set of adult sites. To
-regenerate it from a text file with one base domain per line:
+`src/adult_set.bin` contains the bytes for the hash set of adult sites.
+
+First, map the list of hostnames to base domains with
+`scripts/map-base-domains.js`. It runs in `xpcshell` from a Firefox build, so
+the base domains match what Firefox computes. See the script for usage.
+
+Then regenerate `adult_set.bin` from the resulting file:
 
 ```shell
 cargo run -p filter_adult --features build-binary --bin import-site-list -- path/to/domains.txt components/filter_adult/src/adult_set.bin
