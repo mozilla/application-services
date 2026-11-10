@@ -53,7 +53,6 @@ pub(crate) struct ValidateCmd {
 pub(crate) struct LintCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
-    pub(crate) allow: Vec<String>,
     pub(crate) deny: Vec<String>,
     pub(crate) error_on_warning: bool,
     pub(crate) as_json: bool,

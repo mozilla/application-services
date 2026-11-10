@@ -4,9 +4,6 @@ about:
   description: Fixture for the lint tests.
 channels:
   - release
-no-lint:
-  - MISSING_CONTACTS
-  - NOT_A_REAL_FILE_LINT
 features:
   legacy-feature:
     description: A feature that was designed before there were lints to nudge it.

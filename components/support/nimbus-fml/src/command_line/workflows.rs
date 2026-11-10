@@ -388,14 +388,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     // a second one would fetch and parse all of it again.
     let parser: Parser = Parser::new(files, file_path.clone())?;
 
-    // The top level `no-lint` block lives in the file, not the IR.
-    let mut loading = HashSet::new();
-    let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
-
-    let config = LintConfig::new()
-        .with_file_suppressions(&manifest_front_end.no_lint)
-        .allowing(&cmd.allow)?
-        .denying(&cmd.deny)?;
+    let config = LintConfig::new().denying(&cmd.deny)?;
 
     // Linting an invalid manifest would report nonsense.
     let ir = parser
@@ -506,7 +499,7 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
         stream,
         "{}",
         wrapped(
-            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` list on that feature, for the whole file with a top level `no-lint:` list, or for this run with `--allow LINT_NAME`.",
+            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` annotation list on that feature.",
             "",
             "",
         )
@@ -848,7 +841,6 @@ mod test {
         LintCmd {
             manifest: join(pkg_dir(), path),
             loader: Default::default(),
-            allow: Default::default(),
             deny: Default::default(),
             error_on_warning: false,
             as_json: false,
@@ -895,18 +887,6 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_honours_no_lint() -> Result<()> {
-        // The file excuses itself from MISSING_CONTACTS, its feature from
-        // TYPE_IN_NAME.
-        assert_eq!(
-            lints_for("fixtures/fe/lints/suppressions.fml.yaml")?,
-            // ... but both lists also name a lint that doesn't exist.
-            vec!["UNKNOWN_LINT"]
-        );
-        Ok(())
-    }
-
-    #[test]
     fn test_lint_command_reports_unknown_names_at_both_levels() -> Result<()> {
         let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
         let unknown: Vec<_> = report
@@ -918,49 +898,17 @@ mod test {
 
         assert_eq!(
             unknown,
-            vec![
-                (
-                    "feature `legacy-feature`",
-                    "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
-                ),
-                (
-                    "this manifest",
-                    "`no-lint` names `NOT_A_REAL_FILE_LINT`, which isn't a lint"
-                ),
-            ]
+            vec![(
+                "feature `legacy-feature`",
+                "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
+            ),]
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_says_when_no_lint_silenced_a_finding() -> Result<()> {
-        // The included file silences MISSING_CONTACTS, so lint would otherwise call
-        // the manifest clean without saying why.
-        let report = lint_report(&lint_cmd("fixtures/fe/lints/including.fml.yaml"))?;
-        assert!(report.is_empty());
-        assert_eq!(report.suppressed, 1);
-
-        let mut buffer = termcolor::Buffer::no_color();
-        output_suppressed(&mut buffer, &report)?;
-        let output = String::from_utf8(buffer.into_inner()).expect("output is UTF-8");
-        assert!(
-            output.contains("1 finding silenced by `no-lint`"),
-            "{output}"
-        );
-
         Ok(())
     }
 
     #[test]
     fn test_lint_command_allow_and_deny() -> Result<()> {
         let path = "fixtures/fe/lints/needs-work.fml.yaml";
-
-        let mut cmd = lint_cmd(path);
-        cmd.allow = vec!["TRIVIAL_ENUM".to_string()];
-        assert!(!lint_report(&cmd)?
-            .findings
-            .iter()
-            .any(|f| f.lint == "TRIVIAL_ENUM"));
 
         // Warnings on their own don't fail the run.
         let mut cmd = lint_cmd(path);
@@ -1066,16 +1014,6 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_counts_suppressed_findings() -> Result<()> {
-        // The fixture silences one lint for the file and one for its feature.
-        let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
-        assert_eq!(report.suppressed, 2);
-        assert!(rendered(&report)?.contains("2 findings silenced by `no-lint`"));
-
-        Ok(())
-    }
-
-    #[test]
     fn test_lint_command_json_carries_the_counts() -> Result<()> {
         let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
@@ -1092,15 +1030,6 @@ mod test {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn test_lint_command_rejects_unknown_lint_names() {
-        let mut cmd = lint_cmd("fixtures/fe/lints/well-formed.fml.yaml");
-        cmd.allow = vec!["NOT_A_LINT".to_string()];
-
-        let error = lint(&cmd).expect_err("An unknown lint name should be an error");
-        assert!(error.to_string().contains("NOT_A_LINT"));
     }
 
     #[test]
