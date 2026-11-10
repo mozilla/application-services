@@ -45,6 +45,7 @@ pub enum FetchAdsError {
     Preflight(#[from] CallbackRequestError),
 
     // TODO: Remove this once we can prove that sqlite memory is infallible.
+    #[cfg(feature = "stateful")]
     #[error("Internal database error: database shut down or uninitialized")]
     SqliteShutdown,
 

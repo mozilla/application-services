@@ -5,7 +5,7 @@ use ads_client::{MozAd, MozAdsImage, MozAdsSpoc, MozAdsTile};
 */
 #[cfg(feature = "stateful")]
 use ads_client::{
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent, MozAdsIABContentTaxonomy, MozAdsPlacementRequestGeneric, MozAdsRequestOptions, MozAdsStoreConfig, PlacementId,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent, MozAdsIABContentTaxonomy, MozAdsPlacementRequestGeneric, MozAdsRequestOptions, PlacementId,
 };
 #[cfg(feature = "stateful")]
 use std::sync::Arc;
@@ -41,8 +41,6 @@ fn ad_into_tile(ad : MozAd) -> Option<MozAdsTile> {
         None
     }
 }
-
-// TODO: Some of the tests in here could be modularized
 
 #[cfg(feature = "stateful")]
 fn prod_client() -> ads_client::MozAdsClient {
@@ -141,8 +139,8 @@ fn test_contract_image_with_categories_prod_async() {
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
     let ad = ad_into_image(ad).expect("Received ad should be an image");
-    assert!(!ad.url.as_str().is_empty(), "destination url should be populated"); // TODO: Is this possible with a url?
-    assert!(!ad.image_url.as_str().is_empty(), "image url should be populated"); // TODO: IS this possible with a url?
+    assert!(ad.url.has_host(), "destination url should be populated");
+    assert!(ad.image_url.has_host(), "image url should be populated");
 }
 
 #[cfg(feature = "stateful")]
