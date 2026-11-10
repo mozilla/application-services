@@ -28,6 +28,7 @@ mod glean_metrics {
 pub use client::{Attachment, RemoteSettingsRecord, RsJsonObject};
 pub use config::{BaseUrl, RemoteSettingsConfig, RemoteSettingsServer};
 pub use context::RemoteSettingsContext;
+use error::warn;
 pub use error::{trace, ApiResult, RemoteSettingsError, Result};
 pub use telemetry::{RemoteSettingsTelemetry, SyncStatus, UptakeEventExtras};
 
@@ -101,10 +102,13 @@ impl RemoteSettingsService {
 
 #[cfg_attr(feature = "telemetry-submission", uniffi::export)]
 impl RemoteSettingsService {
-    /// Set the telemetry implementation used to record Glean metrics.
-    /// This should be set to a real implementation (eg. Kotlin, Swift).
-    /// If not set, all metric recording is a no-op.
+    /// Set the telemetry implementation used to record Glean metrics (eg. Kotlin, Swift).
     pub fn set_telemetry(&self, telemetry: Arc<dyn RemoteSettingsTelemetry>) {
+        if cfg!(feature = "glean-sym") {
+            // This will be the case until we have `glean-sym` everywhere.
+            warn!("set_telemetry() ignored: metrics are recorded directly with glean-sym");
+            return;
+        }
         self.internal
             .set_telemetry(RemoteSettingsTelemetryWrapper::new(telemetry));
     }

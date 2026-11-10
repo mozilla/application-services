@@ -11,11 +11,13 @@ exclude = ["/android", "/ios"]
 [features]
 default = []
 signatures = ["dep:canonical_json", "dep:rc_crypto"]
-# submitting glean telemetry is tricky on desktop for now.
+
+# Telemetry recording.
+# Expose `RemoteSettingsService::set_telemetry()` to application.
 telemetry-submission = []
-# Record metrics directly from Rust via glean-sym, instead of through the
-# `RemoteSettingsTelemetry` foreign callback.
-glean-sym = ["dep:glean-sym", "glean-sym/active"]
+# Record metrics directly from Rust with the Glean SDK of the host application.
+# (takes precedence on `telemetry-submission` if both enabled)
+glean-sym = ["dep:glean-sym"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

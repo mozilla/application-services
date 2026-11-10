@@ -88,18 +88,53 @@ pub trait RemoteSettingsTelemetry: Send + Sync {
     fn report_uptake(&self, extras: UptakeEventExtras);
 }
 
+#[cfg(not(feature = "glean-sym"))]
 struct NoopRemoteSettingsTelemetry;
 
+#[cfg(not(feature = "glean-sym"))]
 impl RemoteSettingsTelemetry for NoopRemoteSettingsTelemetry {
     fn report_uptake(&self, _extras: UptakeEventExtras) {}
+}
+
+#[cfg(feature = "glean-sym")]
+struct GleanSymTelemetry;
+
+#[cfg(feature = "glean-sym")]
+impl RemoteSettingsTelemetry for GleanSymTelemetry {
+    fn report_uptake(&self, extras: UptakeEventExtras) {
+        use crate::glean_metrics::remote_settings::{
+            uptake_remotesettings, UptakeRemotesettingsExtra,
+        };
+        uptake_remotesettings.record(UptakeRemotesettingsExtra {
+            value: extras.value,
+            source: extras.source,
+            age: extras.age,
+            trigger: extras.trigger,
+            timestamp: extras.timestamp,
+            duration: extras.duration,
+            errorname: extras.error_name,
+        });
+    }
 }
 
 /// Wrapper around [RemoteSettingsTelemetry] used internally.
 #[derive(Clone)]
 pub struct RemoteSettingsTelemetryWrapper {
-    // Unused with `glean-sym`: metrics are recorded directly from Rust.
-    #[cfg_attr(feature = "glean-sym", allow(dead_code))]
     inner: Arc<dyn RemoteSettingsTelemetry>,
+}
+
+impl Default for RemoteSettingsTelemetryWrapper {
+    fn default() -> Self {
+        // Record telemetry directly from Rust.
+        // [crate::RemoteSettingsService::set_telemetry] will be ignored.
+        #[cfg(feature = "glean-sym")]
+        let inner = Arc::new(GleanSymTelemetry);
+        // Otherwise, set to no-op untils the application calls
+        // [crate::RemoteSettingsService::set_telemetry].
+        #[cfg(not(feature = "glean-sym"))]
+        let inner = Arc::new(NoopRemoteSettingsTelemetry);
+        Self::new(inner)
+    }
 }
 
 impl RemoteSettingsTelemetryWrapper {
@@ -107,42 +142,8 @@ impl RemoteSettingsTelemetryWrapper {
         Self { inner }
     }
 
-    pub fn noop() -> Self {
-        Self {
-            inner: Arc::new(NoopRemoteSettingsTelemetry),
-        }
-    }
-
-    #[cfg(feature = "glean-sym")]
-    fn report_uptake(&self, event: UptakeEventExtras) {
-        // With glean-sym, telemetry is sent directly from the
-        // Glean SDK. The wrapped inner implementation is not
-        // called.
-        // This allows us to transition to glean-sym without
-        // breaking changes.
-        // Once this ships and gets enabled in builds, we can
-        // remove the telemetry wrapper code in iOS and Android.
-        use crate::glean_metrics::remote_settings::{
-            uptake_remotesettings, UptakeRemotesettingsExtra,
-        };
-        uptake_remotesettings.record(UptakeRemotesettingsExtra {
-            value: event.value,
-            source: event.source,
-            age: event.age,
-            trigger: event.trigger,
-            timestamp: event.timestamp,
-            duration: event.duration,
-            errorname: event.error_name,
-        });
-    }
-
-    #[cfg(not(feature = "glean-sym"))]
-    fn report_uptake(&self, event: UptakeEventExtras) {
-        // Call the native implementation of Glean.
-        // Note: feature is disabled on desktop.
-        // When `glean-sym` is enabled, the wrapper isn't called at all
-        // and events are sent directly by the Glean SDK.
-        self.inner.report_uptake(event)
+    fn report_uptake(&self, extras: UptakeEventExtras) {
+        self.inner.report_uptake(extras)
     }
 
     pub fn report_uptake_success(&self, source: &str, duration: Option<u64>) {
