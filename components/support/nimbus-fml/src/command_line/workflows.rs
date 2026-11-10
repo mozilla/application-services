@@ -388,15 +388,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     // a second one would fetch and parse all of it again.
     let parser: Parser = Parser::new(files, file_path.clone())?;
 
-    // The top level `no-lint` block lives in the file, not the IR.
-    let mut loading = HashSet::new();
-    let manifest_front_end = parser.load_manifest(&file_path, &mut loading)?;
-
-    let config = LintConfig::new()
-        .including_imports(cmd.include_imports)
-        .with_file_suppressions(&manifest_front_end.no_lint)
-        .allowing(&cmd.allow)?
-        .denying(&cmd.deny)?;
+    let config = LintConfig::new().denying(&cmd.deny)?;
 
     // Linting an invalid manifest would report nonsense.
     let ir = parser
@@ -426,22 +418,12 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
         output_lint_summary(&mut stdout, &report)?;
     }
 
-    let errors = report.error_count();
-    let warnings = report.warning_count();
+    let error_count = report.error_count();
+    let warning_count = report.warning_count();
 
-    if errors > 0 {
+    if error_count > 0 || warning_count > 0 {
         return Err(CliError(format!(
-            "Manifest has {} lint error{}",
-            errors,
-            if errors > 1 { "s" } else { "" }
-        )));
-    }
-
-    if cmd.error_on_warning && warnings > 0 {
-        return Err(CliError(format!(
-            "Manifest has {} lint warning{}",
-            warnings,
-            if warnings > 1 { "s" } else { "" }
+            "Manifest has {warning_count} lint warning(s) and {error_count} lint error(s)",
         )));
     }
 
@@ -507,7 +489,7 @@ fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Res
         stream,
         "{}",
         wrapped(
-            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` list on that feature, for the whole file with a top level `no-lint:` list, or for this run with `--allow LINT_NAME`.",
+            "A lint that doesn't apply can be switched off for a single feature with a `no-lint: [LINT_NAME]` annotation on that feature.",
             "",
             "",
         )
@@ -849,10 +831,7 @@ mod test {
         LintCmd {
             manifest: join(pkg_dir(), path),
             loader: Default::default(),
-            allow: Default::default(),
             deny: Default::default(),
-            error_on_warning: false,
-            include_imports: false,
             as_json: false,
         }
     }
@@ -883,34 +862,15 @@ mod test {
             vec![
                 "COMMON_PREFIX",
                 "DEEP_NESTING",
-                "ENUM_VARIANT_CASING",
-                "FEATURE_NAME_CASING",
                 "MISSING_CONTACTS",
-                "MISSING_DOCUMENTATION",
-                "MISSING_ENABLED_VARIABLE",
-                "MISSING_META_BUG",
                 "NEGATED_BOOLEAN",
-                "STRINGLY_TYPED",
                 "TERSE_DESCRIPTION",
                 "TODO_IN_DESCRIPTION",
                 "TRIVIAL_ENUM",
                 "TYPE_IN_NAME",
                 "TYPE_NAME_CASING",
                 "UNUSED_TYPE",
-                "VARIABLE_NAME_CASING",
             ]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_command_honours_no_lint() -> Result<()> {
-        // The file excuses itself from MISSING_META_BUG, its feature from
-        // MISSING_ENABLED_VARIABLE.
-        assert_eq!(
-            lints_for("fixtures/fe/lints/suppressions.fml.yaml")?,
-            // ... but both lists also name a lint that doesn't exist.
-            vec!["UNKNOWN_LINT"]
         );
         Ok(())
     }
@@ -927,46 +887,11 @@ mod test {
 
         assert_eq!(
             unknown,
-            vec![
-                (
-                    "feature `legacy-feature`",
-                    "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
-                ),
-                (
-                    "this manifest",
-                    "`no-lint` names `NOT_A_REAL_FILE_LINT`, which isn't a lint"
-                ),
-            ]
+            vec![(
+                "feature `legacy-feature`",
+                "`no-lint` names `NOT_A_REAL_LINT`, which isn't a lint"
+            ),]
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_says_when_no_lint_silenced_a_finding() -> Result<()> {
-        // The included file silences MISSING_META_BUG, so lint would otherwise call
-        // the manifest clean without saying why.
-        let report = lint_report(&lint_cmd("fixtures/fe/lints/including.fml.yaml"))?;
-        assert!(report.is_empty());
-        assert_eq!(report.suppressed, 1);
-
-        let mut buffer = termcolor::Buffer::no_color();
-        output_suppressed(&mut buffer, &report)?;
-        let output = String::from_utf8(buffer.into_inner()).expect("output is UTF-8");
-        assert!(
-            output.contains("1 finding silenced by `no-lint`"),
-            "{output}"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_lint_command_honours_no_lint_in_an_included_file() -> Result<()> {
-        // The included file excuses what it defines from MISSING_META_BUG; the
-        // including file provides its own.
-        let path = "fixtures/fe/lints/including.fml.yaml";
-        assert_eq!(lints_for(path)?, Vec::<&str>::new());
-        assert_eq!(lint_report(&lint_cmd(path))?.suppressed, 1);
         Ok(())
     }
 
@@ -975,21 +900,9 @@ mod test {
         let path = "fixtures/fe/lints/needs-work.fml.yaml";
 
         let mut cmd = lint_cmd(path);
-        cmd.allow = vec!["TRIVIAL_ENUM".to_string()];
-        assert!(!lint_report(&cmd)?
-            .findings
-            .iter()
-            .any(|f| f.lint == "TRIVIAL_ENUM"));
-
-        // Warnings on their own don't fail the run.
-        let mut cmd = lint_cmd(path);
-        lint(&cmd)?;
-
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
         assert!(lint(&cmd).is_err());
 
-        let mut cmd = lint_cmd(path);
-        cmd.error_on_warning = true;
+        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
         assert!(lint(&cmd).is_err());
 
         Ok(())
@@ -1037,8 +950,7 @@ mod test {
             .collect::<Vec<_>>()
             .join(" ");
 
-        // The fixture trips MISSING_META_BUG once and TERSE_DESCRIPTION twice.
-        assert_eq!(output.matches("Add a `meta-bug` URL").count(), 1);
+        // The fixture trips TERSE_DESCRIPTION twice.
         assert_eq!(
             output
                 .matches("use the description to say what changes when the value changes")
@@ -1086,16 +998,6 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_counts_suppressed_findings() -> Result<()> {
-        // The fixture silences one lint for the file and one for its feature.
-        let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
-        assert_eq!(report.suppressed, 2);
-        assert!(rendered(&report)?.contains("2 findings silenced by `no-lint`"));
-
-        Ok(())
-    }
-
-    #[test]
     fn test_lint_command_json_carries_the_counts() -> Result<()> {
         let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
@@ -1115,24 +1017,10 @@ mod test {
     }
 
     #[test]
-    fn test_lint_command_rejects_unknown_lint_names() {
-        let mut cmd = lint_cmd("fixtures/fe/lints/well-formed.fml.yaml");
-        cmd.allow = vec!["NOT_A_LINT".to_string()];
-
-        let error = lint(&cmd).expect_err("An unknown lint name should be an error");
-        assert!(error.to_string().contains("NOT_A_LINT"));
-    }
-
-    #[test]
-    fn test_lint_command_ignores_imported_features_by_default() -> Result<()> {
+    fn test_lint_command_includes_imported_features_by_default() -> Result<()> {
         let path = "fixtures/fe/importing/simple/app.yaml";
 
         let cmd = lint_cmd(path);
-        let report = lint_report(&cmd)?;
-        assert!(report.findings.iter().all(|f| f.module.is_none()));
-
-        let mut cmd = lint_cmd(path);
-        cmd.include_imports = true;
         let report = lint_report(&cmd)?;
         assert!(report.findings.iter().any(|f| f.module.is_some()));
 
@@ -1174,8 +1062,7 @@ mod test {
                 continue;
             }
 
-            let mut cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
-            cmd.include_imports = true;
+            let cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
             fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
         }
 

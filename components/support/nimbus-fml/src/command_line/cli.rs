@@ -131,21 +131,9 @@ pub struct Lint {
     #[command(flatten)]
     pub loader_info: LoaderInfo,
 
-    /// Switch a lint off for this run. May be repeated.
-    #[arg(long, value_name = "LINT")]
-    pub allow: Vec<String>,
-
     /// Turn a lint into an error for this run. May be repeated.
     #[arg(long, value_name = "LINT")]
     pub deny: Vec<String>,
-
-    /// Exit with an error if there are any warnings.
-    #[arg(long)]
-    pub error_on_warning: bool,
-
-    /// Also lint the features of imported manifests.
-    #[arg(long)]
-    pub include_imports: bool,
 
     /// If present, then print the findings as JSON.
     #[arg(long)]

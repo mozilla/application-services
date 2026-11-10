@@ -8,8 +8,7 @@
 //! whether the feature is one an experiment owner can work with. They never stop
 //! code generation, and they're reported by `nimbus-fml lint` alone.
 //!
-//! A lint can be silenced by a `no-lint` list on a feature, a top level `no-lint`
-//! list, or `--allow`/`--deny`.
+//! A lint can be silenced by a `no-lint` list on a feature.
 
 /// Declares a [`LintInfo`] static per lint, plus the `LINTS` slice the module's
 /// [`Linter`] returns, so declaring a lint registers it.
@@ -190,16 +189,11 @@ pub fn find_lint(name: &str) -> Option<&'static LintInfo> {
 pub struct LintConfig {
     levels: BTreeMap<&'static str, LintLevel>,
     file_suppressions: BTreeSet<String>,
-    include_imports: bool,
 }
 
 impl LintConfig {
     pub fn new() -> Self {
         Default::default()
-    }
-
-    pub fn allowing(self, names: &[String]) -> Result<Self> {
-        self.with_level(names, LintLevel::Allow)
     }
 
     pub fn denying(self, names: &[String]) -> Result<Self> {
@@ -216,17 +210,6 @@ impl LintConfig {
             self.levels.insert(lint.name, level);
         }
         Ok(self)
-    }
-
-    /// Lints named by a top level `no-lint` block.
-    pub fn with_file_suppressions(mut self, names: &[String]) -> Self {
-        self.file_suppressions = names.iter().cloned().collect();
-        self
-    }
-
-    pub fn including_imports(mut self, include_imports: bool) -> Self {
-        self.include_imports = include_imports;
-        self
     }
 
     fn level_for(&self, lint: &'static LintInfo) -> LintLevel {
@@ -360,10 +343,8 @@ pub fn lint_manifest(fm: &FeatureManifest, config: &LintConfig) -> LintReport {
 
     lint_module(fm, config, None, &mut report);
 
-    if config.include_imports {
-        for (id, child) in &fm.all_imports {
-            lint_module(child, config, Some(id.to_string()), &mut report);
-        }
+    for (id, child) in &fm.all_imports {
+        lint_module(child, config, Some(id.to_string()), &mut report);
     }
 
     // Group by location, worst first, so a feature's findings are reported together.
@@ -614,14 +595,6 @@ mod unit_tests {
 
         let report = lint_manifest(&fm, &LintConfig::new());
         assert_eq!(report.suppressed, 1);
-
-        // `--allow` isn't counted.
-        let config = LintConfig::new()
-            .allowing(&["NO_VARIABLES".to_string()])
-            .unwrap();
-        let mut fm = FeatureManifest::default();
-        fm.add_feature(empty_feature("plain"));
-        assert_eq!(lint_manifest(&fm, &config).suppressed, 0);
     }
 
     #[test]
@@ -641,18 +614,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_allow_switches_a_lint_off() -> Result<()> {
-        let mut fm = FeatureManifest::default();
-        fm.add_feature(empty_feature("my-feature"));
-
-        let config = LintConfig::new().allowing(&["NO_VARIABLES".to_string()])?;
-        let report = lint_manifest(&fm, &config);
-        assert!(!report.findings.iter().any(|f| f.lint == "NO_VARIABLES"));
-
-        Ok(())
-    }
-
-    #[test]
     fn test_deny_makes_a_lint_an_error() -> Result<()> {
         let mut fm = FeatureManifest::default();
         fm.add_feature(empty_feature("my-feature"));
@@ -668,24 +629,6 @@ mod unit_tests {
         assert_eq!(report.error_count(), 1);
 
         Ok(())
-    }
-
-    #[test]
-    fn test_unknown_lint_names_are_rejected_on_the_command_line() {
-        let err = LintConfig::new()
-            .allowing(&["NOT_A_LINT".to_string()])
-            .expect_err("An unknown lint name should be an error");
-        assert!(err.to_string().contains("NOT_A_LINT"));
-    }
-
-    #[test]
-    fn test_file_suppressions() {
-        let mut fm = FeatureManifest::default();
-        fm.add_feature(empty_feature("my-feature"));
-
-        let config = LintConfig::new().with_file_suppressions(&["NO_VARIABLES".to_string()]);
-        let report = lint_manifest(&fm, &config);
-        assert!(!report.findings.iter().any(|f| f.lint == "NO_VARIABLES"));
     }
 
     #[test]
@@ -724,7 +667,7 @@ mod unit_tests {
 
     #[test]
     fn test_a_well_formed_feature_is_quiet() {
-        let feature = FeatureDef::new(
+        let mut feature = FeatureDef::new(
             "my-feature",
             "Controls the shape and behaviour of the widget on the home screen.",
             vec![
@@ -743,16 +686,13 @@ mod unit_tests {
             ],
             false,
         );
+        feature.metadata.contacts = vec!["email@example.com".into()];
         let mut fm = FeatureManifest::default();
         fm.add_feature(feature);
 
         // Metadata lints are expected; nothing else should fire.
-        let config = LintConfig::new().allowing(&[
-            "MISSING_META_BUG".to_string(),
-            "MISSING_DOCUMENTATION".to_string(),
-            "MISSING_CONTACTS".to_string(),
-        ]);
-        let report = lint_manifest(&fm, &config.unwrap());
+        let config = LintConfig::new();
+        let report = lint_manifest(&fm, &config);
         assert!(
             report.is_empty(),
             "unexpected findings: {:?}",

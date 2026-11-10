@@ -4,10 +4,36 @@
 
 ## ✨ What's Changed ✨
 
+### Android
+
+- Upgraded NDK from r29 to r30.
+
 ### Ads-Client
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 - Client-stored fallback default settings for request options (ohttp, blocks, etc) can now be stored on initialization in `MozAdsRequestConfigOptions` or set with `set_request_options`.
+- The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
+
+### Merino
+
+- Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
+
+### Nimbus
+
+- Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+
+### Remote Settings
+
+- Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+
+
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus
+
+- FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
+- Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
+- `nimbus-fml lint` now always exits with a non-zero status code if un-suppressed lints are repoted. ([#7735](https://github.com/mozilla/application-services/pull/7735))
 
 # v161.0 (_2026-11-05_)
 
@@ -30,15 +56,12 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
-<<<<<<< HEAD
 ### Remote Settings
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
-=======
 ### Merino
 
 - `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
->>>>>>> 4bc0c2b04 ([DISCO-4526] merino: add seq and sid field)
 
 ## Breaking Changes
 
