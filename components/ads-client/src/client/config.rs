@@ -35,6 +35,4 @@ pub(crate) struct AdsStoreConfig {
 #[derive(Clone, Debug, Default)]
 pub struct WorkerConfig {
     pub worker_batch: Option<Duration>,
-    // TODO: Is this used?
-    pub buffer_size: Option<u32>,
 }

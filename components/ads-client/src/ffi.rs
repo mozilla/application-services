@@ -230,11 +230,11 @@ pub struct MozAdsStoreConfig {
     pub db_path: String,
 }
 
-/// The SQLite database the stateful client keeps its ads in.
+/// The worker for running ads requests in the background.
 #[derive(Clone, uniffi::Record)]
 pub struct MozWorkerConfig {
+    /// After receiving a request, the worker will wait for this long to accumulate requests before sending a batch.
     pub worker_batch: Option<Duration>,
-    pub buffer_size: Option<u32>,
 }
 
 /// IAB content categories, in one taxonomy version.
@@ -330,12 +330,8 @@ pub enum MozAdsImageOrSpoc {
     Spoc(MozAdsSpoc),
 }
 
-// TODO: Explore a better way to do this. Passing an enum means that every struct is deserialized with a layer (see MozAdsImageOrSpoc)
-// Could also be a struct that encapsulates several vecs?
-// TODO: documentation
-// TODO: Does this even work the way you want?
+/// An ad of any possible known format.
 #[derive(Debug, PartialEq, uniffi::Enum)]
-
 pub enum MozAd {
     Image(MozAdsImage),
     Spoc(MozAdsSpoc),
@@ -352,8 +348,6 @@ impl From<Ad> for MozAd {
     }
 }
 
-// TODO: Delete or cfg(test)
-// TODO: make it be an error
 impl MozAd {
     pub fn into_image(self) -> Option<MozAdsImage> {
         if let MozAd::Image(item) = self {
@@ -600,7 +594,6 @@ impl From<MozWorkerConfig> for WorkerConfig {
     fn from(config: MozWorkerConfig) -> Self {
         Self {
             worker_batch: config.worker_batch,
-            buffer_size: config.buffer_size,
         }
     }
 }

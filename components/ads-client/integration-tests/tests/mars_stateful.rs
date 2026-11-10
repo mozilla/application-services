@@ -1,3 +1,4 @@
+use ads_client::{MozAd, MozAdsImage, MozAdsSpoc, MozAdsTile};
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -15,6 +16,30 @@ pub const TEST_TIMEOUT_DURATION: std::time::Duration = std::time::Duration::from
 #[cfg(feature = "stateful")]
 fn init_backend() {
     viaduct_backend_rust::viaduct_init_backend_rust();
+}
+
+fn ad_into_image(ad : MozAd) -> Option<MozAdsImage> {
+    if let MozAd::Image(item) = ad {
+        Some(item)
+    } else {
+        None
+    }
+}
+
+fn ad_into_spoc(ad : MozAd) -> Option<MozAdsSpoc> {
+    if let MozAd::Spoc(item) = ad {
+        Some(item)
+    } else {
+        None
+    }
+}
+
+fn ad_into_tile(ad : MozAd) -> Option<MozAdsTile> {
+    if let MozAd::Tile(item) = ad {
+        Some(item)
+    } else {
+        None
+    }
 }
 
 // TODO: Some of the tests in here could be modularized
@@ -70,7 +95,7 @@ fn test_contract_image_prod_async() {
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    ad.into_image().expect("Received ad should be an image");
+    ad_into_image(ad).expect("Received ad should be an image");
 
 }
 
@@ -115,7 +140,7 @@ fn test_contract_image_with_categories_prod_async() {
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    let ad = ad.into_image().expect("Received ad should be an image");
+    let ad = ad_into_image(ad).expect("Received ad should be an image");
     assert!(!ad.url.as_str().is_empty(), "destination url should be populated"); // TODO: Is this possible with a url?
     assert!(!ad.image_url.as_str().is_empty(), "image url should be populated"); // TODO: IS this possible with a url?
 }
@@ -193,7 +218,7 @@ fn test_contract_tile_prod_async() {
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    ad.into_tile().expect("Received ad should be an tile");
+    ad_into_tile(ad).expect("Received ad should be an tile");
 
 }
 
@@ -245,7 +270,7 @@ fn test_contract_tile_ohttp_prod_async() {
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    ad.into_tile().expect("Received ad should be an tile");
+    ad_into_tile(ad).expect("Received ad should be an tile");
 
 }
 
@@ -296,19 +321,19 @@ fn test_contract_multi_ad_type_prod_async() {
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    ad.into_image().expect("Received ad should be an image");
+    ad_into_image(ad).expect("Received ad should be an image");
 
     let result = client.query_ads(placement_spoc_id);
     assert!(result.is_some());
     let result = result.unwrap();
     assert_eq!(result.len(), 4);
     let ad = result.into_iter().next().unwrap();
-    ad.into_spoc().expect("Received ad should be an spoc");
+    ad_into_spoc(ad).expect("Received ad should be an spoc");
 
     let result = client.query_ads(placement_tile_id);
     assert!(result.is_some());
     let result = result.unwrap();
     assert_eq!(result.len(), 1);
     let ad = result.into_iter().next().unwrap();
-    ad.into_tile().expect("Received ad should be an tile");
+    ad_into_tile(ad).expect("Received ad should be an tile");
 }

@@ -6,7 +6,9 @@ use parking_lot::{Condvar, Mutex};
 use url::Url;
 
 use crate::{
-    ads::PlacementId, mars::{ReportReason, ad_request::AdPlacementRequest}, worker::{DispatchRequest, PingSender},
+    ads::PlacementId,
+    mars::{ad_request::AdPlacementRequest, ReportReason},
+    worker::{DispatchRequest, PingSender},
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
