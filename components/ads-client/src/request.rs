@@ -7,7 +7,7 @@ use url::Url;
 
 use crate::{
     ads::PlacementId,
-    mars::{ad_request::AdPlacementRequest, MARSRequestOptions, ReportReason},
+    mars::{ad_request::AdPlacementRequest, ReportReason},
     worker::{DispatchRequest, PingSender},
 };
 use std::{
