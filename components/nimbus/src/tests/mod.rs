@@ -17,6 +17,7 @@ mod stateful {
     mod test_enrollment;
     mod test_evaluator;
     mod test_gecko_prefs;
+    mod test_localization;
     mod test_nimbus;
     mod test_persistence;
     mod test_targeting;

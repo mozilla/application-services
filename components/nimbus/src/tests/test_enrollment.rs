@@ -458,6 +458,7 @@ fn test_ios_rollout_experiment() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["coordinators-refactor-feature".into()],
+            language: None,
         }],
     );
     Ok(())
@@ -494,6 +495,7 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["some_control".into()],
+            language: None,
         },],
     );
     Ok(())
@@ -960,6 +962,7 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 
@@ -1010,6 +1013,7 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             reason: Some("experiments-opt-out".to_owned()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -1065,6 +1069,7 @@ fn test_evolve_rollout_update_enrolled_then_opted_out() -> Result<()> {
             reason: Some("rollouts-opt-out".to_owned()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -1206,6 +1211,7 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             reason: Some("targeting".to_owned()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -1259,6 +1265,7 @@ fn test_evolver_labs_update_enrolled_then_targeting_changed() -> Result<()> {
             reason: Some("targeting".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["labs-feature".into()],
+            language: None,
         }]
     );
 
@@ -1311,6 +1318,7 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             reason: Some("bucketing".to_owned()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["a-feature".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -1373,6 +1381,7 @@ fn test_evolver_labs_update_enrolled_then_bucketing_changed() -> Result<()> {
             reason: Some("bucketing".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["labs-feature".into()],
+            language: None,
         }]
     );
 
@@ -1506,6 +1515,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["a-feature".into()],
+            language: None,
         }]
     );
 
@@ -1541,6 +1551,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
             reason: Some("bucketing".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["a-feature".into()],
+            language: None,
         }]
     );
 
@@ -1570,6 +1581,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["a-feature".into()],
+            language: None,
         }]
     );
 
@@ -1725,6 +1737,7 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
             reason: Some("error".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -1829,6 +1842,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
@@ -1836,6 +1850,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
                 feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
         ]
     );
@@ -1855,6 +1870,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &enrollments,
         &updated_experiments,
         &no_coenrolling_features(),
+        None,
     );
     assert_eq!(features.len(), 1);
     assert!(features.contains_key("about_welcome"));
@@ -1887,6 +1903,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
             reason: Some("feature-conflict".into()),
             change: EnrollmentChangeEventType::EnrollFailed,
             feature_ids: vec!["about_welcome".into()],
+            language: None,
         },]
     );
 
@@ -1927,6 +1944,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
             reason: Some("feature-conflict".into()),
             change: EnrollmentChangeEventType::EnrollFailed,
             feature_ids: vec!["about_welcome".into()],
+            language: None,
         }]
     );
 
@@ -1963,6 +1981,7 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Unenrollment,
             feature_ids: vec!["about_welcome".into()],
+            language: None,
         }]
     );
 
@@ -2072,6 +2091,7 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
@@ -2079,6 +2099,7 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "another-monkey".into(),
@@ -2086,6 +2107,7 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
                 feature_ids: vec!["some_control".into()],
+                language: None,
             },
         ]
     );
@@ -2130,6 +2152,7 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
@@ -2137,6 +2160,7 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "multi-feature-experiment".into(),
@@ -2144,6 +2168,7 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
                 feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()],
+                language: None,
             },
         ]
     );
@@ -2187,6 +2212,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
@@ -2194,6 +2220,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
                 feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -2220,14 +2247,16 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "another-monkey".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             }
         ]
     );
@@ -2277,20 +2306,26 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "newtab-feature-experiment".into(),
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["newtab".into()]
+                feature_ids: vec!["newtab".into()],
+                language: None,
             }
         ]
     );
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2340,12 +2375,17 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             branch_slug: "N/A".into(),
             reason: Some("feature-conflict".into()),
             change: EnrollmentChangeEventType::EnrollFailed,
-            feature_ids: vec!["about_welcome".into(), "newtab".into()]
+            feature_ids: vec!["about_welcome".into(), "newtab".into()],
+            language: None,
         }]
     );
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2384,8 +2424,12 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 1);
     assert!(!feature_map.contains_key("about_welcome"));
     assert_eq!(
@@ -2418,8 +2462,12 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2450,14 +2498,16 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["newtab".into()]
+                feature_ids: vec!["newtab".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "mixed-feature-experiment".into(),
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into(), "newtab".into()]
+                feature_ids: vec!["about_welcome".into(), "newtab".into()],
+                language: None,
             }
         ]
     );
@@ -2483,7 +2533,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             branch_slug: "treatment".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["about_welcome".into(), "newtab".into()]
+            feature_ids: vec!["about_welcome".into(), "newtab".into()],
+            language: None,
         }]
     );
 
@@ -2504,8 +2555,12 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2536,14 +2591,16 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "newtab-feature-experiment".into(),
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["newtab".into()]
+                feature_ids: vec!["newtab".into()],
+                language: None,
             }
         ]
     );
@@ -2562,8 +2619,12 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 2);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2593,7 +2654,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
             branch_slug: "N/A".into(),
             reason: Some("feature-conflict".into()),
             change: EnrollmentChangeEventType::EnrollFailed,
-            feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()]
+            feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()],
+            language: None,
         }]
     );
 
@@ -2610,8 +2672,12 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         None,
     )?;
 
-    let feature_map =
-        map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
+    let feature_map = map_features_by_feature_id(
+        &enrollments,
+        &next_experiments,
+        &no_coenrolling_features(),
+        None,
+    );
     assert_eq!(feature_map.len(), 3);
     assert_eq!(
         feature_map.get("about_welcome").unwrap().slug,
@@ -2647,14 +2713,16 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["about_welcome".into(), "newtab".into()]
+                feature_ids: vec!["about_welcome".into(), "newtab".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "multi-feature-experiment".into(),
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()]
+                feature_ids: vec!["about_welcome".into(), "newtab".into(), "onboarding".into()],
+                language: None,
             }
         ]
     );
@@ -2702,7 +2770,7 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
     let ids = HashSet::from(["coenrolling"]);
     let exps = [exp1, exp2, exp3];
 
-    let observed = map_features_by_feature_id(&[], &exps, &ids);
+    let observed = map_features_by_feature_id(&[], &exps, &ids, None);
     let expected = Default::default();
     assert_eq!(observed, expected);
 
@@ -2711,7 +2779,7 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
     let enr3 = ExperimentEnrollment::not_enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = Default::default();
     assert_eq!(observed, expected);
 
@@ -2720,7 +2788,7 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
     let enr3 = ExperimentEnrollment::not_enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([(
         "colliding".to_string(),
         EnrolledFeatureConfig::new("colliding", json!({"x": 1 }), "exp1", Some("control")),
@@ -2732,7 +2800,7 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
     let enr3 = ExperimentEnrollment::not_enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -2755,7 +2823,7 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
     let enr3 = ExperimentEnrollment::enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -2805,7 +2873,7 @@ fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()>
     let enr3 = ExperimentEnrollment::not_enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding1".to_string(),
@@ -2828,7 +2896,7 @@ fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()>
     let enr3 = ExperimentEnrollment::not_enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding1".to_string(),
@@ -2855,7 +2923,7 @@ fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()>
     let enr3 = ExperimentEnrollment::enrolled("exp3");
     let enrollments = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrollments, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding1".to_string(),
@@ -2910,7 +2978,7 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
         None,
     )?;
 
-    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -2940,28 +3008,32 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["colliding".into()]
+                feature_ids: vec!["colliding".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp2".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["coenrolling".into()]
+                feature_ids: vec!["coenrolling".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp3".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["coenrolling".into()]
+                feature_ids: vec!["coenrolling".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp4".into(),
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["colliding".into()]
+                feature_ids: vec!["colliding".into()],
+                language: None,
             }
         ]
     );
@@ -2976,7 +3048,7 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
         None,
     )?;
 
-    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -3005,21 +3077,24 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["colliding".into()]
+                feature_ids: vec!["colliding".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp2".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["coenrolling".into()]
+                feature_ids: vec!["coenrolling".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp4".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["colliding".into()]
+                feature_ids: vec!["colliding".into()],
+                language: None,
             }
         ]
     );
@@ -3070,7 +3145,7 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
         None,
     )?;
 
-    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -3106,28 +3181,32 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+                feature_ids: vec!["coenrolling".into(), "colliding".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp2".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["coenrolling".into()]
+                feature_ids: vec!["coenrolling".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp3".into(),
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+                feature_ids: vec!["coenrolling".into(), "colliding".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp4".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["another".into(), "coenrolling".into()]
+                feature_ids: vec!["another".into(), "coenrolling".into()],
+                language: None,
             }
         ]
     );
@@ -3142,7 +3221,7 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
         None,
     )?;
 
-    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -3179,21 +3258,24 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+                feature_ids: vec!["coenrolling".into(), "colliding".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp2".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Unenrollment,
-                feature_ids: vec!["coenrolling".into()]
+                feature_ids: vec!["coenrolling".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "exp3".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["coenrolling".into(), "colliding".into()]
+                feature_ids: vec!["coenrolling".into(), "colliding".into()],
+                language: None,
             }
         ]
     );
@@ -3241,7 +3323,7 @@ fn test_map_features_by_feature_id_with_slug_replacement() -> Result<()> {
     let enr3 = ExperimentEnrollment::enrolled("exp3");
     let enrs = [enr1, enr2, enr3];
 
-    let observed = map_features_by_feature_id(&enrs, &exps, &ids);
+    let observed = map_features_by_feature_id(&enrs, &exps, &ids, None);
     let expected = HashMap::from([
         (
             "colliding".to_string(),
@@ -3343,7 +3425,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["about_welcome".into()]
+            feature_ids: vec!["about_welcome".into()],
+            language: None,
         }],
         "only 1 of 2 enrollment events should have been returned, since one caused evolve_enrollment to err"
     );
@@ -3386,7 +3469,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 
@@ -3458,7 +3542,8 @@ fn test_evolver_experiment_update_error() -> Result<()> {
             branch_slug: "treatment".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -3504,7 +3589,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Unenrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -3548,7 +3634,8 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Unenrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -3710,6 +3797,7 @@ fn test_evolver_relaunched_rollout_reenrolls_from_was_enrolled() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["a-feature".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -3810,14 +3898,16 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
                 branch_slug: "".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "experiment1".into(),
                 branch_slug: "".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             }
         ]
     );
@@ -3895,21 +3985,24 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
                 branch_slug: "".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "rollout2".into(),
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "experiment1".into(),
                 branch_slug: "".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             }
         ]
     );
@@ -4123,7 +4216,8 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
     };
     let enrollments = &[ro_enrollment, exp_enrollment];
     let experiments = &[experiment, rollout];
-    let features = map_features_by_feature_id(enrollments, experiments, &no_coenrolling_features());
+    let features =
+        map_features_by_feature_id(enrollments, experiments, &no_coenrolling_features(), None);
 
     assert_alice_bob_charlie(&features);
     Ok(())
@@ -4156,19 +4250,22 @@ fn test_rollouts_end_to_end() -> Result<()> {
                 branch_slug: "rollout1".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["bob".into(), "charlie".into()]
+                feature_ids: vec!["bob".into(), "charlie".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "experiment1".into(),
                 branch_slug: "experiment1".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["alice".into(), "bob".into()]
+                feature_ids: vec!["alice".into(), "bob".into()],
+                language: None,
             }
         ]
     );
 
-    let features = map_features_by_feature_id(&enrollments, recipes, &no_coenrolling_features());
+    let features =
+        map_features_by_feature_id(&enrollments, recipes, &no_coenrolling_features(), None);
 
     assert_alice_bob_charlie(&features);
 
@@ -4183,6 +4280,7 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
         &exp,
         "control",
         EnrolledReason::OptIn,
+        None,
         &mut events,
     )?;
     assert!(matches!(
@@ -4201,7 +4299,8 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     Ok(())
@@ -4215,6 +4314,7 @@ fn test_enrollment_explicit_opt_in_branch_unknown() {
         &exp,
         "bobo",
         EnrolledReason::OptIn,
+        None,
         &mut events,
     );
     assert!(res.is_err());
@@ -4250,7 +4350,8 @@ fn test_enrollment_enrolled_explicit_opt_out() {
             branch_slug: "control".into(),
             reason: Some("optout".into()),
             change: EnrollmentChangeEventType::Disqualification,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 }
@@ -4475,7 +4576,7 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
         None,
     )?;
 
-    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids, None);
     let expected = HashMap::from([(
         "colliding-feature".to_string(),
         EnrolledFeatureConfig::new(
@@ -4495,14 +4596,16 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["colliding-feature".into()]
+                feature_ids: vec!["colliding-feature".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "slug-1".into(),
                 branch_slug: "N/A".into(),
                 reason: Some("feature-conflict".into()),
                 change: EnrollmentChangeEventType::EnrollFailed,
-                feature_ids: vec!["colliding-feature".into()]
+                feature_ids: vec!["colliding-feature".into()],
+                language: None,
             }
         ]
     );

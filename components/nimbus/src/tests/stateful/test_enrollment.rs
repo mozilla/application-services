@@ -93,6 +93,7 @@ fn test_enrollments() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
     // Get the ExperimentEnrollment from the DB.
@@ -132,11 +133,12 @@ fn test_enrollments() -> Result<()> {
             reason: Some("optout".into()),
             change: EnrollmentChangeEventType::Disqualification,
             feature_ids: vec!["some_control".into()],
+            language: None,
         },]
     );
 
     // Opt in to a specific branch.
-    let events = opt_in_with_branch(&db, &mut writer, "secure-gold", "treatment")?;
+    let events = opt_in_with_branch(&db, &mut writer, "secure-gold", "treatment", None)?;
     let enrollments = get_experiments(&db, &writer)?;
     assert_eq!(enrollments.len(), 1);
     let enrollment = &enrollments[0];
@@ -151,6 +153,7 @@ fn test_enrollments() -> Result<()> {
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
             feature_ids: vec!["some_control".into()],
+            language: None,
         },]
     );
 
@@ -191,14 +194,16 @@ fn test_updates() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -220,7 +225,8 @@ fn test_updates() -> Result<()> {
             branch_slug: "treatment".into(),
             reason: None,
             change: EnrollmentChangeEventType::Unenrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 
@@ -288,14 +294,16 @@ fn test_experiments_opt_out() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "treatment".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -324,14 +332,16 @@ fn test_experiments_opt_out() -> Result<()> {
                 branch_slug: "treatment".into(),
                 reason: Some("experiments-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "treatment".into(),
                 reason: Some("experiments-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -454,14 +464,16 @@ fn test_rollouts_opt_out() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -490,14 +502,16 @@ fn test_rollouts_opt_out() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: Some("rollouts-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "control".into(),
                 reason: Some("rollouts-opt-out".into()),
                 change: EnrollmentChangeEventType::Disqualification,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -539,14 +553,16 @@ fn test_rollouts_opt_out() -> Result<()> {
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["some_control".into()]
+                feature_ids: vec!["some_control".into()],
+                language: None,
             },
             EnrollmentChangeEvent {
                 experiment_slug: "secure-silver".into(),
                 branch_slug: "control".into(),
                 reason: None,
                 change: EnrollmentChangeEventType::Enrollment,
-                feature_ids: vec!["about_welcome".into()]
+                feature_ids: vec!["about_welcome".into()],
+                language: None,
             }
         ]
     );
@@ -654,6 +670,7 @@ fn test_telemetry_reset() -> Result<()> {
         experiment_slug,
         branch_slug,
         feature_ids,
+        language: None,
     } if reason == "optout"
         && *experiment_slug == mock_exp1_slug
         && *branch_slug == mock_exp1_branch
@@ -719,7 +736,8 @@ fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 
@@ -808,7 +826,8 @@ fn test_rollouts_opt_out_with_experiments_opt_in() -> Result<()> {
             branch_slug: "control".into(),
             reason: None,
             change: EnrollmentChangeEventType::Enrollment,
-            feature_ids: vec!["some_control".into()]
+            feature_ids: vec!["some_control".into()],
+            language: None,
         }]
     );
 
