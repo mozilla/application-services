@@ -14,7 +14,9 @@ pub struct WrexhamConfig {
 /// Options for a matches request. Omitted fields are not sent to merino.
 #[derive(Clone, Debug, Default, Record)]
 pub struct WrexhamMatchesOptions {
-    /// The maximum number of previous and upcoming matches to return. Merino accepts 1 to 5,
-    /// and returns 5 if not set. Current matches aren't limited.
+    /// The maximum number of previous and upcoming matches to return. Merino decides which
+    /// values are allowed and the default when it isn't set, and returns a `400` for a value it
+    /// doesn't accept. See <https://merino.services.mozilla.com/docs#/widgets>. Current matches
+    /// aren't limited.
     pub limit: Option<u32>,
 }

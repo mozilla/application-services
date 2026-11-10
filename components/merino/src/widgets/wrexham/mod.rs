@@ -11,10 +11,10 @@ mod tests;
 use error_support::handle_error;
 use url::Url;
 
+use crate::DEFAULT_BASE_HOST;
+
 pub use error::{ApiResult, Error, MerinoWrexhamApiError, Result};
 pub use schema::{WrexhamConfig, WrexhamMatchesOptions};
-
-const DEFAULT_BASE_HOST: &str = "https://merino.services.mozilla.com";
 
 /// A client for the merino Wrexham widget endpoints.
 ///

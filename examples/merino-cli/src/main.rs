@@ -97,7 +97,7 @@ enum Commands {
 enum WrexhamCommand {
     /// Fetch Wrexham's previous, current and upcoming matches
     Matches {
-        /// Maximum number of previous and upcoming matches (1 to 5, defaults to 5)
+        /// Maximum number of previous and upcoming matches (Merino decides the allowed values)
         #[arg(long)]
         limit: Option<u32>,
     },
