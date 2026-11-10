@@ -142,12 +142,8 @@ impl RemoteSettingsTelemetryWrapper {
         Self { inner }
     }
 
-    fn report_uptake(&self, extras: UptakeEventExtras) {
-        self.inner.report_uptake(extras)
-    }
-
     pub fn report_uptake_success(&self, source: &str, duration: Option<u64>) {
-        self.report_uptake(UptakeEventExtras {
+        self.inner.report_uptake(UptakeEventExtras {
             value: Some(SyncStatus::Success.to_string()),
             source: Some(source.to_string()),
             age: None,
@@ -159,7 +155,7 @@ impl RemoteSettingsTelemetryWrapper {
     }
 
     pub fn report_uptake_up_to_date(&self, source: &str, duration: Option<u64>) {
-        self.report_uptake(UptakeEventExtras {
+        self.inner.report_uptake(UptakeEventExtras {
             value: Some(SyncStatus::UpToDate.to_string()),
             source: Some(source.to_string()),
             age: None,
@@ -182,7 +178,7 @@ impl RemoteSettingsTelemetryWrapper {
             .trim()
             .to_string();
 
-        self.report_uptake(UptakeEventExtras {
+        self.inner.report_uptake(UptakeEventExtras {
             value: Some(error_to_status(error).to_string()),
             source: Some(source.to_string()),
             age: None,

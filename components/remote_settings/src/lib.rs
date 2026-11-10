@@ -103,6 +103,7 @@ impl RemoteSettingsService {
 #[cfg_attr(feature = "telemetry-submission", uniffi::export)]
 impl RemoteSettingsService {
     /// Set the telemetry implementation used to record Glean metrics (eg. Kotlin, Swift).
+    /// If `glean-sym` is enabled, this is not necessary and will be ignored.
     pub fn set_telemetry(&self, telemetry: Arc<dyn RemoteSettingsTelemetry>) {
         if cfg!(feature = "glean-sym") {
             // This will be the case until we have `glean-sym` everywhere.

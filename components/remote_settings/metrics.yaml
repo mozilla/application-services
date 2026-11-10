@@ -9,8 +9,8 @@
 #   - With the `glean-sym` feature, they are recorded directly from Rust.
 #     `build.rs` generates the Rust bindings from this file, and `glean-sym`
 #     does the magic at runtime.
-#   - Otherwise, the consumer (Android, iOS) implements the `RemoteSettingsTelemetry`
-#     trait and records the metrics with its own Glean-generated bindings.
+#   - Otherwise, the consuming application (Kotlin, Swift) implements the `RemoteSettingsTelemetry`
+#     trait with its own Glean-generated bindings, and wires it with `set_telemetry()`.
 
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
