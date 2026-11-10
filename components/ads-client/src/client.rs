@@ -169,10 +169,7 @@ impl AdsClient {
     ) -> Result<(), BackgroundWorkerError> {
         self.worker.dispatch(DispatchRequest::RequestAds {
             ad_requests: ad_requests.into_iter().map(|x| (&x).into()).collect(),
-            // TODO: Remove this on merge of sendable options refactor, and use a 'real' options.
-            mars_options: MARSRequestOptions::default(),
         })?;
-
         Ok(())
     }
 
@@ -406,6 +403,7 @@ impl AdsClientInner {
     pub(crate) fn prefetch_ads_request(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
+        // TODO: We may want to have this not be passable, and simply fetch in the function itself (see refactor of MARS options).
         mars_options: MARSRequestOptions,
         // TODO: These are only for tiles
         relevance: AdRequestRelevance,

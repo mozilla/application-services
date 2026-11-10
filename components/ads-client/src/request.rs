@@ -95,8 +95,6 @@ impl RequestQueue {
             inner.queued_ads = requeue_requests.into_iter().collect();
             return Some(DispatchRequest::RequestAds {
                 ad_requests: ad_requests.into_iter().map(|(_, v)| v).collect(),
-                // TODO: Remove this option entirely, this is to tide-over the request-level sendable options refactor.
-                mars_options: MARSRequestOptions::default(),
             });
         }
 
@@ -109,10 +107,7 @@ impl RequestQueue {
     pub fn push_request(&self, request: DispatchRequest) {
         // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
         match request {
-            DispatchRequest::RequestAds {
-                ad_requests,
-                mars_options: _mars_options,
-            } => self.push_ad_requests(ad_requests),
+            DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
             DispatchRequest::RecordImpression { url } => {
                 self.push_queued_request(QueuedRequest::RecordImpression { url });
             }
@@ -184,9 +179,8 @@ mod tests {
     use std::{collections::HashSet, time::Duration};
     use url::Url;
 
-    use crate::{
-        mars::MARSRequestOptions,
-        request::{AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT},
+    use crate::request::{
+        AdPlacementRequest, DispatchRequest, RequestQueue, MAXIMUM_ADS_BATCH_COUNT,
     };
 
     fn extract_request_ads(req: &mut DispatchRequest) -> Option<&mut HashSet<AdPlacementRequest>> {
@@ -211,10 +205,7 @@ mod tests {
                 placement: format!("test_placement_{id}"),
             });
         }
-        DispatchRequest::RequestAds {
-            ad_requests,
-            mars_options: MARSRequestOptions::default(),
-        }
+        DispatchRequest::RequestAds { ad_requests }
     }
 
     #[test]

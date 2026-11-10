@@ -348,30 +348,6 @@ impl From<Ad> for MozAd {
     }
 }
 
-impl MozAd {
-    pub fn into_image(self) -> Option<MozAdsImage> {
-        if let MozAd::Image(item) = self {
-            Some(item)
-        } else {
-            None
-        }
-    }
-    pub fn into_tile(self) -> Option<MozAdsTile> {
-        if let MozAd::Tile(item) = self {
-            Some(item)
-        } else {
-            None
-        }
-    }
-    pub fn into_spoc(self) -> Option<MozAdsSpoc> {
-        if let MozAd::Spoc(item) = self {
-            Some(item)
-        } else {
-            None
-        }
-    }
-}
-
 /// Frequency capping information for a spoc.
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsSpocFrequencyCaps {

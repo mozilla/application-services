@@ -18,10 +18,7 @@ use crate::{
 };
 use std::{
     collections::HashSet,
-    sync::{
-        mpsc::SyncSender,
-        Arc,
-    },
+    sync::{mpsc::SyncSender, Arc},
     thread::JoinHandle,
     time::Duration,
 };
@@ -117,8 +114,6 @@ pub enum DispatchRequest {
     },
     RequestAds {
         ad_requests: HashSet<AdPlacementRequest>,
-        // TODO: Remove when MARS request options are set.
-        mars_options: MARSRequestOptions,
     },
 }
 
@@ -129,11 +124,11 @@ impl DispatchRequest {
         self,
         ads_client_inner: Arc<AdsClientInner>,
     ) -> Result<(), ComponentError> {
-        // TODO: various unwraps here
         match self {
-            // TODO: All of these values are FAKE and not ready. (eg: ohttp)
+            // TODO: All of the MARS options are simulated, as the refactor is required first.
             // TODO: These need to be passed when the request options refactor is merged.
-            // TODO: This includes the `prefetch_ads` below!
+            // TODO: This includes the `ohttp=false` flags, as well as `MARSRequestOptions::default()` in `prefetch_ads` below!
+            // TODO: The same is true for relevance: `AdsRequestRelevance::new()`
             DispatchRequest::Ping(sender) => {
                 sender.try_send().map_err(BackgroundWorkerError::from)?
             }
@@ -144,14 +139,10 @@ impl DispatchRequest {
             DispatchRequest::RecordImpression { url } => {
                 ads_client_inner.record_impression(url, false)?
             }
-            DispatchRequest::RequestAds {
-                ad_requests,
-                mars_options,
-            } => {
+            DispatchRequest::RequestAds { ad_requests } => {
                 ads_client_inner.prefetch_ads_request(
                     ad_requests.into_iter().collect(),
-                    mars_options,
-                    // TODO: Relevance needs to be passed correctly as a part of the MARS PR.
+                    MARSRequestOptions::default(),
                     AdRequestRelevance::new(),
                 )?;
             }

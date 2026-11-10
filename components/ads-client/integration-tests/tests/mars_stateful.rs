@@ -176,9 +176,9 @@ fn test_contract_spoc_prod_async() {
     assert!(result.is_some());
     let result = result.unwrap();
     assert_eq!(result.len(), 3);
-    for res in result {
+    for ad in result {
         // Confirm that they are spocs.
-        res.into_spoc().expect("Received ad must be a spoc");
+        ad_into_spoc(ad).expect("Received ad must be a spoc");
     }
 }
 
