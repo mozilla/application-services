@@ -9,11 +9,14 @@ use crate::{
         error::{BackgroundWorkerError, ComponentError},
         AdsClientInner,
     },
-    mars::{ad_request::AdPlacementRequest, ReportReason},
+    mars::{
+        ad_request::{AdPlacementRequest, AdRequestRelevance},
+        ReportReason,
+    },
     request::RequestQueue,
 };
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{mpsc::SyncSender, Arc},
     thread::JoinHandle,
     time::Duration,
@@ -126,11 +129,40 @@ impl DispatchRequest {
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
     pub fn handle_request(
         self,
-        _ads_client_inner: Arc<AdsClientInner>,
+        ads_client_inner: Arc<AdsClientInner>,
     ) -> Result<(), ComponentError> {
-        // TODO: Add 'running a request' logic to here.
-        error_support::error!("Running a request is currently not set up yet: {self:?}");
-
+        // TODO: various unwraps here
+        match self {
+            DispatchRequest::Ping(sender) => sender.send(()).unwrap(),
+            DispatchRequest::RecordClick { url } => {
+                ads_client_inner.record_click(url, false).unwrap()
+            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+            DispatchRequest::ReportAd { url, reason } => {
+                ads_client_inner.report_ad(url, reason, false).unwrap()
+            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+            DispatchRequest::RecordImpression { url } => {
+                ads_client_inner.record_impression(url, false).unwrap()
+            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+            DispatchRequest::RequestAds { ad_requests } => {
+                // TODO: Maybe this behgaviour should be entirely in the client?
+                // TODO: all these vlaues here! should be passed from existing options in clienr
+                // TODO: unwraps
+                let ads = ads_client_inner
+                    .request_mixed_ads(
+                        ad_requests.into_iter().collect(),
+                        HashMap::new(),
+                        None,
+                        false,
+                        vec![],
+                        AdRequestRelevance::new(),
+                    )
+                    .unwrap();
+                // Convert to PlacementId
+                // TODO: easier convert?
+                let ads = ads.into_iter().map(|(k, v)| (k.into(), v)).collect();
+                ads_client_inner.store_ads(ads).unwrap();
+            }
+        }
         Ok(())
     }
 }

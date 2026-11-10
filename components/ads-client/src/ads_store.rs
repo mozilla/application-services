@@ -26,7 +26,11 @@ pub struct AdsStore {
 
 impl AdsStore {
     pub fn builder<P: AsRef<Path>>(db_path: P) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(db_path.as_ref())
+        AdsStoreBuilder::new(Some(db_path.as_ref()))
+    }
+
+    pub fn builder_memory() -> AdsStoreBuilder {
+        AdsStoreBuilder::new(None::<String>)
     }
 
     pub fn clear(&self) -> Result<(), open_database::Error> {

@@ -4,9 +4,7 @@
 */
 #[cfg(feature = "stateful")]
 use ads_client::{
-    ads_store::PlacementId, MozAdType, MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent,
-    MozAdsIABContentTaxonomy, MozAdsPlacementRequestGeneric, MozAdsRequestOptions,
-    MozAdsStoreConfig,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent, MozAdsIABContentTaxonomy, MozAdsPlacementRequestGeneric, MozAdsRequestOptions, MozAdsStoreConfig, PlacementId,
 };
 #[cfg(feature = "stateful")]
 use std::sync::Arc;
@@ -16,19 +14,27 @@ pub const TEST_TIMEOUT_DURATION: std::time::Duration = std::time::Duration::from
 
 #[cfg(feature = "stateful")]
 fn init_backend() {
-    viaduct_hyper::viaduct_init_backend_hyper();
+    viaduct_backend_rust::viaduct_init_backend_rust();
 }
+
+// TODO: Rename filename to mars_stateful
+// TODO: Some of the tests in here could be modularized
 
 #[cfg(feature = "stateful")]
 fn prod_client() -> ads_client::MozAdsClient {
+    // `store_config` not set here, so a memory-db AdsStore fallback happens (ideal for these tests).
     Arc::new(MozAdsClientBuilder::new())
         .environment(MozAdsEnvironment::Prod)
-        .store_config(MozAdsStoreConfig {
-            db_path: "some_generic_path".to_string(),
-            worker_buffer_size: None,
-            in_memory: true,
-        })
         .build()
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+#[ignore = "integration test: run manually with -- --ignored"]
+fn test_ping_empty() {
+    init_backend();
+    let client = prod_client();
+    client.ping_background_worker(None).unwrap();
 }
 
 #[cfg(feature = "stateful")]
@@ -44,7 +50,6 @@ fn test_contract_image_prod_async() {
         vec![MozAdsPlacementRequestGeneric {
             iab_content: None,
             placement_id: placement_id.clone(),
-            ad_type: MozAdType::Image,
             count: None,
         }],
         None,
@@ -61,8 +66,13 @@ fn test_contract_image_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_image_ads(placement_id);
+    let result = client.query_ads(placement_id);
     assert!(result.is_some());
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_image().expect("Received ad should be an image");
+
 }
 
 #[cfg(feature = "stateful")]
@@ -81,7 +91,6 @@ fn test_contract_image_with_categories_prod_async() {
                 taxonomy: MozAdsIABContentTaxonomy::IAB3_0,
             }),
             count: None,
-            ad_type: MozAdType::Image,
             placement_id: placement_id.clone(),
         }],
         Some(MozAdsRequestOptions {
@@ -101,11 +110,15 @@ fn test_contract_image_with_categories_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_image_ads(placement_id);
+    let result  = client.query_ads(placement_id);
+
     assert!(result.is_some());
-    let ad = result.unwrap();
-    assert!(!ad.url.is_empty(), "destination url should be populated");
-    assert!(!ad.image_url.is_empty(), "image url should be populated");
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    let ad = ad.into_image().expect("Received ad should be an image");
+    assert!(!ad.url.as_str().is_empty(), "destination url should be populated"); // TODO: Is this possible with a url?
+    assert!(!ad.image_url.as_str().is_empty(), "image url should be populated"); // TODO: IS this possible with a url?
 }
 
 #[cfg(feature = "stateful")]
@@ -122,7 +135,6 @@ fn test_contract_spoc_prod_async() {
             count: Some(3),
             iab_content: None,
             placement_id: placement_id.clone(),
-            ad_type: MozAdType::Spoc,
         }],
         None,
     );
@@ -138,9 +150,14 @@ fn test_contract_spoc_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_spoc_ads(placement_id);
+    let result = client.query_ads(placement_id);
     assert!(result.is_some());
-    assert!(result.unwrap().len() == 3);
+    let result = result.unwrap();
+    assert_eq!(result.len(), 3);
+    for res in result {
+        // Confirm that they are spocs.
+        res.into_spoc().expect("Received ad must be a spoc");
+    }
 }
 
 #[cfg(feature = "stateful")]
@@ -157,7 +174,6 @@ fn test_contract_tile_prod_async() {
             iab_content: None,
             placement_id: placement_id.clone(),
             count: None,
-            ad_type: MozAdType::Tile,
         }],
         None,
     );
@@ -173,8 +189,13 @@ fn test_contract_tile_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_tile_ads(placement_id);
+    let result = client.query_ads(placement_id);
     assert!(result.is_some());
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_tile().expect("Received ad should be an tile");
+
 }
 
 #[cfg(feature = "stateful")]
@@ -199,7 +220,6 @@ fn test_contract_tile_ohttp_prod_async() {
             iab_content: None,
             placement_id: placement_id.clone(),
             count: None,
-            ad_type: MozAdType::Tile,
         }],
         Some(MozAdsRequestOptions {
             ohttp: true,
@@ -218,11 +238,16 @@ fn test_contract_tile_ohttp_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_tile_ads(placement_id);
+    let result = client.query_ads(placement_id);
     assert!(
         result.is_some(),
         "OHTTP response should contain mock_tile_1"
     );
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_tile().expect("Received ad should be an tile");
+
 }
 
 #[cfg(feature = "stateful")]
@@ -242,19 +267,15 @@ fn test_contract_multi_ad_type_prod_async() {
                 iab_content: None,
                 placement_id: placement_image_id.clone(),
                 count: None,
-                ad_type: MozAdType::Image,
             },
             MozAdsPlacementRequestGeneric {
                 iab_content: None,
                 placement_id: placement_spoc_id.clone(),
-                count: Some(4),
-                ad_type: MozAdType::Spoc,
-            },
+                count: Some(4),            },
             MozAdsPlacementRequestGeneric {
                 iab_content: None,
                 placement_id: placement_tile_id.clone(),
                 count: None,
-                ad_type: MozAdType::Tile,
             },
         ],
         None,
@@ -271,13 +292,24 @@ fn test_contract_multi_ad_type_prod_async() {
     assert!(ping.is_ok(), "Ping failed: {:?}", ping.err());
 
     // Query
-    let result = client.query_image_ads(placement_image_id);
+    let result = client.query_ads(placement_image_id);
     assert!(result.is_some());
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_image().expect("Received ad should be an image");
 
-    let result = client.query_spoc_ads(placement_spoc_id);
+    let result = client.query_ads(placement_spoc_id);
     assert!(result.is_some());
-    assert!(result.unwrap().len() == 4);
+    let result = result.unwrap();
+    assert_eq!(result.len(), 4);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_spoc().expect("Received ad should be an spoc");
 
-    let result = client.query_tile_ads(placement_tile_id);
+    let result = client.query_ads(placement_tile_id);
     assert!(result.is_some());
+    let result = result.unwrap();
+    assert_eq!(result.len(), 1);
+    let ad = result.into_iter().next().unwrap();
+    ad.into_tile().expect("Received ad should be an tile");
 }

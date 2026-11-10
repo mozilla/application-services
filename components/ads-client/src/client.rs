@@ -9,6 +9,7 @@ use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
+#[cfg(feature = "stateful")]
 use crate::client::error::BackgroundWorkerError;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
@@ -18,6 +19,7 @@ use crate::mars::error::FetchAdsError;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
+#[cfg(feature = "stateful")]
 use crate::worker::{self, BackgroundWorker, DispatchRequest};
 #[cfg(feature = "stateful")]
 use crate::MozAdsPlacementRequestGeneric;
@@ -26,7 +28,9 @@ use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
-use std::sync::{mpsc, Arc};
+#[cfg(feature = "stateful")]
+use std::sync::mpsc;
+use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
@@ -56,9 +60,14 @@ impl AdsClient {
     pub(crate) fn new(client_config: AdsClientConfig) -> Self {
         let inner = Arc::new(AdsClientInner::new(client_config));
 
+        #[cfg(feature = "stateful")]
         // TODO: The sleep needs to be passed here.
         let worker = worker::BackgroundWorker::new(inner.clone(), None);
-        AdsClient { inner, worker }
+        AdsClient {
+            inner,
+            #[cfg(feature = "stateful")]
+            worker,
+        }
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -163,15 +172,11 @@ impl AdsClient {
     }
 
     #[cfg(feature = "stateful")]
-    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
-        self.inner.store_ads(ads)
-    }
-
-    #[cfg(feature = "stateful")]
     pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
         self.inner.get_stored_ads(placement_id)
     }
 
+    #[cfg(feature = "stateful")]
     pub fn ping_background_worker(
         &self,
         timeout: Option<Duration>,
@@ -180,6 +185,7 @@ impl AdsClient {
         self.worker.dispatch(DispatchRequest::Ping(tx))?;
 
         if let Some(timeout) = timeout {
+            // TODO: This gives a timeout error if the channel is CLOSED
             rx.recv_timeout(timeout)
                 .map_err(BackgroundWorkerError::from)?;
         } else {
@@ -251,15 +257,24 @@ impl AdsClientInner {
             });
 
         #[cfg(feature = "stateful")]
-        let ads_store = client_config.store_config.and_then(|x| {
-            match AdsStore::builder(x.db_path).in_memory(x.in_memory).build() {
+        let ads_store = client_config
+            .store_config
+            .and_then(|x| match AdsStore::builder(x.db_path).build() {
                 Ok(store) => Some(store),
                 Err(e) => {
                     telemetry::record_ads_store_error(&e);
                     None
                 }
-            }
-        });
+            })
+            .or_else(|| {
+                // If no `cache_config` is provided, create an in-memory db with default parameters.
+                // TODO: the `build` function should be infallible, and no error would be needed here.
+                // (true for both memory and FS, because FS would default to memory)
+                AdsStore::builder_memory()
+                    .build()
+                    .inspect_err(telemetry::record_ads_store_error)
+                    .ok()
+            });
 
         let client = MARSClient::new(environment, http_cache);
         telemetry::record_client_operation(ClientOperation::New);
@@ -404,6 +419,45 @@ impl AdsClientInner {
             })
     }
 
+    #[cfg(feature = "stateful")]
+    pub(crate) fn prefetch_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        // TODO: These are only for tiles
+        relevance: AdRequestRelevance,
+    ) -> Result<(), RequestAdsError> {
+        let response = self
+            .request_ads(
+                ad_placement_requests,
+                flags,
+                options,
+                ohttp,
+                blocks,
+                AdRequestRelevance::default(),
+            )
+            .inspect_err(|e| {
+                telemetry::record_client_error(ClientOperation::RequestAds, e);
+            })?;
+        telemetry::record_client_operation(ClientOperation::RequestAds);
+
+        // TODO: Get ads.
+        let ads = response.data;
+
+        // TODO: Mapping step is only for the placementid issue
+        let ads = ads.into_iter().map(|(k, v)| (k.into(), v.into())).collect();
+
+        // Stores the ads in the ad store
+        // TODO: Should ALL ad functions work this way to start? (the piecemeal shifting approach- preferred ∫y others)
+
+        self.store_ads(ads)?;
+
+        Ok(())
+    }
+
     // relevance is not implemented for image ads, using an empty HashMap.
     pub(crate) fn request_image_ads(
         &self,
@@ -513,6 +567,35 @@ impl AdsClientInner {
             })
     }
 
+    // TODO: Is this still needed?
+    #[cfg(feature = "stateful")]
+    pub(crate) fn request_mixed_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        flags: AdRequestFlags,
+        options: Option<CachePolicy>,
+        ohttp: bool,
+        blocks: Vec<String>,
+        relevance: AdRequestRelevance,
+    ) -> Result<HashMap<String, Vec<Ad>>, RequestAdsError> {
+        let result = self.request_ads(
+            ad_placement_requests,
+            flags,
+            options,
+            ohttp,
+            blocks,
+            relevance,
+        );
+        result
+            .inspect_err(|e| {
+                telemetry::record_client_error(ClientOperation::RequestAds, e);
+            })
+            .map(|response| {
+                telemetry::record_client_operation(ClientOperation::RequestAds);
+                response.data
+            })
+    }
+
     pub(crate) fn shutdown(&self) {
         telemetry::uninstall();
 
@@ -573,7 +656,7 @@ mod tests {
         let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
-                AdsStoreBuilder::new(crate::IN_MEMORY_DB_PATH)
+                AdsStoreBuilder::new(Some(crate::IN_MEMORY_DB_PATH))
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             )),
@@ -588,6 +671,7 @@ mod tests {
         AdsClient {
             inner: inner.clone(),
             // TODO: This should not be empty
+            #[cfg(feature = "stateful")]
             worker: worker::BackgroundWorker::new_empty(),
         }
     }

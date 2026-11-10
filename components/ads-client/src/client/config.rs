@@ -23,5 +23,4 @@ pub(crate) struct AdsCacheConfig {
 #[derive(Clone, Debug)]
 pub(crate) struct AdsStoreConfig {
     pub db_path: String,
-    pub in_memory: bool,
 }

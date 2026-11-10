@@ -31,7 +31,7 @@ pub mod telemetry;
 pub mod worker;
 
 #[cfg(feature = "stateful")]
-use crate::ads::PlacementId;
+pub use crate::ads::PlacementId;
 pub use ffi::*;
 
 /// Path that makes SQLite open a private in-memory database.
@@ -49,10 +49,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 });
 #[cfg(feature = "stateful")]
 uniffi::custom_type!(PlacementId, String);
-
-// TODO: Best way to do this?
-#[cfg(feature = "stateful")]
-uniffi::custom_newtype!(MozAd, serde_json::Value);
 
 /// Requests ads from MARS and records their clicks, impressions and reports.
 /// Build it with [`MozAdsClientBuilder`], ideally once per app.

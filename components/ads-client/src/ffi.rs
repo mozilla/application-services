@@ -223,7 +223,6 @@ pub struct MozAdsCacheConfig {
 pub struct MozAdsStoreConfig {
     pub db_path: String,
     pub worker_buffer_size: Option<u32>,
-    pub in_memory: bool,
 }
 
 /// IAB content categories, in one taxonomy version.
@@ -323,14 +322,47 @@ pub enum MozAdsImageOrSpoc {
 // Could also be a struct that encapsulates several vecs?
 // TODO: documentation
 // TODO: Does this even work the way you want?
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, uniffi::Enum)]
 
-pub struct MozAd(pub serde_json::Value);
+pub enum MozAd {
+    Image(MozAdsImage),
+    Spoc(MozAdsSpoc),
+    Tile(MozAdsTile),
+}
 
-impl TryFrom<Ad> for MozAd {
-    type Error = serde_json::Error;
-    fn try_from(value: Ad) -> Result<Self, Self::Error> {
-        Ok(MozAd(serde_json::to_value(value)?))
+impl From<Ad> for MozAd {
+    fn from(value: Ad) -> Self {
+        match value {
+            Ad::Image(ad) => MozAd::Image(ad.into()),
+            Ad::Spoc(ad) => MozAd::Spoc(ad.into()),
+            Ad::Tile(ad) => MozAd::Tile(ad.into()),
+        }
+    }
+}
+
+// TODO: Delete or cfg(test)
+// TODO: make it be an error
+impl MozAd {
+    pub fn into_image(self) -> Option<MozAdsImage> {
+        if let MozAd::Image(item) = self {
+            Some(item)
+        } else {
+            None
+        }
+    }
+    pub fn into_tile(self) -> Option<MozAdsTile> {
+        if let MozAd::Tile(item) = self {
+            Some(item)
+        } else {
+            None
+        }
+    }
+    pub fn into_spoc(self) -> Option<MozAdsSpoc> {
+        if let MozAd::Spoc(item) = self {
+            Some(item)
+        } else {
+            None
+        }
     }
 }
 
@@ -547,7 +579,6 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
-            in_memory: config.in_memory,
         }
     }
 }
@@ -572,6 +603,7 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
     }
 }
 
+#[cfg(feature = "stateful")]
 impl From<&MozAdsPlacementRequestGeneric> for AdPlacementRequest {
     fn from(request: &MozAdsPlacementRequestGeneric) -> Self {
         Self {
