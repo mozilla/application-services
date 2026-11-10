@@ -18,7 +18,10 @@ use crate::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    sync::{mpsc::SyncSender, Arc},
+    sync::{
+        mpsc::{self, SyncSender},
+        Arc,
+    },
     thread::JoinHandle,
     time::Duration,
 };
@@ -106,9 +109,9 @@ fn worker(
 
 // Request dispatch enum for passing different instructions to the background worker thread.
 // `RequestAds` are prefetch mechanisms that query and load data into the local cache.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DispatchRequest {
-    Ping(SyncSender<()>),
+    Ping(PingSender),
     RecordClick {
         url: Url,
     },
@@ -136,7 +139,9 @@ impl DispatchRequest {
             // TODO: All of these values are FAKE and not ready. (eg: ohttp)
             // TODO: These need to be passed when the request options refactor is merged.
             // TODO: This includes the `prefetch_ads` below!
-            DispatchRequest::Ping(sender) => sender.send(()).unwrap(),
+            DispatchRequest::Ping(sender) => {
+                sender.try_send().map_err(BackgroundWorkerError::from)?
+            }
             DispatchRequest::RecordClick { url } => ads_client_inner.record_click(url, false)?,
             DispatchRequest::ReportAd { url, reason } => {
                 ads_client_inner.report_ad(url, reason, false)?
@@ -159,40 +164,29 @@ impl DispatchRequest {
     }
 }
 
-// TODO: Better way to do this?
-// TODO: Comment
-#[cfg(test)]
-impl PartialEq for DispatchRequest {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (DispatchRequest::Ping(_), DispatchRequest::Ping(_)) => true,
-            (
-                DispatchRequest::RecordClick { url: url0 },
-                DispatchRequest::RecordClick { url: url1 },
-            ) => url0 == url1,
-            (
-                DispatchRequest::RecordImpression { url: url0 },
-                DispatchRequest::RecordImpression { url: url1 },
-            ) => url0 == url1,
-            (
-                DispatchRequest::ReportAd {
-                    url: url0,
-                    reason: reason0,
-                },
-                DispatchRequest::ReportAd {
-                    url: url1,
-                    reason: reason1,
-                },
-            ) => url0 == url1 && reason0 == reason1,
-            (
-                DispatchRequest::RequestAds {
-                    ad_requests: ad_requests0,
-                },
-                DispatchRequest::RequestAds {
-                    ad_requests: ad_requests1,
-                },
-            ) => ad_requests0 == ad_requests1,
-            _ => false,
-        }
+#[derive(Clone, Debug)]
+pub struct PingSender(SyncSender<()>);
+
+/// PingSender is a wrapper around SyncSender<()>.
+/// PingSender is equal to any other PingSender.
+/// (i.e.: two `DispatchCommand::Ping`, despite being pointing to two receivers, should be considered to be the same command)
+impl PartialEq for PingSender {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl PingSender {
+    pub fn try_send(&self) -> Result<(), BackgroundWorkerError> {
+        self.0
+            .try_send(())
+            .map_err(Box::new)
+            .map_err(BackgroundWorkerError::PongFailure)
+    }
+}
+
+impl From<SyncSender<()>> for PingSender {
+    fn from(value: SyncSender<()>) -> Self {
+        PingSender(value)
     }
 }

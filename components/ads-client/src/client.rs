@@ -183,7 +183,7 @@ impl AdsClient {
         timeout: Option<Duration>,
     ) -> Result<(), BackgroundWorkerError> {
         let (tx, rx) = mpsc::sync_channel(0);
-        self.worker.dispatch(DispatchRequest::Ping(tx))?;
+        self.worker.dispatch(DispatchRequest::Ping(tx.into()))?;
 
         if let Some(timeout) = timeout {
             // TODO: This gives a timeout error if the channel is CLOSED

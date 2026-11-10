@@ -54,14 +54,3 @@ pub enum BackgroundWorkerError {
     #[error("Background worker timed out waiting for response: {0}")]
     TimedOut(#[from] RecvTimeoutError),
 }
-
-// TODO: Is this still needed?
-// #[cfg(feature = "stateful")]
-// impl From<TrySendError<command::DispatchCommand>> for BackgroundWorkerError {
-//     fn from(value: TrySendError<command::DispatchCommand>) -> Self {
-//         match value {
-//             TrySendError::Disconnected(_) => BackgroundWorkerError::Closed,
-//             TrySendError::Full(_) => BackgroundWorkerError::Full,
-//         }
-//     }
-// }
