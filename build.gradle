@@ -126,10 +126,17 @@ subprojects {
     tasks.withType(AbstractTestTask).configureEach {
         failOnNoDiscoveredTests = false
     }
+    tasks.withType(Test).configureEach {
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
+    }
     // Kotlin settings applicable to all modules.
     afterEvaluate{
         if (it.hasProperty('android')) {
             android {
+                compileOptions {
+                    sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                    targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                }
                 publishing {
                     singleVariant('release') {
                         withSourcesJar()
@@ -139,6 +146,7 @@ subprojects {
         }
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
             compilerOptions.allWarningsAsErrors = true
+            compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("${rootProject.config.jvmTargetCompatibility}")
         }
     }
 
@@ -164,6 +172,9 @@ subprojects {
 ext.cargoExec = { spec, toolchain ->
     spec.environment("NSS_STATIC", "1")
     spec.environment("NSS_DIR",               new File(rootProject.rootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    if (toolchain.folder.startsWith("android/")) {
+        spec.environment("BINDGEN_EXTRA_CLANG_ARGS", "--target=${toolchain.compilerTriple}${rootProject.config.minSdkVersion}")
+    }
 }
 
 detekt {

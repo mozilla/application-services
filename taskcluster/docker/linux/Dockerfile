@@ -22,7 +22,7 @@ WORKDIR /builds/worker/
 ENV ANDROID_BUILD_TOOLS "36.1.0"
 ENV ANDROID_TOOLS_VERSION "13114758"
 ENV ANDROID_PLATFORM_VERSION "36.1"
-ENV ANDROID_NDK_VERSION "29.0.14206865"
+ENV ANDROID_NDK_VERSION "30.0.16248370"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
 ENV LANG en_US.UTF-8
@@ -52,7 +52,7 @@ RUN apt-get update -qq \
         # If you add anything below, please update building.md.
         ####################
         # Android builds
-        openjdk-17-jdk \
+        openjdk-25-jdk \
         # Required by gyp but also CI scripts.
         python3 \
         python3-pip \

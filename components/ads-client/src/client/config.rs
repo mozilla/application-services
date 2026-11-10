@@ -7,12 +7,14 @@
 use std::time::Duration;
 
 use crate::mars::Environment;
+use crate::non_empty_string::NonEmptyString;
 
 pub(crate) struct AdsClientConfig {
     pub cache_config: Option<AdsCacheConfig>,
     pub environment: Environment,
     #[cfg(feature = "stateful")]
     pub store_config: Option<AdsStoreConfig>,
+    pub user_agent: Option<NonEmptyString>,
     // TODO: Add note: I like separating these like this, but we could condense these onto AdsClientConfig.
     #[cfg(feature = "stateful")]
     pub worker_config: Option<WorkerConfig>,

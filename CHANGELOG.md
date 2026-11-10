@@ -1,6 +1,29 @@
-# v161.0 (In progress)
+# v162.0 (In progress)
 
 [Full Changelog](In progress)
+
+## ✨ What's Changed ✨
+
+### Android
+
+- Upgraded NDK from r29 to r30.
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+
+### Merino
+
+- Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
+
+### Remote Settings
+
+- Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+
+
+# v161.0 (_2026-11-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
 
 ## ✨ What's Changed ✨
 
@@ -23,11 +46,19 @@
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
 
+### Merino
+
+- `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
+
 ## Breaking Changes
 
 ### Autofill
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
+
+### Nimbus
+
+- The `rkv-safe-mode` feature has been removed and Nimbus defaults to using the safe backend in stateful (i.e., non-cirrus) configurations. ([#7728](https://github.com/mozilla/application-services/pull/7728))
 
 # v160.0 (_2026-10-22_)
 
