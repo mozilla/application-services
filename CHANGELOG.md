@@ -12,6 +12,10 @@
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 
+### Merino
+
+- Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
+
 ### Remote Settings
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
