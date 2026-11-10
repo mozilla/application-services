@@ -130,6 +130,9 @@ impl MozAdsClientBuilder {
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
             user_agent: inner.user_agent.clone(),
+            // TODO: When FFI layer is enabled for stateful client, pass in the config here.
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
 
         let client = AdsClient::new(client_config);

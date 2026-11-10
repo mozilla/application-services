@@ -155,6 +155,18 @@ impl MARSClient {
     }
 }
 
+/// Common request options to MARS.
+/// If new fields are added, their defaults should be explicitly considered,
+/// and an explicit implementation should be created if needed.
+#[cfg(feature = "stateful")]
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct MARSRequestOptions {
+    pub flags: AdRequestFlags,
+    pub cache_policy: CachePolicy,
+    pub ohttp: bool,
+    pub blocks: Vec<String>,
+}
+
 #[cfg(test)]
 mod tests {
 

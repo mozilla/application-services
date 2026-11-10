@@ -47,6 +47,11 @@ pub enum FetchAdsError {
     #[error("OHTTP preflight failed: {0}")]
     Preflight(#[from] CallbackRequestError),
 
+    // TODO: Remove this once we can prove that sqlite memory is infallible.
+    #[cfg(feature = "stateful")]
+    #[error("Internal database error: database shut down or uninitialized")]
+    SqliteShutdown,
+
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
 
