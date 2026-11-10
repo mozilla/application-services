@@ -112,6 +112,8 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
                 "certhi",
                 "cryptohi",
                 "freebl_static",
+                "pqcwrap_static",
+                "crux",
                 "gcm",
                 "mozpkix",
                 "nspr4",
@@ -140,6 +142,8 @@ fn get_nss_libs(kind: LinkingKind) -> Vec<&'static str> {
             }
             if target_arch == "aarch64" {
                 static_libs.push("ghash-aes-aarch64_c_lib");
+                static_libs.push("aarch64-gcm-wrap_c_lib");
+                static_libs.push("hw-acc-crypto-avx");
             }
             if target_arch == "x86_64" {
                 static_libs.push("hw-acc-crypto-avx");
