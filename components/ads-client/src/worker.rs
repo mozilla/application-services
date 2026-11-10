@@ -126,10 +126,10 @@ impl DispatchRequest {
         ads_client_inner: Arc<AdsClientInner>,
     ) -> Result<(), ComponentError> {
         match self {
-            // TODO: All of the MARS options are simulated, as the refactor is required first.
-            // TODO: These need to be passed when the request options refactor is merged.
-            // TODO: This includes the `ohttp=false` flags, as well as `MARSRequestOptions::default()` in `prefetch_ads` below!
-            // TODO: The same is true for relevance: `AdsRequestRelevance::new()`
+            // TODO: All of the MARS options are defaulted, as the AdsClient options refactor is required first.
+            // These need to be passed when the request options refactor is merged.
+            // This includes the `ohttp=false` flags, as well as `MARSRequestOptions::default()` in `prefetch_ads` below!
+            // The same is true for relevance: `AdsRequestRelevance::new()`
             DispatchRequest::RecordClick { url } => ads_client_inner.record_click(url, false)?,
             DispatchRequest::ReportAd { url, reason } => {
                 ads_client_inner.report_ad(url, reason, false)?
