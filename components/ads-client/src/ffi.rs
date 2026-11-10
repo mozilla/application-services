@@ -10,9 +10,9 @@ use crate::ads::PlacementId;
 use crate::ads::{
     Ad, AdCallbacks, AdImage, AdImageOrSpoc, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
-#[cfg(feature = "stateful")]
-use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
+#[cfg(feature = "stateful")]
+use crate::client::config::{AdsStoreConfig, WorkerConfig};
 use crate::client::AdsClient;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{
@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
+use std::time::Duration;
 
 pub use error::{AdsClientApiResult, MozAdsClientApiError};
 pub use telemetry::MozAdsTelemetry;
@@ -108,6 +109,8 @@ struct MozAdsClientBuilderInner {
     environment: Option<MozAdsEnvironment>,
     #[cfg(feature = "stateful")]
     store_config: Option<MozAdsStoreConfig>,
+    #[cfg(feature = "stateful")]
+    worker_config: Option<MozWorkerConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
@@ -135,17 +138,13 @@ impl MozAdsClientBuilder {
             telemetry::install(callback);
         }
 
-        // TODO: where does this go?
-        // #[cfg(feature = "stateful")]
-        // let worker_buffer_size = inner
-        //     .store_config
-        //     .as_ref()
-        //     .and_then(|x| x.worker_buffer_size);
         let client_config = AdsClientConfig {
             cache_config: inner.cache_config.clone().map(Into::into),
             environment: inner.environment.clone().unwrap_or_default().into(),
             #[cfg(feature = "stateful")]
             store_config: inner.store_config.clone().map(Into::into),
+            #[cfg(feature = "stateful")]
+            worker_config: inner.worker_config.clone().map(Into::into),
         };
 
         let client = AdsClient::new(client_config);
@@ -178,10 +177,17 @@ impl MozAdsClientBuilder {
 #[cfg(feature = "stateful")]
 #[uniffi::export]
 impl MozAdsClientBuilder {
-    /// Where the stateful client keeps its ads database.
+    /// Where the stateful client keeps its ads database, and its related configuration options.
     #[cfg(feature = "stateful")]
     pub fn store_config(self: Arc<Self>, store_config: MozAdsStoreConfig) -> Arc<Self> {
         self.0.lock().store_config = Some(store_config);
+        self
+    }
+
+    /// Configuration options for the background worker.
+    #[cfg(feature = "stateful")]
+    pub fn worker_config(self: Arc<Self>, worker_config: MozWorkerConfig) -> Arc<Self> {
+        self.0.lock().worker_config = Some(worker_config);
         self
     }
 }
@@ -222,7 +228,13 @@ pub struct MozAdsCacheConfig {
 #[derive(Clone, uniffi::Record)]
 pub struct MozAdsStoreConfig {
     pub db_path: String,
-    pub worker_buffer_size: Option<u32>,
+}
+
+/// The SQLite database the stateful client keeps its ads in.
+#[derive(Clone, uniffi::Record)]
+pub struct MozWorkerConfig {
+    pub worker_batch: Option<Duration>,
+    pub buffer_size: Option<u32>,
 }
 
 /// IAB content categories, in one taxonomy version.
@@ -579,6 +591,16 @@ impl From<MozAdsStoreConfig> for AdsStoreConfig {
     fn from(config: MozAdsStoreConfig) -> Self {
         Self {
             db_path: config.db_path,
+        }
+    }
+}
+
+#[cfg(feature = "stateful")]
+impl From<MozWorkerConfig> for WorkerConfig {
+    fn from(config: MozWorkerConfig) -> Self {
+        Self {
+            worker_batch: config.worker_batch,
+            buffer_size: config.buffer_size,
         }
     }
 }

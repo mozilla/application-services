@@ -56,13 +56,14 @@ pub struct AdsClientInner {
 }
 
 impl AdsClient {
-    // TODO: It makes more sense for field to be IN the config itself.
     pub(crate) fn new(client_config: AdsClientConfig) -> Self {
+        #[cfg(feature = "stateful")]
+        let worker_config = client_config.worker_config.clone();
         let inner = Arc::new(AdsClientInner::new(client_config));
 
         #[cfg(feature = "stateful")]
-        // TODO: The sleep needs to be passed here.
-        let worker = worker::BackgroundWorker::new(inner.clone(), None);
+        let worker =
+            worker::BackgroundWorker::new(inner.clone(), worker_config.unwrap_or_default());
         AdsClient {
             inner,
             #[cfg(feature = "stateful")]
@@ -683,6 +684,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -774,6 +777,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 
@@ -812,6 +817,8 @@ mod tests {
             environment: Environment::Test,
             #[cfg(feature = "stateful")]
             store_config: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 
