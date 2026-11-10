@@ -53,7 +53,7 @@ impl AdsStoreBuilder {
             .map_err(AdsStoreBuilderError::from)
             .inspect_err(telemetry::record_ads_store_error)
             .or_else(|_| open_connection(Path::new(IN_MEMORY_DB_PATH)))?;
-        let holder = AdsStoreHolder::new(db);
+        let holder = AdsStoreHolder::new(Box::new(db));
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         Ok(AdsStore { holder, max_size })
     }

@@ -4,6 +4,7 @@
 
 pub mod builder;
 pub mod connection_initializer;
+pub mod sqlite;
 pub mod store;
 
 use crate::{
