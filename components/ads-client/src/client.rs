@@ -301,31 +301,6 @@ impl AdsClientInner {
         }
     }
 
-    // TODO: Do we want to have a 'force' option that allows guaranteed forcible deserialization into a certain type?
-    // #[cfg(feature = "stateful")]
-    // pub fn get_stored_ad_spocs(&self, placement_id: &PlacementId) -> Option<Vec<AdSpoc>> {
-    //     let Some(ads_store) = self.ads_store.as_ref() else {
-    //         // TODO: Telemetry should be added here for the database being shut down.
-    //         return None;
-    //     };
-
-    //     // todo: tidy up
-    //     let ads = match ads_store.lookup(placement_id) {
-    //             Ok(ad) => ad,
-    //             Err(_) => {
-    //                 // TODO: Telemetry should return an error here (eg: some internal sqlite error)
-    //                 None
-    //             }
-    //         }?;
-
-    //         // Todo: tidy up
-    //     let converted_ads = ads.into_iter().filter_map(|x| AdSpoc::try_from(x).inspect_err(|e| {
-    //         // TODO: telemetry error for wrong ad type?
-    //         // TODO: Also, is there any better thing to do with UnexpectedAdType? what else uses this
-    //     }).ok() ).collect();
-    //     Some(converted_ads)
-    // }
-
     #[cfg(feature = "stateful")]
     pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
         let Some(ads_store) = self.ads_store.as_ref() else {
@@ -420,6 +395,9 @@ impl AdsClientInner {
             })
     }
 
+    /// Ad fetching function designed to be run in the background.
+    /// It can fetch and store ads of any type (handled with `Ad` enum), storing them
+    /// in client's AdStore structure (to be fetched later, by a different function).
     #[cfg(feature = "stateful")]
     pub(crate) fn prefetch_ads(
         &self,
@@ -445,15 +423,15 @@ impl AdsClientInner {
             })?;
         telemetry::record_client_operation(ClientOperation::RequestAds);
 
-        // TODO: Get ads.
-        let ads = response.data;
+        // Extract ads, and convert the raw Strings into PlacementIds.
+        let ads = response
+            .data
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
 
-        // TODO: Mapping step is only for the placementid issue
-        let ads = ads.into_iter().map(|(k, v)| (k.into(), v.into())).collect();
-
-        // Stores the ads in the ad store
-        // TODO: Should ALL ad functions work this way to start? (the piecemeal shifting approach- preferred ∫y others)
-
+        // Stores the ads in the ad store.
+        // TODO: All synchronous ad requests will need to work this way- prefetch, get from the store.
         self.store_ads(ads)?;
 
         Ok(())
@@ -565,35 +543,6 @@ impl AdsClientInner {
             .map(|response| {
                 telemetry::record_client_operation(ClientOperation::RequestAds);
                 response.take_first::<AdTile>()
-            })
-    }
-
-    // TODO: Is this still needed?
-    #[cfg(feature = "stateful")]
-    pub(crate) fn request_mixed_ads(
-        &self,
-        ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
-        relevance: AdRequestRelevance,
-    ) -> Result<HashMap<String, Vec<Ad>>, RequestAdsError> {
-        let result = self.request_ads(
-            ad_placement_requests,
-            flags,
-            options,
-            ohttp,
-            blocks,
-            relevance,
-        );
-        result
-            .inspect_err(|e| {
-                telemetry::record_client_error(ClientOperation::RequestAds, e);
-            })
-            .map(|response| {
-                telemetry::record_client_operation(ClientOperation::RequestAds);
-                response.data
             })
     }
 

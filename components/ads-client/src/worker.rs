@@ -133,34 +133,26 @@ impl DispatchRequest {
     ) -> Result<(), ComponentError> {
         // TODO: various unwraps here
         match self {
+            // TODO: All of these values are FAKE and not ready. (eg: ohttp)
+            // TODO: These need to be passed when the request options refactor is merged.
+            // TODO: This includes the `prefetch_ads` below!
             DispatchRequest::Ping(sender) => sender.send(()).unwrap(),
-            DispatchRequest::RecordClick { url } => {
-                ads_client_inner.record_click(url, false).unwrap()
-            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+            DispatchRequest::RecordClick { url } => ads_client_inner.record_click(url, false)?,
             DispatchRequest::ReportAd { url, reason } => {
-                ads_client_inner.report_ad(url, reason, false).unwrap()
-            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+                ads_client_inner.report_ad(url, reason, false)?
+            }
             DispatchRequest::RecordImpression { url } => {
-                ads_client_inner.record_impression(url, false).unwrap()
-            } // TODO: false here, but ohttp shouldn't be passed at all when refactor is merged,
+                ads_client_inner.record_impression(url, false)?
+            }
             DispatchRequest::RequestAds { ad_requests } => {
-                // TODO: Maybe this behgaviour should be entirely in the client?
-                // TODO: all these vlaues here! should be passed from existing options in clienr
-                // TODO: unwraps
-                let ads = ads_client_inner
-                    .request_mixed_ads(
-                        ad_requests.into_iter().collect(),
-                        HashMap::new(),
-                        None,
-                        false,
-                        vec![],
-                        AdRequestRelevance::new(),
-                    )
-                    .unwrap();
-                // Convert to PlacementId
-                // TODO: easier convert?
-                let ads = ads.into_iter().map(|(k, v)| (k.into(), v)).collect();
-                ads_client_inner.store_ads(ads).unwrap();
+                ads_client_inner.prefetch_ads(
+                    ad_requests.into_iter().collect(),
+                    HashMap::new(),
+                    None,
+                    false,
+                    vec![],
+                    AdRequestRelevance::new(),
+                )?;
             }
         }
         Ok(())
