@@ -6,13 +6,11 @@ use parking_lot::{Condvar, Mutex};
 use url::Url;
 
 use crate::{
-    ads::PlacementId,
-    mars::{ad_request::AdPlacementRequest, ReportReason},
-    worker::DispatchRequest,
+    ads::PlacementId, mars::{ReportReason, ad_request::AdPlacementRequest}, worker::{DispatchRequest, PingSender},
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    sync::{mpsc::SyncSender, Arc},
+    sync::Arc,
     time::Duration,
 };
 
@@ -157,7 +155,7 @@ impl RequestQueueInner {
 // Queue-able command (ReportAd, etc.)
 #[derive(Clone, Debug)]
 enum QueuedRequest {
-    Ping(SyncSender<()>),
+    Ping(PingSender),
     RecordClick { url: Url },
     RecordImpression { url: Url },
     ReportAd { reason: ReportReason, url: Url },

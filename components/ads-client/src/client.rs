@@ -591,7 +591,7 @@ impl AdsClientInner {
 mod tests {
 
     #[cfg(feature = "stateful")]
-    use crate::ads_store::builder::AdsStoreBuilder;
+    use crate::{ads_store::builder::AdsStoreBuilder, client::config::WorkerConfig};
     use crate::{
         mars::Environment,
         test_utils::{
@@ -620,9 +620,8 @@ mod tests {
         });
         AdsClient {
             inner: inner.clone(),
-            // TODO: This should not be empty
             #[cfg(feature = "stateful")]
-            worker: worker::BackgroundWorker::new_empty(),
+            worker: worker::BackgroundWorker::new(inner.clone(), WorkerConfig::default()),
         }
     }
 

@@ -68,13 +68,6 @@ impl BackgroundWorker {
         }
     }
 
-    pub fn new_empty() -> BackgroundWorker {
-        BackgroundWorker {
-            thread_handle: None,
-            request_queue: RequestQueue::new(),
-        }
-    }
-
     // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
     pub fn dispatch(&self, request: DispatchRequest) -> Result<(), BackgroundWorkerError> {
         if self.thread_handle.is_some() {
