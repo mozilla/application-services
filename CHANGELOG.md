@@ -15,6 +15,7 @@
 ### Remote Settings
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+- New `glean-sym` feature: uptake telemetry is recorded directly from Rust with the application's Glean SDK. With this feature enabled, `RemoteSettingsTelemetry` implementations are ignored and applications can remove them.
 
 
 # v161.0 (_2026-11-05_)
