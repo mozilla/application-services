@@ -3,9 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#[cfg(feature = "stateful")]
-use std::sync::mpsc::RecvTimeoutError;
-
 use crate::mars::error::{FetchAdsError, RecordClickError, RecordImpressionError, ReportAdError};
 
 #[derive(Debug, thiserror::Error)]
@@ -44,10 +41,4 @@ pub enum RequestAdsError {
 pub enum BackgroundWorkerError {
     #[error("Background worker is closed")]
     Closed,
-
-    #[error("Background worker is full")]
-    Full,
-
-    #[error("Background worker timed out waiting for response: {0}")]
-    TimedOut(#[from] RecvTimeoutError),
 }
