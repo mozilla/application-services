@@ -68,8 +68,7 @@ impl NetworkFirst {
             let ttl = EffectiveTtl {
                 default: self.default_ttl,
                 explicit: self.explicit_ttl,
-                server_max_age: cache_control.max_age_duration(),
-                current_age: ResponseAge::from(&response).at(now),
+                server: cache_control.time_to_live(ResponseAge::from(&response).at(now)),
             }
             .resolve();
             if ttl.is_zero() {
