@@ -55,6 +55,9 @@ impl ServiceStatus {
             }
 
             Error::Interrupted(_) => ServiceStatus::Interrupted,
+            // Expected and self-healing; normally turned into `Ok` by
+            // `soften_engine_result`, but never let it stop other engines.
+            Error::CollectionChangedDuringDownload => ServiceStatus::OtherError,
             _ => ServiceStatus::OtherError,
         }
     }

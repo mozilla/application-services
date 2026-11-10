@@ -95,6 +95,14 @@ pub enum Error {
     #[error("Unexpected server behavior during batch upload: {0}")]
     ServerBatchProblem(&'static str),
 
+    // The collection was modified on the server while we were paging through it
+    // (a 412, or a changed X-Last-Modified, on a page after the first). This is
+    // expected to fix itself on the next sync, so callers should not treat it as
+    // a hard error.
+    #[cfg(feature = "sync-client")]
+    #[error("The collection changed on the server while it was being downloaded")]
+    CollectionChangedDuringDownload,
+
     #[cfg(feature = "sync-client")]
     #[error("It appears some other client is also trying to setup storage; try again later")]
     SetupRace,

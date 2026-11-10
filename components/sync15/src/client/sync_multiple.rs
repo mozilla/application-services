@@ -318,6 +318,7 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 &mut telem_engine,
                 self.interruptee,
             );
+            let result = soften_engine_result(&name, result, &mut telem_engine);
 
             match result {
                 Ok(()) => info!("Sync of {} was successful!", name),
@@ -486,5 +487,29 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 PersistedGlobalState::default()
             }
         }
+    }
+}
+
+/// Some engine errors are expected and fix themselves - currently only the
+/// collection changing on the server while we were paging through it. Those
+/// shouldn't be reported to the app as a failure, cause backoff, or stop the
+/// remaining engines from syncing, so we record them in telemetry and then
+/// treat the engine's sync as successful. The next sync will download the
+/// collection again, because no engine advances its timestamp before `apply()`.
+fn soften_engine_result(
+    name: &str,
+    result: Result<(), Error>,
+    telem_engine: &mut telemetry::Engine,
+) -> Result<(), Error> {
+    match result {
+        Err(e @ Error::CollectionChangedDuringDownload) => {
+            info!(
+                "{} changed on the server while we were downloading it; will retry next sync",
+                name
+            );
+            telem_engine.failure(&e);
+            Ok(())
+        }
+        other => other,
     }
 }
