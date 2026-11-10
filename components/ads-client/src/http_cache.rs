@@ -7,6 +7,7 @@ mod cache_control;
 mod connection_initializer;
 mod outcome;
 mod request_hash;
+pub mod sqlite;
 mod store;
 mod strategy;
 mod ttl;
