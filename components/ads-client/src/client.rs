@@ -3,28 +3,23 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#[cfg(feature = "stateful")]
-use crate::ads::{Ad, PlacementId};
 use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
-#[cfg(feature = "stateful")]
-use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
-#[cfg(feature = "stateful")]
-use crate::client::error::BackgroundWorkerError;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
-#[cfg(feature = "stateful")]
-use crate::mars::error::FetchAdsError;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
-#[cfg(feature = "stateful")]
-use crate::mars::MARSRequestOptions;
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 #[cfg(feature = "stateful")]
-use crate::worker::{self, BackgroundWorker, DispatchRequest};
-#[cfg(feature = "stateful")]
-use crate::MozAdsPlacementRequestWithCount;
+use crate::{
+    ads::{Ad, PlacementId},
+    ads_store::AdsStore,
+    client::error::BackgroundWorkerError,
+    mars::{error::FetchAdsError, MARSRequestOptions},
+    worker::{self, BackgroundWorker, DispatchRequest},
+    MozAdsPlacementRequestWithCount,
+};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
