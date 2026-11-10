@@ -44,6 +44,7 @@ pub enum FetchAdsError {
     #[error("OHTTP preflight failed: {0}")]
     Preflight(#[from] CallbackRequestError),
 
+    // TODO: Remove this once we can prove that sqlite memory is infallible.
     #[error("Internal database error: database shut down or uninitialized")]
     SqliteShutdown,
 

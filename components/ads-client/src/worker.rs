@@ -143,7 +143,7 @@ impl DispatchRequest {
                 ads_client_inner.record_impression(url, false)?
             }
             DispatchRequest::RequestAds { ad_requests } => {
-                ads_client_inner.prefetch_ads(
+                ads_client_inner.prefetch_ads_request(
                     ad_requests.into_iter().collect(),
                     HashMap::new(),
                     None,

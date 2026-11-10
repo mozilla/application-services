@@ -161,7 +161,7 @@ impl AdsClient {
     }
 
     #[cfg(feature = "stateful")]
-    pub fn prefetch_ads(
+    pub fn prefetch_ads_dispatch(
         &self,
         ad_requests: Vec<MozAdsPlacementRequestGeneric>,
     ) -> Result<(), BackgroundWorkerError> {
@@ -399,7 +399,7 @@ impl AdsClientInner {
     /// It can fetch and store ads of any type (handled with `Ad` enum), storing them
     /// in client's AdStore structure (to be fetched later, by a different function).
     #[cfg(feature = "stateful")]
-    pub(crate) fn prefetch_ads(
+    pub(crate) fn prefetch_ads_request(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,

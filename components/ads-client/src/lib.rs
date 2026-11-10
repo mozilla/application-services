@@ -225,7 +225,6 @@ impl MozAdsClient {
 #[cfg(feature = "stateful")]
 #[uniffi::export]
 impl MozAdsClient {
-    // TODO: Can we make this one request?
     #[handle_error(ComponentError)]
     #[uniffi::method(default(ad_requests = [], options = None))]
     pub fn prefetch_ads(
@@ -239,14 +238,8 @@ impl MozAdsClient {
         let blocks = options.blocks.clone();
         let cache_policy: CachePolicy = options.into();
 
-        // Sort the ads to batch them into separate requests.
-
         // TODO: Need to pass along OHTTP, etc
-        // ohttp,
-        // cache_policy,
-        // flags: flags.clone(),
-        // blocks: blocks.clone(),
-        self.inner.prefetch_ads(ad_requests)?;
+        self.inner.prefetch_ads_dispatch(ad_requests)?;
 
         Ok(())
     }
