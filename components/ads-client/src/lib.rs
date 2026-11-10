@@ -232,11 +232,11 @@ impl MozAdsClient {
         ad_requests: Vec<MozAdsPlacementRequestGeneric>,
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<()> {
-        let options = options.unwrap_or_default();
-        let flags = AdRequestFlags::from(&options);
-        let ohttp = options.ohttp;
-        let blocks = options.blocks.clone();
-        let cache_policy: CachePolicy = options.into();
+        let _options = options.unwrap_or_default();
+        // let flags = AdRequestFlags::from(&options);
+        // let ohttp = options.ohttp;
+        // let blocks = options.blocks.clone();
+        // let cache_policy: CachePolicy = options.into();
 
         // TODO: Need to pass along OHTTP, etc
         self.inner.prefetch_ads_dispatch(ad_requests)?;

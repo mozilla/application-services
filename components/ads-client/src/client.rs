@@ -17,6 +17,8 @@ use crate::mars::ad_response::AdResponse;
 #[cfg(feature = "stateful")]
 use crate::mars::error::FetchAdsError;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
+#[cfg(feature = "stateful")]
+use crate::mars::MARSRequestOptions;
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 #[cfg(feature = "stateful")]
@@ -167,6 +169,8 @@ impl AdsClient {
     ) -> Result<(), BackgroundWorkerError> {
         self.worker.dispatch(DispatchRequest::RequestAds {
             ad_requests: ad_requests.into_iter().map(|x| (&x).into()).collect(),
+            // TODO: Remove this on merge of sendable options refactor, and use a 'real' options.
+            mars_options: MARSRequestOptions::default(),
         })?;
 
         Ok(())
@@ -308,7 +312,7 @@ impl AdsClientInner {
             return None;
         };
 
-        ads_store.lookup(placement_id).unwrap_or_else(|err| {
+        ads_store.lookup(placement_id).unwrap_or_else(|_err| {
             // TODO: Telemetry should return an error here (eg: some internal sqlite error)
             None
         })
@@ -402,21 +406,18 @@ impl AdsClientInner {
     pub(crate) fn prefetch_ads_request(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        flags: AdRequestFlags,
-        options: Option<CachePolicy>,
-        ohttp: bool,
-        blocks: Vec<String>,
+        mars_options: MARSRequestOptions,
         // TODO: These are only for tiles
         relevance: AdRequestRelevance,
     ) -> Result<(), RequestAdsError> {
         let response = self
             .request_ads(
                 ad_placement_requests,
-                flags,
-                options,
-                ohttp,
-                blocks,
-                AdRequestRelevance::default(),
+                mars_options.flags,
+                Some(mars_options.cache_policy),
+                mars_options.ohttp,
+                mars_options.blocks,
+                relevance,
             )
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);

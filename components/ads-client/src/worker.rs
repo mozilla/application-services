@@ -12,14 +12,14 @@ use crate::{
     },
     mars::{
         ad_request::{AdPlacementRequest, AdRequestRelevance},
-        ReportReason,
+        MARSRequestOptions, ReportReason,
     },
     request::RequestQueue,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::{
-        mpsc::{self, SyncSender},
+        mpsc::SyncSender,
         Arc,
     },
     thread::JoinHandle,
@@ -117,6 +117,8 @@ pub enum DispatchRequest {
     },
     RequestAds {
         ad_requests: HashSet<AdPlacementRequest>,
+        // TODO: Remove when MARS request options are set.
+        mars_options: MARSRequestOptions,
     },
 }
 
@@ -142,13 +144,14 @@ impl DispatchRequest {
             DispatchRequest::RecordImpression { url } => {
                 ads_client_inner.record_impression(url, false)?
             }
-            DispatchRequest::RequestAds { ad_requests } => {
+            DispatchRequest::RequestAds {
+                ad_requests,
+                mars_options,
+            } => {
                 ads_client_inner.prefetch_ads_request(
                     ad_requests.into_iter().collect(),
-                    HashMap::new(),
-                    None,
-                    false,
-                    vec![],
+                    mars_options,
+                    // TODO: Relevance needs to be passed correctly as a part of the MARS PR.
                     AdRequestRelevance::new(),
                 )?;
             }
