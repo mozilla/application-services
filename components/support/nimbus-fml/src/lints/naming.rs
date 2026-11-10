@@ -2,33 +2,23 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Lints about names. Feature ids and variable names are typed by hand into
-//! Experimenter branches, so they should be predictable.
+//! Lints about variable and type naming.
 
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::{
-    enum_path, enum_variant_path, feature_path, is_boolean, object_field_path, object_path,
-    variable_path, LintInfo, Linter, Location, RawFinding,
+    enum_path, feature_path, is_boolean, object_field_path, object_path, variable_path, LintInfo,
+    Linter, Location, RawFinding,
 };
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 
 define_lints! {
-    FEATURE_NAME_CASING: Naming, Warning =
-        "Feature ids should be kebab-case.",
-        "Feature ids are typed by hand into Experimenter.";
-    VARIABLE_NAME_CASING: Naming, Warning =
-        "Variable and field names should be kebab-case.",
-        "Variables are written out as JSON keys in Experimenter.";
     TYPE_NAME_CASING: Naming, Warning =
         "Objects and enums should be UpperCamelCase.",
         "Objects and enums become classes and types in the generated Kotlin and Swift.";
-    ENUM_VARIANT_CASING: Naming, Warning =
-        "Enum variants should be kebab-case.",
-        "Variants are written out as JSON strings in Experimenter.";
     COMMON_PREFIX: Naming, Warning =
         "Variables shouldn't repeat the name of the feature they belong to.",
         "Variables are always read together with the feature they belong to, so a shared prefix only makes them longer. Drop it, or group the variables into an object if the prefix is really a thing in its own right.";
@@ -91,20 +81,7 @@ impl Linter for Naming {
 }
 
 fn check_feature(feature: &FeatureDef, out: &mut Vec<RawFinding>) {
-    if !KEBAB_CASE.is_match(&feature.name) {
-        out.push(RawFinding::new(
-            &FEATURE_NAME_CASING,
-            feature_path(feature),
-            format!(
-                "`{}` isn't kebab-case{}",
-                feature.name,
-                rename_to(&feature.name)
-            ),
-        ));
-    }
-
     for prop in &feature.props {
-        check_variable_name(&prop.name, variable_path(feature, prop), out);
         check_type_in_name(prop, variable_path(feature, prop), out);
         check_negated_boolean(prop, variable_path(feature, prop), out);
     }
@@ -122,7 +99,6 @@ fn check_object(object: &ObjectDef, out: &mut Vec<RawFinding>) {
     }
 
     for prop in &object.props {
-        check_variable_name(&prop.name, object_field_path(object, prop), out);
         check_type_in_name(prop, object_field_path(object, prop), out);
         check_negated_boolean(prop, object_field_path(object, prop), out);
     }
@@ -134,30 +110,6 @@ fn check_enum(enum_def: &EnumDef, out: &mut Vec<RawFinding>) {
             &TYPE_NAME_CASING,
             enum_path(enum_def),
             format!("`{}` isn't UpperCamelCase", enum_def.name),
-        ));
-    }
-
-    for variant in &enum_def.variants {
-        if !KEBAB_CASE.is_match(&variant.name) {
-            out.push(RawFinding::new(
-                &ENUM_VARIANT_CASING,
-                enum_variant_path(enum_def, &variant.name),
-                format!(
-                    "`{}` isn't kebab-case{}",
-                    variant.name,
-                    rename_to(&variant.name)
-                ),
-            ));
-        }
-    }
-}
-
-fn check_variable_name(name: &str, path: Location, out: &mut Vec<RawFinding>) {
-    if !KEBAB_CASE.is_match(name) {
-        out.push(RawFinding::new(
-            &VARIABLE_NAME_CASING,
-            path,
-            format!("`{name}` isn't kebab-case{}", rename_to(name)),
         ));
     }
 }
@@ -274,17 +226,6 @@ fn shared_prefix(props: &[PropDef]) -> Option<String> {
         .then_some(first)
 }
 
-/// Empty when `heck` can't improve on `name`, as for `9lives`.
-fn rename_to(name: &str) -> String {
-    use heck::ToKebabCase;
-    let kebab = name.to_kebab_case();
-    if kebab == name {
-        String::new()
-    } else {
-        format!("; rename it to `{kebab}`")
-    }
-}
-
 #[cfg(test)]
 mod unit_tests {
     use super::*;
@@ -305,56 +246,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_casing() {
-        assert!(lints(&feature(
-            "my-feature",
-            vec![prop("my-variable", &TypeRef::Int)]
-        ))
-        .is_empty());
-
-        assert_eq!(
-            lints(&feature("myFeature", Default::default())),
-            vec!["FEATURE_NAME_CASING"]
-        );
-        assert_eq!(
-            lints(&feature("my_feature", Default::default())),
-            vec!["FEATURE_NAME_CASING"]
-        );
-        assert_eq!(
-            lints(&feature(
-                "my-feature",
-                vec![prop("myVariable", &TypeRef::Int)]
-            )),
-            vec!["VARIABLE_NAME_CASING"]
-        );
-    }
-
-    #[test]
-    fn test_casing_without_a_suggestion() {
-        // `heck` can't improve a name the regex rejects for starting with a digit.
-        let findings = lints(&feature("9lives", Default::default()));
-        assert_eq!(findings, vec!["FEATURE_NAME_CASING"]);
-
-        let mut out = Vec::new();
-        check_feature(&feature("9lives", Default::default()), &mut out);
-        assert_eq!(out[0].message, "`9lives` isn't kebab-case");
-    }
-
-    #[test]
-    fn test_type_name_casing() {
-        let mut out = Vec::new();
-        check_object(&ObjectDef::new("my-object", &[]), &mut out);
-        check_enum(&EnumDef::new("myEnum", &["ok"]), &mut out);
-        let names: Vec<_> = out.iter().map(|f| f.lint.name).collect();
-        assert_eq!(names, vec!["TYPE_NAME_CASING", "TYPE_NAME_CASING"]);
-
-        let mut out = Vec::new();
-        check_enum(&EnumDef::new("MyEnum", &["notKebab"]), &mut out);
-        let names: Vec<_> = out.iter().map(|f| f.lint.name).collect();
-        assert_eq!(names, vec!["ENUM_VARIANT_CASING"]);
-    }
-
-    #[test]
     fn test_object_fields_are_checked_like_variables() {
         let mut out = Vec::new();
         check_object(
@@ -371,7 +262,7 @@ mod unit_tests {
 
         assert_eq!(
             out.iter().map(|f| f.lint.name).collect::<Vec<_>>(),
-            vec!["VARIABLE_NAME_CASING", "NEGATED_BOOLEAN", "TYPE_IN_NAME"]
+            vec!["NEGATED_BOOLEAN", "TYPE_IN_NAME"]
         );
     }
 

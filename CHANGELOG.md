@@ -17,6 +17,10 @@
 
 - Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
 
+### Nimbus
+
+- Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+
 ### Remote Settings
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
@@ -46,7 +50,6 @@
 ### Remote Settings
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
-
 ### Merino
 
 - `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
