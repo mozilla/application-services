@@ -48,13 +48,14 @@ pub fn transition(
                 // For connected accounts, rerun finish_initialize() since it's possible the
                 // capabilities have changed since the last run -- for example because the user
                 // upgraded Firefox.
-                match account.finish_initialize(&device_config.capabilities) {
-                    Ok(()) => Ok(S::Connected),
-                    Err(cause) => {
+                account
+                    .finish_initialize(&device_config.capabilities)
+                    .to_state_machine_err(|| {
+                        // TODO(bug 2070265): stay in the connected state on network and other expected errors.
                         account.reset_auth_recheck_timer();
-                        Err(StateMachineErr::new(cause, S::AuthIssues))
-                    }
-                }
+                        S::AuthIssues
+                    })?;
+                Ok(S::Connected)
             }
             state => Ok(state),
         },
@@ -107,7 +108,16 @@ pub fn transition(
                 let dc = account.device_config().clone();
                 account
                     .initialize_device(&dc.name, dc.device_type, &dc.capabilities)
-                    .to_state_machine_err(|| FxaState::Disconnected)?;
+                    // Move to `Disconnected` if `initialize_device` fails since that means we
+                    // didn't register our device name and there's no recovery path to register it
+                    // in the future.  Failures should be unlikely at this point since we just made
+                    // a bunch of successful network requests.
+                    //
+                    // https://bugzilla.mozilla.org/show_bug.cgi?id=2092191
+                    .to_state_machine_err(|| {
+                        account.disconnect();
+                        FxaState::Disconnected
+                    })?;
             }
 
             Ok(S::Connected)
@@ -200,6 +210,8 @@ pub fn transition(
         (S::Connected, E::CallGetProfile) => {
             account.get_profile().to_state_machine_err(|| {
                 account.reset_auth_recheck_timer();
+                // This is called from the debug menu for debugging auth issues.
+                // If this fails, assume it's because of a bad refresh token.
                 S::AuthIssues
             })?;
             Ok(S::Connected)
