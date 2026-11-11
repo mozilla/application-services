@@ -16,11 +16,11 @@ use crate::config;
 
 use anyhow::anyhow;
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http,
     response::{Html, IntoResponse},
     routing::{get, post},
-    Json, Router,
 };
 use serde_json::Value;
 use tokio::net::TcpListener;

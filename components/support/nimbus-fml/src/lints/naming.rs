@@ -11,8 +11,8 @@ use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 use crate::lints::{
-    define_lints, enum_path, feature_path, is_boolean, object_field_path, object_path,
-    variable_path, LintInfo, Linter, Location, UnreportedIssue,
+    LintInfo, Linter, Location, UnreportedIssue, define_lints, enum_path, feature_path, is_boolean,
+    object_field_path, object_path, variable_path,
 };
 
 define_lints! {
@@ -196,17 +196,18 @@ fn lint_common_prefix(feature: &FeatureDef, out: &mut Vec<UnreportedIssue>) {
     }
 
     // A prefix shared by every variable is noise even when it isn't the feature name.
-    if prefixed.is_empty() && feature.props.len() > 1 {
-        if let Some(shared) = shared_prefix(&feature.props) {
-            out.push(UnreportedIssue::new(
-                &COMMON_PREFIX,
-                feature_path(feature),
-                format!(
-                    "All {} variables of this feature start with `{shared}-`",
-                    feature.props.len()
-                ),
-            ));
-        }
+    if prefixed.is_empty()
+        && feature.props.len() > 1
+        && let Some(shared) = shared_prefix(&feature.props)
+    {
+        out.push(UnreportedIssue::new(
+            &COMMON_PREFIX,
+            feature_path(feature),
+            format!(
+                "All {} variables of this feature start with `{shared}-`",
+                feature.props.len()
+            ),
+        ));
     }
 }
 
@@ -280,21 +281,25 @@ mod unit_tests {
         }
 
         // Still a boolean when it's optional.
-        assert!(lints(&feature(
-            "my-feature",
-            vec![prop(
-                "enabled-bool",
-                &TypeRef::Option(Box::new(TypeRef::Boolean))
-            )]
-        ))
-        .contains(&"TYPE_IN_NAME"));
+        assert!(
+            lints(&feature(
+                "my-feature",
+                vec![prop(
+                    "enabled-bool",
+                    &TypeRef::Option(Box::new(TypeRef::Boolean))
+                )]
+            ))
+            .contains(&"TYPE_IN_NAME")
+        );
 
         // The suffix is only redundant if it really is the type.
-        assert!(!lints(&feature(
-            "my-feature",
-            vec![prop("shopping-list", &TypeRef::String)]
-        ))
-        .contains(&"TYPE_IN_NAME"));
+        assert!(
+            !lints(&feature(
+                "my-feature",
+                vec![prop("shopping-list", &TypeRef::String)]
+            ))
+            .contains(&"TYPE_IN_NAME")
+        );
     }
 
     #[test]
@@ -312,18 +317,22 @@ mod unit_tests {
             );
         }
 
-        assert!(!lints(&feature(
-            "my-feature",
-            vec![prop("sync-enabled", &TypeRef::Boolean)]
-        ))
-        .contains(&"NEGATED_BOOLEAN"));
+        assert!(
+            !lints(&feature(
+                "my-feature",
+                vec![prop("sync-enabled", &TypeRef::Boolean)]
+            ))
+            .contains(&"NEGATED_BOOLEAN")
+        );
 
         // Only booleans read as double negatives.
-        assert!(!lints(&feature(
-            "my-feature",
-            vec![prop("hide-after", &TypeRef::Int)]
-        ))
-        .contains(&"NEGATED_BOOLEAN"));
+        assert!(
+            !lints(&feature(
+                "my-feature",
+                vec![prop("hide-after", &TypeRef::Int)]
+            ))
+            .contains(&"NEGATED_BOOLEAN")
+        );
     }
 
     #[test]

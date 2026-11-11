@@ -9,7 +9,7 @@ use nimbus_fml::{
     intermediate_representation::FeatureManifest, parser::Parser, util::loaders::FileLoader,
 };
 
-use crate::{cli::ManifestArgs, config, NimbusApp};
+use crate::{NimbusApp, cli::ManifestArgs, config};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum ManifestSource {

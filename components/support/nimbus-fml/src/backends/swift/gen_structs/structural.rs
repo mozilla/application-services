@@ -401,7 +401,9 @@ impl CodeType for ListCodeType {
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         // Our current implementation of Variables doesn't have a getListList() or getListMap().
         // We do allow getVariablesList and getVariablesMap, but not an vars.asList().
-        unimplemented!("Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects")
+        unimplemented!(
+            "Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects"
+        )
     }
 
     fn defaults_type(&self, oracle: &dyn CodeOracle) -> String {
@@ -463,10 +465,10 @@ mod unit_tests {
 
     use serde_json::json;
 
+    use crate::backends::TypeIdentifier;
     use crate::backends::swift::gen_structs::{
         enum_::EnumCodeType, object::ObjectCodeType, primitives::StringCodeType,
     };
-    use crate::backends::TypeIdentifier;
 
     use super::*;
 

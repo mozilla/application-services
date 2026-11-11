@@ -2,9 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{values_finder::ValuesFinder, ErrorKind, FeatureValidationError};
 #[cfg(feature = "client-lib")]
 use super::{CorrectionCandidate, FmlEditorError};
+use super::{ErrorKind, FeatureValidationError, values_finder::ValuesFinder};
 use crate::{
     error::FMLError,
     intermediate_representation::{EnumDef, FeatureDef, ObjectDef},

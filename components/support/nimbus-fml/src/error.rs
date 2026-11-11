@@ -40,7 +40,9 @@ pub enum FMLError {
     ValidationError(String, String),
     #[error("Type Parsing Error: {0}")]
     TypeParsingError(String),
-    #[error("Invalid Channel error: The channel `{0}` is specified, but only {1:?} are supported for the file")]
+    #[error(
+        "Invalid Channel error: The channel `{0}` is specified, but only {1:?} are supported for the file"
+    )]
     InvalidChannelError(String, Vec<String>),
 
     #[error("Problem with {0}: {1}")]

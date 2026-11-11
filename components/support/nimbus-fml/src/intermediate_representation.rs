@@ -9,7 +9,7 @@ use crate::frontend::{
 };
 use crate::schema::{SchemaHasher, SchemaValidator, TypeQuery};
 use crate::util::loaders::FilePath;
-use anyhow::{bail, Error, Result as AnyhowResult};
+use anyhow::{Error, Result as AnyhowResult, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -300,8 +300,8 @@ impl FeatureManifest {
                 "about".to_string(),
                 format!(
                     "Manifest file {file} is unable to generate {lang} files",
-                    file = &self.id,
-                    lang = &lang.extension(),
+                    file = self.id,
+                    lang = lang.extension(),
                 ),
             ));
         }
@@ -621,7 +621,7 @@ impl FeatureDef {
             .map(|(p, n)| (p, (n, self.name())))
             .rfold(Vec::new(), |mut acc: Vec<(String, Vec<(String, &GeckoPrefDef)>)>, (pref, (prop, feature)): (Option<&GeckoPrefDef>, (String, String))| {
                 match acc.iter_mut().find(|p| p.0 == feature) {
-                    Some((_, ref mut props)) => {
+                    Some((_, props)) => {
                         props.push((prop, pref.unwrap()));
                     }
                     None => {
