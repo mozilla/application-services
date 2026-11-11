@@ -24,9 +24,9 @@
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 - The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
 
-### Containers
+### Autofill
 
-- Updated the refreshed (Nova) codes for the yellow, violet, blue and green container colors. ([bug 2091745](https://bugzilla.mozilla.org/show_bug.cgi?id=2091745))
+- New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
 
 ### Merino
 
