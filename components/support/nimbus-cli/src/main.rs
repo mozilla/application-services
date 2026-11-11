@@ -13,11 +13,14 @@ mod updater;
 mod value_utils;
 mod version_utils;
 
+use std::ffi::OsString;
+use std::path::PathBuf;
+
 use anyhow::{Result, bail};
 use clap::Parser;
-use cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
-use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
-use std::{ffi::OsString, path::PathBuf};
+
+use crate::cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
+use crate::sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 
 pub(crate) static USER_AGENT: &str =
     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);

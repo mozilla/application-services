@@ -2,12 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use serde::de::DeserializeOwned;
 use std::time::Duration;
-use update_informer::{
-    Check, Package, Registry, Result,
-    http_client::{GenericHttpClient, HeaderMap, HttpClient},
-};
+
+use serde::de::DeserializeOwned;
+use update_informer::http_client::{GenericHttpClient, HeaderMap, HttpClient};
+use update_informer::{Check, Package, Registry, Result};
 
 #[derive(serde::Deserialize)]
 struct Response {
