@@ -32,6 +32,11 @@
 
 ## ⚠️ Breaking Changes ⚠️
 
+### Containers
+
+- **BREAKING**: `set_site_association()` takes an `include_subdomains` argument, and `SiteAssociation` reports it. No consumer uses the component yet. The new `lookup_site_association()` also matches a host against the parent domains that include their subdomains.
+- The stored document moves to version 9. Existing associations keep matching their host only.
+
 ### Nimbus
 
 - FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
