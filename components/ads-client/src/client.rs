@@ -11,7 +11,7 @@ use crate::http_cache::HttpCache;
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
-use crate::mars::{MARSClient, MARSRequestOptionPatch, MARSRequestOptions, ReportReason};
+use crate::mars::{MARSClient, MARSRequestOptionPatch, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -80,7 +80,7 @@ impl AdsClient {
     pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         self.inner
             .request_image_ads(ad_placement_requests, request_options)
@@ -89,7 +89,7 @@ impl AdsClient {
     pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
         self.inner
             .request_spoc_ads(ad_placement_requests, request_options)
@@ -98,7 +98,7 @@ impl AdsClient {
     pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
         self.inner
@@ -108,7 +108,7 @@ impl AdsClient {
     pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
         self.inner
             .request_spoc_or_image_ads(ad_placement_requests, request_options)
@@ -126,7 +126,7 @@ impl AdsClient {
     fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
         relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
         self.inner
@@ -296,7 +296,7 @@ impl AdsClientInner {
     pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
             .request_ads(
@@ -315,7 +315,7 @@ impl AdsClientInner {
     pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
         let result = self.request_ads(
             ad_placement_requests,
@@ -339,7 +339,7 @@ impl AdsClientInner {
     pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
         let result = self.request_ads(
             ad_placement_requests,
@@ -359,7 +359,7 @@ impl AdsClientInner {
     pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
         relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
         let result = self.request_ads(ad_placement_requests, request_options, relevance);
@@ -391,7 +391,7 @@ impl AdsClientInner {
     fn request_ads(
         &self,
         placements: Vec<AdPlacementRequest>,
-        request_options: Option<MARSRequestOptions>,
+        request_options: Option<MARSRequestOptionPatch>,
         relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
         let context_id = if relevance.is_empty() {
@@ -672,14 +672,13 @@ mod tests {
         m2.assert();
     }
 
-    // TODO: Before rereview, split this test up and add more tests.
-    // You are now doing ful field-based overwriting.
     /// Currently this only tests for `blocks` and `flags`.
     /// Tests that `MARSRequestOptions` values are sent as expected:
     /// 1. The client-set values are used if no per-request options are passed.
     /// 2. Those values can be changed by a setting.
     /// 3. Manual override per-request to new values is possible.
     /// 4. Manual override 'negatively' (eg: removing blocks) is possible. (eg: the fields are not included in the request)
+    /// 5. Manual overriding on a per-field basis is possible in all such cases.
     #[test]
     fn test_default_settings_are_sent_to_mars() {
         viaduct_dev::init_backend_dev();
@@ -726,6 +725,7 @@ mod tests {
         };
 
         // Confirm default `test_block_0` from initialization is successfully passed.
+        // Expected default settings: `test_block_0`, `test_flag_0`
         let m = mockito_adder(
             vec!["test_block_0".to_string()],
             HashMap::from_iter([("test_flag_0".to_owned(), true)]),
@@ -741,6 +741,7 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Sets default settings.
+        // Expected default settings: `test_block_1`, `test_flag_1`
         client.set_request_options(MARSRequestOptionPatch {
             flags: Some(HashMap::from_iter([("test_flag_1".to_owned(), true)])),
             blocks: Some(vec!["test_block_1".to_string()]),
@@ -760,15 +761,15 @@ mod tests {
         drop(m);
         client.clear_cache().unwrap();
 
-        // Test again, but with changed blocks
+        // Test again, but with only patching `blocks`` (non-passed fields should not change)
+        // Expected default settings: `test_block_2`, `test_flag_1`
         client.set_request_options(MARSRequestOptionPatch {
             blocks: Some(vec!["test_block_2".to_string()]),
-            flags: Some(HashMap::from_iter([("test_flag_2".to_owned(), true)])),
             ..Default::default()
         });
         let m = mockito_adder(
             vec!["test_block_2".to_string()],
-            HashMap::from_iter([("test_flag_2".to_owned(), true)]),
+            HashMap::from_iter([("test_flag_1".to_owned(), true)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
@@ -780,16 +781,17 @@ mod tests {
         drop(m);
         client.clear_cache().unwrap();
 
-        // Test again, but with manually overridden blocks.
+        // Test again, but with manually overridden fields.
+        // Expected default settings: `test_block_2` (overridden to `test_block_3`), `test_flag_1` (overridden to `test_flag_3`)
         let m = mockito_adder(
             vec!["test_block_3".to_string()],
             HashMap::from_iter([("test_flag_3".to_owned(), true)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            Some(MARSRequestOptions {
-                blocks: vec!["test_block_3".to_string()],
-                flags: HashMap::from_iter([("test_flag_3".to_owned(), true)]),
+            Some(MARSRequestOptionPatch {
+                blocks: Some(vec!["test_block_3".to_string()]),
+                flags: Some(HashMap::from_iter([("test_flag_3".to_owned(), true)])),
                 ..Default::default()
             }),
             HashMap::from([("sports".to_string(), 0.8)]),
@@ -799,14 +801,34 @@ mod tests {
         drop(m);
         client.clear_cache().unwrap();
 
-        // Manual 'removal' over an existing default works, too.
-        // (eg: the fields are not included in the request)
+        // Test again, but with `blocks` overridden but `flags` not overridden.
+        // `flags` will still have `test_flag_1` (the last *set* value- `test_flag_3` was an override).
+        // Expected default settings: `test_block_2` (overridden to `test_block_4`), `test_flag_1`
+        let m = mockito_adder(
+            vec!["test_block_4".to_string()],
+            HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+        );
+        let result = client.request_tile_ads(
+            make_happy_placement_requests(),
+            Some(MARSRequestOptionPatch {
+                blocks: Some(vec!["test_block_4".to_string()]),
+                ..Default::default()
+            }),
+            HashMap::from([("sports".to_string(), 0.8)]),
+        );
+        assert!(result.is_ok());
+        m.assert();
+        drop(m);
+        client.clear_cache().unwrap();
+
+        // Manual 'removal' of passed fields over an existing default works, too.
+        // (eg: the fields are not included in the request by setting them to their empty, 'true default' values)
         let m = mockito_adder(vec![], HashMap::new());
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            Some(MARSRequestOptions {
-                blocks: vec![],
-                flags: HashMap::new(),
+            Some(MARSRequestOptionPatch {
+                blocks: Some(vec![]),
+                flags: Some(HashMap::new()),
                 ..Default::default()
             }),
             HashMap::from([("sports".to_string(), 0.8)]),

@@ -13,9 +13,7 @@ use crate::client::config::AdsStoreConfig;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
 use crate::http_cache::CachePolicy;
-use crate::mars::ad_request::{
-    AdContentCategory, AdPlacementRequest, AdRequestFlags, IABContentTaxonomy,
-};
+use crate::mars::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
 use crate::mars::{Environment, MARSRequestOptions};
 use crate::mars::{MARSRequestOptionPatch, ReportReason};
 use crate::non_empty_string::NonEmptyString;
@@ -34,13 +32,15 @@ pub use telemetry::MozAdsTelemetry;
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsRequestOptions {
     #[uniffi(default)]
-    pub blocks: Vec<String>,
+    pub blocks: Option<Vec<String>>,
     #[uniffi(default)]
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
-    pub flags: HashMap<String, bool>,
+    pub flags: Option<HashMap<String, bool>>,
     #[uniffi(default = false)]
-    pub ohttp: bool,
+    pub ohttp: Option<bool>,
+
+    // Not part of `MARSRequestOptionPatch`.
     #[uniffi(default)]
     pub relevance: HashMap<String, f64>, // tiles only
 }
@@ -48,11 +48,11 @@ pub struct MozAdsRequestOptions {
 // TODO: Before re-review, this needs to get deleted and we need to consider MozAdsRequestOptions to have Option<> fields
 // (for in-field overriding, like the other ones).
 // Note: the `relevance` field is dropped in this conversion.
-impl From<MozAdsRequestOptions> for MARSRequestOptions {
+impl From<MozAdsRequestOptions> for MARSRequestOptionPatch {
     fn from(opt: MozAdsRequestOptions) -> Self {
-        MARSRequestOptions {
+        MARSRequestOptionPatch {
             flags: opt.flags,
-            cache_policy: opt.cache_policy.unwrap_or_default().into(),
+            cache_policy: opt.cache_policy.map(|policy| policy.into()),
             ohttp: opt.ohttp,
             blocks: opt.blocks,
         }
@@ -546,12 +546,6 @@ impl From<&MozAdsIABContent> for AdContentCategory {
     }
 }
 
-impl From<&MozAdsRequestOptions> for AdRequestFlags {
-    fn from(options: &MozAdsRequestOptions) -> Self {
-        options.flags.clone()
-    }
-}
-
 impl From<MozAdsRequestOptions> for CachePolicy {
     fn from(options: MozAdsRequestOptions) -> Self {
         options.cache_policy.map(Into::into).unwrap_or_default()
@@ -600,7 +594,8 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
 #[cfg(test)]
 mod tests {
     use crate::{
-        telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig, MozAdsClientBuilder,
+        mars::MARSRequestOptions, telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig,
+        MozAdsClientBuilder, MozAdsRequestConfigOptionsPatch,
     };
     use std::sync::Arc;
 
@@ -690,5 +685,33 @@ mod tests {
         client.shutdown().unwrap();
         client.shutdown().unwrap();
         assert_eq!(weak_reference.strong_count(), 0);
+    }
+
+    #[test]
+    fn test_request_options_override() {
+        let builder = Arc::new(MozAdsClientBuilder::new());
+
+        // Builder starts with expected `MARSRequestOptions`
+        let mut expected = MARSRequestOptions::default();
+        assert_eq!(builder.0.lock().request_options, expected);
+
+        // Options can be changed.
+        expected.blocks = vec!["test_block_0".to_string()];
+        expected.ohttp = true;
+        let builder = builder.request_options(MozAdsRequestConfigOptionsPatch {
+            blocks: Some(vec!["test_block_0".to_string()]),
+            ohttp: Some(true),
+            ..Default::default()
+        });
+        assert_eq!(builder.0.lock().request_options, expected);
+
+        // Options can be changed on a per-field basis. Unchanged options don't reset.
+        expected.blocks = vec!["test_block_1".to_string()];
+        expected.ohttp = true;
+        let builder = builder.request_options(MozAdsRequestConfigOptionsPatch {
+            blocks: Some(vec!["test_block_1".to_string()]),
+            ..Default::default()
+        });
+        assert_eq!(builder.0.lock().request_options, expected);
     }
 }

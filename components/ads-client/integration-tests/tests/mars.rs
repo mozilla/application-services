@@ -59,7 +59,7 @@ fn test_contract_image_with_categories_prod() {
             placement_id: "mock_billboard_1".to_string(),
         }],
         Some(MozAdsRequestOptions {
-            flags: std::collections::HashMap::from([("contextual_placement".to_string(), true)]),
+            flags: Some(std::collections::HashMap::from([("contextual_placement".to_string(), true)])),
             ..Default::default()
         }),
     );
@@ -282,7 +282,7 @@ fn test_contract_tile_ohttp_prod() {
                 placement_id: "mock_tile_1".to_string(),
             }],
             Some(MozAdsRequestOptions {
-                ohttp: true,
+                ohttp: Some(true),
                 ..Default::default()
             }),
         )
