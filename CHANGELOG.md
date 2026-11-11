@@ -13,6 +13,10 @@
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 - The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
 
+### Autofill
+
+- New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
+
 ### Merino
 
 - Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
