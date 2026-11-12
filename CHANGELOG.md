@@ -1,5 +1,11 @@
 # v162.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Firefox Accounts
+- Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
+  Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨
