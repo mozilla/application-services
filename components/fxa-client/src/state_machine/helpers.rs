@@ -27,22 +27,6 @@ pub enum StateMachineErr {
     Fatal(Box<Error>),
 }
 
-impl StateMachineErr {
-    /// Programmatic errors (logic / invalid-transition) become `Fatal` and
-    /// ignore `target_if_handled`; everything else becomes `Handled`.
-    pub fn new(cause: Error, target_if_handled: FxaState) -> Self {
-        match cause {
-            Error::StateMachineLogicError(_) | Error::InvalidStateTransition(_) => {
-                Self::Fatal(Box::new(cause))
-            }
-            other => Self::Handled {
-                cause: Box::new(other),
-                target: target_if_handled,
-            },
-        }
-    }
-}
-
 /// Attaches a target [`FxaState`] to a `Result<T, Error>` so transitions can
 /// land somewhere specific on failure with `?`.
 ///
