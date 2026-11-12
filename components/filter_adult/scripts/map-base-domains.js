@@ -8,12 +8,12 @@
  * checking a URL against the list. Hosts that are rewritten are logged.
  * Unresolvable hosts are logged and skipped.
  *
- * Usage (paths must be absolute):
+ * Usage, from the root of a Firefox checkout (paths must be absolute):
  *   macOS:
  *     B=obj-default/dist/Nightly.app/Contents
- *     $B/MacOS/xpcshell -g $B/Resources -a $B/Resources/browser map-base-domains.js /abs/in.txt /abs/out.txt
+ *     $B/MacOS/xpcshell -g $B/Resources -a $B/Resources/browser /abs/map-base-domains.js /abs/in.txt /abs/out.txt
  *   Linux/Windows (-g/-a are usually unnecessary; if needed, point both at dist/bin):
- *     obj-default/dist/bin/xpcshell map-base-domains.js /abs/in.txt /abs/out.txt
+ *     obj-default/dist/bin/xpcshell /abs/map-base-domains.js /abs/in.txt /abs/out.txt
  */
 const [inPath, outPath] = arguments;
 let done = false;
