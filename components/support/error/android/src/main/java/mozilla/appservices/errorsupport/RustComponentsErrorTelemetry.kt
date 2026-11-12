@@ -15,7 +15,6 @@ import mozilla.appservices.tracing.TracingEvent
 import mozilla.appservices.tracing.TracingLevel
 import mozilla.appservices.tracing.registerEventSink
 import mozilla.telemetry.glean.Glean
-import org.mozilla.appservices.errorsupport.GleanMetrics.Pings
 import org.mozilla.appservices.errorsupport.GleanMetrics.RustComponentErrors
 
 /**
@@ -29,7 +28,6 @@ public object RustComponentsErrorTelemetry {
      * Register the RustComponentsErrorTelemetry and start forwarding telemetry to glean
      */
     fun register() {
-        Glean.registerPings(Pings)
         val spec = EventSinkSpecification(
             targets = listOf(EventTarget("app-services-error-reporter", TracingLevel.DEBUG)),
         )
