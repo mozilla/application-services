@@ -67,8 +67,9 @@ type IncomingPage = (
 ///   page returns `Error::CollectionChangedDuringDownload`. Earlier pages will
 ///   already have been passed to `on_batch`, so callers must not advance any
 ///   timestamps unless this returns `Ok`.
-/// - `on_batch` is always called at least once, even if the collection is empty,
-///   because some engines (eg, tabs) do housekeeping in `stage_incoming`.
+/// - `on_batch` is only called for pages that contain records. If the request
+///   returns no records at all, it isn't called - the same as when an engine's
+///   `get_collection_request()` returns `None`, which every engine handles.
 ///
 /// `fetch_page` is a closure so tests can supply fake pages; in production it's
 /// `|req, xius| client.get_encrypted_records_page(req, xius)`.
@@ -131,11 +132,14 @@ pub fn fetch_incoming_batched(
 
         let page_len = records.len();
         fetched += page_len;
-        let decrypted = records
-            .into_iter()
-            .map(|record| record.into_decrypted(key))
-            .collect::<Result<Vec<_>>>()?;
-        on_batch(decrypted)?;
+        // Never hand engines an empty batch.
+        if page_len > 0 {
+            let decrypted = records
+                .into_iter()
+                .map(|record| record.into_decrypted(key))
+                .collect::<Result<Vec<_>>>()?;
+            on_batch(decrypted)?;
+        }
 
         match next_offset {
             // An empty page with an offset would be a server bug; don't spin on it.

@@ -74,6 +74,10 @@ pub struct TabsEngine {
     pub(super) store: Arc<TabsStore>,
     // local_id is made public for use in examples/tabs-sync
     pub local_id: RwLock<String>,
+    // Remote records received by `stage_incoming()` during this sync. The
+    // cleanup in `apply()` needs all of them, and `stage_incoming()` may now be
+    // called once per downloaded batch.
+    received: Mutex<Vec<(TabsRecord, ServerTimestamp)>>,
 }
 
 impl TabsEngine {
@@ -81,6 +85,7 @@ impl TabsEngine {
         Self {
             store,
             local_id: Default::default(),
+            received: Default::default(),
         }
     }
 
@@ -107,6 +112,14 @@ impl SyncEngine for TabsEngine {
 
     fn reset_last_sync(&self) -> Result<()> {
         self.set_last_sync(ServerTimestamp(0))
+    }
+
+    fn sync_started(&self) -> Result<()> {
+        // If the previous sync was aborted after staging (eg, the collection
+        // changed mid-download), `apply()` never ran to drain this. That matters
+        // on desktop, where the bridged engine lives across syncs.
+        self.received.lock().unwrap().clear();
+        Ok(())
     }
 
     fn set_clients(&self, get_client_data: &dyn Fn() -> ClientData) -> Result<()> {
@@ -152,14 +165,16 @@ impl SyncEngine for TabsEngine {
             remote_tabs.push((record, modified));
         }
         telem.incoming(incoming_telemetry);
-        let mut storage = self.store.storage.lock().unwrap();
-        // In desktop we might end up here with zero records when doing a quick-write, in
-        // which case we don't want to wipe the DB.
-        if !remote_tabs.is_empty() {
-            storage.replace_remote_tabs(&remote_tabs)?;
+        {
+            let mut storage = self.store.storage.lock().unwrap();
+            // In desktop we might end up here with zero records when doing a quick-write, in
+            // which case we don't want to wipe the DB.
+            if !remote_tabs.is_empty() {
+                storage.replace_remote_tabs(&remote_tabs)?;
+            }
         }
-        storage.remove_stale_clients()?;
-        storage.remove_old_pending_closures(&remote_tabs)?;
+        // Stale-client and pending-closure cleanup happen once per sync, in `apply()`.
+        self.received.lock().unwrap().extend(remote_tabs);
         Ok(())
     }
 
@@ -170,6 +185,19 @@ impl SyncEngine for TabsEngine {
     ) -> Result<Vec<OutgoingBso>> {
         // We've already applied them - we just need to fetch outgoing.
         let local_id = &*self.local_id.read().unwrap();
+
+        // Housekeeping that needs every record received this sync, so it runs once
+        // here rather than once per `stage_incoming()` batch. It runs before we
+        // update last-sync, so `remove_stale_clients()` measures its TTL from the
+        // previous sync, as it did when this ran in `stage_incoming()`. It also
+        // runs before the "no local tabs" early return below.
+        let received = std::mem::take(&mut *self.received.lock().unwrap());
+        {
+            let mut storage = self.store.storage.lock().unwrap();
+            storage.remove_stale_clients()?;
+            storage.remove_old_pending_closures(&received)?;
+        }
+
         // Timestamp will be zero when used as a "bridged" engine.
         if timestamp.0 != 0 {
             self.set_last_sync(timestamp)?;
@@ -309,6 +337,89 @@ pub mod test {
     use crate::DeviceType;
     use serde_json::json;
     use sync15::bso::IncomingBso;
+
+    #[test]
+    fn test_pending_closures_cleaned_up_across_batches() {
+        use crate::RemoteCommand;
+        error_support::init_for_tests();
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-closures-across-batches",
+        )));
+
+        // A pending close for each device: one tab has since closed, one hasn't.
+        {
+            let mut storage = engine.store.storage.lock().unwrap();
+            for (device, url) in [
+                ("device-a", "https://closed-a.example/"),
+                ("device-b", "https://closed-b.example/"),
+                ("device-b", "https://still-open.example/"),
+            ] {
+                storage
+                    .add_remote_tab_command(device, &RemoteCommand::CloseTab { url: url.into() })
+                    .unwrap();
+            }
+        }
+
+        let record = |id: &str, url: &str| {
+            IncomingBso::from_test_content(json!({
+                "id": id,
+                "clientName": id,
+                "tabs": [{
+                    "title": "t",
+                    "urlHistory": [url],
+                    "icon": null,
+                    "lastUsed": 1643764207
+                }]
+            }))
+        };
+
+        let mut telem = telemetry::Engine::new("tabs");
+        engine.sync_started().unwrap();
+        // Each device arrives in a different batch.
+        engine
+            .stage_incoming(
+                vec![record("device-a", "https://other-a.example/")],
+                &mut telem,
+            )
+            .unwrap();
+        engine
+            .stage_incoming(
+                vec![record("device-b", "https://still-open.example/")],
+                &mut telem,
+            )
+            .unwrap();
+
+        // Nothing is cleaned up until `apply()`.
+        assert_eq!(
+            engine
+                .store
+                .storage
+                .lock()
+                .unwrap()
+                .get_unsent_commands()
+                .unwrap()
+                .len(),
+            3
+        );
+
+        engine.apply(ServerTimestamp(0), &mut telem).unwrap();
+
+        let remaining = engine
+            .store
+            .storage
+            .lock()
+            .unwrap()
+            .get_unsent_commands()
+            .unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].device_id, "device-b");
+        assert_eq!(
+            remaining[0].command,
+            RemoteCommand::CloseTab {
+                url: "https://still-open.example/".into()
+            }
+        );
+    }
 
     #[test]
     fn test_incoming_tabs() {
