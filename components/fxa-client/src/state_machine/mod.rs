@@ -14,7 +14,7 @@ mod display;
 mod helpers;
 mod transitions;
 
-use helpers::{RetryingAccount, StateMachineErr};
+use helpers::{AccountWrapper, StateMachineErr};
 
 impl FirefoxAccount {
     /// Get the current state
@@ -35,8 +35,8 @@ impl FirefoxAccount {
 
         breadcrumb!("FxaStateMachine.process_event starting: {event}");
 
-        let mut retrying = RetryingAccount::new(self);
-        let new_state = match transitions::transition(&mut retrying, from_state, event) {
+        let mut wrapper = AccountWrapper::new(self);
+        let new_state = match transitions::transition(&mut wrapper, from_state, event) {
             Ok(s) => {
                 breadcrumb!("FxaStateMachine.process_event finished (Done({s}))");
                 s
