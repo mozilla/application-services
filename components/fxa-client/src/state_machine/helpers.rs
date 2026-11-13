@@ -9,8 +9,8 @@
 //! structurally impossible to call into the network without retry.
 
 use crate::{
-    internal::FirefoxAccount, DeviceCapability, DeviceType, Error, FxaError, FxaRustAuthState,
-    FxaState, LocalDevice, Result,
+    internal::FirefoxAccount, DeviceCapability, DeviceType, Error, FxaError, FxaState, LocalDevice,
+    Result,
 };
 use error_support::GetErrorHandling;
 
@@ -27,22 +27,6 @@ pub enum StateMachineErr {
     Fatal(Box<Error>),
 }
 
-impl StateMachineErr {
-    /// Programmatic errors (logic / invalid-transition) become `Fatal` and
-    /// ignore `target_if_handled`; everything else becomes `Handled`.
-    pub fn new(cause: Error, target_if_handled: FxaState) -> Self {
-        match cause {
-            Error::StateMachineLogicError(_) | Error::InvalidStateTransition(_) => {
-                Self::Fatal(Box::new(cause))
-            }
-            other => Self::Handled {
-                cause: Box::new(other),
-                target: target_if_handled,
-            },
-        }
-    }
-}
-
 /// Attaches a target [`FxaState`] to a `Result<T, Error>` so transitions can
 /// land somewhere specific on failure with `?`.
 ///
@@ -51,7 +35,7 @@ impl StateMachineErr {
 ///
 /// ```ignore
 /// account.complete_oauth_flow(&code, &state)
-///     .to_state_machine_err(|| initial_state.into())?;
+///     .to_state_machine_err(|| initial_state)?;
 /// ```
 pub trait ResultExt<T> {
     fn to_state_machine_err(
@@ -171,8 +155,8 @@ impl<'a> RetryingAccount<'a> {
         })
     }
 
-    pub fn get_auth_state(&mut self) -> FxaRustAuthState {
-        self.inner.get_auth_state()
+    pub fn get_initial_state(&mut self) -> FxaState {
+        self.inner.get_initial_state()
     }
 
     pub fn disconnect(&mut self) {
@@ -248,19 +232,6 @@ impl<'a> RetryingAccount<'a> {
                 }
             }
         }
-    }
-
-    /// Checks if enough time has passed since the last auth attempt that we should try checking the
-    /// auth again.
-    pub fn should_recheck_auth(&self) -> bool {
-        self.inner.should_recheck_auth()
-    }
-
-    /// Set the last time we re-checked our authentication after a failure to the current time.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub fn reset_auth_recheck_timer(&mut self) {
-        self.inner.reset_auth_recheck_timer();
     }
 }
 

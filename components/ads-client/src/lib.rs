@@ -18,10 +18,11 @@ mod ads;
 pub mod ads_store;
 pub mod bytesize;
 mod client;
-pub mod clock;
+mod clock;
 mod ffi;
 pub mod http_cache;
 mod mars;
+mod non_empty_string;
 #[cfg(feature = "stateful")]
 pub mod request;
 pub mod telemetry;

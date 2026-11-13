@@ -91,7 +91,7 @@ impl RemoteSettingsService {
                 client: Client::new(ClientSettings::default()),
                 remote_state: RemoteState::default(),
             }),
-            telemetry: Mutex::new(RemoteSettingsTelemetryWrapper::noop()),
+            telemetry: Mutex::new(RemoteSettingsTelemetryWrapper::default()),
         }
     }
 
@@ -524,11 +524,43 @@ mod test {
             Some("settings-changes-monitoring".to_string())
         );
         assert_eq!(events[1].source, Some(format!("main/{collection}")));
-        assert_eq!(events[1].value, Some("signature_error".to_string()));
+        assert_eq!(events[1].value, Some("sign_retry_error".to_string()));
         assert_eq!(
             events[1].error_name,
             Some("IncompleteSignatureDataError".to_string())
         );
+    }
+
+    #[cfg(feature = "signatures")]
+    #[test]
+    fn test_telemetry_on_collection_certificate_error() {
+        viaduct_dev::init_backend_dev();
+        let collection = "cid";
+        let timestamp = 1774420582054u64;
+        let _changes = mock_monitor_changes(collection, timestamp);
+        let _changeset = mock(
+            "GET",
+            format!("/v2/buckets/main/collections/{collection}/changeset").as_str(),
+        )
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{"changes": [], "timestamp": {timestamp}, "metadata": {{"bucket": "main", "signatures": [{{"signature": "abc", "x5u": "{}/chains/missing.pem", "mode": "p384ecdsa"}}]}}}}"#,
+            mockito::server_url()
+        ))
+        .create();
+        let _cert = mock("GET", "/chains/missing.pem").with_status(404).create();
+
+        let (service, telemetry) = make_service(&mockito::server_url());
+        let _client = service.make_client(collection.into());
+        let _ = service.sync();
+
+        let events = telemetry.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[1].source, Some(format!("main/{collection}")));
+        assert_eq!(events[1].value, Some("certificate_error".to_string()));
+        assert_eq!(events[1].error_name, Some("CertificateError".to_string()));
     }
 
     #[cfg(not(feature = "signatures"))]

@@ -5,11 +5,12 @@
 import os
 import re
 from importlib import import_module
+from typing import Optional
 
 from mozilla_taskgraph import register as mozilla_taskgraph_register
 from mozilla_taskgraph.actions import enable_action
 from taskgraph.parameters import extend_parameters_schema
-from voluptuous import Optional
+from taskgraph.util.schema import Schema
 
 from . import branch_builds
 from .build_config import get_version_from_version_txt  # noqa: F401
@@ -18,6 +19,38 @@ PREVIEW_RE = re.compile(r"\[preview ([\w-]+)\]")
 RELEASE_PROMOTION_PROJECTS = (
     "https://github.com/mozilla/application-services",
     "https://github.com/mozilla-releng/staging-application-services",
+)
+
+
+_branch_build_repo = {
+    "owner": Optional[str],
+    "branch": Optional[str],
+}
+
+AppServicesParametersSchema = Schema.from_dict(
+    {
+        "branch-build": Schema.from_dict(
+            {
+                "firefox-android": Schema.from_dict(
+                    _branch_build_repo, name="BranchBuildAndroid", optional=True
+                ),
+                "firefox-ios": Schema.from_dict(
+                    _branch_build_repo, name="BranchBuildIOS", optional=True
+                ),
+            },
+            name="BranchBuild",
+            optional=True,
+        ),
+        # Publish a "preview build" for a future version.  This is set to
+        # "nightly" for the nightly builds.  Other strings indicate making a
+        # preview build for a particular application-services branch.
+        "preview-build": Optional[str],
+        # Release type.  Set to `release` or `nightly` when we're building release artifacts.
+        "release-type": Optional[str],
+    },
+    name="AppServicesParameters",
+    kw_only=True,
+    forbid_unknown_fields=False,
 )
 
 
@@ -37,26 +70,7 @@ def register(graph_config):
         ]
     )
 
-    extend_parameters_schema(
-        {
-            Optional("branch-build"): {
-                Optional("firefox-android"): {
-                    Optional("owner"): str,
-                    Optional("branch"): str,
-                },
-                Optional("firefox-ios"): {
-                    Optional("owner"): str,
-                    Optional("branch"): str,
-                },
-            },
-            # Publish a "preview build" for a future version.  This is set to
-            # "nightly" for the nightly builds.  Other strings indicate making a
-            # preview build for a particular application-services branch.
-            "preview-build": Optional(str),
-            # Release type.  Set to `release` or `nightly` when we're building release artifacts.
-            "release-type": Optional(str),
-        }
-    )
+    extend_parameters_schema(AppServicesParametersSchema)
 
     # Register mozilla-taskgraph extensions
     mozilla_taskgraph_register(graph_config)

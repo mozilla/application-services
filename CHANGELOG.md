@@ -1,6 +1,68 @@
-# v161.0 (In progress)
+# v162.0 (In progress)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Firefox Accounts
+- Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
+  Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
 
 [Full Changelog](In progress)
+
+## ✨ What's New ✨
+
+### Sync15
+- Added support for per collection limit overrides from the server
+
+## ✨ What's Changed ✨
+
+### Android
+
+- Upgraded NDK from r29 to r30.
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+- The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
+
+### Containers
+
+- Updated the refreshed (Nova) codes for the yellow, violet, blue and green container colors. ([bug 2091745](https://bugzilla.mozilla.org/show_bug.cgi?id=2091745))
+
+### Merino
+
+- Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
+
+### Nimbus
+
+- Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+
+### Remote Settings
+
+- Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+- New `glean-sym` feature: uptake telemetry is recorded directly from Rust with the application's Glean SDK. With this feature enabled, `RemoteSettingsTelemetry` implementations are ignored and applications can remove them.
+
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
+
+## ⚠️ Breaking Changes ⚠️
+
+### Containers
+
+- **BREAKING**: `set_site_association()` takes an `include_subdomains` argument, and `SiteAssociation` reports it. No consumer uses the component yet. The new `lookup_site_association()` also matches a host against the parent domains that include their subdomains.
+- The stored document moves to version 9. Existing associations keep matching their host only.
+
+### Nimbus
+
+- FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
+- Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
+- `nimbus-fml lint` now always exits with a non-zero status code if un-suppressed lints are repoted. ([#7735](https://github.com/mozilla/application-services/pull/7735))
+- `nimbus-fml lint` no longer distinguishes between errors and warnings during linting. ([#7734](https://github.com/mozilla/application-services/pull/7734))
+- The `pref-key` annotation for FML feature variables has been removed. ([#7753](https://github.com/mozilla/application-services/pull/7753/))
+
+# v161.0 (_2026-11-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
 
 ## ✨ What's Changed ✨
 
@@ -22,6 +84,9 @@
 ### Remote Settings
 
 - `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+### Merino
+
+- `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
 
 ## Breaking Changes
 
@@ -29,10 +94,9 @@
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
 
-## ✨ What's New ✨
+### Nimbus
 
-### Sync15
-- Added support for per collection limit overrides from the server
+- The `rkv-safe-mode` feature has been removed and Nimbus defaults to using the safe backend in stateful (i.e., non-cirrus) configurations. ([#7728](https://github.com/mozilla/application-services/pull/7728))
 
 # v160.0 (_2026-10-22_)
 

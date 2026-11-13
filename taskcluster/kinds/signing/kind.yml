@@ -24,7 +24,7 @@ tasks:
     description: 'Sign release module {}'
     worker-type: signing
     worker:
-      cert:
+      signing-type:
         by-level:
           "3":
             release-signing

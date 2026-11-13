@@ -11,7 +11,7 @@ use self::{
     state_persistence::PersistedState,
     telemetry::FxaTelemetry,
 };
-use crate::{DeviceConfig, Error, FxaConfig, FxaRustAuthState, FxaServer, FxaState, Result};
+use crate::{DeviceConfig, Error, FxaConfig, FxaServer, FxaState, Result};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -92,7 +92,7 @@ impl FirefoxAccount {
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
             logged_out_from_auth_issues: false,
-            last_auth_check_time: None,
+            last_refresh_token_scopes: HashSet::new(),
         })
     }
 
@@ -210,8 +210,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn get_auth_state(&self) -> FxaRustAuthState {
-        self.state.get_auth_state()
+    pub fn get_initial_state(&self) -> FxaState {
+        self.state.get_initial_state()
     }
 
     /// Disconnect from the account and optionally destroy our device record. This will
@@ -255,15 +255,11 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     ///
     /// Call this if you know there's an authentication / authorization issue that requires the
-    /// user to re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+    /// user to re-authenticated.  It transitions the user to the [FxaState.AuthIssues] state.
     pub fn on_auth_issues(&mut self) {
         self.state.on_auth_issues();
         self.clear_devices_and_attached_clients_cache();
         self.telemetry = FxaTelemetry::new();
-    }
-
-    pub fn on_recovered_from_auth_issues(&mut self) {
-        self.state.on_recovered_from_auth_issues();
     }
 
     pub fn simulate_network_error(&mut self) {
@@ -276,19 +272,6 @@ impl FirefoxAccount {
 
     pub fn simulate_permanent_auth_token_issue(&mut self) {
         self.state.simulate_permanent_auth_token_issue()
-    }
-
-    /// Checks if enough time has passed since the last auth attempt that we should try checking the
-    /// auth again.
-    pub fn should_recheck_auth(&self) -> bool {
-        self.state.should_recheck_auth()
-    }
-
-    /// Set the last time we re-checked our authentication after a failure to the current time.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub fn reset_auth_recheck_timer(&mut self) {
-        self.state.reset_auth_recheck_timer();
     }
 }
 
@@ -575,10 +558,10 @@ mod tests {
             scopes: HashSet::new(),
         });
         fxa.state.force_current_device_id("original-device-id");
-        assert_eq!(fxa.get_auth_state(), FxaRustAuthState::Connected);
+        assert_eq!(fxa.get_initial_state(), FxaState::Connected);
 
         fxa.on_auth_issues();
-        assert_eq!(fxa.get_auth_state(), FxaRustAuthState::AuthIssues);
+        assert_eq!(fxa.get_initial_state(), FxaState::AuthIssues);
 
         fxa.state.complete_oauth_flow(
             vec![],
@@ -588,7 +571,7 @@ mod tests {
             },
             None,
         );
-        assert_eq!(fxa.get_auth_state(), FxaRustAuthState::Connected);
+        assert_eq!(fxa.get_initial_state(), FxaState::Connected);
 
         // The device ID should be the same as before `on_auth_issues` was called.  This
         // way, methods like `ensure_capabilities` and `set_device_name`, can re-use it and we
@@ -597,32 +580,35 @@ mod tests {
     }
 
     #[test]
-    fn test_get_auth_state() {
-        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
-        let mut fxa = FirefoxAccount::with_config(config);
+    fn test_initial_state_with_sync_scope_requires_sync_key() {
+        nss_as::ensure_initialized();
+        let new_fxa = || {
+            let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+            let mut fxa = FirefoxAccount::with_config(config);
+            fxa.state.force_refresh_token(RefreshToken {
+                token: "refresh_token".to_owned(),
+                scopes: HashSet::from([scopes::OLD_SYNC.to_owned()]),
+            });
+            fxa
+        };
 
-        fn assert_auth_state(fxa: &FirefoxAccount, correct_state: FxaRustAuthState) {
-            assert_eq!(fxa.get_auth_state(), correct_state);
-
-            let persisted = FirefoxAccount::from_json(&fxa.to_json().unwrap()).unwrap();
-            assert_eq!(persisted.get_auth_state(), correct_state);
-        }
-
-        // The state starts as disconnected
-        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
-
-        // When we get the refresh tokens the state changes to connected
-        fxa.state.force_refresh_token(RefreshToken {
-            token: "refresh_token".to_owned(),
-            scopes: HashSet::new(),
-        });
-        assert_auth_state(&fxa, FxaRustAuthState::Connected);
-
-        fxa.disconnect();
-        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
-
-        fxa.disconnect();
-        assert_auth_state(&fxa, FxaRustAuthState::Disconnected);
+        // A missing sync key while holding the sync scope is AuthIssues.
+        let mut fxa = new_fxa();
+        let state = fxa
+            .process_event(crate::FxaEvent::Initialize {
+                device_config: DeviceConfig {
+                    name: "test".to_owned(),
+                    device_type: crate::DeviceType::Mobile,
+                    capabilities: vec![],
+                },
+            })
+            .unwrap();
+        assert_eq!(state, FxaState::AuthIssues);
+        assert!(fxa.state.refresh_token().is_none());
+        assert!(fxa
+            .state
+            .last_refresh_token_scopes()
+            .contains(scopes::OLD_SYNC));
     }
 
     #[test]

@@ -2470,6 +2470,7 @@ dependencies = [
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "nss-as",
  "uniffi",
  "viaduct",
@@ -2835,6 +2836,7 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "autofill",
+ "context_id",
  "crashtest",
  "db-crypto",
  "error-support",
@@ -2936,11 +2938,13 @@ name = "merino"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "uniffi",
  "url",
+ "uuid",
  "viaduct",
 ]
 
@@ -3101,7 +3105,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-cli"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3142,7 +3146,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-fml"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "askama 0.16.1",
@@ -3942,6 +3946,8 @@ dependencies = [
  "error-support",
  "expect-test",
  "firefox-versioning",
+ "glean-build",
+ "glean-sym",
  "jexl-eval",
  "mockall",
  "mockito",
