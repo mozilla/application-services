@@ -355,8 +355,7 @@ impl Engine<'_> {
 mod tests {
     use super::super::{CommandStatus, DeviceType, Settings};
     use super::*;
-    use crate::bso::IncomingBso;
-    use crate::client::InfoConfiguration;
+    use crate::{bso::IncomingBso, client::request::InfoConfiguration};
     use anyhow::Result;
     use interrupt_support::NeverInterrupts;
     use serde_json::{Value, json};
