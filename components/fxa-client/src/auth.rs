@@ -212,12 +212,17 @@ pub enum FxaEvent {
     CancelOAuthFlow,
     /// Check the authorization status for a connected account.
     ///
+    /// This event is valid for the `Connected` and `AuthIssues` states.  In other states, this
+    /// event is ignored.
+    ///
     /// Send this when issues are detected with the auth tokens for a connected account.  It will
     /// double check for authentication issues with the account.  If it detects them, the state
     /// machine will transition to [FxaState::AuthIssues].  From there you can start an OAuth flow
-    /// again to re-connect the user.
+    /// again to re-connect the user.  If the account is in the [FxaState::AuthIssues] state and the
+    /// check succeeds, the state machine will transition back to [FxaState::Connected].
     ///
-    /// This event is valid for the `Connected` state.
+    /// If the request fails, for example from a network error, then the user will stay in the
+    /// current state.
     CheckAuthorizationStatus,
     /// An `fxaccounts:change_password` WebChannel message arrived on the device that just changed
     /// its password. `json_payload` is the `data` object of that message and contains the new

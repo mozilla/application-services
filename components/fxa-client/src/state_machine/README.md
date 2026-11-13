@@ -38,8 +38,13 @@ graph LR;
     Authenticating -->|"Disconnect"| Disconnected
     Connected -->|"Disconnect"| Disconnected
     Connected -->|"BeginOAuthFlow (Ok) — new OAuth flow"| Authenticating
-    Connected -->|"CheckAuthorizationStatus (inactive / Err)"| AuthIssues
+    Connected -->|"CheckAuthorizationStatus (active)"| Connected
+    Connected -->|"CheckAuthorizationStatus (inactive)"| AuthIssues
+    Connected -->|"CheckAuthorizationStatus (request failure)"| Connected
     Connected -->|"CallGetProfile (Err)"| AuthIssues
+    AuthIssues -->|"CheckAuthorizationStatus (active)"| Connected
+    Connected -->|"CheckAuthorizationStatus (inactive)"| AuthIssues
+    Connected -->|"CheckAuthorizationStatus (request failure)"| AuthIssues
     AuthIssues -->|"BeginOAuthFlow (Ok)"| Authenticating
     AuthIssues -->|"Disconnect"| Disconnected
 
