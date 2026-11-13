@@ -148,12 +148,7 @@ fn find_sinks_for_event(event: &tracing::Event<'_>) -> Vec<Arc<dyn EventSink>> {
         .collect()
 }
 
-/// Enables only callsites emitted by this crate's logging macros.
-///
-/// Exported so that other layers can exclude these events with
-/// `FilterExt::not`, leaving them to `simple_event_layer`.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct SimpleEventFilter;
+struct SimpleEventFilter;
 
 impl SimpleEventFilter {
     /// Check if we should process events from a callsite
