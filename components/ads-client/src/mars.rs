@@ -12,6 +12,7 @@ pub(crate) mod report_reason;
 mod transport;
 
 pub(crate) use environment::Environment;
+use parking_lot::RwLock;
 pub(crate) use report_reason::ReportReason;
 use sql_support::open_database;
 
@@ -36,6 +37,7 @@ pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
     user_agent: Option<NonEmptyString>,
+    request_options: RwLock<MARSRequestOptions>,
 }
 
 impl MARSClient {
@@ -43,48 +45,57 @@ impl MARSClient {
         environment: Environment,
         http_cache: Option<HttpCache>,
         user_agent: Option<NonEmptyString>,
+        request_options: MARSRequestOptions,
     ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
             user_agent,
+            request_options: RwLock::new(request_options),
         }
+    }
+
+    pub fn set_request_options(&self, new_options: MARSRequestOptionPatch) {
+        self.request_options.write().patch(new_options);
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.transport.clear_cache()
     }
 
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "the fields of an ad request, and how to send it"
-    )]
     pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
-        flags: AdRequestFlags,
+        request_options_patch: Option<MARSRequestOptionPatch>,
         placements: Vec<AdPlacementRequest>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        blocks: Vec<String>,
         relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
+        // A patch is applied to the stored `MarsRequestOptions` struct (getting the default settings with any request-specific settings applied overtop).
+        // Get a temporary lock on settings- long enough to clone.
+        let patch_options = request_options_patch.unwrap_or_default();
+        let mut request_options = self.request_options.read().clone();
+        request_options.patch(patch_options);
+
         let mut ad_request = AdRequest::try_new(
-            blocks,
+            request_options.blocks,
             context_id,
             self.environment.clone(),
-            flags,
-            ohttp,
+            request_options.flags,
+            request_options.ohttp,
             placements,
             relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
-        if ohttp {
+        if request_options.ohttp {
             ad_request.headers.extend(self.preflight_headers()?);
         }
 
-        let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
+        let response = self.transport.send(
+            ad_request,
+            &request_options.cache_policy,
+            request_options.ohttp,
+        )?;
         let ads: AdResponse = response.json()?;
         Ok((ads, request_hash))
     }
@@ -155,8 +166,43 @@ impl MARSClient {
     }
 }
 
+/// Common request options to MARS.
+/// If new fields are added, their defaults should be explicitly considered,
+/// and an explicit implementation should be created if needed.
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct MARSRequestOptions {
+    pub flags: AdRequestFlags,
+    pub cache_policy: CachePolicy,
+    pub ohttp: bool,
+    pub blocks: Vec<String>,
+}
+
+// TODO: Clearly define this
+#[derive(Clone, Default, Debug)]
+pub struct MARSRequestOptionPatch {
+    pub flags: Option<AdRequestFlags>,
+    pub cache_policy: Option<CachePolicy>,
+    pub ohttp: Option<bool>,
+    pub blocks: Option<Vec<String>>,
+}
+
+impl MARSRequestOptions {
+    pub fn patch(&mut self, patch: MARSRequestOptionPatch) -> &mut MARSRequestOptions {
+        *self = MARSRequestOptions {
+            flags: patch.flags.unwrap_or(self.flags.clone()),
+            cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
+            ohttp: patch.ohttp.unwrap_or(self.ohttp),
+            blocks: patch.blocks.unwrap_or(self.blocks.clone()),
+        };
+
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
+
+    use std::collections::HashMap;
 
     use super::*;
     use crate::test_utils::{
@@ -165,7 +211,12 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache, None)
+        MARSClient::new(
+            Environment::Test,
+            http_cache,
+            None,
+            MARSRequestOptions::default(),
+        )
     }
 
     #[test]
@@ -235,11 +286,8 @@ mod tests {
 
         let result = client.fetch_ads(
             Some(TEST_CONTEXT_ID.to_string()),
-            AdRequestFlags::default(),
+            None,
             make_happy_placement_requests(),
-            CachePolicy::default(),
-            false,
-            Default::default(),
             AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
@@ -270,11 +318,8 @@ mod tests {
         let (response1, _) = client
             .fetch_ads(
                 Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
                 AdRequestRelevance::default(),
             )
             .unwrap();
@@ -284,11 +329,8 @@ mod tests {
         let (response2, _) = client
             .fetch_ads(
                 Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
                 AdRequestRelevance::default(),
             )
             .unwrap();
@@ -332,5 +374,33 @@ mod tests {
         let result = client.record_impression(callback_url, false);
         assert!(result.is_ok());
         m.assert();
+    }
+
+    #[test]
+    fn test_patching_request_options() {
+        let mut options = MARSRequestOptions::default();
+        let mut expected = MARSRequestOptions {
+            flags: HashMap::new(),
+            ohttp: false,
+            cache_policy: CachePolicy::CacheFirst { ttl: None },
+            blocks: vec![],
+        };
+        assert_eq!(options, expected);
+
+        // Options can be changed.
+        expected.blocks = vec!["test_block_0".to_string()];
+        options.patch(MARSRequestOptionPatch {
+            blocks: Some(vec!["test_block_0".to_owned()]),
+            ..Default::default()
+        });
+        assert_eq!(options, expected);
+
+        // Changing an option doesn't reset others.
+        expected.ohttp = true;
+        options.patch(MARSRequestOptionPatch {
+            ohttp: Some(true),
+            ..Default::default()
+        });
+        assert_eq!(options, expected);
     }
 }
