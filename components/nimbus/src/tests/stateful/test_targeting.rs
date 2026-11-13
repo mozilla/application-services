@@ -5,12 +5,58 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use serde_json::Map;
+use serde_json::{Map, json};
 
 use crate::stateful::behavior::EventStore;
 use crate::stateful::targeting::{execute_event_queries, validate_event_queries};
 use crate::tests::helpers::TestRecordedContext;
-use crate::{NimbusTargetingHelper, Result};
+use crate::{NimbusTargetingHelper, Result, TargetingAttributes};
+
+#[test]
+fn test_recorded_context_cannot_shadow_enrollment_state() -> Result<()> {
+    let mut attributes = TargetingAttributes::default();
+    attributes.active_experiments.insert("real-exp".to_string());
+    attributes
+        .enrollments_map
+        .insert("real-exp".to_string(), "control".to_string());
+
+    // A context that echoes stale enrollment state back, alongside an ordinary key.
+    attributes.set_recorded_context(
+        json!({
+            "active_experiments": ["stale-exp"],
+            "enrollments": ["stale-exp"],
+            "enrollments_map": { "stale-exp": "treatment" },
+            "is_already_enrolled": true,
+            "other": "kept",
+        })
+        .as_object()
+        .expect("not an object")
+        .clone(),
+    );
+
+    // Dropped when stored, so this does not depend on which field serializes last.
+    let stored = attributes.recorded_context.as_ref().expect("no context");
+    for key in [
+        "active_experiments",
+        "enrollments",
+        "enrollments_map",
+        "is_already_enrolled",
+    ] {
+        assert!(!stored.contains_key(key), "{key} was kept");
+    }
+
+    let targeting = serde_json::to_value(&attributes)?;
+    assert_eq!(targeting["active_experiments"], json!(["real-exp"]));
+    assert_eq!(targeting["enrollments"], json!([]));
+    assert_eq!(
+        targeting["enrollments_map"],
+        json!({ "real-exp": "control" })
+    );
+    assert_eq!(targeting["is_already_enrolled"], json!(false));
+    assert_eq!(targeting["other"], json!("kept"));
+
+    Ok(())
+}
 
 #[test]
 fn test_recorded_context_execute_queries() -> Result<()> {

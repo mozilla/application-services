@@ -59,6 +59,12 @@ dictionary AppContext {
     JsonObject? custom_targeting_attributes;
 };
 
+dictionary RecordedEnrollmentState {
+    sequence<string> active_experiments;
+    sequence<string> enrollments;
+    record<string, string> enrollments_map;
+};
+
 dictionary EnrolledExperiment {
     sequence<string> feature_ids;
     string slug;
@@ -240,6 +246,8 @@ interface RecordedContext {
     record<string, string> get_event_queries();
 
     void set_event_query_values(record<string, f64> event_query_values);
+
+    void set_enrollment_state(RecordedEnrollmentState enrollment_state);
 
     void record();
 };

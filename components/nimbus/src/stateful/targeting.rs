@@ -38,6 +38,19 @@ impl NimbusTargetingHelper {
     }
 }
 
+/// A snapshot of which experiments the client is enrolled in, handed to the
+/// foreign `RecordedContext` just before it is recorded.
+///
+/// `is_already_enrolled` is deliberately absent: it answers "am I already in
+/// *this* experiment?" while one is being evaluated, so it has no single value
+/// to record.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RecordedEnrollmentState {
+    pub active_experiments: Vec<String>,
+    pub enrollments: Vec<String>,
+    pub enrollments_map: HashMap<String, String>,
+}
+
 #[uniffi::trait_interface]
 pub trait RecordedContext: Send + Sync {
     /// Returns a JSON representation of the context object
@@ -55,6 +68,12 @@ pub trait RecordedContext: Send + Sync {
     ///
     /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
     fn set_event_query_values(&self, event_query_values: HashMap<String, f64>);
+
+    /// Sets the object's internal value for the enrollment state, so it can be
+    /// included when the context is recorded
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn set_enrollment_state(&self, enrollment_state: RecordedEnrollmentState);
 
     /// Records the context object to Glean
     ///

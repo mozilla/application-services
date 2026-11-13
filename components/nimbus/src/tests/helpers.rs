@@ -31,7 +31,7 @@ use crate::stateful::gecko_prefs::{
     GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState,
 };
 #[cfg(feature = "stateful")]
-use crate::stateful::targeting::RecordedContext;
+use crate::stateful::targeting::{RecordedContext, RecordedEnrollmentState};
 use crate::{
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
@@ -77,6 +77,8 @@ struct RecordedContextState {
     record_calls: u64,
     event_queries: HashMap<String, String>,
     event_query_values: HashMap<String, f64>,
+    enrollment_state: Option<RecordedEnrollmentState>,
+    calls: Vec<&'static str>,
 }
 
 #[cfg(feature = "stateful")]
@@ -111,6 +113,24 @@ impl TestRecordedContext {
     pub fn set_event_queries(&self, queries: HashMap<String, String>) {
         let mut state = self.state.lock().expect("could not lock state mutex");
         state.event_queries = queries;
+    }
+
+    /// The enrollment state most recently handed to the context.
+    pub fn get_enrollment_state(&self) -> Option<RecordedEnrollmentState> {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .enrollment_state
+            .clone()
+    }
+
+    /// The `set_enrollment_state` and `record` calls, in the order they happened.
+    pub fn get_calls(&self) -> Vec<&'static str> {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .calls
+            .clone()
     }
 
     pub fn get_event_query_values(&self) -> HashMap<String, f64> {
@@ -148,9 +168,16 @@ impl RecordedContext for TestRecordedContext {
             .insert("events".into(), json!(event_query_values));
     }
 
+    fn set_enrollment_state(&self, enrollment_state: RecordedEnrollmentState) {
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.enrollment_state = Some(enrollment_state);
+        state.calls.push("set_enrollment_state");
+    }
+
     fn record(&self) {
         let mut state = self.state.lock().expect("could not lock state mutex");
         state.record_calls += 1;
+        state.calls.push("record");
     }
 }
 
