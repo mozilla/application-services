@@ -478,6 +478,10 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 // changed, courtesy of the 'kid' in the structure. Thus, we can't
                 // reuse the client or the memory cached state. We do keep the disk
                 // state as currently that's only the declined list.
+                // XXX - note that comparing the entire structure is sub-optimal,
+                // in particular, if only the access token has changed we throw away
+                // all that state, meaning the next sync does more work than strictly
+                // needed. We should investigate fixing that.
                 if client_info.client_init != *self.storage_init {
                     info!("Discarding all state as the account might have changed");
                     *self.mem_cached_state = MemoryCachedState::default();
