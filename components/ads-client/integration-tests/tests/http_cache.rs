@@ -55,7 +55,8 @@ fn test_cache_works_using_real_timeouts() {
         Ok(()) => println!("Deleted previous test's `{test_db_location}`"),
         Err(e) => println!("Did not delete previous test's `{test_db_location}`: {e}"),
     }
-    let cache = HttpCache::builder().database("integration_tests.db")
+    let cache = HttpCache::builder()
+        .database("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
         .max_size(ByteSize::mib(1))
         .build()
@@ -124,7 +125,8 @@ fn test_cache_works_using_real_timeouts() {
 fn test_bad_path_opens_memory_db() {
     clear_test_dbs(&["good_path.db"]);
 
-    let good_path = HttpCache::builder().database("good_path_httpstore.db")
+    let good_path = HttpCache::builder()
+        .database("good_path_httpstore.db")
         .build()
         .expect("Should be able to build a bad path");
     assert!(
@@ -132,7 +134,8 @@ fn test_bad_path_opens_memory_db() {
         "A valid path should result in a file-based sqlite database"
     );
 
-    let bad_path = HttpCache::builder().database("this/is/a/test/bad/path")
+    let bad_path = HttpCache::builder()
+        .database("this/is/a/test/bad/path")
         .build()
         .expect("Should be able to build a bad path");
     assert!(
