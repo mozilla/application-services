@@ -14,7 +14,8 @@
   `RecordedContext` must add the method. Apps that do not want the data can leave it empty.
   `is_already_enrolled` is not included, since it is only meaningful while evaluating one experiment.
   The SDK also drops any of these keys returned from `to_json`, so a recorded copy can never
-  override the real values used for targeting.
+  override the real values used for targeting
+  ([#7777](https://github.com/mozilla/application-services/pull/7777)).
 
 [Full Changelog](In progress)
 
