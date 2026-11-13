@@ -122,7 +122,7 @@ fn test_cache_works_using_real_timeouts() {
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_bad_path_opens_memory_db() {
-    clear_test_dbs(&["good_path.db"]);
+    clear_test_dbs(&["good_path_httpstore.db"]);
 
     let good_path = HttpCache::builder("good_path_httpstore.db")
         .build()

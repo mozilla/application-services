@@ -20,6 +20,9 @@ const MAX_STORE_SIZE: ByteSize = ByteSize::mib(100);
 pub enum AdsStoreBuilderError {
     #[error("Database error: {0}")]
     Database(#[from] open_database::Error),
+    // TODO: Remove this once memory dbs confirmed to be OK.
+    #[error("Database (memory) error: {0}")]
+    DatabaseMemory(open_database::Error),
     #[error("Database path cannot be empty")]
     EmptyDbPath,
     #[error(
@@ -33,26 +36,26 @@ pub enum AdsStoreBuilderError {
 }
 
 pub struct AdsStoreBuilder {
-    db_path: PathBuf,
+    db_path: Option<PathBuf>,
     max_size: Option<ByteSize>,
 }
 
 impl AdsStoreBuilder {
-    pub fn new(db_path: impl Into<PathBuf>) -> Self {
+    // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in-memory.
+    pub fn new(db_path: Option<impl Into<PathBuf>>) -> Self {
         Self {
-            db_path: db_path.into(),
+            db_path: db_path.map(Into::into),
             max_size: None,
         }
     }
 
+    // Attempt to build the AdsStore. If a file path exists and can be built successfully, we build
+    // a FS sqlite database. Otherwise, we fall back to memory.
     pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 
         // Fall back to a memory db if the file db fails to open.
-        let db = open_connection(&self.db_path)
-            .map_err(AdsStoreBuilderError::from)
-            .inspect_err(telemetry::record_ads_store_error)
-            .or_else(|_| open_connection(Path::new(IN_MEMORY_DB_PATH)))?;
+        let db = self.open_db()?;
         let holder = AdsStoreHolder::new(db);
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         Ok(AdsStore { holder, max_size })
@@ -63,8 +66,24 @@ impl AdsStoreBuilder {
         self
     }
 
+    // Opens the db at `db_path`, or a memory db if there is no path or it fails to open.
+    fn open_db(&self) -> Result<LazyDb<AdsStoreConnectionInitializer>, AdsStoreBuilderError> {
+        if let Some(db_path) = &self.db_path {
+            match open_connection(db_path) {
+                Ok(db) => return Ok(db),
+                Err(e) => telemetry::record_ads_store_error(&AdsStoreBuilderError::from(e)),
+            }
+        }
+        // TODO: This is cast to DatabaseMemory rather than Database. Remove this when DatabaseMemory is removed.
+        open_connection(Path::new(IN_MEMORY_DB_PATH)).map_err(AdsStoreBuilderError::DatabaseMemory)
+    }
+
     fn validate(&self) -> Result<(), AdsStoreBuilderError> {
-        if self.db_path.to_string_lossy().trim().is_empty() {
+        if self
+            .db_path
+            .as_ref()
+            .is_some_and(|p| p.to_string_lossy().trim().is_empty())
+        {
             return Err(AdsStoreBuilderError::EmptyDbPath);
         }
 
@@ -96,13 +115,13 @@ mod tests {
     use super::*;
 
     fn make_test_builder(path: &str) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(path)
+        AdsStoreBuilder::new(Some(path))
     }
 
     #[test]
     fn test_store_builder_with_defaults() {
         let builder = make_test_builder(IN_MEMORY_DB_PATH);
-        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
+        assert_eq!(builder.db_path, Some(PathBuf::from(IN_MEMORY_DB_PATH)));
         assert_eq!(builder.max_size, None);
         assert!(builder.build().is_ok());
     }
@@ -121,7 +140,7 @@ mod tests {
     fn test_cache_builder_valid_custom() {
         let builder = make_test_builder(IN_MEMORY_DB_PATH).max_size(ByteSize::b(1024));
 
-        assert_eq!(builder.db_path, PathBuf::from(IN_MEMORY_DB_PATH));
+        assert_eq!(builder.db_path, Some(PathBuf::from(IN_MEMORY_DB_PATH)));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
         assert!(builder.build().is_ok());
     }

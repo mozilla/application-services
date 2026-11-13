@@ -7,12 +7,13 @@ pub mod connection_initializer;
 pub mod store;
 
 use crate::{
-    ads::PlacementId,
+    ads::{Ad, PlacementId},
     ads_store::{builder::AdsStoreBuilder, store::AdsStoreHolder},
     bytesize::ByteSize,
+    mars::error::FetchAdsError,
 };
 use sql_support::open_database;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 pub struct AdsStore {
     holder: AdsStoreHolder,
@@ -25,7 +26,11 @@ pub struct AdsStore {
 
 impl AdsStore {
     pub fn builder<P: AsRef<Path>>(db_path: P) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(db_path.as_ref())
+        AdsStoreBuilder::new(Some(db_path.as_ref()))
+    }
+
+    pub fn builder_memory() -> AdsStoreBuilder {
+        AdsStoreBuilder::new(None::<String>)
     }
 
     pub fn clear(&self) -> Result<(), open_database::Error> {
@@ -35,6 +40,17 @@ impl AdsStore {
 
     pub fn invalidate_by_id(&self, placement_id: &PlacementId) -> Result<(), open_database::Error> {
         self.holder.invalidate_ad_by_id(placement_id)?;
+        Ok(())
+    }
+
+    pub fn lookup(&self, placement_id: &PlacementId) -> Result<Option<Vec<Ad>>, FetchAdsError> {
+        self.holder.lookup(placement_id)
+    }
+
+    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
+        for (placement_id, ad) in ads {
+            self.holder.store_ad(&placement_id, &ad)?;
+        }
         Ok(())
     }
 
