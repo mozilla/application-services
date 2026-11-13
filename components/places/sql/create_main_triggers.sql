@@ -4,8 +4,8 @@
 
 -- This file defines triggers for the main read-write connection.
 
--- Unlike history, we manage bookmark tombstones via triggers. We do this
--- because we rely on foreign-keys to auto-remove children of a deleted folder.
+-- Unlike history, we manage bookmark tombstones via triggers. We also rely
+-- on recursive triggers to auto-remove children of a deleted folder.
 CREATE TEMP TRIGGER moz_create_bookmarks_deleted_trigger
 AFTER DELETE ON moz_bookmarks
 FOR EACH ROW WHEN OLD.syncStatus = 2 -- SyncStatus::Normal
