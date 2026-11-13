@@ -14,6 +14,15 @@ use crate::evaluator::split_locale;
 use crate::json::JsonObject;
 use crate::stateful::matcher::AppContext;
 use crate::stateful::persistence::{Database, StoreId};
+use crate::stateful::targeting::RecordedEnrollmentState;
+
+/// Attributes the SDK computes itself. A recorded context must not override them.
+const SDK_OWNED_ATTRIBUTES: [&str; 4] = [
+    "is_already_enrolled",
+    "active_experiments",
+    "enrollments",
+    "enrollments_map",
+];
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
@@ -52,8 +61,26 @@ impl From<AppContext> for TargetingAttributes {
 }
 
 impl TargetingAttributes {
-    pub(crate) fn set_recorded_context(&mut self, recorded_context: JsonObject) {
+    pub(crate) fn set_recorded_context(&mut self, mut recorded_context: JsonObject) {
+        // The recorded context may now carry the enrollment state, which the SDK
+        // computes itself. Drop those keys so a stale copy can never shadow it.
+        for key in SDK_OWNED_ATTRIBUTES {
+            recorded_context.remove(key);
+        }
         self.recorded_context = Some(recorded_context);
+    }
+
+    pub(crate) fn recorded_enrollment_state(&self) -> RecordedEnrollmentState {
+        let sorted = |set: &HashSet<String>| {
+            let mut values: Vec<String> = set.iter().cloned().collect();
+            values.sort();
+            values
+        };
+        RecordedEnrollmentState {
+            active_experiments: sorted(&self.active_experiments),
+            enrollments: sorted(&self.enrollments),
+            enrollments_map: self.enrollments_map.clone(),
+        }
     }
 
     pub(crate) fn update_time_to_now(

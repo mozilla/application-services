@@ -6,6 +6,16 @@
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
   Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
 
+### Nimbus SDK ⛅️🔬🔭
+- Added `set_enrollment_state` to `RecordedContext`, along with a `RecordedEnrollmentState`
+  type holding `active_experiments`, `enrollments` and `enrollments_map`. The SDK calls it just
+  before `record()`, so an app can include which experiments the client is enrolled in when it
+  records its targeting context, as Desktop already does. Every app that implements
+  `RecordedContext` must add the method. Apps that do not want the data can leave it empty.
+  `is_already_enrolled` is not included, since it is only meaningful while evaluating one experiment.
+  The SDK also drops any of these keys returned from `to_json`, so a recorded copy can never
+  override the real values used for targeting.
+
 [Full Changelog](In progress)
 
 ## ✨ What's Changed ✨

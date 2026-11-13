@@ -52,6 +52,7 @@ import org.mozilla.experiments.nimbus.internal.PrefEnrollmentData
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.PreviousGeckoPrefState
 import org.mozilla.experiments.nimbus.internal.RecordedContext
+import org.mozilla.experiments.nimbus.internal.RecordedEnrollmentState
 import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
@@ -774,6 +775,7 @@ class NimbusTests {
         private var eventQueryValues: Map<String, Double>? = null,
     ) : RecordedContext {
         var recorded = mutableListOf<JSONObject>()
+        var enrollmentState: RecordedEnrollmentState? = null
 
         override fun getEventQueries(): Map<String, String> {
             return eventQueries?.toMap() ?: mapOf()
@@ -781,6 +783,10 @@ class NimbusTests {
 
         override fun setEventQueryValues(eventQueryValues: Map<String, Double>) {
             this.eventQueryValues = eventQueryValues
+        }
+
+        override fun setEnrollmentState(enrollmentState: RecordedEnrollmentState) {
+            this.enrollmentState = enrollmentState
         }
 
         override fun record() {

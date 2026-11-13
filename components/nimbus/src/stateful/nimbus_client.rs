@@ -48,7 +48,9 @@ use crate::stateful::gecko_prefs::{
 };
 use crate::stateful::matcher::AppContext;
 use crate::stateful::persistence::{Database, StoreId, Writer};
-use crate::stateful::targeting::{RecordedContext, execute_event_queries, validate_event_queries};
+use crate::stateful::targeting::{
+    RecordedContext, RecordedEnrollmentState, execute_event_queries, validate_event_queries,
+};
 use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use crate::strings::fmt_with_map;
 use crate::{
@@ -474,6 +476,8 @@ impl NimbusClient {
             self.gecko_prefs.clone(),
         );
         if let Some(ref recorded_context) = self.recorded_context {
+            recorded_context
+                .set_enrollment_state(state.targeting_attributes.recorded_enrollment_state());
             recorded_context.record();
         }
         let coenrolling_feature_ids = self

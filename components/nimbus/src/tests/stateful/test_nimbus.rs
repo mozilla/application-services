@@ -31,7 +31,7 @@ use crate::stateful::gecko_prefs::{
     create_feature_prop_pref_map,
 };
 use crate::stateful::persistence::{Database, StoreId};
-use crate::stateful::targeting::RecordedContext;
+use crate::stateful::targeting::{RecordedContext, RecordedEnrollmentState};
 use crate::tests::helpers::{
     TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
     get_bucketed_rollout_with_feature, get_firefox_lab, get_firefox_lab_with_feature,
@@ -1710,6 +1710,63 @@ fn test_recorded_context_recorded() -> Result<()> {
     assert_eq!(active_experiments.len(), 1);
     assert_eq!(recorded_context.get_record_calls(), 1u64);
     assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
+
+    Ok(())
+}
+
+#[test]
+fn test_recorded_context_receives_enrollment_state() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = TestRecordedContext::new();
+    let client = NimbusClient::new(
+        app_context,
+        Some(recorded_context.clone()),
+        Default::default(),
+        temp_dir.path(),
+        TestMetrics::new(),
+        None,
+        None,
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    // Nothing is enrolled yet, so the first pass hands over an empty state, and
+    // does so before the context is recorded.
+    let exp_1 = get_targeted_experiment("test-1", "true");
+    client.set_experiments_locally(to_local_experiments_string(std::slice::from_ref(&exp_1))?)?;
+    client.apply_pending_experiments()?;
+    assert_eq!(
+        recorded_context.get_enrollment_state(),
+        Some(RecordedEnrollmentState::default())
+    );
+    assert_eq!(
+        recorded_context.get_calls(),
+        vec!["set_enrollment_state", "record"]
+    );
+
+    // The next pass sees the experiment that was enrolled in the first.
+    let enrolled = client.get_active_experiments()?;
+    assert_eq!(enrolled.len(), 1);
+    let branch = enrolled[0].branch_slug.clone();
+    let exp_2 = get_targeted_experiment("test-2", "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2])?)?;
+    client.apply_pending_experiments()?;
+    assert_eq!(
+        recorded_context.get_enrollment_state(),
+        Some(RecordedEnrollmentState {
+            active_experiments: vec!["test-1".to_string()],
+            enrollments: vec!["test-1".to_string()],
+            enrollments_map: HashMap::from([("test-1".to_string(), branch)]),
+        })
+    );
 
     Ok(())
 }
