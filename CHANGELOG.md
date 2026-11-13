@@ -8,6 +8,11 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's New ✨
+
+### Sync15
+- Added support for per collection limit overrides from the server
+
 ## ✨ What's Changed ✨
 
 ### Android
