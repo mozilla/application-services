@@ -1,12 +1,16 @@
 # v162.0 (In progress)
 
+[Full Changelog](In progress)
+
+### Nimbus
+
+- Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782)
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Firefox Accounts
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
   Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
-
-[Full Changelog](In progress)
 
 ## ✨ What's Changed ✨
 

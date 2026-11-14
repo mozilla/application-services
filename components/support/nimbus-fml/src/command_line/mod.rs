@@ -102,9 +102,6 @@ fn create_generate_command_experimenter_from_cli(
     cmd: &cli::GenerateExperimenter,
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
-    let manifest = cmd.input.clone();
-    let load_from_ir =
-        TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
     let output = cwd.join(&cmd.output);
     let language = output.as_path().try_into()?;
     let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
@@ -112,7 +109,6 @@ fn create_generate_command_experimenter_from_cli(
         manifest: cmd.input.clone(),
         output,
         language,
-        load_from_ir,
         loader,
     };
     Ok(cmd)
@@ -120,10 +116,6 @@ fn create_generate_command_experimenter_from_cli(
 
 fn create_generate_command_from_cli(cmd: &cli::Generate, cwd: &Path) -> Result<GenerateStructCmd> {
     let manifest = cmd.input.clone();
-    let load_from_ir = matches!(
-        TargetLanguage::from_extension(&manifest),
-        Ok(TargetLanguage::ExperimenterJSON)
-    );
     let output = cwd.join(&cmd.output);
     let language = match cmd.language {
         Some(s) => TargetLanguage::from(s),
@@ -135,7 +127,6 @@ fn create_generate_command_from_cli(cmd: &cli::Generate, cwd: &Path) -> Result<G
         language,
         manifest,
         output,
-        load_from_ir,
         channel,
         loader,
     })
@@ -268,7 +259,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "channel-test");
             assert_eq!(cmd.language, TargetLanguage::Kotlin);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("Implied.kt"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -295,7 +285,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "channel-test");
             assert_eq!(cmd.language, TargetLanguage::Swift);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("Implied.swift"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -330,7 +319,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "channel-test");
             assert_eq!(cmd.language, TargetLanguage::Swift);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("Implied.swift"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -360,7 +348,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "channel-test");
             assert_eq!(cmd.language, TargetLanguage::Kotlin);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("build/generated"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -389,7 +376,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "channel-test");
             assert_eq!(cmd.language, TargetLanguage::Swift);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("build/generated"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -414,7 +400,6 @@ mod cli_tests {
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
             assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -440,7 +425,6 @@ mod cli_tests {
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
             assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -464,7 +448,6 @@ mod cli_tests {
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
             assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.json"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -494,7 +477,6 @@ mod cli_tests {
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
             assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with(".experimenter.json"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -523,7 +505,6 @@ mod cli_tests {
         if let CliCmd::Generate(cmd) = cmd {
             assert_eq!(cmd.channel, "release");
             assert_eq!(cmd.language, TargetLanguage::Swift);
-            assert!(!cmd.load_from_ir);
             assert!(cmd.output.ends_with("build/cli-test"));
             assert_eq!(&cmd.manifest, TEST_DIR);
         }
