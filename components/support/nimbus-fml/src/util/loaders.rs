@@ -13,6 +13,7 @@ use anyhow::anyhow;
 use url::Url;
 
 use crate::SUPPORT_URL_LOADING;
+use crate::command_line::LoaderArgs;
 use crate::error::{FMLError, Result};
 
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
@@ -28,6 +29,32 @@ pub struct LoaderConfig {
 }
 
 impl LoaderConfig {
+    pub(crate) fn from_args(args: LoaderArgs, manifest: &str) -> Result<Self> {
+        let cwd = std::env::current_dir()?;
+
+        let cache_dir = args
+            .cache_dir
+            .as_ref()
+            .map(|f| Some(cwd.join(f)))
+            .unwrap_or_default();
+
+        let repo_files = args.repo_file.iter().map(|s| s.to_string()).collect();
+
+        let mut refs: BTreeMap<_, _> = Default::default();
+        match (LoaderConfig::repo_and_path(manifest), &args.ref_) {
+            (Some((repo, _)), Some(ref_)) => refs.insert(repo, ref_.clone()),
+            _ => None,
+        };
+
+        Ok(LoaderConfig {
+            cache_dir,
+            repo_files,
+            cwd,
+            refs,
+            lax_gecko_pref_validation: args.lax_gecko_pref_validation,
+        })
+    }
+
     pub(crate) fn repo_and_path(f: &str) -> Option<(String, String)> {
         if f.starts_with('@') {
             let parts = f.splitn(3, '/').collect::<Vec<&str>>();
