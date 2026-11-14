@@ -67,8 +67,8 @@ where
             CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(&args, cwd)?)
         }
         cli::Command::Fetch(args) => CliCmd::FetchFile(
-            create_loader(&args.input, &args.loader_args, cwd)?,
-            args.input,
+            create_loader(&args.manifest, &args.loader_args, cwd)?,
+            args.manifest,
         ),
         cli::Command::SingleFile(args) => {
             CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(&args, cwd)?)
@@ -88,13 +88,13 @@ fn create_single_file_from_cli(
     args: &SingleFileArgs,
     cwd: &Path,
 ) -> Result<GenerateSingleFileManifestCmd> {
-    let manifest = args.input.clone();
+    let manifest = args.manifest.clone();
     let output = cwd.join(&args.output);
     let channel = args
         .channel
         .clone()
         .unwrap_or_else(|| RELEASE_CHANNEL.into());
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     Ok(GenerateSingleFileManifestCmd {
         manifest,
         output,
@@ -108,9 +108,9 @@ fn create_generate_command_experimenter_from_cli(
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
     let output = cwd.join(&args.output);
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
-        manifest: args.input.clone(),
+        manifest: args.manifest.clone(),
         output,
         loader,
     };
@@ -118,14 +118,14 @@ fn create_generate_command_experimenter_from_cli(
 }
 
 fn create_generate_command_from_cli(args: &GenerateArgs, cwd: &Path) -> Result<GenerateStructCmd> {
-    let manifest = args.input.clone();
+    let manifest = args.manifest.clone();
     let output = cwd.join(&args.output);
     let language = match args.language {
         Some(s) => TargetLanguage::from(s),
         None => output.as_path().try_into().map_err(|_| anyhow::anyhow!("Can't infer a target language from the file or directory, so specify a --language flag explicitly"))?,
     };
     let channel = args.channel.clone();
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     Ok(GenerateStructCmd {
         language,
         manifest,
@@ -165,8 +165,8 @@ fn create_loader(input_file: &str, loader_info: &LoaderArgs, cwd: &Path) -> Resu
 }
 
 fn create_validate_command_from_cli(args: &ValidateArgs, cwd: &Path) -> Result<ValidateCmd> {
-    let manifest = args.input.clone();
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let manifest = args.manifest.clone();
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     Ok(ValidateCmd { manifest, loader })
 }
 
@@ -176,7 +176,7 @@ fn create_lint_command_from_cli(args: &LintArgs, cwd: &Path) -> Result<CliCmd> {
     }
 
     // clap has already checked that there is an input file if we're not listing.
-    let manifest = args.input.clone().unwrap_or_default();
+    let manifest = args.manifest.clone().unwrap_or_default();
     let loader = create_loader(&manifest, &args.loader_args, cwd)?;
 
     Ok(CliCmd::Lint(LintCmd {
@@ -187,8 +187,8 @@ fn create_lint_command_from_cli(args: &LintArgs, cwd: &Path) -> Result<CliCmd> {
 }
 
 fn create_print_channels_from_cli(args: &ChannelsArgs, cwd: &Path) -> Result<PrintChannelsCmd> {
-    let manifest = args.input.clone();
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let manifest = args.manifest.clone();
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     let as_json = args.json;
     Ok(PrintChannelsCmd {
         manifest,
@@ -198,8 +198,8 @@ fn create_print_channels_from_cli(args: &ChannelsArgs, cwd: &Path) -> Result<Pri
 }
 
 fn create_print_info_from_cli(args: &InfoArgs, cwd: &Path) -> Result<PrintInfoCmd> {
-    let manifest = args.input.clone();
-    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let manifest = args.manifest.clone();
+    let loader = create_loader(&args.manifest, &args.loader_args, cwd)?;
     let as_json = args.json;
 
     let channel = args.channel.clone();

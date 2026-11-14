@@ -47,9 +47,11 @@ pub enum Command {
 
 #[derive(Args)]
 pub struct GenerateArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
@@ -69,9 +71,11 @@ pub struct GenerateArgs {
 
 #[derive(Args)]
 pub struct GenerateExperimenterArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
@@ -88,9 +92,11 @@ pub struct GenerateExperimenterArgs {
 
 #[derive(Args)]
 pub struct FetchArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     #[command(flatten)]
     pub loader_args: LoaderArgs,
@@ -98,9 +104,11 @@ pub struct FetchArgs {
 
 #[derive(Args)]
 pub struct SingleFileArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
@@ -116,9 +124,11 @@ pub struct SingleFileArgs {
 
 #[derive(Args)]
 pub struct ValidateArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     #[command(flatten)]
     pub loader_args: LoaderArgs,
@@ -126,9 +136,11 @@ pub struct ValidateArgs {
 
 #[derive(Args)]
 pub struct LintArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT", required_unless_present = "list")]
-    pub input: Option<String>,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST", required_unless_present = "list")]
+    pub manifest: Option<String>,
 
     #[command(flatten)]
     pub loader_args: LoaderArgs,
@@ -144,9 +156,11 @@ pub struct LintArgs {
 
 #[derive(Args)]
 pub struct ChannelsArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     #[command(flatten)]
     pub loader_args: LoaderArgs,
@@ -158,9 +172,11 @@ pub struct ChannelsArgs {
 
 #[derive(Args)]
 pub struct InfoArgs {
-    /// Sets the input file to use
-    #[arg(value_name = "INPUT")]
-    pub input: String,
+    /// The manifest to process.
+    ///
+    /// You can reference a manifest located in a GitHub repository with @user/repo/path/to/manifest.fml
+    #[arg(value_name = "MANIFEST")]
+    pub manifest: String,
 
     /// The channel to generate the defaults for
     #[arg(long)]
@@ -194,7 +210,7 @@ pub struct LoaderArgs {
     #[arg(long)]
     pub repo_file: Vec<String>,
 
-    /// If INPUT is a remote file, then use this as the tag or branch name.
+    /// If MANIFEST is a remote file, then use this as the tag or branch name.
     #[arg(long = "ref")]
     pub ref_: Option<String>,
 
