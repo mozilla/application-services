@@ -338,6 +338,42 @@ impl Sync15StorageClient {
         self.collection_request(Method::Get, collection_request)
     }
 
+    /// Fetch one page of a paged collection GET.
+    ///
+    /// Like get_encrypted_records but allows for retrieving one page
+    /// at a time to support batched sync calls. Takes an xius (i.e. x_if_unmodified_since)
+    /// parameter which, if provided, will cause the server to respond with a
+    /// 412 error if the collection changed after an earlier page was fetched.
+    ///
+    /// Also returns the `X-Weave-Next-Offset` header (if any), to
+    /// be passed back via `CollectionRequest::offset` for the next page.
+    pub fn get_encrypted_records_page(
+        &self,
+        collection_request: CollectionRequest,
+        xius: Option<ServerTimestamp>,
+    ) -> error::Result<(
+        Sync15ClientResponse<Vec<IncomingEncryptedBso>>,
+        Option<String>,
+    )> {
+        let url = build_collection_request_url(
+            Url::parse(&self.tsc.api_endpoint()?)?,
+            collection_request,
+        )?;
+        let mut req = self.build_request(Method::Get, url)?;
+        if let Some(xius) = xius {
+            req = req.header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?;
+        }
+        trace!("paged request: {} ({:?})", req.url.path(), req.url.query());
+        let resp = req.send()?;
+        // Must be read before `from_response` consumes `resp`.
+        let next_offset = resp
+            .headers
+            .get(header_names::X_WEAVE_NEXT_OFFSET)
+            .map(str::to_string);
+        let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
+        Ok((result, next_offset))
+    }
+
     #[inline]
     fn authorized(&self, req: Request) -> error::Result<Request> {
         let hawk_header_value = self.tsc.authorization(&req)?;
@@ -532,6 +568,9 @@ fn build_collection_request_url(mut base_url: Url, r: CollectionRequest) -> erro
         pairs.append_pair("sort", l.order.as_str());
         pairs.append_pair("limit", &l.num.to_string());
     }
+    if let Some(offset) = &r.offset {
+        pairs.append_pair("offset", offset);
+    }
     pairs.finish();
     drop(pairs);
     build_collection_url(base_url, r.collection)
@@ -596,6 +635,19 @@ mod test {
         assert_eq!(
             idreq.as_str(),
             "https://example.com/sync/storage/wutang?full=1&ids=rza%2Cgza"
+        );
+
+        let paged = build_collection_request_url(
+            base.clone(),
+            CollectionRequest::new("paged".into())
+                .full()
+                .limit(1000, RequestOrder::Oldest)
+                .offset(Some("abc:123".into())),
+        )
+        .unwrap();
+        assert_eq!(
+            paged.as_str(),
+            "https://example.com/sync/storage/paged?full=1&sort=oldest&limit=1000&offset=abc%3A123"
         );
 
         let complex = build_collection_request_url(

@@ -375,9 +375,8 @@ impl RoundtripTest {
         let changes = records.iter().map(IncomingBso::from_test_content).collect();
 
         let mut telem = telemetry::Engine::new("history");
-        engine
-            .stage_incoming(changes, &mut telemetry::Engine::new("history"))
-            .expect("Should stageapply incoming and stage outgoing records");
+        sync15::engine::test_utils::stage_in_batches(engine, changes, 1, &mut telem)
+            .expect("Should stage incoming records");
         let timestamp = ServerTimestamp::from_millis(timestamp(1000));
         engine.apply(timestamp, &mut telem).expect("should apply")
     }
