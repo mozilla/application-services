@@ -103,12 +103,10 @@ fn create_generate_command_experimenter_from_cli(
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
     let output = cwd.join(&cmd.output);
-    let language = output.as_path().try_into()?;
     let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
         manifest: cmd.input.clone(),
         output,
-        language,
         loader,
     };
     Ok(cmd)
@@ -399,7 +397,6 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
@@ -424,60 +421,7 @@ mod cli_tests {
         assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
 
         if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.language, TargetLanguage::ExperimenterYAML);
             assert!(cmd.output.ends_with(".experimenter.yaml"));
-            assert!(cmd.manifest.ends_with(TEST_FILE));
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_cli_generate_experimenter_with_json() -> Result<()> {
-        let cwd = package_dir()?;
-        let cmd = get_command_from_cli(
-            [
-                FML_BIN,
-                "generate-experimenter",
-                TEST_FILE,
-                ".experimenter.json",
-            ],
-            &cwd,
-        )?;
-
-        assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
-
-        if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
-            assert!(cmd.output.ends_with(".experimenter.json"));
-            assert!(cmd.manifest.ends_with(TEST_FILE));
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_cli_generate_experimenter_with_remote_flags() -> Result<()> {
-        let cwd = package_dir()?;
-        let cmd = get_command_from_cli(
-            [
-                FML_BIN,
-                "generate-experimenter",
-                "--repo-file",
-                REPO_FILE_1,
-                "--repo-file",
-                REPO_FILE_2,
-                "--cache-dir",
-                CACHE_DIR,
-                TEST_FILE,
-                ".experimenter.json",
-            ],
-            &cwd,
-        )?;
-
-        assert!(matches!(cmd, CliCmd::GenerateExperimenter(_)));
-
-        if let CliCmd::GenerateExperimenter(cmd) = cmd {
-            assert_eq!(cmd.language, TargetLanguage::ExperimenterJSON);
-            assert!(cmd.output.ends_with(".experimenter.json"));
             assert!(cmd.manifest.ends_with(TEST_FILE));
         }
         Ok(())

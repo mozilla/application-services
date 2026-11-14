@@ -940,7 +940,6 @@ mod test {
         Ok(GenerateExperimenterManifestCmd {
             manifest,
             output: output.into(),
-            language: TargetLanguage::ExperimenterYAML,
             loader,
         })
     }

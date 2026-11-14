@@ -33,7 +33,6 @@ pub(crate) struct GenerateStructCmd {
 pub(crate) struct GenerateExperimenterManifestCmd {
     pub(crate) manifest: String,
     pub(crate) output: PathBuf,
-    pub(crate) language: TargetLanguage,
     pub(crate) loader: LoaderConfig,
 }
 

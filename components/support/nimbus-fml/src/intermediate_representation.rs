@@ -23,7 +23,6 @@ pub enum TargetLanguage {
     Kotlin,
     Swift,
     ExperimenterYAML,
-    ExperimenterJSON,
 }
 
 impl TargetLanguage {
@@ -31,7 +30,6 @@ impl TargetLanguage {
         match self {
             TargetLanguage::Kotlin => "kt",
             TargetLanguage::Swift => "swift",
-            TargetLanguage::ExperimenterJSON => "json",
             TargetLanguage::ExperimenterYAML => "yaml",
         }
     }
@@ -44,7 +42,6 @@ impl TryFrom<&str> for TargetLanguage {
             "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
             "swift" => TargetLanguage::Swift,
             "yaml" => TargetLanguage::ExperimenterYAML,
-            "json" => TargetLanguage::ExperimenterJSON,
             _ => bail!("Unknown or unsupported target language: \"{}\"", value),
         })
     }

@@ -98,7 +98,6 @@ impl AboutBlock {
             TargetLanguage::Kotlin => self.kotlin_about.is_some(),
             TargetLanguage::Swift => self.swift_about.is_some(),
             TargetLanguage::ExperimenterYAML => true,
-            TargetLanguage::ExperimenterJSON => true,
         }
     }
 
