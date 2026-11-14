@@ -13,6 +13,10 @@ use std::path::Path;
 use anyhow::Result;
 use clap::Parser;
 
+use crate::command_line::cli::{
+    App, ChannelsArgs, GenerateArgs, GenerateExperimenterArgs, InfoArgs, LintArgs, LoaderArgs,
+    SingleFileArgs, ValidateArgs,
+};
 use crate::command_line::commands::{
     CliCmd, GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
     LintCmd, PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
@@ -53,43 +57,44 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let app = cli::App::parse_from(args);
+    let app = App::parse_from(args);
 
     Ok(match app.subcommand {
-        cli::Command::Generate(cmd) => {
-            CliCmd::Generate(create_generate_command_from_cli(&cmd, cwd)?)
+        cli::Command::Generate(args) => {
+            CliCmd::Generate(create_generate_command_from_cli(&args, cwd)?)
         }
-        cli::Command::GenerateExperimenter(cmd) => {
-            CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(&cmd, cwd)?)
+        cli::Command::GenerateExperimenter(args) => {
+            CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(&args, cwd)?)
         }
-        cli::Command::Fetch(cmd) => {
-            CliCmd::FetchFile(create_loader(&cmd.input, &cmd.loader_info, cwd)?, cmd.input)
+        cli::Command::Fetch(args) => CliCmd::FetchFile(
+            create_loader(&args.input, &args.loader_args, cwd)?,
+            args.input,
+        ),
+        cli::Command::SingleFile(args) => {
+            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(&args, cwd)?)
         }
-        cli::Command::SingleFile(cmd) => {
-            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(&cmd, cwd)?)
+        cli::Command::Validate(args) => {
+            CliCmd::Validate(create_validate_command_from_cli(&args, cwd)?)
         }
-        cli::Command::Validate(cmd) => {
-            CliCmd::Validate(create_validate_command_from_cli(&cmd, cwd)?)
+        cli::Command::Lint(args) => create_lint_command_from_cli(&args, cwd)?,
+        cli::Command::Channels(args) => {
+            CliCmd::PrintChannels(create_print_channels_from_cli(&args, cwd)?)
         }
-        cli::Command::Lint(cmd) => create_lint_command_from_cli(&cmd, cwd)?,
-        cli::Command::Channels(cmd) => {
-            CliCmd::PrintChannels(create_print_channels_from_cli(&cmd, cwd)?)
-        }
-        cli::Command::Info(cmd) => CliCmd::PrintInfo(create_print_info_from_cli(&cmd, cwd)?),
+        cli::Command::Info(args) => CliCmd::PrintInfo(create_print_info_from_cli(&args, cwd)?),
     })
 }
 
 fn create_single_file_from_cli(
-    cmd: &cli::SingleFile,
+    args: &SingleFileArgs,
     cwd: &Path,
 ) -> Result<GenerateSingleFileManifestCmd> {
-    let manifest = cmd.input.clone();
-    let output = cwd.join(&cmd.output);
-    let channel = cmd
+    let manifest = args.input.clone();
+    let output = cwd.join(&args.output);
+    let channel = args
         .channel
         .clone()
         .unwrap_or_else(|| RELEASE_CHANNEL.into());
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
     Ok(GenerateSingleFileManifestCmd {
         manifest,
         output,
@@ -99,28 +104,28 @@ fn create_single_file_from_cli(
 }
 
 fn create_generate_command_experimenter_from_cli(
-    cmd: &cli::GenerateExperimenter,
+    args: &GenerateExperimenterArgs,
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
-    let output = cwd.join(&cmd.output);
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+    let output = cwd.join(&args.output);
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
-        manifest: cmd.input.clone(),
+        manifest: args.input.clone(),
         output,
         loader,
     };
     Ok(cmd)
 }
 
-fn create_generate_command_from_cli(cmd: &cli::Generate, cwd: &Path) -> Result<GenerateStructCmd> {
-    let manifest = cmd.input.clone();
-    let output = cwd.join(&cmd.output);
-    let language = match cmd.language {
+fn create_generate_command_from_cli(args: &GenerateArgs, cwd: &Path) -> Result<GenerateStructCmd> {
+    let manifest = args.input.clone();
+    let output = cwd.join(&args.output);
+    let language = match args.language {
         Some(s) => TargetLanguage::from(s),
         None => output.as_path().try_into().map_err(|_| anyhow::anyhow!("Can't infer a target language from the file or directory, so specify a --language flag explicitly"))?,
     };
-    let channel = cmd.channel.clone();
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+    let channel = args.channel.clone();
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
     Ok(GenerateStructCmd {
         language,
         manifest,
@@ -130,11 +135,7 @@ fn create_generate_command_from_cli(cmd: &cli::Generate, cwd: &Path) -> Result<G
     })
 }
 
-fn create_loader(
-    input_file: &str,
-    loader_info: &cli::LoaderInfo,
-    cwd: &Path,
-) -> Result<LoaderConfig> {
+fn create_loader(input_file: &str, loader_info: &LoaderArgs, cwd: &Path) -> Result<LoaderConfig> {
     let cwd = cwd.to_path_buf();
     let cache_dir = loader_info
         .cache_dir
@@ -163,32 +164,32 @@ fn create_loader(
     })
 }
 
-fn create_validate_command_from_cli(cmd: &cli::Validate, cwd: &Path) -> Result<ValidateCmd> {
-    let manifest = cmd.input.clone();
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+fn create_validate_command_from_cli(args: &ValidateArgs, cwd: &Path) -> Result<ValidateCmd> {
+    let manifest = args.input.clone();
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
     Ok(ValidateCmd { manifest, loader })
 }
 
-fn create_lint_command_from_cli(cmd: &cli::Lint, cwd: &Path) -> Result<CliCmd> {
-    if cmd.list {
+fn create_lint_command_from_cli(args: &LintArgs, cwd: &Path) -> Result<CliCmd> {
+    if args.list {
         return Ok(CliCmd::ListLints);
     }
 
     // clap has already checked that there is an input file if we're not listing.
-    let manifest = cmd.input.clone().unwrap_or_default();
-    let loader = create_loader(&manifest, &cmd.loader_info, cwd)?;
+    let manifest = args.input.clone().unwrap_or_default();
+    let loader = create_loader(&manifest, &args.loader_args, cwd)?;
 
     Ok(CliCmd::Lint(LintCmd {
         manifest,
         loader,
-        code_review_json: cmd.code_review_json.clone(),
+        code_review_json: args.code_review_json.clone(),
     }))
 }
 
-fn create_print_channels_from_cli(cmd: &cli::Channels, cwd: &Path) -> Result<PrintChannelsCmd> {
-    let manifest = cmd.input.clone();
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
-    let as_json = cmd.json;
+fn create_print_channels_from_cli(args: &ChannelsArgs, cwd: &Path) -> Result<PrintChannelsCmd> {
+    let manifest = args.input.clone();
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let as_json = args.json;
     Ok(PrintChannelsCmd {
         manifest,
         loader,
@@ -196,13 +197,13 @@ fn create_print_channels_from_cli(cmd: &cli::Channels, cwd: &Path) -> Result<Pri
     })
 }
 
-fn create_print_info_from_cli(cmd: &cli::Info, cwd: &Path) -> Result<PrintInfoCmd> {
-    let manifest = cmd.input.clone();
-    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
-    let as_json = cmd.json;
+fn create_print_info_from_cli(args: &InfoArgs, cwd: &Path) -> Result<PrintInfoCmd> {
+    let manifest = args.input.clone();
+    let loader = create_loader(&args.input, &args.loader_args, cwd)?;
+    let as_json = args.json;
 
-    let channel = cmd.channel.clone();
-    let feature = cmd.feature.clone();
+    let channel = args.channel.clone();
+    let feature = args.feature.clone();
 
     Ok(PrintInfoCmd {
         manifest,

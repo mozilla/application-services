@@ -20,33 +20,33 @@ pub struct App {
 #[derive(Subcommand)]
 pub enum Command {
     /// Generate feature structs against the Feature Variables API.
-    Generate(Generate),
+    Generate(GenerateArgs),
 
     /// Generate a version of this manifest compatible with Experimenter's format.
-    GenerateExperimenter(GenerateExperimenter),
+    GenerateExperimenter(GenerateExperimenterArgs),
 
     /// Get the input file, with the same rules that govern how FilePaths work.
-    Fetch(Fetch),
+    Fetch(FetchArgs),
 
     /// Create a single file out of the given manifest, suited for production environments where
     /// only one file is allowed, and only one channel is needed.
-    SingleFile(SingleFile),
+    SingleFile(SingleFileArgs),
 
     /// Validate an FML configuration and all of its channels.
-    Validate(Validate),
+    Validate(ValidateArgs),
 
     /// Check an FML configuration against the Nimbus feature design lints.
-    Lint(Lint),
+    Lint(LintArgs),
 
     /// Print out all the channels to stdout, as JSON or one-per-line
-    Channels(Channels),
+    Channels(ChannelsArgs),
 
     /// Prints out information about the manifest
-    Info(Info),
+    Info(InfoArgs),
 }
 
 #[derive(Args)]
-pub struct Generate {
+pub struct GenerateArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
@@ -64,11 +64,11 @@ pub struct Generate {
     pub channel: String,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 }
 
 #[derive(Args)]
-pub struct GenerateExperimenter {
+pub struct GenerateExperimenterArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
@@ -83,21 +83,21 @@ pub struct GenerateExperimenter {
     pub channel: Option<String>,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 }
 
 #[derive(Args)]
-pub struct Fetch {
+pub struct FetchArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 }
 
 #[derive(Args)]
-pub struct SingleFile {
+pub struct SingleFileArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
@@ -111,27 +111,27 @@ pub struct SingleFile {
     pub channel: Option<String>,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 }
 
 #[derive(Args)]
-pub struct Validate {
+pub struct ValidateArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 }
 
 #[derive(Args)]
-pub struct Lint {
+pub struct LintArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT", required_unless_present = "list")]
     pub input: Option<String>,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 
     /// If present, then print the issues as JSON.
     #[arg(long, value_name = "PATH")]
@@ -143,13 +143,13 @@ pub struct Lint {
 }
 
 #[derive(Args)]
-pub struct Channels {
+pub struct ChannelsArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 
     /// If present, then print the channels as JSON. If not, then print one per line.
     #[arg(long)]
@@ -157,7 +157,7 @@ pub struct Channels {
 }
 
 #[derive(Args)]
-pub struct Info {
+pub struct InfoArgs {
     /// Sets the input file to use
     #[arg(value_name = "INPUT")]
     pub input: String,
@@ -171,7 +171,7 @@ pub struct Info {
     pub feature: Option<String>,
 
     #[command(flatten)]
-    pub loader_info: LoaderInfo,
+    pub loader_args: LoaderArgs,
 
     /// If present, then print the channels as JSON. If not, then print one per line.
     #[arg(long)]
@@ -185,7 +185,7 @@ pub enum Language {
 }
 
 #[derive(Args)]
-pub struct LoaderInfo {
+pub struct LoaderArgs {
     /// The directory where downloaded files are cached
     #[arg(long)]
     pub cache_dir: Option<String>,
