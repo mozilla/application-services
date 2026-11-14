@@ -55,7 +55,7 @@ pub struct GenerateArgs {
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
-    pub output: String,
+    pub output: PathBuf,
 
     /// The language of the output file
     #[arg(long)]
@@ -79,7 +79,7 @@ pub struct GenerateExperimenterArgs {
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
-    pub output: String,
+    pub output: PathBuf,
 
     /// Deprecated: The channel to generate the defaults for. This can be omitted.
     #[arg(long)]
@@ -112,7 +112,7 @@ pub struct SingleFileArgs {
 
     /// The file or directory where generated code is created
     #[arg(value_name = "OUTPUT")]
-    pub output: String,
+    pub output: PathBuf,
 
     /// The channel to generate the defaults for
     #[arg(long)]
