@@ -6,77 +6,76 @@ mod cli;
 pub(crate) mod commands;
 mod workflows;
 
-use std::ffi::OsString;
-
 use anyhow::{Result, anyhow};
 use clap::Parser;
 
-pub use crate::command_line::cli::LoaderArgs;
 use crate::command_line::cli::{
     App, ChannelsArgs, GenerateArgs, GenerateExperimenterArgs, InfoArgs, LintArgs, SingleFileArgs,
     ValidateArgs,
 };
+pub use crate::command_line::cli::{Command, LoaderArgs};
+pub use crate::command_line::commands::CliCmd;
 use crate::command_line::commands::{
-    CliCmd, GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
-    LintCmd, PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
+    GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, LintCmd,
+    PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
 };
 use crate::intermediate_representation::TargetLanguage;
 use crate::util::loaders::LoaderConfig;
 
 const RELEASE_CHANNEL: &str = "release";
 
-pub fn do_main<I, T>(args: I) -> Result<()>
-where
-    I: IntoIterator<Item = T>,
-    T: Into<OsString> + Clone,
-{
-    let cmd = get_command_from_cli(args)?;
-    process_command(&cmd)
+pub fn do_main() -> Result<()> {
+    CliCmd::dispatch_from_cli()
 }
 
-fn process_command(cmd: &CliCmd) -> Result<()> {
-    match cmd {
-        CliCmd::Generate(params) => workflows::generate_struct(params)?,
-        CliCmd::GenerateExperimenter(params) => workflows::generate_experimenter_manifest(params)?,
-        CliCmd::GenerateSingleFileManifest(params) => {
-            workflows::generate_single_file_manifest(params)?
-        }
-        CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
-        CliCmd::Validate(params) => workflows::validate(params)?,
-        CliCmd::Lint(params) => workflows::lint(params)?,
-        CliCmd::ListLints => workflows::list_lints()?,
-        CliCmd::PrintChannels(params) => workflows::print_channels(params)?,
-        CliCmd::PrintInfo(params) => workflows::print_info(params)?,
-    };
-    Ok(())
-}
+impl CliCmd {
+    pub(crate) fn dispatch_from_cli() -> Result<()> {
+        let app = App::parse();
+        Self::from_args(app.subcommand)?.dispatch()
+    }
 
-fn get_command_from_cli<I, T>(args: I) -> Result<CliCmd>
-where
-    I: IntoIterator<Item = T>,
-    T: Into<OsString> + Clone,
-{
-    let app = App::parse_from(args);
+    pub fn from_args(subcommand: Command) -> Result<Self> {
+        Ok(match subcommand {
+            cli::Command::Generate(args) => {
+                CliCmd::Generate(create_generate_command_from_cli(args)?)
+            }
+            cli::Command::GenerateExperimenter(args) => {
+                CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(args)?)
+            }
+            cli::Command::Fetch(args) => CliCmd::FetchFile(
+                LoaderConfig::from_args(args.loader_args, &args.manifest)?,
+                args.manifest,
+            ),
+            cli::Command::SingleFile(args) => {
+                CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(args)?)
+            }
+            cli::Command::Validate(args) => {
+                CliCmd::Validate(create_validate_command_from_cli(args)?)
+            }
+            cli::Command::Lint(args) => create_lint_command_from_cli(args)?,
+            cli::Command::Channels(args) => {
+                CliCmd::PrintChannels(create_print_channels_from_cli(args)?)
+            }
+            cli::Command::Info(args) => CliCmd::PrintInfo(create_print_info_from_cli(args)?),
+        })
+    }
 
-    Ok(match app.subcommand {
-        cli::Command::Generate(args) => CliCmd::Generate(create_generate_command_from_cli(args)?),
-        cli::Command::GenerateExperimenter(args) => {
-            CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(args)?)
+    pub fn dispatch(&self) -> Result<()> {
+        match self {
+            Self::Generate(params) => workflows::generate_struct(params),
+            Self::GenerateExperimenter(params) => workflows::generate_experimenter_manifest(params),
+            Self::GenerateSingleFileManifest(params) => {
+                workflows::generate_single_file_manifest(params)
+            }
+            Self::FetchFile(files, nm) => workflows::fetch_file(files, nm),
+            Self::Validate(params) => workflows::validate(params),
+            Self::Lint(params) => workflows::lint(params),
+            Self::ListLints => workflows::list_lints(),
+            Self::PrintChannels(params) => workflows::print_channels(params),
+            Self::PrintInfo(params) => workflows::print_info(params),
         }
-        cli::Command::Fetch(args) => CliCmd::FetchFile(
-            LoaderConfig::from_args(args.loader_args, &args.manifest)?,
-            args.manifest,
-        ),
-        cli::Command::SingleFile(args) => {
-            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(args)?)
-        }
-        cli::Command::Validate(args) => CliCmd::Validate(create_validate_command_from_cli(args)?),
-        cli::Command::Lint(args) => create_lint_command_from_cli(args)?,
-        cli::Command::Channels(args) => {
-            CliCmd::PrintChannels(create_print_channels_from_cli(args)?)
-        }
-        cli::Command::Info(args) => CliCmd::PrintInfo(create_print_info_from_cli(args)?),
-    })
+        .map_err(Into::into)
+    }
 }
 
 fn create_single_file_from_cli(args: SingleFileArgs) -> Result<GenerateSingleFileManifestCmd> {
@@ -170,7 +169,8 @@ fn create_print_info_from_cli(args: InfoArgs) -> Result<PrintInfoCmd> {
 
 #[cfg(test)]
 mod cli_tests {
-    use std::{env, path::PathBuf};
+    use std::env;
+    use std::path::PathBuf;
 
     use super::*;
 
@@ -204,6 +204,11 @@ mod cli_tests {
         Ok(WithCwd { original_cwd })
     }
 
+    fn get_command_from_cli(argv: &[&'static str]) -> Result<CliCmd> {
+        let app = App::parse_from(argv);
+        CliCmd::from_args(app.subcommand)
+    }
+
     // All these tests just exercise the command line parsing.
     // Each of the tests construct a command struct from the command line, and then
     // test the command struct against the expected values.
@@ -212,7 +217,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_android_features_language_implied() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--channel",
@@ -235,7 +240,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_ios_features_language_implied() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--channel",
@@ -260,7 +265,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_features_with_remote_flags() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--repo-file",
@@ -290,7 +295,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_android_features_language_flag() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--channel",
@@ -315,7 +320,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_ios_features_language_flag() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--channel",
@@ -341,7 +346,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_experimenter_android() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate-experimenter",
             TEST_FILE,
@@ -360,7 +365,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_experimenter_ios() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate-experimenter",
             "--channel",
@@ -381,7 +386,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_features_for_directory_input() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate",
             "--language",
@@ -407,7 +412,7 @@ mod cli_tests {
     #[test]
     fn test_cli_generate_validate() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([FML_BIN, "validate", TEST_FILE])?;
+        let cmd = get_command_from_cli(&[FML_BIN, "validate", TEST_FILE])?;
 
         assert!(matches!(cmd, CliCmd::Validate(_)));
         assert!(matches!(cmd, CliCmd::Validate(c) if c.manifest.ends_with(TEST_FILE)));
@@ -418,13 +423,13 @@ mod cli_tests {
     #[test]
     fn test_cli_print_channels_command() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([FML_BIN, "channels", TEST_FILE])?;
+        let cmd = get_command_from_cli(&[FML_BIN, "channels", TEST_FILE])?;
 
         assert!(matches!(&cmd, CliCmd::PrintChannels(_)));
         assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.manifest.ends_with(TEST_FILE)));
         assert!(matches!(&cmd, CliCmd::PrintChannels(c) if !c.as_json));
 
-        let cmd = get_command_from_cli([FML_BIN, "channels", TEST_FILE, "--json"])?;
+        let cmd = get_command_from_cli(&[FML_BIN, "channels", TEST_FILE, "--json"])?;
 
         assert!(matches!(&cmd, CliCmd::PrintChannels(_)));
         assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.manifest.ends_with(TEST_FILE)));
@@ -436,7 +441,7 @@ mod cli_tests {
     #[test]
     fn test_cli_print_info_command() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([FML_BIN, "info", TEST_FILE, "--channel", "release"])?;
+        let cmd = get_command_from_cli(&[FML_BIN, "info", TEST_FILE, "--channel", "release"])?;
 
         assert!(matches!(&cmd, CliCmd::PrintInfo(_)));
         assert!(matches!(&cmd, CliCmd::PrintInfo(c) if c.manifest.ends_with(TEST_FILE)));
@@ -445,7 +450,7 @@ mod cli_tests {
         );
 
         let cmd =
-            get_command_from_cli([FML_BIN, "info", TEST_FILE, "--channel", "beta", "--json"])?;
+            get_command_from_cli(&[FML_BIN, "info", TEST_FILE, "--channel", "beta", "--json"])?;
 
         assert!(matches!(&cmd, CliCmd::PrintInfo(_)));
         assert!(matches!(&cmd, CliCmd::PrintInfo(c) if c.manifest.ends_with(TEST_FILE)));
@@ -453,7 +458,7 @@ mod cli_tests {
             matches!(&cmd, CliCmd::PrintInfo(PrintInfoCmd { channel: Some(channel), as_json, .. }) if channel.as_str() == "beta" && *as_json )
         );
 
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "info",
             TEST_FILE,
@@ -474,7 +479,7 @@ mod cli_tests {
     #[test]
     fn test_cli_add_ref_arg() -> Result<()> {
         let _guard = run_in_package_dir()?;
-        let cmd = get_command_from_cli([
+        let cmd = get_command_from_cli(&[
             FML_BIN,
             "generate-experimenter",
             "--ref",

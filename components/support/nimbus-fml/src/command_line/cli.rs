@@ -17,7 +17,7 @@ pub struct App {
     pub subcommand: Command,
 }
 
-#[derive(Subcommand)]
+#[derive(Clone, Subcommand)]
 pub enum Command {
     /// Generate feature structs against the Feature Variables API.
     Generate(GenerateArgs),
@@ -45,7 +45,7 @@ pub enum Command {
     Info(InfoArgs),
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct GenerateArgs {
     /// The manifest to process.
     ///
@@ -69,7 +69,7 @@ pub struct GenerateArgs {
     pub loader_args: LoaderArgs,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct GenerateExperimenterArgs {
     /// The manifest to process.
     ///
@@ -90,7 +90,7 @@ pub struct GenerateExperimenterArgs {
     pub loader_args: LoaderArgs,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct FetchArgs {
     /// The manifest to process.
     ///
@@ -102,7 +102,7 @@ pub struct FetchArgs {
     pub loader_args: LoaderArgs,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct SingleFileArgs {
     /// The manifest to process.
     ///
@@ -122,7 +122,7 @@ pub struct SingleFileArgs {
     pub loader_args: LoaderArgs,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct ValidateArgs {
     /// The manifest to process.
     ///
@@ -134,7 +134,7 @@ pub struct ValidateArgs {
     pub loader_args: LoaderArgs,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct LintArgs {
     /// The manifest to process.
     ///
@@ -154,7 +154,7 @@ pub struct LintArgs {
     pub list: bool,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct ChannelsArgs {
     /// The manifest to process.
     ///
@@ -170,7 +170,7 @@ pub struct ChannelsArgs {
     pub json: bool,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct InfoArgs {
     /// The manifest to process.
     ///
@@ -200,7 +200,7 @@ pub enum Language {
     Kotlin,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct LoaderArgs {
     /// The directory where downloaded files are cached
     #[arg(long)]
