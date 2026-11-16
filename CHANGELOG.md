@@ -30,6 +30,7 @@
 ### Nimbus
 
 - Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+- Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
 
 ### Remote Settings
 
