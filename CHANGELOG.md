@@ -13,6 +13,7 @@
 ### Android
 
 - Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
 
 ### Ads-Client
 
