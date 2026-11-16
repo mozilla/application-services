@@ -91,7 +91,7 @@ ext.configurePublish = { groupIdArg = null, artifactIdArg = null, descriptionArg
 
     publishing.publications.withType(MavenPublication).each {publication ->
         def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
-            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.layout.buildDirectory.get().asFile, publication.artifactId
         }
         checkMavenArtifacts.dependsOn(checkFileSizeTask)
     }
