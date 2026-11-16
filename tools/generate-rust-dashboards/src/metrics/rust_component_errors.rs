@@ -66,7 +66,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
         title: application.display_name(channel),
         grid_pos: GridPos::height(8),
         datasource: Datasource::bigquery(),
-        interval: "1h".into(),
+        interval: "1d".into(),
         targets: vec![Target::table(query.sql())],
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {
@@ -253,6 +253,7 @@ fn error_list_count_panel() -> Panel {
         select: vec![
             "$__timeGroup(submission_timestamp, $__interval) as time".into(),
             "IF('${build_date}' = '', '', IF(build_date < '${build_date}', '< ${build_date}', '>= ${build_date}')) as build_date".into(),
+            "COUNT(DISTINCT client_id) as client_count".into(),
         ],
         where_: vec![
             "error_type='${error_type}'".into(),
@@ -273,13 +274,12 @@ fn error_list_count_panel() -> Panel {
         ..Query::default()
     };
     query.add_count_per_day_column("COUNT(*)", "error_count");
-    query.add_count_per_day_column("COUNT(DISTINCT client_id)", "client_count");
 
     TimeSeriesPanel {
         title: "".into(),
         grid_pos: GridPos::height(10),
         datasource: Datasource::bigquery(),
-        interval: "2h".into(),
+        interval: "1d".into(),
         targets: vec![Target::timeseries(query.sql())],
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {
