@@ -23,6 +23,7 @@
 ///   - After we sync, we move all records from loginsL to loginsM, overwriting any previous data.
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::error::*;
+use crate::glean_metrics;
 use crate::login::*;
 use crate::schema;
 use crate::sync::SyncStatus;
@@ -47,11 +48,6 @@ pub struct LoginDb {
     pub db: Connection,
     pub encdec: Arc<dyn EncryptorDecryptor>,
     interrupt_handle: Arc<SqlInterruptHandle>,
-}
-
-pub struct LoginsDeletionMetrics {
-    pub local_deleted: u64,
-    pub mirror_deleted: u64,
 }
 
 impl LoginDb {
@@ -1088,9 +1084,7 @@ impl LoginDb {
         Ok(result)
     }
 
-    pub fn delete_undecryptable_records_for_remote_replacement(
-        &self,
-    ) -> Result<LoginsDeletionMetrics> {
+    pub fn delete_undecryptable_records_for_remote_replacement(&self) -> Result<()> {
         // Retrieve a list of guids for logins that cannot be decrypted
         let corrupted_logins = self
             .get_all()?
@@ -1105,10 +1099,7 @@ impl LoginDb {
         self.delete_local_records_for_remote_replacement(ids)
     }
 
-    pub fn delete_local_records_for_remote_replacement(
-        &self,
-        ids: Vec<&str>,
-    ) -> Result<LoginsDeletionMetrics> {
+    pub fn delete_local_records_for_remote_replacement(&self, ids: Vec<&str>) -> Result<()> {
         let tx = self.unchecked_transaction_imm()?;
         let mut local_deleted = 0;
         let mut mirror_deleted = 0;
@@ -1138,10 +1129,9 @@ impl LoginDb {
         })?;
 
         tx.commit()?;
-        Ok(LoginsDeletionMetrics {
-            local_deleted: local_deleted as u64,
-            mirror_deleted: mirror_deleted as u64,
-        })
+        glean_metrics::logins_store::local_undecryptable_deleted.add(local_deleted as i32);
+        glean_metrics::logins_store::mirror_undecryptable_deleted.add(mirror_deleted as i32);
+        Ok(())
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
@@ -2736,8 +2726,7 @@ mod tests {
             })
             .unwrap();
 
-        let result = db
-            .delete_local_records_for_remote_replacement(vec![login.guid_str()])
+        db.delete_local_records_for_remote_replacement(vec![login.guid_str()])
             .unwrap();
 
         let local_guids = get_local_guids(&db);
@@ -2745,8 +2734,6 @@ mod tests {
 
         let mirror_guids = get_mirror_guids(&db);
         assert_eq!(mirror_guids.len(), 0);
-
-        assert_eq!(result.local_deleted, 1);
     }
 
     mod test_find_login_to_update {

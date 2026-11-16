@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Logins
+- Kotlin: KeyRegenerationEventReason value names now use UPPER_SNAKE_CASE naming.
+  e.g. KeyRegenerationEventReason.Lost is now KeyRegenerationEventReason.LOST.
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)

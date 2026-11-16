@@ -38,8 +38,8 @@ pub use crate::types::*;
 
 pub use ffi::*;
 
-pub mod glean_metrics {
-    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
+mod glean_metrics {
+    pub use metrics_support::places_manager;
 }
 
 uniffi::custom_type!(Guid, String, {
