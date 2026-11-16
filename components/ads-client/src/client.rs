@@ -13,7 +13,6 @@ use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
-use crate::IN_MEMORY_DB_PATH;
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
@@ -27,8 +26,6 @@ use uuid::Uuid;
 pub(crate) mod config;
 pub(crate) mod error;
 
-const DEFAULT_TTL_SECONDS: u64 = 300;
-const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
 pub(crate) struct AdsClient {
@@ -163,33 +160,20 @@ impl AdsClientInner {
 
         let environment = client_config.environment;
 
-        // Configure the HttpCache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
-        let http_cache_db_path = client_config
-            .cache_config
-            .as_ref()
-            .map(|x| x.db_path.clone())
-            .unwrap_or(IN_MEMORY_DB_PATH.to_string());
-        let default_cache_ttl = Duration::from_secs(
-            client_config
-                .cache_config
-                .as_ref()
-                .and_then(|x| x.default_cache_ttl_seconds)
-                .unwrap_or(DEFAULT_TTL_SECONDS),
-        );
-        let max_cache_size = ByteSize::mib(
-            client_config
-                .cache_config
-                .as_ref()
-                .and_then(|x| x.max_size_mib)
-                .unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB),
-        );
-        let http_cache = match HttpCache::builder()
-            .database(http_cache_db_path)
-            .max_size(max_cache_size)
-            .default_ttl(default_cache_ttl)
-            .build()
-        {
+        // Configure the HttpCache if a path is provided (otherwise, default to memory).
+        // Defaults for ttl and cache size set in the builder if unspecified.
+        let mut http_cache = HttpCache::builder();
+        if let Some(config) = client_config.cache_config {
+            http_cache = http_cache.db_path(config.db_path);
+            if let Some(default_cache_ttl) = config.default_cache_ttl_seconds {
+                http_cache = http_cache.default_ttl(Duration::from_secs(default_cache_ttl));
+            }
+            if let Some(max_size_mib) = config.max_size_mib {
+                http_cache = http_cache.max_size(ByteSize::mib(max_size_mib));
+            }
+        }
+
+        let http_cache = match http_cache.build() {
             Ok(cache) => Some(cache),
             Err(e) => {
                 telemetry::record_build_cache_error(&e);
@@ -197,15 +181,15 @@ impl AdsClientInner {
             }
         };
 
-        // Configure the HttpCache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
+        // Configure the AdsStore if a path is provided (otherwise, default to memory).
         #[cfg(feature = "stateful")]
-        let ads_store_db_path = client_config
-            .store_config
-            .map(|x| x.db_path)
-            .unwrap_or(IN_MEMORY_DB_PATH.to_string());
+        let mut ads_store = AdsStore::builder();
         #[cfg(feature = "stateful")]
-        let ads_store = match AdsStore::builder().database(ads_store_db_path).build() {
+        if let Some(config) = client_config.store_config {
+            ads_store = ads_store.db_path(config.db_path);
+        }
+        #[cfg(feature = "stateful")]
+        let ads_store = match ads_store.build() {
             Ok(store) => Some(store),
             Err(e) => {
                 telemetry::record_ads_store_error(&e);
@@ -478,7 +462,7 @@ mod tests {
             #[cfg(feature = "stateful")]
             ads_store: Arc::new(Some(
                 AdsStoreBuilder::new()
-                    .database(crate::IN_MEMORY_DB_PATH)
+                    .db_path(crate::IN_MEMORY_DB_PATH)
                     .build()
                     .expect("Simplest AdsStoreBuilder should be constructable"),
             )),

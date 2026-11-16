@@ -58,7 +58,7 @@ pub struct HttpCacheBuilder {
 
 impl HttpCacheBuilder {
     /// Create a new HttpCacheBuilder. Concludes with 'build': `HttpCacheBuilder::new().build()`
-    /// This defaults to an in-memory database, unless `.database("some_path.db")` is chained.
+    /// This defaults to an in-memory database, unless `.db_path("some_path.db")` is chained.
     pub fn new() -> Self {
         Self {
             clock: Clock::default(),
@@ -82,7 +82,7 @@ impl HttpCacheBuilder {
     }
 
     // `db_path`: location of sqlite file for file-based db. If not passed, it will be created in-memory.
-    pub fn database(mut self, db_path: impl Into<PathBuf>) -> Self {
+    pub fn db_path(mut self, db_path: impl Into<PathBuf>) -> Self {
         self.db_path = Some(db_path.into());
         self
     }
@@ -168,7 +168,7 @@ mod tests {
     use super::*;
 
     fn make_test_builder(path: &str) -> HttpCacheBuilder {
-        HttpCacheBuilder::new().database(path)
+        HttpCacheBuilder::new().db_path(path)
     }
 
     #[test]

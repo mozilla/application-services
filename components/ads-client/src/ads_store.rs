@@ -56,14 +56,14 @@ mod tests {
     #[test]
     fn test_ads_store_creation() {
         // Test that AdsStore can be created successfully with test config
-        let store: Result<AdsStore, _> = AdsStore::builder().database(IN_MEMORY_DB_PATH).build();
+        let store: Result<AdsStore, _> = AdsStore::builder().db_path(IN_MEMORY_DB_PATH).build();
         assert!(store.is_ok());
     }
 
     #[test]
     fn test_clear_store() {
         let store: AdsStore = AdsStore::builder()
-            .database(IN_MEMORY_DB_PATH)
+            .db_path(IN_MEMORY_DB_PATH)
             .build()
             .unwrap();
 
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn test_invalidate_by_id() {
         let store: AdsStore = AdsStore::builder()
-            .database(IN_MEMORY_DB_PATH)
+            .db_path(IN_MEMORY_DB_PATH)
             .build()
             .unwrap();
 
