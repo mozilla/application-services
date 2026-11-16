@@ -55,8 +55,6 @@ impl FirefoxAccount {
         self.auth_state = new_state.clone();
         if !was_in_auth_issues && matches!(new_state, FxaState::AuthIssues) {
             self.on_auth_issues();
-        } else if was_in_auth_issues && !matches!(new_state, FxaState::AuthIssues) {
-            self.on_recovered_from_auth_issues();
         }
         Ok(new_state)
     }
@@ -219,7 +217,7 @@ mod driver_tests {
             .unwrap();
         account.auth_state = FxaState::Authenticating {
             oauth_url: "https://example.com/oauth".to_owned(),
-            initial_state: crate::FxaRustAuthState::AuthIssues,
+            initial_state: Box::new(FxaState::AuthIssues),
         };
 
         let result = account.process_event(FxaEvent::CancelOAuthFlow);
