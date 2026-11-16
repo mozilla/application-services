@@ -3,29 +3,58 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    config::{Application, DistributionMetric, TeamConfig},
+    config::{Application, Unit},
     schema::{
         DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
         FieldConfigDefaults, GridPos, Panel, ScaleDistribution, Target, TimeSeriesPanel,
         Transformation,
     },
     sql::Query,
-    util::{slug, UrlBuilder},
+    util::UrlBuilder,
     Result,
 };
 
-pub fn add_to_dashboard(
-    builder: &mut DashboardBuilder,
-    _config: &TeamConfig,
-    metric: &DistributionMetric,
-) -> Result<()> {
-    builder.add_panel_title(metric.display_name);
-    for app in metric.applications.iter().cloned() {
-        builder.add_panel_third(count_panel(app, metric, "q05", "5th percentile"));
-        builder.add_panel_third(count_panel(app, metric, "q50", "50th percentile"));
-        builder.add_panel_third(count_panel(app, metric, "q95", "95th percentile"));
+/// Glean timing/memory distribution
+///
+/// This will create time-series panels for the 5th, 50th and 95th percentile.
+pub struct DistributionMetric {
+    /// Name to display on the dashboard
+    pub display_name: &'static str,
+    /// Label describing what we're measure
+    pub axis_label: &'static str,
+    /// Unit label
+    pub unit: Option<Unit>,
+    /// Name of the ping ("metrics" by default)
+    pub ping: &'static str,
+    /// Category name (top-level key in metrics.yaml)
+    pub category: &'static str,
+    /// Metric name (key for the metric)
+    pub metric: &'static str,
+    // Which applications report this metric
+    pub applications: Vec<Application>,
+    // Divide each value by this amount
+    //
+    // Note:
+    // * Timing distributions are always stored in nanoseconds, regardless of the unit listed in
+    //   `metrics.yaml`
+    // * Memory distributions are always stored in bytes, regardless of the unit listed in
+    //   `metrics.yaml`
+    pub value_divisor: Option<u64>,
+    // Link to an extra dashboard, the inner value should be the `uid` field
+    // from one of your team's extra dashboards.
+    pub link_to: Option<String>,
+}
+
+impl DistributionMetric {
+    pub fn build_dashboard(self, builder: &mut DashboardBuilder) -> Result<()> {
+        builder.add_panel_title(self.display_name);
+        for app in self.applications.iter().cloned() {
+            builder.add_panel_third(count_panel(app, &self, "q05", "5th percentile"));
+            builder.add_panel_third(count_panel(app, &self, "q50", "50th percentile"));
+            builder.add_panel_third(count_panel(app, &self, "q95", "95th percentile"));
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn count_panel(
@@ -40,7 +69,7 @@ fn count_panel(
         metric,
         value_divisor,
         axis_label,
-        link_to,
+        ref link_to,
         unit,
         ..
     } = *metric;
@@ -66,7 +95,7 @@ fn count_panel(
     let mut links = vec![];
     if let Some(link_to) = link_to {
         links.push(DataLink {
-            url: UrlBuilder::new_dashboard(slug(link_to))
+            url: UrlBuilder::new_dashboard(link_to)
                 .with_time_range_param()
                 .build(),
             target_blank: true,

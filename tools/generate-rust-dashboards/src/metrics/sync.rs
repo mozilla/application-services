@@ -2,58 +2,71 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::fmt;
+
 use crate::{
     config::{Application, ReleaseChannel, TeamConfig, Unit},
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
         FieldConfigCustom, FieldConfigDefaults, FieldConfigOverride, FieldConfigOverrideMatcher,
-        GridPos, LogOptions, LogPanel, Panel, ScaleDistribution, Target, TextPanel,
-        TimeSeriesPanel, Transformation,
+        FieldConfigOverrideProperty, GridPos, LogOptions, LogPanel, Panel, ScaleDistribution,
+        Target, TeamDashboardsBuilder, TextPanel, TimeSeriesPanel, Transformation,
     },
     sql::Query,
-    util::{Join, UrlBuilder},
+    util::{dashboard_count_color, Join, UrlBuilder},
     Result,
 };
 
-pub fn add_to_main_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> Result<()> {
+/// Build the Sync dashboards
+///
+/// This adds sync panels to the main dashboard and also creates an extra dashboard for sync
+/// details.
+///
+/// `sync_engines` are the engines your team owns
+pub fn build_dashboards(
+    config: &TeamConfig,
+    builder: &mut TeamDashboardsBuilder,
+    sync_engines: &[SyncEngine],
+) -> Result<()> {
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync success rate",
         config,
+        sync_engines,
         SyncMetric::SuccessRate,
     );
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync: total counts",
         config,
+        sync_engines,
         SyncMetric::TotalCounts,
     );
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync: average time",
         config,
+        sync_engines,
         SyncMetric::AverageTime,
     );
 
     if config.team_name == "SYNC" {
-        builder.add_panel_title("Legacy dashboards");
-        builder.add_panel_full(sync_legacy_dashboard_panel());
+        builder.main.add_panel_title("Legacy dashboards");
+        builder.main.add_panel_full(sync_legacy_dashboard_panel());
     }
+    builder.extra.push(extra_dashboard(config, sync_engines)?);
 
     Ok(())
 }
 
-pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
-    let mut builder = DashboardBuilder::new(
-        format!("{} - Sync Details", config.team_name),
-        config.details_slug(),
-    );
+fn extra_dashboard(config: &TeamConfig, sync_engines: &[SyncEngine]) -> Result<Dashboard> {
+    let mut builder = DashboardBuilder::new(config, details_dashboard_slug(), "Sync Details");
     builder.add_application_variable();
     builder.add_channel_variable();
     builder.add_variable(CustomVariable {
         label: "Sync Engine".into(),
         name: "engine".into(),
-        query: config.sync_engines.iter().map(|e| e.to_string()).join(","),
+        query: sync_engines.iter().map(|e| e.to_string()).join(","),
         ..CustomVariable::default()
     });
 
@@ -71,10 +84,16 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         SyncMetric::AverageTime,
     ));
     builder.add_panel_title("Errors");
-    builder.add_panel_full(details_dash_error_count_panel(config));
-    builder.add_panel_full(details_dash_error_log_panel(config));
+    builder.add_panel_full(details_dash_error_count_panel(sync_engines));
+    builder.add_panel_full(details_dash_error_log_panel(sync_engines));
 
     Ok(builder.dashboard)
+}
+
+fn details_dashboard_slug() -> &'static str {
+    // Every once in a while uploading the JSON fails for me (BDK).
+    // To hack around this, I bump the number at the end there.
+    "sync-details2"
 }
 
 #[derive(Clone, Copy)]
@@ -144,19 +163,39 @@ fn add_overview_panels(
     builder: &mut DashboardBuilder,
     title: &str,
     config: &TeamConfig,
+    sync_engines: &[SyncEngine],
     metric: SyncMetric,
 ) {
     builder.add_panel_title(title);
 
     for app in Application::all() {
-        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Nightly, metric));
-        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Beta, metric));
-        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Release, metric));
+        builder.add_panel_third(overview_panel(
+            config,
+            sync_engines,
+            app,
+            ReleaseChannel::Nightly,
+            metric,
+        ));
+        builder.add_panel_third(overview_panel(
+            config,
+            sync_engines,
+            app,
+            ReleaseChannel::Beta,
+            metric,
+        ));
+        builder.add_panel_third(overview_panel(
+            config,
+            sync_engines,
+            app,
+            ReleaseChannel::Release,
+            metric,
+        ));
     }
 }
 
 fn overview_panel(
     config: &TeamConfig,
+    sync_engines: &[SyncEngine],
     application: Application,
     channel: ReleaseChannel,
     metric: SyncMetric,
@@ -184,11 +223,7 @@ fn overview_panel(
             format!("channel = '{channel}'"),
             format!(
                 "engine_name in ({})",
-                config
-                    .sync_engines
-                    .iter()
-                    .map(|e| format!("'{e}'"))
-                    .join(", ")
+                sync_engines.iter().map(|e| format!("'{e}'")).join(", ")
             ),
             match application {
                 Application::Desktop => "application = 'desktop'",
@@ -202,7 +237,7 @@ fn overview_panel(
     };
 
     let mut color_overrides = vec![];
-    for engine in config.sync_engines.iter() {
+    for engine in sync_engines.iter() {
         // Use the SyncEngine discriminant to keep colors consistent across all panels (SYNC-5459)
         color_overrides.push(FieldConfigOverride {
             matcher: FieldConfigOverrideMatcher {
@@ -223,7 +258,7 @@ fn overview_panel(
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {
                 links: vec![DataLink {
-                    url: UrlBuilder::new_dashboard(config.details_slug())
+                    url: UrlBuilder::new_dashboard(config.dashboard_slug(details_dashboard_slug()))
                         .with_time_range_param()
                         .with_param("var-application", application.slug())
                         .with_param("var-channel", channel.to_string())
@@ -296,7 +331,7 @@ fn details_dash_count_panel(title: &str, metric: SyncMetric) -> Panel {
     .into()
 }
 
-fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
+fn details_dash_error_count_panel(sync_engines: &[SyncEngine]) -> Panel {
     let query = Query {
         select: vec![
             "error".into(),
@@ -309,7 +344,7 @@ fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
             "normalized_channel = '${channel}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
         ],
-        from: format!("(\n{}\n)", error_subquery(config)),
+        from: format!("(\n{}\n)", error_subquery(sync_engines)),
         group_by: Some("1, 2".into()),
         order_by: Some("count DESC".into()),
         ..Query::default()
@@ -337,13 +372,13 @@ fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
     .into()
 }
 
-fn details_dash_error_log_panel(config: &TeamConfig) -> Panel {
+fn details_dash_error_log_panel(sync_engines: &[SyncEngine]) -> Panel {
     let query = Query {
         select: vec![
             "CONCAT(IFNULL(error, 'unknown'), ': ', IFNULL(details, 'unknown')) as message".into(),
             "submission_timestamp".into(),
         ],
-        from: format!("(\n{}\n)", error_subquery(config)),
+        from: format!("(\n{}\n)", error_subquery(sync_engines)),
         where_: vec![
             "engine_name = '${engine}'".into(),
             "normalized_channel = '${channel}'".into(),
@@ -370,7 +405,7 @@ fn details_dash_error_log_panel(config: &TeamConfig) -> Panel {
 }
 
 // Subquery that combines errors from both the legacy and glean sync tables
-fn error_subquery(config: &TeamConfig) -> String {
+fn error_subquery(sync_engines: &[SyncEngine]) -> String {
     let mut queries = vec![];
 
     // Desktop
@@ -397,8 +432,7 @@ WHERE
     );
 
     queries.extend(
-        config
-            .sync_engines
+        sync_engines
             .iter()
             .filter(|engine| engine.enabled_on_android())
             .map(|engine| {
@@ -418,8 +452,7 @@ CROSS JOIN UNNEST(metrics.labeled_string.{table_prefix}_sync_v2_failure_reason) 
             }),
     );
     queries.extend(
-        config
-            .sync_engines
+        sync_engines
             .iter()
             .filter(|engine| engine.enabled_on_ios())
             .map(|engine| {
@@ -483,3 +516,74 @@ SELECT
 FROM
     moz-fx-data-shared-prod.sync_derived.mobile_v1
 ";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SyncEngine {
+    Addresses,
+    Bookmarks,
+    CreditCards,
+    History,
+    Logins,
+    Prefs,
+    RustLogins,
+    Tabs,
+    WebextStorage,
+}
+
+impl SyncEngine {
+    /// Dashboard color for this engine.
+    ///
+    /// This method helps keep colors consistent across all panels (SYNC-5459)
+    pub fn dashboard_color(&self) -> FieldConfigOverrideProperty {
+        match self {
+            Self::Addresses => dashboard_count_color(0, false),
+            Self::Bookmarks => dashboard_count_color(1, false),
+            Self::CreditCards => dashboard_count_color(2, false),
+            Self::History => dashboard_count_color(3, false),
+            Self::Logins => dashboard_count_color(4, false),
+            Self::RustLogins => dashboard_count_color(5, false),
+            Self::Tabs => dashboard_count_color(6, false),
+            Self::Prefs => dashboard_count_color(7, false),
+            Self::WebextStorage => dashboard_count_color(8, false),
+        }
+    }
+
+    pub fn supported_applications(&self) -> &[Application] {
+        match self {
+            Self::Addresses => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Bookmarks => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::CreditCards => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::History => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Logins => &[Application::Android, Application::Ios],
+            Self::RustLogins => &[Application::Desktop],
+            Self::Tabs => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Prefs => &[Application::Desktop],
+            Self::WebextStorage => &[Application::Desktop],
+        }
+    }
+
+    pub fn enabled_on_android(&self) -> bool {
+        self.supported_applications()
+            .contains(&Application::Android)
+    }
+
+    pub fn enabled_on_ios(&self) -> bool {
+        self.supported_applications().contains(&Application::Ios)
+    }
+}
+
+impl fmt::Display for SyncEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Addresses => write!(f, "addresses"),
+            Self::Bookmarks => write!(f, "bookmarks"),
+            Self::CreditCards => write!(f, "creditcards"),
+            Self::History => write!(f, "history"),
+            Self::Logins => write!(f, "logins"),
+            Self::Prefs => write!(f, "prefs"),
+            Self::RustLogins => write!(f, "rust-logins"),
+            Self::Tabs => write!(f, "tabs"),
+            Self::WebextStorage => write!(f, "webext-storage"),
+        }
+    }
+}

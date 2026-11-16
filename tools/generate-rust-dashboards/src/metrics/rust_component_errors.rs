@@ -9,36 +9,67 @@ use crate::{
     schema::{
         CustomVariable, CustomVariableSelection, Dashboard, DashboardBuilder, DataLink, Datasource,
         FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos, LogPanel, Panel,
-        QueryVariable, QueryVariableQuery, Target, TextBoxVariable, TextPanel, TimeSeriesPanel,
-        Transformation, VariableSortOrder,
+        QueryVariable, QueryVariableQuery, Target, TeamDashboardsBuilder, TextBoxVariable,
+        TextPanel, TimeSeriesPanel, Transformation, VariableSortOrder,
     },
     sql::{Query, Union},
     util::UrlBuilder,
     Result,
 };
 
-pub fn add_to_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> Result<()> {
-    builder.add_panel_title("Component Errors");
+/// Build the Component Error dashboards
+///
+/// This adds error panels to the main dashboard and also creates an extra dashboard for error
+/// details.
+///
+/// `components` are the components your team owns
+/// with each value corresponding to an error type prefix.
+/// Component `foo` will match error types that start with `foo-`.
+pub fn build_dashboards(
+    config: &TeamConfig,
+    builder: &mut TeamDashboardsBuilder,
+    components: &[&str],
+) -> Result<()> {
+    builder.main.add_panel_title("Component Errors");
 
     for app in Application::all() {
-        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Nightly));
-        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Beta));
-        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Release));
+        builder.main.add_panel_third(count_panel(
+            config,
+            components,
+            app,
+            ReleaseChannel::Nightly,
+        ));
+        builder
+            .main
+            .add_panel_third(count_panel(config, components, app, ReleaseChannel::Beta));
+        builder.main.add_panel_third(count_panel(
+            config,
+            components,
+            app,
+            ReleaseChannel::Release,
+        ));
     }
 
-    builder.add_variable(CustomVariable {
+    builder.main.add_variable(CustomVariable {
         label: "Component Errors Filter".into(),
         name: "rust_component_errors_filter".into(),
         multi: true,
-        query: config.components.join(","),
-        current: CustomVariableSelection::multi(config.components.iter()),
+        query: components.join(","),
+        current: CustomVariableSelection::multi(components.iter()),
         ..CustomVariable::default()
     });
+
+    builder.extra.push(extra_dashboard(config)?);
 
     Ok(())
 }
 
-fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseChannel) -> Panel {
+fn count_panel(
+    config: &TeamConfig,
+    components: &[&str],
+    application: Application,
+    channel: ReleaseChannel,
+) -> Panel {
     if application == Application::Ios && channel == ReleaseChannel::Nightly {
         // iOs doesn't have a nightly
         return TextPanel {
@@ -50,7 +81,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
     }
 
     let mut query = Query {
-        prep_statements: error_type_re_prep_statements(config),
+        prep_statements: error_type_re_prep_statements(components),
         select: vec![
             "$__timeGroup(submission_timestamp, $__interval) as time".into(),
             "metrics.string.rust_component_errors_error_type as error_type".into(),
@@ -115,11 +146,8 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
     .into()
 }
 
-pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
-    let mut builder = DashboardBuilder::new(
-        format!("{} - Error List", config.team_name),
-        format!("{}-errors", config.team_slug()),
-    );
+fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
+    let mut builder = DashboardBuilder::new(config, "errors", "Error List");
     builder.add_application_variable();
     builder.add_channel_variable();
     builder.add_variable(error_type_variable());
@@ -403,11 +431,11 @@ fn error_subquery() -> Union {
 ///
 /// This is a bigquery variable created from the `rust_component_errors_filter` grafana variable.
 /// We use it as a regex to match error pings against.
-fn error_type_re_prep_statements(config: &TeamConfig) -> Vec<String> {
+fn error_type_re_prep_statements(components: &[&str]) -> Vec<String> {
     // `error_type_re` variable;
     let mut query_parts = vec![];
     query_parts.push("SELECT CASE value".into());
-    for c in config.components.iter() {
+    for c in components.iter() {
         query_parts.push(format!("WHEN '{c}' THEN '^{c}-'"));
     }
     query_parts.push("END".into());

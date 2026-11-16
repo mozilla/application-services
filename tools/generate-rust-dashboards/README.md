@@ -11,8 +11,10 @@ for help.
 
 ## Configuration
 
-Edit `src/team_config.rs` and add an entry for your team.
-Feel free to copy the and paste other team's configurations to get started.
+Add a `src/teams/[name].rs` module for your team.
+Feel free to copy and paste from the other modules to get started.
+
+Edit `src/teams/mod.rs` and wire up your new team module.
 
 ## Running
 

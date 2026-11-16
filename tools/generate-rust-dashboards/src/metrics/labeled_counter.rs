@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    config::{Application, LabeledCounterMetric, ReleaseChannel, TeamConfig},
+    config::{Application, ReleaseChannel},
     schema::{
         DashboardBuilder, Datasource, FieldConfig, FieldConfigCustom, FieldConfigDefaults,
         FieldConfigOverride, FieldConfigOverrideMatcher, GridPos, Panel, Target, TimeSeriesPanel,
@@ -14,18 +14,41 @@ use crate::{
     Result,
 };
 
-pub fn add_to_dashboard(
-    builder: &mut DashboardBuilder,
-    _config: &TeamConfig,
-    metric: &LabeledCounterMetric,
-) -> Result<()> {
-    builder.add_panel_title(metric.display_name);
-    for app in metric.applications.iter().cloned() {
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Nightly, metric));
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Beta, metric));
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Release, metric));
+/// Glean labeled counter
+///
+/// This will create time-series panels for the counter, partitioned by the label
+pub struct LabeledCounterMetric {
+    /// Name to display on the dashboard
+    pub display_name: &'static str,
+    /// Name of the ping ("metrics" by default)
+    pub ping: &'static str,
+    /// Category name (top-level key in metrics.yaml)
+    pub category: &'static str,
+    /// Metric name (key for the metric)
+    pub metric: &'static str,
+    // Which applications report this metric
+    pub applications: Vec<Application>,
+    pub options: LabeledCounterOptions,
+}
+
+#[derive(Default)]
+pub struct LabeledCounterOptions {
+    pub unique_user_counts: bool,
+    // List of all possible labels.  Listing these can result in a nicer color scheme, especially
+    // when `unique_user_counts` is set.
+    pub labels: Option<Vec<String>>,
+}
+
+impl LabeledCounterMetric {
+    pub fn build_dashboard(self, builder: &mut DashboardBuilder) -> Result<()> {
+        builder.add_panel_title(self.display_name);
+        for app in self.applications.iter().cloned() {
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Nightly, &self));
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Beta, &self));
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Release, &self));
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn count_panel(

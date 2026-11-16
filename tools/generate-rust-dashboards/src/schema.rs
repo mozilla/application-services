@@ -10,9 +10,13 @@
 
 use std::cmp::max;
 
+use anyhow::{bail, Result};
 use serde::{Serialize, Serializer};
 
-use crate::{config::Application, Result};
+use crate::{
+    config::{Application, TeamConfig},
+    util::slug,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -727,6 +731,62 @@ impl Target {
     }
 }
 
+/// All dashboards for a team
+pub struct TeamDashboards {
+    pub team_name: &'static str,
+
+    /// Main dashboard
+    pub main: Dashboard,
+
+    /// Extra dashboards for the team.
+    ///
+    /// These are typically dashboards with extra details
+    /// for the panels on the main dashboard.
+    pub extra: Vec<Dashboard>,
+}
+
+pub struct TeamDashboardsBuilder {
+    pub team_name: &'static str,
+
+    pub main: DashboardBuilder,
+    pub extra: Vec<Dashboard>,
+}
+
+impl TeamDashboardsBuilder {
+    pub fn new(config: &TeamConfig) -> Self {
+        Self {
+            team_name: config.team_name,
+            main: DashboardBuilder::main(config),
+            extra: vec![],
+        }
+    }
+
+    /// Get UID for an extra dashboard
+    ///
+    /// slug matches the uid without the `[team_slug]-` prefix.
+    pub fn extra_dashboard_uid(&self, dashboard_slug: &str) -> Result<String> {
+        let prefix = format!("{}-", slug(self.team_name));
+        for d in self.extra.iter() {
+            match d.uid.strip_prefix(&prefix) {
+                Some(remaining) if remaining == dashboard_slug => {
+                    return Ok(d.uid.clone());
+                }
+                _ => (),
+            }
+        }
+        bail!("Can't find dashboard with slug '{dashboard_slug}'");
+    }
+
+    pub fn finish(self) -> TeamDashboards {
+        TeamDashboards {
+            team_name: self.team_name,
+            main: self.main.dashboard,
+            extra: self.extra,
+        }
+    }
+}
+
+/// Helper to build a single dashboard
 pub struct DashboardBuilder {
     pub dashboard: Dashboard,
     col: u32,
@@ -735,17 +795,28 @@ pub struct DashboardBuilder {
 }
 
 impl DashboardBuilder {
-    pub fn new(title: impl Into<String>, uid: impl Into<String>) -> Self {
+    /// Start building a new dashboard
+    ///
+    /// `slug` identifies the dashboard and will be used to generate URLs.
+    /// It must be unique among all dashboards for the team.
+    pub fn new(config: &TeamConfig, slug: &str, title: &str) -> Self {
+        let uid = config.dashboard_slug(slug);
+        let title = format!("{} - {title}", config.team_name);
+
         Self {
             dashboard: Dashboard {
-                title: title.into(),
-                uid: uid.into(),
+                title,
+                uid,
                 ..Dashboard::default()
             },
             col: 0,
             row: 0,
             current_row_height: 0,
         }
+    }
+
+    pub fn main(config: &TeamConfig) -> Self {
+        DashboardBuilder::new(config, "main", "Main Dashboard")
     }
 
     pub fn add_variable(&mut self, v: impl Into<Variable>) {
