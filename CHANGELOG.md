@@ -2,6 +2,14 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Logins
+- Kotlin: KeyRegenerationEventReason value names now use UPPER_SNAKE_CASE naming.
+  e.g. KeyRegenerationEventReason.Lost is now KeyRegenerationEventReason.LOST.
+
+## ✨ What's Changed ✨
+
 ### Sync Manager
 
 - Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).

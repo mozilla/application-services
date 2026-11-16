@@ -36,6 +36,7 @@ members = [
     "components/support/guid",
     "components/support/interrupt",
     "components/support/jwcrypto",
+    "components/support/metrics",
     "components/support/nimbus-cli",
     "components/support/nimbus-fml",
     "components/support/payload",

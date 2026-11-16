@@ -10,6 +10,7 @@ mod error;
 mod login;
 
 mod db;
+mod key_regeneration;
 mod schema;
 mod store;
 mod sync;
@@ -21,12 +22,17 @@ uniffi::include_scaffolding!("logins");
 #[cfg(feature = "keydb")]
 pub use db_crypto::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
-pub use crate::db::{LoginDb, LoginsDeletionMetrics};
+pub use crate::db::LoginDb;
 pub use crate::error::*;
+pub use crate::key_regeneration::*;
 pub use crate::login::*;
 pub use crate::store::*;
 pub use crate::sync::{LoginsBridgedEngine, LoginsSyncEngine};
 use std::sync::Arc;
+
+mod glean_metrics {
+    pub use metrics_support::logins_store;
+}
 
 /// Identifier for the logins key, under which the key is stored in NSS.
 #[cfg(feature = "keydb")]
