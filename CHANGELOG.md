@@ -14,6 +14,7 @@
 
 - Upgraded NDK from r29 to r30.
 - Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
 
 ### Ads-Client
 
