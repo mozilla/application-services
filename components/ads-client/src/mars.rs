@@ -65,16 +65,25 @@ impl MARSClient {
 
     pub(crate) fn fetch_ads(
         &self,
-        context_id: Option<String>,
+        context_id: String,
         request_options_patch: Option<MARSRequestOptionPatch>,
         placements: Vec<AdPlacementRequest>,
-        relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
         // A patch is applied to the stored `MarsRequestOptions` struct (getting the default settings with any request-specific settings applied overtop).
         // Get a temporary lock on settings- long enough to clone.
         let patch_options = request_options_patch.unwrap_or_default();
         let mut request_options = self.request_options.read().clone();
         request_options.patch(patch_options);
+
+        // TODO: Check to ensure this matches existing behaviour.
+        // TODO: Write a test for this.
+        // TODO: Ensure we can't accidentally set relevance and as such, make context_id never send.
+        let context_id = if request_options.relevance.is_empty() {
+            Some(context_id)
+        } else {
+            None
+        };
+
 
         let mut ad_request = AdRequest::try_new(
             request_options.blocks,
@@ -83,7 +92,7 @@ impl MARSClient {
             request_options.flags,
             request_options.ohttp,
             placements,
-            relevance,
+            request_options.relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
@@ -175,6 +184,7 @@ pub struct MARSRequestOptions {
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
     pub blocks: Vec<String>,
+    pub relevance : AdRequestRelevance
 }
 
 // TODO: Clearly define this
@@ -184,6 +194,7 @@ pub struct MARSRequestOptionPatch {
     pub cache_policy: Option<CachePolicy>,
     pub ohttp: Option<bool>,
     pub blocks: Option<Vec<String>>,
+    pub relevance : Option<AdRequestRelevance>
 }
 
 impl MARSRequestOptions {
@@ -193,6 +204,7 @@ impl MARSRequestOptions {
             cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
             ohttp: patch.ohttp.unwrap_or(self.ohttp),
             blocks: patch.blocks.unwrap_or(self.blocks.clone()),
+            relevance: patch.relevance.unwrap_or(self.relevance.clone())
         };
 
         self
@@ -285,10 +297,9 @@ mod tests {
         let client = make_test_client(None);
 
         let result = client.fetch_ads(
-            Some(TEST_CONTEXT_ID.to_string()),
+            TEST_CONTEXT_ID.to_string(),
             None,
             make_happy_placement_requests(),
-            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -317,10 +328,9 @@ mod tests {
         // First call should be a miss then warm the cache
         let (response1, _) = client
             .fetch_ads(
-                Some(TEST_CONTEXT_ID.to_string()),
+                TEST_CONTEXT_ID.to_string(),
                 None,
                 make_happy_placement_requests(),
-                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -328,10 +338,9 @@ mod tests {
         // Second call should be a hit
         let (response2, _) = client
             .fetch_ads(
-                Some(TEST_CONTEXT_ID.to_string()),
+                TEST_CONTEXT_ID.to_string(),
                 None,
                 make_happy_placement_requests(),
-                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);
@@ -384,6 +393,7 @@ mod tests {
             ohttp: false,
             cache_policy: CachePolicy::CacheFirst { ttl: None },
             blocks: vec![],
+            relevance: HashMap::new()
         };
         assert_eq!(options, expected);
 

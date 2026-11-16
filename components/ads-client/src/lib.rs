@@ -180,14 +180,10 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
-        let relevance = options
-            .as_ref()
-            .map(|opt| opt.relevance.clone())
-            .unwrap_or_default();
         let mars_options = options.map(Into::into);
         let response = self
             .inner
-            .request_tile_ads(requests, mars_options, relevance)
+            .request_tile_ads(requests, mars_options)
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }

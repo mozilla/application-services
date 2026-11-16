@@ -41,8 +41,10 @@ pub struct MozAdsRequestOptions {
     pub ohttp: Option<bool>,
 
     // Not part of `MARSRequestOptionPatch`.
+    // TODO: This `defaulting` MUST be tested before merge.
+    // TODO: ensure only passed on tiles. add a test for it.
     #[uniffi(default)]
-    pub relevance: HashMap<String, f64>, // tiles only
+    pub relevance: Option<HashMap<String, f64>>, // tiles only
 }
 
 // TODO: Before re-review, this needs to get deleted and we need to consider MozAdsRequestOptions to have Option<> fields
@@ -55,6 +57,7 @@ impl From<MozAdsRequestOptions> for MARSRequestOptionPatch {
             cache_policy: opt.cache_policy.map(|policy| policy.into()),
             ohttp: opt.ohttp,
             blocks: opt.blocks,
+            relevance: opt.relevance
         }
     }
 }
@@ -81,6 +84,7 @@ impl From<MozAdsRequestConfigOptionsPatch> for MARSRequestOptionPatch {
             cache_policy: opt.cache_policy.map(|x| x.into()),
             ohttp: opt.ohttp,
             blocks: opt.blocks,
+            relevance: Some(HashMap::new()) // TODO: remove this whole struct?
         }
     }
 }

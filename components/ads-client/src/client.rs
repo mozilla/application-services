@@ -99,10 +99,9 @@ impl AdsClient {
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
-        relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
         self.inner
-            .request_tile_ads(ad_placement_requests, request_options, relevance)
+            .request_tile_ads(ad_placement_requests, request_options)
     }
 
     pub(crate) fn request_spoc_or_image_ads(
@@ -127,10 +126,9 @@ impl AdsClient {
         &self,
         placements: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
-        relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
         self.inner
-            .request_ads(placements, request_options, relevance)
+            .request_ads(placements, request_options)
     }
 }
 
@@ -302,7 +300,6 @@ impl AdsClientInner {
             .request_ads(
                 ad_placement_requests,
                 request_options,
-                AdRequestRelevance::default(),
             )
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
@@ -320,7 +317,6 @@ impl AdsClientInner {
         let result = self.request_ads(
             ad_placement_requests,
             request_options,
-            AdRequestRelevance::default(),
         );
         result
             .inspect_err(|e| {
@@ -344,7 +340,6 @@ impl AdsClientInner {
         let result = self.request_ads(
             ad_placement_requests,
             request_options,
-            AdRequestRelevance::default(),
         );
         result
             .inspect_err(|e| {
@@ -360,9 +355,8 @@ impl AdsClientInner {
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
-        relevance: AdRequestRelevance,
     ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
-        let result = self.request_ads(ad_placement_requests, request_options, relevance);
+        let result = self.request_ads(ad_placement_requests, request_options);
         result
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
@@ -392,17 +386,13 @@ impl AdsClientInner {
         &self,
         placements: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
-        relevance: AdRequestRelevance,
     ) -> Result<AdResponse, RequestAdsError> {
-        let context_id = if relevance.is_empty() {
-            Some(self.get_context_id()?)
-        } else {
-            None
-        };
-
+        // Fetch context_id and pass it through. 
+        // It may later be omitted in `fetch_ads` if a relevance scoring is also passed.
+        let context_id = self.get_context_id()?;
         let (mut response, request_hash) =
             self.client
-                .fetch_ads(context_id, request_options, placements, relevance)?;
+                .fetch_ads(context_id, request_options, placements)?;
         response.enrich_callbacks(&request_hash);
         Ok(response)
     }
@@ -517,7 +507,6 @@ mod tests {
         let result = ads_client.request_tile_ads(
             make_happy_placement_requests(),
             None,
-            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         m.assert();
@@ -588,8 +577,8 @@ mod tests {
 
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            None,
-            HashMap::from([("sports".to_string(), 0.8)]),
+            // TODO: Pay special attention to this test!
+            Some(MARSRequestOptionPatch {  relevance: HashMap::from([("sports".to_string(), 0.8)]).into(), ..Default::default() }),
         );
         assert!(result.is_ok());
         m.assert();
@@ -664,7 +653,6 @@ mod tests {
             .request_ads(
                 make_happy_placement_requests(),
                 None,
-                AdRequestRelevance::default(),
             )
             .unwrap();
 
@@ -692,13 +680,15 @@ mod tests {
             request_options: MARSRequestOptions {
                 blocks: vec!["test_block_0".to_string()],
                 flags: HashMap::from_iter([("test_flag_0".to_owned(), true)]),
+            relevance: HashMap::from_iter([("sports".to_owned(), 0.8)]),
                 ..Default::default()
             },
         };
         let client = AdsClient::new(config);
+        let context_id = client.get_context_id().unwrap();
 
         // Closure to quickly generate mock mockito test with certain expected results.
-        let mockito_adder = |blocks: Vec<String>, flags: HashMap<String, bool>| {
+        let mockito_adder = |blocks: Vec<String>, flags: HashMap<String, bool>, relevance: HashMap<String, f64>| {
             // Matcher::Json compares the whole body, ignoring key order, so any
             // extra key such as context_id makes the request go unmatched.
             // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
@@ -706,8 +696,7 @@ mod tests {
             let expected_response = get_example_happy_uatile_response();
 
             let mut body = serde_json::json!({
-                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap(),
-                "relevance": {"sports": 0.8},
+                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap()
             });
             if !blocks.is_empty() {
                 body["blocks"] = blocks.into();
@@ -715,6 +704,13 @@ mod tests {
             if !flags.is_empty() {
                 body["flags"] = serde_json::to_value(flags).unwrap();
             }
+            if !relevance.is_empty() {
+                body["relevance"] = serde_json::to_value(relevance).unwrap();
+            } else {
+                // If relevance is not passed, we need to pass context id (we expect one or the other).
+                body["context_id"] = serde_json::to_value(context_id.clone()).unwrap();
+            }
+
             let m: mockito::Mock = mockito::mock("POST", "/ads")
                 .match_body(mockito::Matcher::Json(body))
                 .with_status(200)
@@ -725,15 +721,15 @@ mod tests {
         };
 
         // Confirm default `test_block_0` from initialization is successfully passed.
-        // Expected default settings: `test_block_0`, `test_flag_0`
+        // Expected default settings: `test_block_0`, `test_flag_0`, `sports`:0.8
         let m = mockito_adder(
             vec!["test_block_0".to_string()],
             HashMap::from_iter([("test_flag_0".to_owned(), true)]),
+            HashMap::from_iter([("sports".to_owned(), 0.8)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            None,
-            HashMap::from([("sports".to_string(), 0.8)]),
+            None
         );
         assert!(result.is_ok());
         m.assert();
@@ -741,20 +737,21 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Sets default settings.
-        // Expected default settings: `test_block_1`, `test_flag_1`
+        // Expected default settings: `test_block_1`, `test_flag_1`, `sports`:0.7
         client.set_request_options(MARSRequestOptionPatch {
             flags: Some(HashMap::from_iter([("test_flag_1".to_owned(), true)])),
             blocks: Some(vec!["test_block_1".to_string()]),
+            relevance: Some(HashMap::from_iter([("sports".to_owned(), 0.7)])),
             ..Default::default()
         });
         let m = mockito_adder(
             vec!["test_block_1".to_string()],
             HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+            HashMap::from_iter([("sports".to_owned(), 0.7)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            None,
-            HashMap::from([("sports".to_string(), 0.8)]),
+            None
         );
         assert!(result.is_ok());
         m.assert();
@@ -762,7 +759,7 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Test again, but with only patching `blocks`` (non-passed fields should not change)
-        // Expected default settings: `test_block_2`, `test_flag_1`
+        // Expected default settings: `test_block_2`, `test_flag_1`, `sports`:0.7
         client.set_request_options(MARSRequestOptionPatch {
             blocks: Some(vec!["test_block_2".to_string()]),
             ..Default::default()
@@ -770,11 +767,11 @@ mod tests {
         let m = mockito_adder(
             vec!["test_block_2".to_string()],
             HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+            HashMap::from_iter([("sports".to_owned(), 0.7)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             None,
-            HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
         m.assert();
@@ -782,31 +779,33 @@ mod tests {
         client.clear_cache().unwrap();
 
         // Test again, but with manually overridden fields.
-        // Expected default settings: `test_block_2` (overridden to `test_block_3`), `test_flag_1` (overridden to `test_flag_3`)
+        // Expected default settings: `test_block_2` (overridden to `test_block_3`), `test_flag_1` (overridden to `test_flag_3`), `sports`: 0.7 (overridden to `sports`: 0.6)
         let m = mockito_adder(
             vec!["test_block_3".to_string()],
             HashMap::from_iter([("test_flag_3".to_owned(), true)]),
+            HashMap::from_iter([("sports".to_owned(), 0.6)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             Some(MARSRequestOptionPatch {
                 blocks: Some(vec!["test_block_3".to_string()]),
                 flags: Some(HashMap::from_iter([("test_flag_3".to_owned(), true)])),
+                relevance: Some(HashMap::from_iter([("sports".to_owned(), 0.6)])),
                 ..Default::default()
             }),
-            HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
         m.assert();
         drop(m);
         client.clear_cache().unwrap();
 
-        // Test again, but with `blocks` overridden but `flags` not overridden.
+        // Test again, but with `blocks` overridden but `flags` and `relevance`` not overridden.
         // `flags` will still have `test_flag_1` (the last *set* value- `test_flag_3` was an override).
-        // Expected default settings: `test_block_2` (overridden to `test_block_4`), `test_flag_1`
+        // Expected default settings: `test_block_2` (overridden to `test_block_4`), `test_flag_1`, `sports`: 0.7
         let m = mockito_adder(
             vec!["test_block_4".to_string()],
             HashMap::from_iter([("test_flag_1".to_owned(), true)]),
+            HashMap::from_iter([("sports".to_owned(), 0.7)]),
         );
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
@@ -814,7 +813,6 @@ mod tests {
                 blocks: Some(vec!["test_block_4".to_string()]),
                 ..Default::default()
             }),
-            HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
         m.assert();
@@ -823,15 +821,15 @@ mod tests {
 
         // Manual 'removal' of passed fields over an existing default works, too.
         // (eg: the fields are not included in the request by setting them to their empty, 'true default' values)
-        let m = mockito_adder(vec![], HashMap::new());
+        let m = mockito_adder(vec![], HashMap::new(), HashMap::new());
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             Some(MARSRequestOptionPatch {
                 blocks: Some(vec![]),
                 flags: Some(HashMap::new()),
+                relevance: Some(HashMap::new()),
                 ..Default::default()
             }),
-            HashMap::from([("sports".to_string(), 0.8)]),
         );
         assert!(result.is_ok());
         m.assert();
