@@ -202,10 +202,7 @@ impl MozAdsClient {
     /// Each flag is individually overridable- if None is passed in `new_options`, that field will remain unchanged.
     /// (If request options were never set, it would remain as the default).
     #[uniffi::method()]
-    pub fn set_request_options(
-        &self,
-        new_options: MozAdsRequestConfigOptionsPatch,
-    ) -> AdsClientApiResult<()> {
+    pub fn set_request_options(&self, new_options: MozAdsRequestOptions) -> AdsClientApiResult<()> {
         self.inner.set_request_options(new_options);
         Ok(())
     }

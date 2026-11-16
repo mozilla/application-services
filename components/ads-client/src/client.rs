@@ -8,7 +8,7 @@ use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::HttpCache;
-use crate::mars::ad_request::{AdPlacementRequest, AdRequestRelevance};
+use crate::mars::ad_request::AdPlacementRequest;
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, MARSRequestOptionPatch, ReportReason};
@@ -127,8 +127,7 @@ impl AdsClient {
         placements: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<AdResponse, RequestAdsError> {
-        self.inner
-            .request_ads(placements, request_options)
+        self.inner.request_ads(placements, request_options)
     }
 }
 
@@ -297,10 +296,7 @@ impl AdsClientInner {
         request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
         let response = self
-            .request_ads(
-                ad_placement_requests,
-                request_options,
-            )
+            .request_ads(ad_placement_requests, request_options)
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
             })?;
@@ -314,10 +310,7 @@ impl AdsClientInner {
         ad_placement_requests: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
-        let result = self.request_ads(
-            ad_placement_requests,
-            request_options,
-        );
+        let result = self.request_ads(ad_placement_requests, request_options);
         result
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
@@ -337,10 +330,7 @@ impl AdsClientInner {
         ad_placement_requests: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<HashMap<String, Vec<AdImageOrSpoc>>, RequestAdsError> {
-        let result = self.request_ads(
-            ad_placement_requests,
-            request_options,
-        );
+        let result = self.request_ads(ad_placement_requests, request_options);
         result
             .inspect_err(|e| {
                 telemetry::record_client_error(ClientOperation::RequestAds, e);
@@ -387,7 +377,7 @@ impl AdsClientInner {
         placements: Vec<AdPlacementRequest>,
         request_options: Option<MARSRequestOptionPatch>,
     ) -> Result<AdResponse, RequestAdsError> {
-        // Fetch context_id and pass it through. 
+        // Fetch context_id and pass it through.
         // It may later be omitted in `fetch_ads` if a relevance scoring is also passed.
         let context_id = self.get_context_id()?;
         let (mut response, request_hash) =
@@ -504,10 +494,7 @@ mod tests {
             MARSClient::new(Environment::Test, None, None, MARSRequestOptions::default());
         let ads_client = new_with_mars_client(mars_client);
 
-        let result = ads_client.request_tile_ads(
-            make_happy_placement_requests(),
-            None,
-        );
+        let result = ads_client.request_tile_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
     }
@@ -578,7 +565,10 @@ mod tests {
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
             // TODO: Pay special attention to this test!
-            Some(MARSRequestOptionPatch {  relevance: HashMap::from([("sports".to_string(), 0.8)]).into(), ..Default::default() }),
+            Some(MARSRequestOptionPatch {
+                relevance: HashMap::from([("sports".to_string(), 0.8)]).into(),
+                ..Default::default()
+            }),
         );
         assert!(result.is_ok());
         m.assert();
@@ -650,10 +640,7 @@ mod tests {
         ads_client.record_click(callback_url, false).unwrap();
 
         ads_client
-            .request_ads(
-                make_happy_placement_requests(),
-                None,
-            )
+            .request_ads(make_happy_placement_requests(), None)
             .unwrap();
 
         m1.assert();
@@ -680,7 +667,7 @@ mod tests {
             request_options: MARSRequestOptions {
                 blocks: vec!["test_block_0".to_string()],
                 flags: HashMap::from_iter([("test_flag_0".to_owned(), true)]),
-            relevance: HashMap::from_iter([("sports".to_owned(), 0.8)]),
+                relevance: HashMap::from_iter([("sports".to_owned(), 0.8)]),
                 ..Default::default()
             },
         };
@@ -688,37 +675,38 @@ mod tests {
         let context_id = client.get_context_id().unwrap();
 
         // Closure to quickly generate mock mockito test with certain expected results.
-        let mockito_adder = |blocks: Vec<String>, flags: HashMap<String, bool>, relevance: HashMap<String, f64>| {
-            // Matcher::Json compares the whole body, ignoring key order, so any
-            // extra key such as context_id makes the request go unmatched.
-            // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
-            // Any new fields must be considered along side relevence scores.
-            let expected_response = get_example_happy_uatile_response();
+        let mockito_adder =
+            |blocks: Vec<String>, flags: HashMap<String, bool>, relevance: HashMap<String, f64>| {
+                // Matcher::Json compares the whole body, ignoring key order, so any
+                // extra key such as context_id makes the request go unmatched.
+                // This test will fail if any new fields that are not empty are added to the request.  This is intentional.
+                // Any new fields must be considered along side relevence scores.
+                let expected_response = get_example_happy_uatile_response();
 
-            let mut body = serde_json::json!({
-                "placements": serde_json::to_value(make_happy_placement_requests()).unwrap()
-            });
-            if !blocks.is_empty() {
-                body["blocks"] = blocks.into();
-            }
-            if !flags.is_empty() {
-                body["flags"] = serde_json::to_value(flags).unwrap();
-            }
-            if !relevance.is_empty() {
-                body["relevance"] = serde_json::to_value(relevance).unwrap();
-            } else {
-                // If relevance is not passed, we need to pass context id (we expect one or the other).
-                body["context_id"] = serde_json::to_value(context_id.clone()).unwrap();
-            }
+                let mut body = serde_json::json!({
+                    "placements": serde_json::to_value(make_happy_placement_requests()).unwrap()
+                });
+                if !blocks.is_empty() {
+                    body["blocks"] = blocks.into();
+                }
+                if !flags.is_empty() {
+                    body["flags"] = serde_json::to_value(flags).unwrap();
+                }
+                if !relevance.is_empty() {
+                    body["relevance"] = serde_json::to_value(relevance).unwrap();
+                } else {
+                    // If relevance is not passed, we need to pass context id (we expect one or the other).
+                    body["context_id"] = serde_json::to_value(context_id.clone()).unwrap();
+                }
 
-            let m: mockito::Mock = mockito::mock("POST", "/ads")
-                .match_body(mockito::Matcher::Json(body))
-                .with_status(200)
-                .with_header("content-type", "application/json")
-                .with_body(serde_json::to_string(&expected_response.data).unwrap())
-                .create();
-            m
-        };
+                let m: mockito::Mock = mockito::mock("POST", "/ads")
+                    .match_body(mockito::Matcher::Json(body))
+                    .with_status(200)
+                    .with_header("content-type", "application/json")
+                    .with_body(serde_json::to_string(&expected_response.data).unwrap())
+                    .create();
+                m
+            };
 
         // Confirm default `test_block_0` from initialization is successfully passed.
         // Expected default settings: `test_block_0`, `test_flag_0`, `sports`:0.8
@@ -727,10 +715,7 @@ mod tests {
             HashMap::from_iter([("test_flag_0".to_owned(), true)]),
             HashMap::from_iter([("sports".to_owned(), 0.8)]),
         );
-        let result = client.request_tile_ads(
-            make_happy_placement_requests(),
-            None
-        );
+        let result = client.request_tile_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
         drop(m);
@@ -749,10 +734,7 @@ mod tests {
             HashMap::from_iter([("test_flag_1".to_owned(), true)]),
             HashMap::from_iter([("sports".to_owned(), 0.7)]),
         );
-        let result = client.request_tile_ads(
-            make_happy_placement_requests(),
-            None
-        );
+        let result = client.request_tile_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
         drop(m);
@@ -769,10 +751,7 @@ mod tests {
             HashMap::from_iter([("test_flag_1".to_owned(), true)]),
             HashMap::from_iter([("sports".to_owned(), 0.7)]),
         );
-        let result = client.request_tile_ads(
-            make_happy_placement_requests(),
-            None,
-        );
+        let result = client.request_tile_ads(make_happy_placement_requests(), None);
         assert!(result.is_ok());
         m.assert();
         drop(m);

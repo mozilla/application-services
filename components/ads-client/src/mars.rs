@@ -84,7 +84,6 @@ impl MARSClient {
             None
         };
 
-
         let mut ad_request = AdRequest::try_new(
             request_options.blocks,
             context_id,
@@ -184,17 +183,18 @@ pub struct MARSRequestOptions {
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
     pub blocks: Vec<String>,
-    pub relevance : AdRequestRelevance
+    pub relevance: AdRequestRelevance,
 }
 
-// TODO: Clearly define this
+/// Client level reusable set options for requests.
+/// They allow overriding of any fields set in `MARSRequestOptions`.
 #[derive(Clone, Default, Debug)]
 pub struct MARSRequestOptionPatch {
     pub flags: Option<AdRequestFlags>,
     pub cache_policy: Option<CachePolicy>,
     pub ohttp: Option<bool>,
     pub blocks: Option<Vec<String>>,
-    pub relevance : Option<AdRequestRelevance>
+    pub relevance: Option<AdRequestRelevance>,
 }
 
 impl MARSRequestOptions {
@@ -204,7 +204,7 @@ impl MARSRequestOptions {
             cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
             ohttp: patch.ohttp.unwrap_or(self.ohttp),
             blocks: patch.blocks.unwrap_or(self.blocks.clone()),
-            relevance: patch.relevance.unwrap_or(self.relevance.clone())
+            relevance: patch.relevance.unwrap_or(self.relevance.clone()),
         };
 
         self
@@ -393,7 +393,7 @@ mod tests {
             ohttp: false,
             cache_policy: CachePolicy::CacheFirst { ttl: None },
             blocks: vec![],
-            relevance: HashMap::new()
+            relevance: HashMap::new(),
         };
         assert_eq!(options, expected);
 

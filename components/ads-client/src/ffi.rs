@@ -57,34 +57,7 @@ impl From<MozAdsRequestOptions> for MARSRequestOptionPatch {
             cache_policy: opt.cache_policy.map(|policy| policy.into()),
             ohttp: opt.ohttp,
             blocks: opt.blocks,
-            relevance: opt.relevance
-        }
-    }
-}
-
-/// Client level reusable set options for requests.
-/// These mimic `MozAdsRequestOptions` for fields that can be reused from request to request.
-/// They are overridden by any fields passed in a request as part of `MozAdsRequestOptions`.
-#[derive(Default, Clone, uniffi::Record)]
-pub struct MozAdsRequestConfigOptionsPatch {
-    #[uniffi(default)]
-    pub blocks: Option<Vec<String>>,
-    #[uniffi(default)]
-    pub cache_policy: Option<MozAdsCachePolicy>,
-    #[uniffi(default)]
-    pub flags: Option<HashMap<String, bool>>,
-    #[uniffi(default)]
-    pub ohttp: Option<bool>,
-}
-
-impl From<MozAdsRequestConfigOptionsPatch> for MARSRequestOptionPatch {
-    fn from(opt: MozAdsRequestConfigOptionsPatch) -> Self {
-        MARSRequestOptionPatch {
-            flags: opt.flags,
-            cache_policy: opt.cache_policy.map(|x| x.into()),
-            ohttp: opt.ohttp,
-            blocks: opt.blocks,
-            relevance: Some(HashMap::new()) // TODO: remove this whole struct?
+            relevance: opt.relevance,
         }
     }
 }
@@ -193,10 +166,7 @@ impl MozAdsClientBuilder {
     /// Sets defaults for request-level options (OHTTP, etc.). These are overridable on a per-request basis.
     /// Each new request is another patch (eg: calling this repeatedly for each individual setting, or
     /// calling it once with all of them, should result in the same behavior).
-    pub fn request_options(
-        self: Arc<Self>,
-        request_options: MozAdsRequestConfigOptionsPatch,
-    ) -> Arc<Self> {
+    pub fn request_options(self: Arc<Self>, request_options: MozAdsRequestOptions) -> Arc<Self> {
         self.0.lock().request_options.patch(request_options.into());
         self
     }
@@ -599,7 +569,7 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
 mod tests {
     use crate::{
         mars::MARSRequestOptions, telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig,
-        MozAdsClientBuilder, MozAdsRequestConfigOptionsPatch,
+        MozAdsClientBuilder, MozAdsRequestOptions,
     };
     use std::sync::Arc;
 
@@ -702,7 +672,7 @@ mod tests {
         // Options can be changed.
         expected.blocks = vec!["test_block_0".to_string()];
         expected.ohttp = true;
-        let builder = builder.request_options(MozAdsRequestConfigOptionsPatch {
+        let builder = builder.request_options(MozAdsRequestOptions {
             blocks: Some(vec!["test_block_0".to_string()]),
             ohttp: Some(true),
             ..Default::default()
@@ -712,7 +682,7 @@ mod tests {
         // Options can be changed on a per-field basis. Unchanged options don't reset.
         expected.blocks = vec!["test_block_1".to_string()];
         expected.ohttp = true;
-        let builder = builder.request_options(MozAdsRequestConfigOptionsPatch {
+        let builder = builder.request_options(MozAdsRequestOptions {
             blocks: Some(vec!["test_block_1".to_string()]),
             ..Default::default()
         });
