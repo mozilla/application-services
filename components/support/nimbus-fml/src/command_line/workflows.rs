@@ -998,32 +998,34 @@ mod test {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "jsonschema-tests",
+    not(feature = "all-features-workaround")
+))]
 mod test_jsonschema {
-    use std::fs::{self, File};
-    use std::path::PathBuf;
+    use std::fs;
 
-    use anyhow::Result;
+    use jsonschema::JSONSchema;
     use tempfile::NamedTempFile;
 
     use super::test::{MANIFEST_PATHS, create_experimenter_manifest_cmd};
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
-    use crate::util::pkg_dir;
+    use crate::util::{join, pkg_dir};
 
-    fn validate_against_experimenter_schema(generated_yaml: &serde_yaml::Value) -> Result<()> {
+    fn validate_against_experimenter_schema<P: AsRef<Path>>(
+        schema_path: P,
+        generated_yaml: &serde_yaml::Value,
+    ) -> Result<()> {
         let generated_manifest: ExperimenterManifest =
             serde_yaml::from_value(generated_yaml.to_owned())?;
         let generated_json = serde_json::to_value(generated_manifest)?;
 
-        let schema_path = PathBuf::from(pkg_dir())
-            .join("schemas")
-            .join("SdkFeatureManifest.schema.json");
-        let f = File::open(&schema_path)?;
-        let schema: serde_json::Value = serde_json::from_reader(&f)?;
-        let schema = jsonschema_valid::Config::from_schema(&schema, None)?;
-
-        let res = schema.validate(&generated_json);
+        let schema = fs::read_to_string(&schema_path)?;
+        let schema: serde_json::Value = serde_json::from_str(&schema)?;
+        let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
+        let res = compiled.validate(&generated_json);
         if let Err(e) = res {
             panic!(
                 "Validation errors: \n{}",
@@ -1042,7 +1044,10 @@ mod test_jsonschema {
 
             let generated = fs::read_to_string(&cmd.output)?;
             let generated_yaml = serde_yaml::from_str(&generated)?;
-            validate_against_experimenter_schema(&generated_yaml)?;
+            validate_against_experimenter_schema(
+                join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
+                &generated_yaml,
+            )?;
         }
         Ok(())
     }
