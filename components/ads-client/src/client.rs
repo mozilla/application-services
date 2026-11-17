@@ -11,7 +11,7 @@ use crate::http_cache::HttpCache;
 use crate::mars::ad_request::AdPlacementRequest;
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
-use crate::mars::{MARSClient, AdsRequestOptionPatch, ReportReason};
+use crate::mars::{AdsRequestOptionPatch, MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -394,7 +394,7 @@ mod tests {
     #[cfg(feature = "stateful")]
     use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
-        mars::{Environment, AdsRequestOptions},
+        mars::{AdsRequestOptions, Environment},
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
             get_example_happy_uatile_response, make_happy_placement_requests,

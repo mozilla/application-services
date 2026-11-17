@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::mars::{Environment, AdsRequestOptions};
+use crate::mars::{AdsRequestOptions, Environment};
 use crate::non_empty_string::NonEmptyString;
 
 pub(crate) struct AdsClientConfig {

@@ -59,7 +59,10 @@ fn test_contract_image_with_categories_prod() {
             placement_id: "mock_billboard_1".to_string(),
         }],
         Some(MozAdsRequestOptions {
-            flags: Some(std::collections::HashMap::from([("contextual_placement".to_string(), true)])),
+            flags: Some(std::collections::HashMap::from([(
+                "contextual_placement".to_string(),
+                true,
+            )])),
             ..Default::default()
         }),
     );
