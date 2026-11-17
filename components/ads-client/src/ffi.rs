@@ -37,7 +37,7 @@ pub struct MozAdsRequestOptions {
     pub cache_policy: Option<MozAdsCachePolicy>,
     #[uniffi(default)]
     pub flags: Option<HashMap<String, bool>>,
-    #[uniffi(default = false)]
+    #[uniffi(default)]
     pub ohttp: Option<bool>,
 
     // Not part of `AdsRequestOptionPatch`.
