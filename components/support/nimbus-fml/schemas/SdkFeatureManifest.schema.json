@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "title": "SdkFeatureManifest",
+  "description": "The SDK-specific feature manifest.",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/$defs/SdkFeature"
+  },
+  "$defs": {
+    "FeatureVariableType": {
+      "enum": [
+        "int",
+        "string",
+        "boolean",
+        "json"
+      ],
+      "type": "string"
+    },
+    "PrefBranch": {
+      "enum": [
+        "default",
+        "user"
+      ],
+      "type": "string"
+    },
+    "SdkFeature": {
+      "description": "A feature.",
+      "if": {
+        "properties": {
+          "hasExposure": {
+            "const": true
+          }
+        }
+      },
+      "properties": {
+        "allow-coenrollment": {
+          "description": "If true, clients can enroll in multiple experiments and rollouts that use this feature.",
+          "type": "boolean"
+        },
+        "description": {
+          "description": "The description of the feature.",
+          "type": "string"
+        },
+        "exposureDescription": {
+          "description": "A description of the exposure telemetry collected by this feature. Only required if hasExposure is true.",
+          "type": "string"
+        },
+        "hasExposure": {
+          "description": "Whether or not this feature records exposure telemetry.",
+          "type": "boolean"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SdkFeatureVariable"
+          },
+          "description": "The variables that this feature can set.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "description",
+        "hasExposure",
+        "variables"
+      ],
+      "then": {
+        "required": [
+          "exposureDescription"
+        ]
+      },
+      "type": "object"
+    },
+    "SdkFeatureVariable": {
+      "dependentSchemas": {
+        "enum": {
+          "properties": {
+            "type": {
+              "const": "string"
+            }
+          }
+        }
+      },
+      "description": "A feature variable.",
+      "properties": {
+        "description": {
+          "description": "A description of the feature.",
+          "type": "string"
+        },
+        "enum": {
+          "description": "An optional list of possible string values. Only allowed when type is string.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "setPref": {
+          "$ref": "#/$defs/SetPref",
+          "description": "A pref that should be set to the value of this variable when enrolling. Only supported in Firefox for Android 152+. "
+        },
+        "type": {
+          "$ref": "#/$defs/FeatureVariableType",
+          "description": "The field type."
+        }
+      },
+      "required": [
+        "description",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SetPref": {
+      "properties": {
+        "branch": {
+          "$ref": "#/$defs/PrefBranch",
+          "description": "The branch the pref will be set on. Prefs set on the user branch persists through restarts."
+        },
+        "pref": {
+          "description": "The name of the pref to set.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "pref"
+      ],
+      "type": "object"
+    }
+  }
+}

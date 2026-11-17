@@ -2522,6 +2522,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
+name = "iri-string"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf071934ee7ee97e52fa1868a9540a7885eab75926bd70794030304a9797cea1"
+
+[[package]]
 name = "is-terminal"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2531,6 +2537,15 @@ dependencies = [
  "io-lifetimes",
  "rustix 0.37.11",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
 ]
 
 [[package]]
@@ -2597,6 +2612,33 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json-pointer"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fe841b94e719a482213cee19dd04927cf412f26d8dc84c5a446c081e49c2997"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "jsonschema-valid"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "998c0b6acd4e20747af58157c9d55878970f546088e17c9870f4b41bc8a032a3"
+dependencies = [
+ "chrono",
+ "iri-string",
+ "itertools 0.10.5",
+ "json-pointer",
+ "lazy_static",
+ "percent-encoding",
+ "regex",
+ "serde_json",
+ "textwrap",
+ "url",
 ]
 
 [[package]]
@@ -3156,6 +3198,7 @@ dependencies = [
  "heck",
  "icu_segmenter",
  "itertools 0.14.0",
+ "jsonschema-valid",
  "lazy_static",
  "mozilla-central-workspace-hack",
  "regex",
