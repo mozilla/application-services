@@ -173,7 +173,6 @@ enum AppCommand {
 
     FmlPassthrough {
         args: Vec<OsString>,
-        cwd: PathBuf,
     },
 
     Info {
@@ -364,10 +363,7 @@ impl TryFrom<&Cli> for AppCommand {
 
                 AppCommand::FetchList { list, file: output }
             }
-            CliCommand::Fml { args } => {
-                let cwd = std::env::current_dir().expect("Current Working Directory is not set");
-                AppCommand::FmlPassthrough { args, cwd }
-            }
+            CliCommand::Fml { args } => AppCommand::FmlPassthrough { args },
             CliCommand::Info { experiment, output } => AppCommand::Info {
                 experiment: ExperimentSource::try_from(&experiment)?,
                 output,
