@@ -47,9 +47,6 @@ pub struct MozAdsRequestOptions {
     pub relevance: Option<HashMap<String, f64>>, // tiles only
 }
 
-// TODO: Before re-review, this needs to get deleted and we need to consider MozAdsRequestOptions to have Option<> fields
-// (for in-field overriding, like the other ones).
-// Note: the `relevance` field is dropped in this conversion.
 impl From<MozAdsRequestOptions> for MARSRequestOptionPatch {
     fn from(opt: MozAdsRequestOptions) -> Self {
         MARSRequestOptionPatch {

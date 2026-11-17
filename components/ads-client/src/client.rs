@@ -564,7 +564,6 @@ mod tests {
 
         let result = client.request_tile_ads(
             make_happy_placement_requests(),
-            // TODO: Pay special attention to this test!
             Some(MARSRequestOptionPatch {
                 relevance: HashMap::from([("sports".to_string(), 0.8)]).into(),
                 ..Default::default()

@@ -75,9 +75,10 @@ impl MARSClient {
         let mut request_options = self.request_options.read().clone();
         request_options.patch(patch_options);
 
-        // TODO: Check to ensure this matches existing behaviour.
-        // TODO: Write a test for this.
-        // TODO: Ensure we can't accidentally set relevance and as such, make context_id never send.
+        // TODO: We need more complex handling for intentionally omitting relevance here if it's a tile ad.
+        // Relevance is not used, and should not be passed if it's not a tile ad (however, this leads to more complex behavior with mixed generic ad requests).
+
+        // Remove context id if relevance is passed (both can and should not be sent to MARS in the same request).
         let context_id = if request_options.relevance.is_empty() {
             Some(context_id)
         } else {
