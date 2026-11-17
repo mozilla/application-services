@@ -19,7 +19,7 @@ use crate::error::{FMLError, Result};
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
 pub(crate) const API_GITHUB_DOTCOM: &str = "https://api.github.com";
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoaderConfig {
     pub cwd: PathBuf,
     pub repo_files: Vec<String>,

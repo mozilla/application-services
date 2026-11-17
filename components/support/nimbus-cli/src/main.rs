@@ -122,7 +122,7 @@ impl From<&Cli> for NimbusApp {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 enum AppCommand {
     ApplyFile {
         app: LaunchableApp,
@@ -172,7 +172,7 @@ enum AppCommand {
     },
 
     FmlPassthrough {
-        args: Vec<OsString>,
+        cmd: nimbus_fml::command_line::CliCmd,
     },
 
     Info {
@@ -363,7 +363,11 @@ impl TryFrom<&Cli> for AppCommand {
 
                 AppCommand::FetchList { list, file: output }
             }
-            CliCommand::Fml { args } => AppCommand::FmlPassthrough { args },
+
+            CliCommand::Fml { args } => AppCommand::FmlPassthrough {
+                cmd: nimbus_fml::command_line::CliCmd::from_args(args)?,
+            },
+
             CliCommand::Info { experiment, output } => AppCommand::Info {
                 experiment: ExperimentSource::try_from(&experiment)?,
                 output,

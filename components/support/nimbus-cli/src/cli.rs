@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::ffi::OsString;
 use std::path::PathBuf;
 
 use chrono::Utc;
@@ -177,12 +176,11 @@ pub(crate) enum CliCommand {
         list: ExperimentListArgs,
     },
 
-    /// Execute a nimbus-fml command. See
-    ///
-    /// nimbus-cli fml -- --help
-    ///
-    /// for more.
-    Fml { args: Vec<OsString> },
+    /// Execute a nimbus-fml command.
+    Fml {
+        #[command(subcommand)]
+        args: nimbus_fml::command_line::Command,
+    },
 
     /// Displays information about an experiment
     Info {
