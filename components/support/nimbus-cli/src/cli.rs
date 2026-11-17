@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand};
 
+use crate::config::{App, Channel};
+
 #[derive(Parser)]
 #[command(
     author,
@@ -15,11 +17,11 @@ use clap::{Args, Parser, Subcommand};
 pub(crate) struct Cli {
     /// The app name according to Nimbus.
     #[arg(short, long, value_name = "APP")]
-    pub(crate) app: Option<String>,
+    pub(crate) app: Option<App>,
 
     /// The channel according to Nimbus. This determines which app to talk to.
     #[arg(short, long, value_name = "CHANNEL")]
-    pub(crate) channel: Option<String>,
+    pub(crate) channel: Option<Channel>,
 
     /// The device id of the simulator, emulator or device.
     #[arg(short, long, value_name = "DEVICE_ID")]
@@ -423,7 +425,7 @@ pub(crate) struct ExperimentListFilterArgs {
     pub(crate) enrolling_on: Option<String>,
 
     #[arg(short = 'C', long, value_name = "CHANNEL")]
-    pub(crate) channel: Option<String>,
+    pub(crate) channel: Option<Channel>,
 
     #[arg(short = 'R', long, value_name = "FLAG")]
     pub(crate) is_rollout: Option<bool>,

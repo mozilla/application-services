@@ -9,6 +9,7 @@
 - `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
 - `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
 parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
 
 ## ⚠️ Breaking Changes ⚠️
 
