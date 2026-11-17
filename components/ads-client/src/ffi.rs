@@ -14,8 +14,8 @@ use crate::client::config::{AdsCacheConfig, AdsClientConfig};
 use crate::client::AdsClient;
 use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
-use crate::mars::{Environment, MARSRequestOptions};
-use crate::mars::{MARSRequestOptionPatch, ReportReason};
+use crate::mars::{Environment, AdsRequestOptions};
+use crate::mars::{AdsRequestOptionPatch, ReportReason};
 use crate::non_empty_string::NonEmptyString;
 use crate::AdsClientUrl;
 use crate::MozAdsClient;
@@ -40,16 +40,16 @@ pub struct MozAdsRequestOptions {
     #[uniffi(default = false)]
     pub ohttp: Option<bool>,
 
-    // Not part of `MARSRequestOptionPatch`.
+    // Not part of `AdsRequestOptionPatch`.
     // TODO: This `defaulting` MUST be tested before merge.
     // TODO: ensure only passed on tiles. add a test for it.
     #[uniffi(default)]
     pub relevance: Option<HashMap<String, f64>>, // tiles only
 }
 
-impl From<MozAdsRequestOptions> for MARSRequestOptionPatch {
+impl From<MozAdsRequestOptions> for AdsRequestOptionPatch {
     fn from(opt: MozAdsRequestOptions) -> Self {
-        MARSRequestOptionPatch {
+        AdsRequestOptionPatch {
             flags: opt.flags,
             cache_policy: opt.cache_policy.map(|policy| policy.into()),
             ohttp: opt.ohttp,
@@ -113,7 +113,7 @@ struct MozAdsClientBuilderInner {
     store_config: Option<MozAdsStoreConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
     user_agent: Option<NonEmptyString>,
-    request_options: MARSRequestOptions,
+    request_options: AdsRequestOptions,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -565,7 +565,7 @@ impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
 #[cfg(test)]
 mod tests {
     use crate::{
-        mars::MARSRequestOptions, telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig,
+        mars::AdsRequestOptions, telemetry, test_utils::NoopMozAdsTelemetry, MozAdsCacheConfig,
         MozAdsClientBuilder, MozAdsRequestOptions,
     };
     use std::sync::Arc;
@@ -662,8 +662,8 @@ mod tests {
     fn test_request_options_override() {
         let builder = Arc::new(MozAdsClientBuilder::new());
 
-        // Builder starts with expected `MARSRequestOptions`
-        let mut expected = MARSRequestOptions::default();
+        // Builder starts with expected `AdsRequestOptions`
+        let mut expected = AdsRequestOptions::default();
         assert_eq!(builder.0.lock().request_options, expected);
 
         // Options can be changed.

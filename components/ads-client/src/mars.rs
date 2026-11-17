@@ -37,7 +37,7 @@ pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
     user_agent: Option<NonEmptyString>,
-    request_options: RwLock<MARSRequestOptions>,
+    request_options: RwLock<AdsRequestOptions>,
 }
 
 impl MARSClient {
@@ -45,7 +45,7 @@ impl MARSClient {
         environment: Environment,
         http_cache: Option<HttpCache>,
         user_agent: Option<NonEmptyString>,
-        request_options: MARSRequestOptions,
+        request_options: AdsRequestOptions,
     ) -> Self {
         Self {
             environment,
@@ -55,7 +55,7 @@ impl MARSClient {
         }
     }
 
-    pub fn set_request_options(&self, new_options: MARSRequestOptionPatch) {
+    pub fn set_request_options(&self, new_options: AdsRequestOptionPatch) {
         self.request_options.write().patch(new_options);
     }
 
@@ -66,10 +66,10 @@ impl MARSClient {
     pub(crate) fn fetch_ads(
         &self,
         context_id: String,
-        request_options_patch: Option<MARSRequestOptionPatch>,
+        request_options_patch: Option<AdsRequestOptionPatch>,
         placements: Vec<AdPlacementRequest>,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
-        // A patch is applied to the stored `MarsRequestOptions` struct (getting the default settings with any request-specific settings applied overtop).
+        // A patch is applied to the stored `AdsRequestOptions` struct (getting the default settings with any request-specific settings applied overtop).
         // Get a temporary lock on settings- long enough to clone.
         let patch_options = request_options_patch.unwrap_or_default();
         let mut request_options = self.request_options.read().clone();
@@ -179,7 +179,7 @@ impl MARSClient {
 /// If new fields are added, their defaults should be explicitly considered,
 /// and an explicit implementation should be created if needed.
 #[derive(Clone, Default, Debug, PartialEq)]
-pub struct MARSRequestOptions {
+pub struct AdsRequestOptions {
     pub flags: AdRequestFlags,
     pub cache_policy: CachePolicy,
     pub ohttp: bool,
@@ -188,9 +188,9 @@ pub struct MARSRequestOptions {
 }
 
 /// Client level reusable set options for requests.
-/// They allow overriding of any fields set in `MARSRequestOptions`.
+/// They allow overriding of any fields set in `AdsRequestOptions`.
 #[derive(Clone, Default, Debug)]
-pub struct MARSRequestOptionPatch {
+pub struct AdsRequestOptionPatch {
     pub flags: Option<AdRequestFlags>,
     pub cache_policy: Option<CachePolicy>,
     pub ohttp: Option<bool>,
@@ -198,9 +198,9 @@ pub struct MARSRequestOptionPatch {
     pub relevance: Option<AdRequestRelevance>,
 }
 
-impl MARSRequestOptions {
-    pub fn patch(&mut self, patch: MARSRequestOptionPatch) -> &mut MARSRequestOptions {
-        *self = MARSRequestOptions {
+impl AdsRequestOptions {
+    pub fn patch(&mut self, patch: AdsRequestOptionPatch) -> &mut AdsRequestOptions {
+        *self = AdsRequestOptions {
             flags: patch.flags.unwrap_or(self.flags.clone()),
             cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
             ohttp: patch.ohttp.unwrap_or(self.ohttp),
@@ -228,7 +228,7 @@ mod tests {
             Environment::Test,
             http_cache,
             None,
-            MARSRequestOptions::default(),
+            AdsRequestOptions::default(),
         )
     }
 
@@ -388,8 +388,8 @@ mod tests {
 
     #[test]
     fn test_patching_request_options() {
-        let mut options = MARSRequestOptions::default();
-        let mut expected = MARSRequestOptions {
+        let mut options = AdsRequestOptions::default();
+        let mut expected = AdsRequestOptions {
             flags: HashMap::new(),
             ohttp: false,
             cache_policy: CachePolicy::CacheFirst { ttl: None },
@@ -400,7 +400,7 @@ mod tests {
 
         // Options can be changed.
         expected.blocks = vec!["test_block_0".to_string()];
-        options.patch(MARSRequestOptionPatch {
+        options.patch(AdsRequestOptionPatch {
             blocks: Some(vec!["test_block_0".to_owned()]),
             ..Default::default()
         });
@@ -408,7 +408,7 @@ mod tests {
 
         // Changing an option doesn't reset others.
         expected.ohttp = true;
-        options.patch(MARSRequestOptionPatch {
+        options.patch(AdsRequestOptionPatch {
             ohttp: Some(true),
             ..Default::default()
         });
