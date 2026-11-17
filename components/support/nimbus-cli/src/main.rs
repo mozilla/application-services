@@ -13,11 +13,14 @@ mod updater;
 mod value_utils;
 mod version_utils;
 
-use anyhow::{bail, Result};
+use std::ffi::OsString;
+use std::path::PathBuf;
+
+use anyhow::{Result, bail};
 use clap::Parser;
-use cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
-use sources::{ExperimentListSource, ExperimentSource, ManifestSource};
-use std::{ffi::OsString, path::PathBuf};
+
+use crate::cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
+use crate::sources::{ExperimentListSource, ExperimentSource, ManifestSource};
 
 pub(crate) static USER_AGENT: &str =
     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
@@ -170,7 +173,6 @@ enum AppCommand {
 
     FmlPassthrough {
         args: Vec<OsString>,
-        cwd: PathBuf,
     },
 
     Info {
@@ -361,10 +363,7 @@ impl TryFrom<&Cli> for AppCommand {
 
                 AppCommand::FetchList { list, file: output }
             }
-            CliCommand::Fml { args } => {
-                let cwd = std::env::current_dir().expect("Current Working Directory is not set");
-                AppCommand::FmlPassthrough { args, cwd }
-            }
+            CliCommand::Fml { args } => AppCommand::FmlPassthrough { args },
             CliCommand::Info { experiment, output } => AppCommand::Info {
                 experiment: ExperimentSource::try_from(&experiment)?,
                 output,
@@ -463,7 +462,9 @@ impl CliCommand {
                             && open.deeplink.is_some()
                             && !matches!(self, Self::Open { .. })
                         {
-                            bail!("--deeplink requires --legacy-open for fenix and is not compatible with newer releases");
+                            bail!(
+                                "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
+                            );
                         }
                     }
 

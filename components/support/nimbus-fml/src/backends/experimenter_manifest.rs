@@ -1,18 +1,16 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    command_line::commands::GenerateExperimenterManifestCmd,
-    error::{FMLError, Result},
-    intermediate_representation::{
-        FeatureDef, FeatureManifest, GeckoPrefDef, PropDef, TargetLanguage, TypeRef,
-    },
+use crate::command_line::commands::GenerateExperimenterManifestCmd;
+use crate::error::{FMLError, Result};
+use crate::intermediate_representation::{
+    FeatureDef, FeatureManifest, GeckoPrefDef, PropDef, TypeRef,
 };
 
 pub(crate) type ExperimenterManifest = BTreeMap<String, ExperimenterFeature>;
@@ -157,19 +155,10 @@ pub(crate) fn generate_manifest(
     ir: FeatureManifest,
     cmd: &GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: ExperimenterManifest = ir.try_into()?;
-    let output_str = match cmd.language {
-        TargetLanguage::ExperimenterJSON => serde_json::to_string_pretty(&experiment_manifest)?,
-        // This is currently just a re-render of the JSON in YAML.
-        // However, the YAML format will diverge in time, so experimenter can support
-        // a richer manifest format (probably involving generating schema that can validate
-        // JSON patches in the FeatureConfig.)
-        TargetLanguage::ExperimenterYAML => serde_yaml::to_string(&experiment_manifest)?,
+    let experimenter_manifest: ExperimenterManifest = ir.try_into()?;
 
-        // If in doubt, output the previously generated default.
-        _ => serde_json::to_string(&experiment_manifest)?,
-    };
+    let mut f = std::fs::File::create(&cmd.output)?;
+    serde_yaml::to_writer(&mut f, &experimenter_manifest)?;
 
-    std::fs::write(&cmd.output, output_str)?;
     Ok(())
 }

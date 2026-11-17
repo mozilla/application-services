@@ -2,16 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::{
-    ffi::{OsStr, OsString},
-    path::Path,
-    vec,
-};
+use std::ffi::{OsStr, OsString};
+use std::vec;
 
 use anyhow::Result;
 use nimbus_fml::command_line::do_main;
 
-pub(crate) fn fml_cli(args: &Vec<OsString>, cwd: &Path) -> Result<bool> {
+pub(crate) fn fml_cli(args: &Vec<OsString>) -> Result<bool> {
     // We prepend the string `nimbus-cli fml` to the args to pass to FML
     // because the clap uses the 0th argument for help messages; so the FML's command line processor
     // will report an error with a usage message of `nimbus-cli fml generate [FLAGS] INPUT OUTPUT`.
@@ -29,6 +26,6 @@ pub(crate) fn fml_cli(args: &Vec<OsString>, cwd: &Path) -> Result<bool> {
 
     // Finally, send all the args after `nimbus-cli fml` verbatim to the FML clap cli.
     cli_args.extend(args);
-    do_main(cli_args, cwd)?;
+    do_main(cli_args)?;
     Ok(true)
 }
