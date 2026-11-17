@@ -15,5 +15,6 @@ edition = "2024"
 megazord = []
 megazord_focus = []
 megazord_ios = []
+uniffi-bindgen-library-mode = []
 embedded-uniffi-bindgen = []
 nimbus-fml = []
