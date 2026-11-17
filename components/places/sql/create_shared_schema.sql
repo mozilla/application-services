@@ -57,7 +57,10 @@ WHERE hidden = 0
   AND (url GLOB 'http:*' OR url GLOB 'https:*');
 
 CREATE TABLE IF NOT EXISTS moz_places_tombstones (
-    guid TEXT PRIMARY KEY
+    guid TEXT PRIMARY KEY,
+    -- When the page was deleted locally, in milliseconds since the epoch. NULL
+    -- for tombstones written before we recorded this.
+    time_deleted INTEGER
 ) WITHOUT ROWID;
 
 
