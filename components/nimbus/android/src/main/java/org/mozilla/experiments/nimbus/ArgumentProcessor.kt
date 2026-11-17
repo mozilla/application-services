@@ -16,7 +16,6 @@ private const val NIMBUS_FLAG = "nimbus-cli"
 private const val EXPERIMENTS_KEY = "experiments"
 private const val LOG_STATE_KEY = "log-state"
 private const val RESET_DB_KEY = "reset-db"
-private const val IS_LAUNCHER_KEY = "is-launcher"
 private const val EVAL_JEXL_KEY = "eval-jexl"
 private const val VERSION_KEY = "version"
 private const val DATA_KEY = "data"
@@ -62,28 +61,23 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
             android.util.Log.e("NimbusTooling", "JEXL_RESULT: $errorJson")
         }
     }
-
-    if (args.isLauncher) {
-        intent.action = Intent.ACTION_MAIN
-        intent.addCategory(Intent.CATEGORY_LAUNCHER)
-    }
 }
 
 @Suppress("ReturnCount")
-private fun createCommandLineArgs(intent: Intent): CliArgs? {
-    // This incurs almost zero runtime cost in the release path.
-    if (!intent.hasExtra(NIMBUS_FLAG)) {
-        return intent.data?.let(::createCommandLineArgs)
-    }
-
-    if (intent.getIntExtra(VERSION_KEY, 0) != 1) {
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+internal fun createCommandLineArgs(intent: Intent): CliArgs? {
+    if (!intent.hasExtra(NIMBUS_FLAG) || intent.getIntExtra(VERSION_KEY, 0) != 1) {
         return null
     }
 
+    // There is a quoting within quoting problem meaning apostrophes don't get sent
+    // through the multiple shells properly. This steps around this issue completely.
     val experiments = intent.getStringExtra(EXPERIMENTS_KEY)
-        // There is a quoting within quoting problem meaning apostrophes don't get sent
-        // through the multiple shells properly. This steps around this issue completely.
         ?.replace("&apos;", "'")
+
+    if (!validateExperiments(experiments)) {
+        return null
+    }
 
     val evalJexl = intent.getStringExtra(EVAL_JEXL_KEY)
         ?.replace("&apos;", "'")
@@ -91,54 +85,39 @@ private fun createCommandLineArgs(intent: Intent): CliArgs? {
     val resetDatabase = intent.getBooleanExtra(RESET_DB_KEY, false)
     val logState = intent.getBooleanExtra(LOG_STATE_KEY, false)
 
-    return check(CliArgs(resetDatabase, experiments, logState, false, evalJexl))
+    return CliArgs(
+        resetDatabase = resetDatabase,
+        experiments = experiments,
+        logState = logState,
+        evalJexl = evalJexl,
+    )
 }
 
 @Suppress("ReturnCount")
-private fun check(args: CliArgs): CliArgs? {
-    // We do some rudimentary taint checking of the string:
-    // we make sure it looks like a JSON object, with a `data` key
-    // and an array value.
-    val string = args.experiments
-    if (string != null) {
-        try {
-            val jsonObject = JSONObject(string)
-            jsonObject.optJSONArray(DATA_KEY) ?: return null
-        } catch (e: JSONException) {
-            return null
-        }
-    }
-    return args
-}
-
-@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-@Suppress("ReturnCount")
-fun createCommandLineArgs(uri: Uri): CliArgs? {
-    if (!uri.isHierarchical || !uri.isAbsolute) {
-        return null
-    }
-    if (setOf("http", "https").contains(uri.scheme ?: "")) {
-        return null
-    }
-    val isMeantForUs = uri.getBooleanQueryParameter("--$NIMBUS_FLAG", false)
-    if (!isMeantForUs) {
-        return null
+private fun validateExperiments(experiments: String?): Boolean {
+    if (experiments == null) {
+        return true
     }
 
-    // Percent decoding happens transparently here:
-    val experiments = uri.getQueryParameter("--$EXPERIMENTS_KEY")
-    val evalJexl = uri.getQueryParameter("--$EVAL_JEXL_KEY")
-    val resetDatabase = uri.getBooleanQueryParameter("--$RESET_DB_KEY", false)
-    val logState = uri.getBooleanQueryParameter("--$LOG_STATE_KEY", false)
-    val isLauncher = uri.getBooleanQueryParameter("--$IS_LAUNCHER_KEY", false)
+    // We do some rudimentary taint checking of the string to make sure it
+    // is a JSON object with a `data` key mapping to an array.
+    try {
+        val jsonObject = JSONObject(experiments)
+        jsonObject.optJSONArray(DATA_KEY) ?: return false
+    } catch (e: JSONException) {
+        return false
+    }
 
-    return check(CliArgs(resetDatabase, experiments, logState, isLauncher, evalJexl))
+    return true
 }
 
 data class CliArgs(
-    val resetDatabase: Boolean,
-    val experiments: String?,
-    val logState: Boolean,
-    val isLauncher: Boolean,
-    val evalJexl: String?,
+    /** Whether to reset the enrollments database. */
+    val resetDatabase: Boolean = false,
+    /** The experiment payload (in legacy Remote Settings format) to apply. */
+    val experiments: String? = null,
+    /** Whether the list of currently active deliveries should be logged. */
+    val logState: Boolean = false,
+    /** A JEXL expression to evaluate. */
+    val evalJexl: String? = null,
 )
