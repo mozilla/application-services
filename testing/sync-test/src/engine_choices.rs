@@ -13,6 +13,7 @@ use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use sync15::AccountEngineChoices;
 use sync15::EngineChoicesModel::{self, Device};
 
 const ENGINES: [&str; 2] = ["tabs", "passwords"];
@@ -37,6 +38,33 @@ fn sync_failing(c: &mut TestClient, model: EngineChoicesModel) -> HashSet<String
         .sync_with_failure(&engines(), HashMap::new())
         .expect("should sync");
     failures.into_keys().collect()
+}
+
+// Like `sync`, but returns the account's engine choices the sync reported.
+fn reported_choices(c: &mut TestClient, model: EngineChoicesModel) -> AccountEngineChoices {
+    c.engine_choices_model = model;
+    let result = c.sync(&engines(), HashMap::new()).expect("should sync");
+    result
+        .account_engine_choices
+        .expect("should report the account's choices")
+}
+
+// The account's engine choices in a meta/global record, as they're reported.
+fn choices_in(global: &Value) -> AccountEngineChoices {
+    let mut enabled: Vec<String> = global["engines"]
+        .as_object()
+        .expect("should have engines")
+        .keys()
+        .cloned()
+        .collect();
+    enabled.sort();
+    let declined = global["declined"]
+        .as_array()
+        .expect("should have declined")
+        .iter()
+        .map(|e| e.as_str().expect("should be a string").to_string())
+        .collect();
+    AccountEngineChoices { enabled, declined }
 }
 
 fn meta_global(c: &TestClient) -> Value {
@@ -79,8 +107,11 @@ fn test_per_device_fresh_start(c0: &mut TestClient, c1: &mut TestClient) {
     sync(c1, set_tabs(false));
 
     c0.fully_wipe_server().expect("should wipe");
-    sync(c0, Device);
+    let choices = reported_choices(c0, Device);
     let global = meta_global(c0);
+    // What it reports is what it wrote.
+    assert_eq!(choices, choices_in(&global));
+    assert!(choices.enabled.contains(&"tabs".to_string()));
     let tabs_id = sync_id(&global, "tabs");
     assert!(tabs_id.is_some());
     assert_eq!(sync_id(&meta_syncids(c0), "tabs"), tabs_id);
@@ -97,9 +128,11 @@ fn test_per_device_fresh_start_keeps_account_choices(c0: &mut TestClient, c1: &m
     sync(c0, Device);
 
     c0.fully_wipe_server().expect("should wipe");
-    sync(c0, Device);
+    let choices = reported_choices(c0, Device);
 
     let global = meta_global(c0);
+    assert_eq!(choices, choices_in(&global));
+    assert!(choices.declined.contains(&"tabs".to_string()));
     assert!(sync_id(&global, "tabs").is_none());
     assert!(global["declined"]
         .as_array()
@@ -246,6 +279,44 @@ fn test_per_device_leaves_newer_sync_ids(c0: &mut TestClient, c1: &mut TestClien
     assert_eq!(meta_syncids(c0), sync_ids);
 }
 
+// Either kind of client reports the account's choices, which a per-device
+// client might adopt as its own.
+fn test_account_choices_reported(c0: &mut TestClient, c1: &mut TestClient) {
+    // c1 is a per-account client on which the user disabled tabs.
+    sync(c1, set_tabs(false));
+    let global = meta_global(c1);
+
+    for (c, model) in [
+        (&mut *c1, EngineChoicesModel::default()),
+        (&mut *c0, Device),
+    ] {
+        let choices = reported_choices(c, model);
+        assert_eq!(choices, choices_in(&global));
+        assert!(choices.declined.contains(&"tabs".to_string()));
+        assert!(!choices.enabled.contains(&"tabs".to_string()));
+    }
+}
+
+// The engines a client declares it syncs are what `SyncEngineSelection::All`
+// means, ignoring any we don't know. They don't limit an explicit selection.
+fn test_enabled_engines(c0: &mut TestClient, _c1: &mut TestClient) {
+    c0.engine_choices_model = Device;
+    c0.enabled_engines = Some(vec!["tabs".to_string(), "unknown".to_string()]);
+    let synced: HashSet<String> = c0
+        .sync_all()
+        .expect("should sync")
+        .successful
+        .into_iter()
+        .collect();
+    // Syncing addresses or credit cards, which are also registered, would
+    // fail without their local encryption keys.
+    assert_eq!(synced, HashSet::from(["tabs".to_string()]));
+
+    c0.enabled_engines = Some(vec![]);
+    assert_eq!(sync(c0, Device), HashSet::from_iter(engines()));
+    c0.enabled_engines = None;
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "engine_choices",
@@ -273,6 +344,11 @@ pub fn get_test_group() -> TestGroup {
                 "test_per_device_leaves_newer_sync_ids",
                 test_per_device_leaves_newer_sync_ids,
             ),
+            (
+                "test_account_choices_reported",
+                test_account_choices_reported,
+            ),
+            ("test_enabled_engines", test_enabled_engines),
         ],
     )
 }

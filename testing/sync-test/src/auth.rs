@@ -41,6 +41,8 @@ pub struct TestClient {
     /// How this client models engine choices. Change it to simulate an old
     /// (per-account) or new (per-device) client, or a client flipping between them.
     pub engine_choices_model: EngineChoicesModel,
+    /// The engines this client declares it has chosen to sync, if any.
+    pub enabled_engines: Option<Vec<String>>,
 }
 
 impl TestClient {
@@ -96,12 +98,13 @@ impl TestClient {
             sync_manager: SyncManager::new(),
             persisted_state: None,
             engine_choices_model: EngineChoicesModel::default(),
+            enabled_engines: None,
         })
     }
 
     fn sync_params(
         &mut self,
-        engines: &[String],
+        engines: SyncEngineSelection,
         local_encryption_keys: HashMap<String, String>,
     ) -> Result<SyncParams> {
         // ensure all our engines are registered.
@@ -111,10 +114,9 @@ impl TestClient {
         let sync_info = self.cli.sync_info()?.expect("CliFxa must have SYNC_SCOPE");
         Ok(SyncParams {
             reason: SyncReason::User,
-            engines: SyncEngineSelection::Some {
-                engines: engines.to_vec(),
-            },
+            engines,
             engine_choices_model: self.engine_choices_model.clone(),
+            enabled_engines: self.enabled_engines.clone(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
@@ -122,7 +124,6 @@ impl TestClient {
                 fxa_device_id: self.device.id.clone(),
                 name: self.device.display_name.clone(),
                 kind: self.device.device_type,
-                enabled_engines: vec![],
             },
         })
     }
@@ -130,6 +131,23 @@ impl TestClient {
     pub fn sync(
         &mut self,
         engines: &[String],
+        local_encryption_keys: HashMap<String, String>,
+    ) -> Result<SyncResult> {
+        let engines = SyncEngineSelection::Some {
+            engines: engines.to_vec(),
+        };
+        self.sync_selection(engines, local_encryption_keys)
+    }
+
+    /// Syncs with `SyncEngineSelection::All`, so the engines synced are
+    /// those in `enabled_engines` if it's specified, or all registered engines.
+    pub fn sync_all(&mut self) -> Result<SyncResult> {
+        self.sync_selection(SyncEngineSelection::All, HashMap::new())
+    }
+
+    fn sync_selection(
+        &mut self,
+        engines: SyncEngineSelection,
         local_encryption_keys: HashMap<String, String>,
     ) -> Result<SyncResult> {
         let params = self.sync_params(engines, local_encryption_keys)?;
@@ -155,6 +173,9 @@ impl TestClient {
         engines: &[String],
         local_encryption_keys: HashMap<String, String>,
     ) -> Result<HashMap<String, String, RandomState>> {
+        let engines = SyncEngineSelection::Some {
+            engines: engines.to_vec(),
+        };
         let params = self.sync_params(engines, local_encryption_keys)?;
         let result = self.sync_manager.sync(params)?;
         // Syncs initiated with this function should fail otherwise `sync` should be used.
