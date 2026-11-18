@@ -5,17 +5,17 @@
 
 [versions]
 # AGP
-android-gradle-plugin = "8.13.2"
+android-gradle-plugin = "9.5.1"
 
 # Kotlin
-kotlin = "2.3.21"
+kotlin = "2.4.21"
 coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 
 # Mozilla
 android-components = "150.0.3"
 glean = "71.0.0"
-rust-android-gradle = "0.10.0"
+rust-android-gradle = "0.11.0"
 
 # AndroidX
 annotation = "1.10.0"

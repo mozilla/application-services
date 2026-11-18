@@ -1,27 +1,38 @@
 # v162.0 (In progress)
 
+[Full Changelog](In progress)
+
+### Nimbus
+
+- Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- Support for Experimenter JSON files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
+- `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
+parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Firefox Accounts
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
   Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
 
-[Full Changelog](In progress)
-
 ## ✨ What's Changed ✨
 
 ### Android
 
 - Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
 
 ### Ads-Client
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 - The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
 
-### Containers
+### Autofill
 
-- Updated the refreshed (Nova) codes for the yellow, violet, blue and green container colors. ([bug 2091745](https://bugzilla.mozilla.org/show_bug.cgi?id=2091745))
+- New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
 
 ### Filter Adult
 
@@ -35,6 +46,7 @@
 ### Nimbus
 
 - Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+- Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
 
 ### Remote Settings
 
