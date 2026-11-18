@@ -5,12 +5,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use serde_json::Map;
+use serde::Deserialize;
+use serde_json::{Map, json};
 
 use crate::stateful::behavior::EventStore;
 use crate::stateful::targeting::{execute_event_queries, validate_event_queries};
 use crate::tests::helpers::TestRecordedContext;
-use crate::{NimbusTargetingHelper, Result};
+use crate::{AppContext, NimbusTargetingHelper, Result, TargetingAttributes};
 
 #[test]
 fn test_recorded_context_execute_queries() -> Result<()> {
@@ -77,8 +78,6 @@ fn create_helper(context: serde_json::Value) -> NimbusTargetingHelper {
 
 #[test]
 fn test_eval_jexl_debug_success() {
-    use serde_json::json;
-
     let helper = create_helper(json!({
         "locale": "en-US",
     }));
@@ -92,8 +91,6 @@ fn test_eval_jexl_debug_success() {
 
 #[test]
 fn test_eval_jexl_debug_error() {
-    use serde_json::json;
-
     let helper = create_helper(json!({}));
 
     let result = helper.eval_jexl_debug("invalid {{").unwrap();
@@ -105,8 +102,6 @@ fn test_eval_jexl_debug_error() {
 
 #[test]
 fn test_eval_jexl_debug_json_structure() {
-    use serde_json::json;
-
     let helper = create_helper(json!({"test": true}));
 
     let result = helper.eval_jexl_debug("test").unwrap();
@@ -121,29 +116,56 @@ fn test_eval_jexl_debug_json_structure() {
 }
 
 #[test]
-fn test_eval_jexl_debug_returns_pretty_json() {
-    use serde_json::json;
+fn test_eval_jexl_debug_returns_json() -> Result<()> {
+    #[derive(Debug, Deserialize, Eq, PartialEq)]
+    struct EvalResult {
+        success: bool,
+        result: serde_json::Value,
+    }
+
+    #[derive(Debug, Deserialize, Eq, PartialEq)]
+    struct EvalError {
+        success: bool,
+        error: String,
+    }
 
     let helper = create_helper(json!({"locale": "en-US"}));
 
-    let result = helper.eval_jexl_debug("locale").unwrap();
+    assert_eq!(
+        serde_json::from_str::<EvalResult>(&helper.eval_jexl_debug("locale == 'en-US'")?)?,
+        EvalResult {
+            success: true,
+            result: json!(true),
+        }
+    );
 
-    // Pretty JSON should have newlines
-    assert!(result.contains('\n'));
-    // Should be valid JSON
-    assert!(serde_json::from_str::<serde_json::Value>(&result).is_ok());
+    assert_eq!(
+        serde_json::from_str::<EvalResult>(&helper.eval_jexl_debug("locale")?)?,
+        EvalResult {
+            success: true,
+            result: json!("en-US")
+        },
+    );
+
+    assert_eq!(
+        serde_json::from_str::<EvalError>(&helper.eval_jexl_debug("bogus")?)?,
+        EvalError {
+            success: false,
+            error: "EvaluationError: Identifier 'bogus' is undefined".into(),
+        }
+    );
+
+    Ok(())
 }
 
 #[test]
 fn test_eval_jexl_debug_with_version_compare() {
-    use crate::AppContext;
-
     let app_ctx = AppContext {
         app_version: Some("115.0".to_string()),
         ..Default::default()
     };
 
-    let targeting_attributes: crate::TargetingAttributes = app_ctx.into();
+    let targeting_attributes: TargetingAttributes = app_ctx.into();
     let helper = create_helper(serde_json::to_value(&targeting_attributes).unwrap());
 
     let result = helper
