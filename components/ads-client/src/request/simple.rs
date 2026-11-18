@@ -62,7 +62,6 @@ impl RequestQueue for RequestSimpleQueue {
     // Add a `DispatchRequest` to the  queue and notify condvar.
     fn push_request(&self, request: DispatchRequest) {
         let mut queue = self.queue.lock();
-        // TODO: Need a test that catches push_front here.
         queue.push_back(request);
 
         // Queue was written to, so we notify any threads with `wait_available`.
@@ -76,5 +75,31 @@ impl RequestSimpleQueue {
             queue: Arc::new(Mutex::new(VecDeque::new())),
             ready_cond: Arc::new(Condvar::new()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        request::{simple::RequestSimpleQueue, RequestQueue},
+        worker::DispatchRequest,
+    };
+
+    #[test]
+    fn commands_queued_in_fifo_order() {
+        let queue = RequestSimpleQueue::new();
+        let request_0 = DispatchRequest::RecordClick {
+            url: "http://dummy_url_0.com".try_into().unwrap(),
+        };
+        let request_1 = DispatchRequest::RecordClick {
+            url: "http://dummy_url_1.com".try_into().unwrap(),
+        };
+        queue.push_request(request_0.clone());
+        queue.push_request(request_1.clone());
+
+        let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+        assert_eq!(request_0, retrieved_dispatch);
+        let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+        assert_eq!(request_1, retrieved_dispatch);
     }
 }
