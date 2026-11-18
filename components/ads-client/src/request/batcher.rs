@@ -19,6 +19,10 @@ use std::{
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
+
 // Structure for storing and queuing `DispatchRequest`s sent to background worker.
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 #[derive(Clone)]
@@ -27,6 +31,10 @@ pub struct RequestBatcher {
     inner: Arc<Mutex<RequestBatcherInner>>,
     // Condvar is updated if new data is queued to be retrievable by `next()`. Can be waited with: `wait_available`
     ready_cond: Arc<Condvar>,
+
+    // Batch duration (used by `wait_batch`).
+    // Used to wait out the waiting period for batching.
+    batch_wait_duration: Duration,
 }
 
 struct RequestBatcherInner {
@@ -34,12 +42,6 @@ struct RequestBatcherInner {
 
     // The ordered queue of non-AdPlacementRequest commands to iterate through.
     request_queue: VecDeque<QueuedRequest>,
-}
-
-impl Default for RequestBatcher {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl RequestQueue for RequestBatcher {
@@ -109,10 +111,18 @@ impl RequestQueue for RequestBatcher {
             }
         }
     }
+
+    fn wait_batch(&self) {
+        // If data is available to be polled, we wait for the batching duration, to allow accumulation, then poll.
+        if !self.batch_wait_duration.is_zero() {
+            std::thread::sleep(self.batch_wait_duration);
+        }
+    }
 }
 
 impl RequestBatcher {
-    pub fn new() -> RequestBatcher {
+    // `batch_wait_duration` is the accumulation period allowed for batching after data is available to be queried.
+    pub fn new(batch_wait_duration: Option<Duration>) -> RequestBatcher {
         let inner = RequestBatcherInner {
             queued_ads: HashMap::new(),
             request_queue: VecDeque::new(),
@@ -120,6 +130,8 @@ impl RequestBatcher {
         RequestBatcher {
             inner: Arc::new(Mutex::new(inner)),
             ready_cond: Arc::new(Condvar::new()),
+            batch_wait_duration: batch_wait_duration
+                .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT),
         }
     }
 
@@ -210,7 +222,7 @@ mod tests {
         let request_0 = example_request_ads_dispatch(&[0]);
         let request_1 = example_request_ads_dispatch(&[1]);
         let dispatch = example_request_ads_dispatch(&[0, 1]);
-        let queue = RequestBatcher::new();
+        let queue = RequestBatcher::new(None);
 
         // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
         queue.push_request(request_0.clone());
@@ -232,7 +244,7 @@ mod tests {
 
     #[test]
     fn split_off_too_many_ads() {
-        let queue = RequestBatcher::new();
+        let queue = RequestBatcher::new(None);
 
         // Queue enough of this command to go one-over the limit.
         for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {

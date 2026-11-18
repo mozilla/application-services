@@ -15,6 +15,16 @@ pub trait RequestQueue: Send + Sync {
     fn wait_available(&self, timeout: Option<Duration>) -> bool;
     fn next(&self) -> Option<DispatchRequest>;
     fn push_request(&self, request: DispatchRequest);
+
+    fn wait_batch(&self);
+    // TODO: Rename, and also reorganize these. (Only need to implement a few)
+    // TODO: This is is an incomplete pattern.
+    // TODO: Timeout only applies to
+    fn wait_available_and_wait_batch(&self, timeout: Option<Duration>) -> bool {
+        let b = self.wait_available(timeout);
+        self.wait_batch();
+        b
+    }
 }
 
 #[cfg(test)]
@@ -29,6 +39,7 @@ mod tests {
         },
     };
 
+    // TODO: reuse these in test_utils
     fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
         let mut ad_requests = HashSet::new();
         for id in identifiers {
@@ -52,7 +63,7 @@ mod tests {
             assert_eq!(command, retrieved_dispatch);
         }
         test_function(Arc::new(RequestSimpleQueue::new()));
-        test_function(Arc::new(RequestBatcher::new()));
+        test_function(Arc::new(RequestBatcher::new(None)));
     }
 
     #[test]
@@ -87,7 +98,7 @@ mod tests {
         }
 
         test_function(Arc::new(RequestSimpleQueue::new()));
-        test_function(Arc::new(RequestBatcher::new()));
+        test_function(Arc::new(RequestBatcher::new(None)));
     }
 
     #[test]
@@ -118,7 +129,7 @@ mod tests {
         }
 
         test_function(Arc::new(RequestSimpleQueue::new()));
-        test_function(Arc::new(RequestBatcher::new()));
+        test_function(Arc::new(RequestBatcher::new(None)));
     }
 
     #[test]
@@ -132,6 +143,6 @@ mod tests {
         }
 
         test_function(Arc::new(RequestSimpleQueue::new()));
-        test_function(Arc::new(RequestBatcher::new()));
+        test_function(Arc::new(RequestBatcher::new(None)));
     }
 }

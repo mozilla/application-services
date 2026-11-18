@@ -67,6 +67,9 @@ impl RequestQueue for RequestSimpleQueue {
         // Queue was written to, so we notify any threads with `wait_available`.
         self.ready_cond.notify_all();
     }
+
+    // `wait_batch` is a noop, as no batching happens here.
+    fn wait_batch(&self) {}
 }
 
 impl RequestSimpleQueue {
