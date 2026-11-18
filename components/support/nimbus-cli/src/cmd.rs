@@ -5,6 +5,8 @@
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+use std::thread::sleep;
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use nimbus_fml::intermediate_representation::FeatureManifest;
@@ -112,7 +114,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     Ok(status)
 }
 
-fn prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
+fn write_prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
     write!(stream, "$ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
@@ -122,7 +124,17 @@ fn prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
+fn write_info(stream: &mut StandardStream, text: &str) -> Result<()> {
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    write!(stream, "ℹ️  ")?;
+    stream.set_color(ColorSpec::new().set_fg(None))?;
+    writeln!(stream, "{}", text)?;
+    stream.reset()?;
+
+    Ok(())
+}
+
+fn write_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
     write!(stream, "✅ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
     writeln!(stream, "{title}")?;
@@ -131,7 +143,7 @@ fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+fn write_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
     write!(stream, "❎ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
     write!(stream, "{title}")?;
@@ -238,11 +250,11 @@ impl LaunchableApp {
             Self::Android { .. } => {
                 let mut args = logcat_args();
                 args.append(&mut vec!["-v", "color"]);
-                prompt(&mut stdout, &format!("adb {}", args.join(" ")))?;
+                write_prompt(&mut stdout, &format!("adb {}", args.join(" ")))?;
                 self.exe()?.args(args).spawn()?.wait()?.success()
             }
             Self::Ios { .. } => {
-                prompt(
+                write_prompt(
                     &mut stdout,
                     &format!("{} | xargs tail -f", self.ios_log_file_command()),
                 )?;
@@ -265,7 +277,7 @@ impl LaunchableApp {
             Self::Android { .. } => {
                 let mut args = logcat_args();
                 args.append(&mut vec!["-d"]);
-                prompt(
+                write_prompt(
                     &mut stdout,
                     &format!(
                         "adb {} > {}",
@@ -280,7 +292,7 @@ impl LaunchableApp {
 
             Self::Ios { .. } => {
                 let log = self.ios_log_file()?;
-                prompt(
+                write_prompt(
                     &mut stdout,
                     &format!(
                         "{} | xargs -J %log_file% cp %log_file% {}",
@@ -350,9 +362,9 @@ impl LaunchableApp {
             *preserve_targeting,
             *preserve_bucketing,
         )?];
-        prompt(
+        write_info(
             &mut stdout,
-            &format!("# Enrolling in the '{0}' branch of '{1}'", branch, slug),
+            &format!("Enrolling in the '{0}' branch of '{1}'", branch, slug),
         )?;
 
         for r in rollouts {
@@ -364,7 +376,7 @@ impl LaunchableApp {
                 *preserve_targeting,
                 *preserve_bucketing,
             )?);
-            prompt(
+            write_info(
                 &mut stdout,
                 &format!("# Enrolling into the '{0}' rollout", slug),
             )?;
@@ -417,9 +429,9 @@ impl LaunchableApp {
 
     fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        prompt(&mut stdout, "# Resetting the app")?;
+        write_info(&mut stdout, "Resetting the app")?;
         if !data_dir.is_empty() {
-            prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
+            write_prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
             let _ = std::fs::remove_dir_all(&data_dir);
             let _ = std::fs::create_dir_all(&data_dir);
         }
@@ -430,7 +442,7 @@ impl LaunchableApp {
             if let [_, dir] = words.as_slice()
                 && !dir.is_empty()
             {
-                prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
+                write_prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
                 let _ = std::fs::remove_dir_all(dir);
                 let _ = std::fs::create_dir_all(dir);
             }
@@ -444,7 +456,10 @@ impl LaunchableApp {
 
     fn eval_jexl(&self, expression: &str, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        prompt(&mut stdout, &format!("# Evaluating JEXL: {}", expression))?;
+        write_info(
+            &mut stdout,
+            &format!("Evaluating JEXL expression `{expression}`"),
+        )?;
 
         // Clear logcat before starting to ensure we only read fresh logs
         if matches!(self, Self::Android { .. }) {
@@ -458,53 +473,92 @@ impl LaunchableApp {
 
         self.start_app(protocol, open)?;
 
-        prompt(&mut stdout, "# Waiting for result...")?;
+        write_info(&mut stdout, "Waiting for result...")?;
 
         const MAX_RETRIES: u32 = 3;
-        let mut last_error = None;
+        const SLEEP_DURATION: Duration = Duration::from_secs(3);
 
-        for attempt in 1..=MAX_RETRIES {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+        let mut attempt = 1;
+        let rsp = loop {
+            sleep(SLEEP_DURATION);
 
-            match self.capture_jexl_result() {
-                Ok(result) => {
-                    println!("\n{}", result);
-                    return Ok(true);
-                }
-                Err(e) => {
-                    last_error = Some(e);
-                    if attempt < MAX_RETRIES {
-                        prompt(
-                            &mut stdout,
-                            &format!("# Retry {}/{}...", attempt, MAX_RETRIES - 1),
-                        )?;
+            match self.capture_jexl_result()? {
+                Some(rsp) => break rsp,
+                None => {
+                    if attempt >= MAX_RETRIES {
+                        bail!("Failed to find JEXL result in logs after {attempt} attempts")
                     }
+
+                    write_info(
+                        &mut stdout,
+                        &format!("Retry {}/{}...", attempt, MAX_RETRIES - 1),
+                    )?;
+
+                    attempt += 1;
                 }
             }
-        }
+        };
 
-        Err(last_error.unwrap())
+        let rsp: serde_json::Value =
+            serde_json::from_str(&rsp).context("Could not deserialize JSON response")?;
+
+        let rsp = rsp.as_object().context("Expected object")?;
+
+        let success = rsp
+            .get("success")
+            .context("Unexpected response: no success key")?
+            .as_bool()
+            .context("Unexpected response: success is not bool")?;
+
+        if success {
+            let result = rsp
+                .get("result")
+                .context("Unexpected response: no result key for successful evaluation")?;
+
+            if let Some(v) = result.as_bool() {
+                write_ok(&mut stdout, &v.to_string())?;
+            } else {
+                write_info(
+                    &mut stdout,
+                    &format!(
+                        "Did not evaluate to a boolean: {}",
+                        serde_json::to_string_pretty(result)?
+                    ),
+                )?;
+            }
+
+            Ok(true)
+        } else {
+            let error = rsp
+                .get("error")
+                .context("Unexpected response: no error key for unsuccessful evaluation")?
+                .as_str()
+                .context("Unexpected response: error is not a string")?;
+
+            write_err(&mut stdout, "Error", error)?;
+            Ok(false)
+        }
     }
 
-    fn capture_jexl_result(&self) -> Result<String> {
-        match self {
+    fn capture_jexl_result(&self) -> Result<Option<String>> {
+        let output = match self {
             Self::Android { .. } => {
-                let output = self.exe()?.args(["logcat", "-d"]).output()?;
-
-                let logs = String::from_utf8_lossy(&output.stdout);
-
-                for line in logs.lines().rev() {
-                    if let Some(json) = line.split("JEXL_RESULT: ").nth(1) {
-                        return Ok(json.to_string());
-                    }
-                }
-
-                bail!("Failed to find JEXL result in logs")
+                self.exe()?
+                    .args([
+                        "logcat",
+                        // Dump logs to stdout and exit.
+                        "-d",
+                        // Silence the default log filter.
+                        "-s",
+                        // Dump only logs tagged NimbusTooling at INFO or higher.
+                        "NimbusTooling:I",
+                    ])
+                    .output()?
+                    .stdout
             }
 
             Self::Ios { device_id, .. } => {
-                let output = self
-                    .exe()?
+                self.exe()?
                     .args([
                         "spawn",
                         device_id,
@@ -517,28 +571,28 @@ impl LaunchableApp {
                         "--style",
                         "compact",
                     ])
-                    .output()?;
+                    .output()?
+                    .stdout
+            }
+        };
+        let logs = String::from_utf8_lossy(&output);
 
-                let logs = String::from_utf8_lossy(&output.stdout);
-
-                for line in logs.lines().rev() {
-                    if let Some(json) = line.split("JEXL_RESULT: ").nth(1) {
-                        return Ok(json.to_string());
-                    }
-                }
-
-                bail!("Failed to find JEXL result in logs")
+        for line in logs.lines().rev() {
+            if let Some((_, json)) = line.split_once("JEXL_RESULT: ") {
+                return Ok(Some(json.into()));
             }
         }
+
+        Ok(None)
     }
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         if open.pbcopy {
             let len = self.copy_to_clipboard(&app_protocol, open)?;
-            prompt(
+            write_info(
                 &mut stdout,
-                &format!("# Copied a deeplink URL ({len} characters) in to the clipboard"),
+                &format!("Copied a deeplink URL ({len} characters) in to the clipboard"),
             )?;
         }
         #[cfg(feature = "server")]
@@ -546,19 +600,19 @@ impl LaunchableApp {
             let url = self.longform_url(&app_protocol, open)?;
             let addr = server::get_address()?;
             match server::post_deeplink(self.platform(), &url, app_protocol.experiments) {
-                Err(_) => output_err(
+                Err(_) => write_err(
                     &mut stdout,
                     "Cannot post to the server",
                     "Start the server with `nimbus-cli start-server`",
                 )?,
-                _ => output_ok(&mut stdout, &format!("Posted to server at http://{addr}"))?,
+                _ => write_info(&mut stdout, &format!("Posted to server at http://{addr}"))?,
             };
         }
         if let Some(file) = &open.output {
             let ex = app_protocol.experiments;
             if let Some(contents) = ex {
                 value_utils::write_to_file_or_print(Some(file), contents)?;
-                output_ok(
+                write_ok(
                     &mut stdout,
                     &format!(
                         "Written to JSON to file {}",
@@ -566,7 +620,7 @@ impl LaunchableApp {
                     ),
                 )?;
             } else {
-                output_err(
+                write_err(
                     &mut stdout,
                     "No content",
                     &format!("File {} not written", file.to_str().unwrap_or_default()),
@@ -674,7 +728,7 @@ impl LaunchableApp {
 
             let sh = format!(r#"am {am_cmd} {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-            prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
+            write_prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
             let mut cmd = self.exe()?;
             cmd.arg("shell").arg(&sh);
             Ok(cmd)
@@ -751,7 +805,7 @@ impl LaunchableApp {
 
             let sh = format!(r#"xcrun simctl {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-            prompt(&mut stdout, &sh)?;
+            write_prompt(&mut stdout, &sh)?;
             Ok(cmd)
         } else {
             unreachable!()
@@ -774,14 +828,14 @@ impl NimbusApp {
 
         let manifest = match TryInto::<FeatureManifest>::try_into(manifest_source) {
             Ok(manifest) => {
-                output_ok(
+                write_ok(
                     &mut stdout,
                     &format!("Loaded manifest from {manifest_source}"),
                 )?;
                 manifest
             }
             Err(err) => {
-                output_err(
+                write_err(
                     &mut stdout,
                     &format!("Problem with manifest from {manifest_source}"),
                     &err.to_string(),
@@ -800,10 +854,10 @@ impl NimbusApp {
                     .unwrap_or_else(|| panic!("Branch {branch} feature {id} has no value"));
                 let res = manifest.validate_feature_config(id, value.clone());
                 match res {
-                    Ok(_) => output_ok(&mut stdout, &format!("{branch: <15} {id}"))?,
+                    Ok(_) => write_ok(&mut stdout, &format!("{branch: <15} {id}"))?,
                     Err(err) => {
                         is_valid = false;
-                        output_err(
+                        write_err(
                             &mut stdout,
                             &format!("{branch: <15} {id}"),
                             &err.to_string(),
