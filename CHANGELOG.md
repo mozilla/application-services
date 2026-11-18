@@ -7,6 +7,9 @@
 - Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
 - Support for Experimenter JSON files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
 - `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
+- `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
+parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -19,6 +22,8 @@
 ### Android
 
 - Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
 
 ### Ads-Client
 
