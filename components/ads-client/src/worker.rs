@@ -25,7 +25,7 @@ pub struct BackgroundWorker {
     // If None, no worker thread is present, and attempts to write to the request queue will be rejected
     // (because no consumer of the request queue will exist)
     thread_handle: Option<JoinHandle<()>>,
-    request_queue: Box<dyn RequestQueue>, // TODO: Do we want this to be a box or a generic ?
+    request_queue: Arc<dyn RequestQueue>,
 }
 
 impl BackgroundWorker {
@@ -34,9 +34,9 @@ impl BackgroundWorker {
     pub fn new(
         inner_client: Arc<AdsClientInner>,
         worker_sleep: Option<Duration>,
+        request_queue: Arc<dyn RequestQueue>,
     ) -> BackgroundWorker {
         let worker_sleep = worker_sleep.unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
-        let request_queue = Box::new(RequestBatcher::new()); // TODO: make it the other one
         let worker_request_queue = request_queue.clone();
 
         // Attempt to spawn a background worker thread to handle requests.
@@ -71,7 +71,7 @@ impl BackgroundWorker {
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestBatcher.
 fn worker(
     inner_client: &Arc<AdsClientInner>,
-    request_queue: &RequestBatcher,
+    request_queue: &Arc<dyn RequestQueue>,
     batch_duration: Duration,
 ) {
     loop {
