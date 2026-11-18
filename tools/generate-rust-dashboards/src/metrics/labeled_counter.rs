@@ -4,13 +4,8 @@
 
 use crate::{
     config::{Application, ReleaseChannel},
-    schema::{
-        DashboardBuilder, Datasource, FieldConfig, FieldConfigCustom, FieldConfigDefaults,
-        FieldConfigOverride, FieldConfigOverrideMatcher, GridPos, Panel, Target, TimeSeriesPanel,
-        Transformation,
-    },
+    schema::{DashboardBuilder, Panel, TimeSeriesPanel},
     sql::{Query, Union},
-    util::dashboard_count_color,
     Result,
 };
 
@@ -104,58 +99,12 @@ fn count_panel(
         });
     }
 
-    let mut color_overrides = vec![];
-
-    if let Some(labels) = options.labels.as_ref() {
-        for (i, label) in labels.iter().enumerate() {
-            color_overrides.push(FieldConfigOverride {
-                matcher: FieldConfigOverrideMatcher {
-                    id: "byName".into(),
-                    options: label.to_string(),
-                },
-                properties: vec![dashboard_count_color(i, false)],
-            });
-            if options.unique_user_counts {
-                color_overrides.push(FieldConfigOverride {
-                    matcher: FieldConfigOverrideMatcher {
-                        id: "byName".into(),
-                        options: format!("{label} (daily unique users)"),
-                    },
-                    properties: vec![dashboard_count_color(i, true)],
-                });
-            }
-        }
-    }
-
-    TimeSeriesPanel {
-        title: application.display_name(channel),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(union.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![],
-                custom: FieldConfigCustom {
-                    axis_label: "count / day".into(),
-                    ..FieldConfigCustom::default()
-                },
-                unit: None,
-            },
-            ..FieldConfig::default()
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["label".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: "count (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
-    }
+    TimeSeriesPanel::new_grouped(
+        application.display_name(channel),
+        union.sql(),
+        "count",
+        "label",
+    )
+    .with_axis_label("count / day")
     .into()
 }

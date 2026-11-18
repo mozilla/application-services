@@ -51,10 +51,12 @@ pub trait Join {
 impl<T, I> Join for T
 where
     T: Iterator<Item = I>,
-    I: Into<String>,
+    I: Display,
 {
     fn join(self, sep: &str) -> String {
-        self.map(I::into).collect::<Vec<String>>().join(sep)
+        self.map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join(sep)
     }
 }
 

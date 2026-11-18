@@ -4,10 +4,7 @@
 
 use crate::{
     config::{Application, ReleaseChannel, Unit},
-    schema::{
-        DashboardBuilder, Datasource, FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos,
-        Panel, ScaleDistribution, Target, TimeSeriesPanel, Transformation,
-    },
+    schema::{DashboardBuilder, Panel, TimeSeriesPanel},
     sql::Query,
     Result,
 };
@@ -91,39 +88,17 @@ fn count_panel(
         ..Query::default()
     };
 
-    TimeSeriesPanel {
-        title: format!("{application} - {channel} ({quantile_label})"),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![],
-                custom: FieldConfigCustom {
-                    axis_label: axis_label.into(),
-                    scale_distribution: ScaleDistribution {
-                        type_: "log".into(),
-                        log: Some(10),
-                    },
-                    ..FieldConfigCustom::default()
-                },
-                unit,
-            },
-            ..FieldConfig::default()
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["label".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: "amount (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
+    let mut p = TimeSeriesPanel::new_grouped(
+        format!("{application} - {channel} ({quantile_label})"),
+        query.sql(),
+        "amount",
+        "label",
+    )
+    .with_axis_label(axis_label)
+    .with_log_distribution(10);
+
+    if let Some(unit) = unit {
+        p = p.with_unit(unit);
     }
-    .into()
+    p.into()
 }

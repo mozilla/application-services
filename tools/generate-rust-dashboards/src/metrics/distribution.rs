@@ -4,11 +4,7 @@
 
 use crate::{
     config::{Application, Unit},
-    schema::{
-        DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
-        FieldConfigDefaults, GridPos, Panel, ScaleDistribution, Target, TimeSeriesPanel,
-        Transformation,
-    },
+    schema::{DashboardBuilder, Panel, TimeSeriesPanel},
     sql::Query,
     util::UrlBuilder,
     Result,
@@ -92,51 +88,25 @@ fn count_panel(
         ..Query::default()
     };
 
-    let mut links = vec![];
+    let mut p = TimeSeriesPanel::new_grouped(
+        format!("{application} ({quantile_label})"),
+        query.sql(),
+        "amount",
+        "channel",
+    )
+    .with_log_distribution(10)
+    .with_axis_label(axis_label);
+
     if let Some(link_to) = link_to {
-        links.push(DataLink {
-            url: UrlBuilder::new_dashboard(link_to)
+        p = p.with_link(
+            "Details",
+            UrlBuilder::new_dashboard(link_to)
                 .with_time_range_param()
                 .build(),
-            target_blank: true,
-            one_click: true,
-            title: "Details".into(),
-        });
+        )
     }
-
-    TimeSeriesPanel {
-        title: format!("{application} ({quantile_label})"),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links,
-                custom: FieldConfigCustom {
-                    axis_label: axis_label.into(),
-                    scale_distribution: ScaleDistribution {
-                        type_: "log".into(),
-                        log: Some(10),
-                    },
-                    ..FieldConfigCustom::default()
-                },
-                unit,
-            },
-            ..FieldConfig::default()
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["channel".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: "amount (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
+    if let Some(unit) = unit {
+        p = p.with_unit(unit)
     }
-    .into()
+    p.into()
 }

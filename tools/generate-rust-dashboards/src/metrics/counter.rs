@@ -4,10 +4,7 @@
 
 use crate::{
     config::{Application, ReleaseChannel},
-    schema::{
-        DashboardBuilder, Datasource, FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos,
-        Panel, Target, TimeSeriesPanel,
-    },
+    schema::{DashboardBuilder, Panel, TimeSeriesPanel},
     sql::Query,
     Result,
 };
@@ -75,25 +72,7 @@ fn count_panel(application: Application, channel: ReleaseChannel, metric: &Count
         ..Query::default()
     };
 
-    TimeSeriesPanel {
-        title: application.display_name(channel),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![],
-                custom: FieldConfigCustom {
-                    axis_label: "count / day".into(),
-                    ..FieldConfigCustom::default()
-                },
-                unit: None,
-            },
-            ..FieldConfig::default()
-        },
-        transformations: vec![],
-        ..TimeSeriesPanel::default()
-    }
-    .into()
+    TimeSeriesPanel::new(application.display_name(channel), query.sql())
+        .with_axis_label("count / day")
+        .into()
 }

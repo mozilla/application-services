@@ -7,10 +7,8 @@
 use crate::{
     config::{Application, ReleaseChannel, TeamConfig},
     schema::{
-        CustomVariable, CustomVariableSelection, Dashboard, DashboardBuilder, DataLink, Datasource,
-        FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos, LogPanel, Panel,
-        QueryVariable, QueryVariableQuery, Target, TeamDashboardsBuilder, TextBoxVariable,
-        TextPanel, TimeSeriesPanel, Transformation, VariableSortOrder,
+        CustomVariable, Dashboard, DashboardBuilder, LogPanel, Panel, QueryVariable,
+        TeamDashboardsBuilder, TextBoxVariable, TextPanel, TimeSeriesPanel, VariableSortOrder,
     },
     sql::{Query, Union},
     util::UrlBuilder,
@@ -50,14 +48,15 @@ pub fn build_dashboards(
         ));
     }
 
-    builder.main.add_variable(CustomVariable {
-        label: "Component Errors Filter".into(),
-        name: "rust_component_errors_filter".into(),
-        multi: true,
-        query: components.join(","),
-        current: CustomVariableSelection::multi(components.iter()),
-        ..CustomVariable::default()
-    });
+    builder.main.add_variable(
+        CustomVariable::new(
+            "Component Errors Filter",
+            "rust_component_errors_filter",
+            components,
+        )
+        .with_multi_select()
+        .with_all_selected(),
+    );
 
     builder.extra.push(extra_dashboard(config)?);
 
@@ -72,12 +71,7 @@ fn count_panel(
 ) -> Panel {
     if application == Application::Ios && channel == ReleaseChannel::Nightly {
         // iOs doesn't have a nightly
-        return TextPanel {
-            content: "## N/A".into(),
-            mode: "markdown".into(),
-            grid_pos: GridPos::height(8),
-        }
-        .into();
+        return TextPanel::new("## N/A").into();
     }
 
     let mut query = Query {
@@ -103,46 +97,22 @@ fn count_panel(
     };
     query.add_count_per_day_column("COUNT(*)", "error_count");
 
-    TimeSeriesPanel {
-        title: application.display_name(channel),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![DataLink {
-                    url: UrlBuilder::new_dashboard(format!("{}-errors", config.team_slug()))
-                        .with_time_range_param()
-                        .with_param("var-application", application.slug())
-                        .with_param("var-channel", channel.to_string())
-                        .with_param("var-error_type", "${__data.fields[\"error_type\"]}")
-                        .build(),
-                    target_blank: true,
-                    one_click: true,
-                    title: "Error list".into(),
-                }],
-                custom: FieldConfigCustom {
-                    axis_label: "errors / day".into(),
-                    ..FieldConfigCustom::default()
-                },
-                unit: None,
-            },
-            ..FieldConfig::default()
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["error_type".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: "error_count (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
-    }
+    TimeSeriesPanel::new_grouped(
+        application.display_name(channel),
+        query.sql(),
+        "error_count",
+        "error_type",
+    )
+    .with_axis_label("errors / day")
+    .with_link(
+        "Error list",
+        UrlBuilder::new_dashboard(config.dashboard_slug("errors"))
+            .with_time_range_param()
+            .with_param("var-application", application.slug())
+            .with_param("var-channel", channel.to_string())
+            .with_param("var-error_type", "${__data.fields[\"error_type\"]}")
+            .build(),
+    )
     .into()
 }
 
@@ -171,11 +141,7 @@ fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
     builder.add_variable(filter_variable("Locale", "locale", "locale"));
     builder.add_variable(filter_variable("OS", "os", "os"));
     builder.add_variable(filter_variable("OS Version", "os_version", "os_version"));
-    builder.add_variable(TextBoxVariable {
-        label: "Search".into(),
-        name: "search".into(),
-        ..TextBoxVariable::default()
-    });
+    builder.add_variable(TextBoxVariable::new("Search", "search"));
 
     builder.add_panel_full(error_list_count_panel());
     builder.add_panel_full(error_list_log_panel());
@@ -185,28 +151,22 @@ fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
 
 pub fn error_type_variable() -> QueryVariable {
     let subquery = error_subquery().as_subquery();
-    let query = QueryVariableQuery::from_sql(format!(
+    let query = format!(
         "\
 SELECT DISTINCT error_type
 FROM {subquery}
 WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 day)
     AND error_type IS NOT NULL
     AND error_type <> ''
-ORDER BY error_type",
-    ));
+ORDER BY error_type"
+    );
 
-    QueryVariable {
-        label: "Error type".into(),
-        name: "error_type".into(),
-        datasource: Datasource::bigquery(),
-        query,
-        ..QueryVariable::default()
-    }
+    QueryVariable::new("Error type", "error_type", query)
 }
 
 pub fn version_variable() -> QueryVariable {
     let subquery = error_subquery().as_subquery();
-    let query = QueryVariableQuery::from_sql(format!("\
+    let query = format!("\
 SELECT 'All' as text, '' as value
 UNION ALL
 SELECT version as text, version as value
@@ -216,21 +176,15 @@ FROM (
     WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 day)
         AND mozfun.norm.extract_version(app_display_version, 'major') IS NOT NULL
     ORDER BY 1 DESC
-)"));
+)");
 
-    QueryVariable {
-        label: "Version".into(),
-        name: "version".into(),
-        datasource: Datasource::bigquery(),
-        query,
-        sort: Some(VariableSortOrder::AlphabeticalDescending),
-        ..QueryVariable::default()
-    }
+    QueryVariable::new("Version", "version", query)
+        .with_sort(VariableSortOrder::AlphabeticalDescending)
 }
 
 pub fn build_date_variable() -> QueryVariable {
     let subquery = error_subquery().as_subquery();
-    let query = QueryVariableQuery::from_sql(format!(
+    let query = format!(
         "\
 SELECT 'None' as text, '' as value
 UNION ALL
@@ -241,21 +195,15 @@ FROM (
     WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 day)
     ORDER BY 1 DESC
 )"
-    ));
+    );
 
-    QueryVariable {
-        label: "Group by build date".into(),
-        name: "build_date".into(),
-        datasource: Datasource::bigquery(),
-        sort: Some(VariableSortOrder::AlphabeticalDescending),
-        query,
-        ..QueryVariable::default()
-    }
+    QueryVariable::new("Group by build date", "build_date", query)
+        .with_sort(VariableSortOrder::AlphabeticalDescending)
 }
 
 fn filter_variable(label: &str, filter_name: &str, column_name: &str) -> QueryVariable {
     let subquery = error_subquery().as_subquery();
-    let query = QueryVariableQuery::from_sql(format!(
+    let query = format!(
         "\
 SELECT 'All' as text, '' as value
 UNION ALL
@@ -266,18 +214,12 @@ FROM (
     WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 day)
     ORDER BY 1 DESC
 )"
-    ));
+    );
 
-    QueryVariable {
-        label: label.into(),
-        name: filter_name.into(),
-        datasource: Datasource::bigquery(),
-        sort: Some(VariableSortOrder::AlphabeticalCaseInsensitiveAscending),
-        query,
-        include_all: true,
-        all_value: "'<all>'".into(),
-        ..QueryVariable::default()
-    }
+    QueryVariable::new(label, filter_name, query)
+        .with_sort(VariableSortOrder::AlphabeticalCaseInsensitiveAscending)
+        .with_include_all()
+        .with_all_option()
 }
 
 fn filter_where_clause(name: &str) -> String {
@@ -311,25 +253,9 @@ fn error_list_count_panel() -> Panel {
     };
     query.add_count_per_day_column("COUNT(*)", "error_count");
 
-    TimeSeriesPanel {
-        title: "".into(),
-        grid_pos: GridPos::height(10),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::timeseries(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                custom: FieldConfigCustom {
-                    axis_label: "errors / day".into(),
-                    ..FieldConfigCustom::default()
-                },
-                ..FieldConfigDefaults::default()
-            },
-            ..FieldConfig::default()
-        },
-        ..TimeSeriesPanel::default()
-    }
-    .into()
+    TimeSeriesPanel::new_with_timeseries_query("", query.sql())
+        .with_axis_label("errors / day")
+        .into()
 }
 
 fn error_list_log_panel() -> Panel {
@@ -373,14 +299,9 @@ fn error_list_log_panel() -> Panel {
         ..Query::default()
     };
 
-    LogPanel {
-        title: "Error list".into(),
-        grid_pos: GridPos::height(20),
-        datasource: Datasource::bigquery(),
-        targets: vec![Target::table(query.sql())],
-        ..LogPanel::default()
-    }
-    .into()
+    LogPanel::new("Error list", query.sql())
+        .with_details()
+        .into()
 }
 
 // Select everything from `rust_component_errors_error_type`, but "flatten" the column names.
@@ -414,14 +335,11 @@ fn error_subquery() -> Union {
                 where_: vec!["'${application}' = 'firefox_ios'".into()],
                 ..base_query.clone()
             },
-            // TODO: Uncomment this once we have error pings on desktop
-            // Query {
-            //     from: "mozdata.firefox_desktop.rust_component_errors".into(),
-            //     where_: vec![
-            //         "WHERE '${application}' = 'firefox_desktop'".into(),
-            //     ],
-            //     ..base_query.clone()
-            // },
+            Query {
+                from: "mozdata.firefox_desktop.rust_component_errors".into(),
+                where_: vec!["'${application}' = 'firefox_desktop'".into()],
+                ..base_query.clone()
+            },
         ],
         ..Union::default()
     }
