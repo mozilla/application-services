@@ -2,27 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{request::RequestQueue, worker::DispatchRequest};
 use parking_lot::{Condvar, Mutex};
-use url::Url;
-
-use crate::{
-    ads::PlacementId,
-    mars::{ad_request::AdPlacementRequest, ReportReason},
-    request::RequestQueue,
-    worker::DispatchRequest,
-};
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
-// Structure for storing and queuing and storing `DispatchRequest`s sent to background worker.
-// AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
-// TODO: Redo all the documentation in the file.
-// TODO: Rename from this.
+// Structure for storing and queuing `DispatchRequest`s sent to background worker.
+// It functions as a basic queue (FIFO), with no batching or special handling based on the type of request.
 #[derive(Clone)]
 pub struct RequestSimpleQueue {
     // If the `inner` mutex is locked to add data to the queue, the ready_cond must be notified after data is added.
@@ -49,7 +36,6 @@ impl RequestQueue for RequestSimpleQueue {
     // If multiple threads call `wait_available`, all will be notified on availability (so, competing threads may not all receive data from `next()`)
     // Returns `true` if data is available to be queried by `next()`, and false otherwise (eg: if timeout is reached)
     fn wait_available(&self, timeout: Option<Duration>) -> bool {
-        // TODO: Can you simplify this so only one requires it?
         let mut waiting = self.queue.lock();
 
         // Return immediately if data is currently available
@@ -68,16 +54,15 @@ impl RequestQueue for RequestSimpleQueue {
     }
 
     // Pops the next available DispatchRequest to be run by the worker.
-    // This will prioritize any ad_requests, batched, followed by any queued QueuedRequests (eg: RecordClick, etc)
     fn next(&self) -> Option<DispatchRequest> {
         let mut queue = self.queue.lock();
         queue.pop_front().map(Into::into)
     }
 
-    // Add a `DispatchRequest` to the `RequestBatcher` (primary entry point for queuing requests).
-    // If new helper functions are added, they must include a convdvar notification.
+    // Add a `DispatchRequest` to the  queue and notify condvar.
     fn push_request(&self, request: DispatchRequest) {
         let mut queue = self.queue.lock();
+        // TODO: Need a test that catches push_front here.
         queue.push_back(request);
 
         // Queue was written to, so we notify any threads with `wait_available`.

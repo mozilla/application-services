@@ -8,7 +8,7 @@ use std::time::Duration;
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
 pub mod batcher;
-pub mod queue; // TODO: better name
+pub mod simple;
 
 pub trait RequestQueue: Send + Sync {
     fn clear(&self);
@@ -25,7 +25,7 @@ mod tests {
     use crate::{
         mars::ad_request::AdPlacementRequest,
         request::{
-            batcher::RequestBatcher, queue::RequestSimpleQueue, DispatchRequest, RequestQueue,
+            batcher::RequestBatcher, simple::RequestSimpleQueue, DispatchRequest, RequestQueue,
         },
     };
 
@@ -51,7 +51,6 @@ mod tests {
             let retrieved_dispatch = queue.next().expect("Request should exist in queue");
             assert_eq!(command, retrieved_dispatch);
         }
-        // TODO: Some kind of labelling for which one failed?
         test_function(Arc::new(RequestSimpleQueue::new()));
         test_function(Arc::new(RequestBatcher::new()));
     }
@@ -87,7 +86,6 @@ mod tests {
             assert!(queue.next().is_none());
         }
 
-        // TODO: Some kind of labelling for which one failed?
         test_function(Arc::new(RequestSimpleQueue::new()));
         test_function(Arc::new(RequestBatcher::new()));
     }
@@ -119,7 +117,6 @@ mod tests {
             assert!(queue.next().is_none());
         }
 
-        // TODO: Some kind of labelling for which one failed?
         test_function(Arc::new(RequestSimpleQueue::new()));
         test_function(Arc::new(RequestBatcher::new()));
     }
@@ -134,7 +131,6 @@ mod tests {
             assert!(queue.next().is_none());
         }
 
-        // TODO: Some kind of labelling for which one failed?
         test_function(Arc::new(RequestSimpleQueue::new()));
         test_function(Arc::new(RequestBatcher::new()));
     }

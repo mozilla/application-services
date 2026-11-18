@@ -19,7 +19,7 @@ use std::{
 
 pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
-// Structure for storing and queuing and storing `DispatchRequest`s sent to background worker.
+// Structure for storing and queuing `DispatchRequest`s sent to background worker.
 // AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
 #[derive(Clone)]
 pub struct RequestBatcher {
