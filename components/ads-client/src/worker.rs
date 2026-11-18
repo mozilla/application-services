@@ -10,7 +10,7 @@ use crate::{
         AdsClientInner,
     },
     mars::{ad_request::AdPlacementRequest, ReportReason},
-    request::RequestQueue,
+    request::{batcher::RequestBatcher, RequestQueue},
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
 
@@ -25,7 +25,7 @@ pub struct BackgroundWorker {
     // If None, no worker thread is present, and attempts to write to the request queue will be rejected
     // (because no consumer of the request queue will exist)
     thread_handle: Option<JoinHandle<()>>,
-    request_queue: RequestQueue,
+    request_queue: Box<dyn RequestQueue>, // TODO: Do we want this to be a box or a generic ?
 }
 
 impl BackgroundWorker {
@@ -36,7 +36,7 @@ impl BackgroundWorker {
         worker_sleep: Option<Duration>,
     ) -> BackgroundWorker {
         let worker_sleep = worker_sleep.unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
-        let request_queue = RequestQueue::new();
+        let request_queue = Box::new(RequestBatcher::new()); // TODO: make it the other one
         let worker_request_queue = request_queue.clone();
 
         // Attempt to spawn a background worker thread to handle requests.
@@ -57,13 +57,6 @@ impl BackgroundWorker {
         }
     }
 
-    pub fn new_empty() -> BackgroundWorker {
-        BackgroundWorker {
-            thread_handle: None,
-            request_queue: RequestQueue::new(),
-        }
-    }
-
     // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
     pub fn dispatch(&self, request: DispatchRequest) -> Result<(), ComponentError> {
         if self.thread_handle.is_some() {
@@ -75,10 +68,10 @@ impl BackgroundWorker {
     }
 }
 
-// Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
+// Endless worker for background thread that synchronously run tasks in the order provided by the RequestBatcher.
 fn worker(
     inner_client: &Arc<AdsClientInner>,
-    request_queue: &RequestQueue,
+    request_queue: &RequestBatcher,
     batch_duration: Duration,
 ) {
     loop {
