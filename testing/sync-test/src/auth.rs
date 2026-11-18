@@ -11,6 +11,7 @@ use std::collections::{hash_map::RandomState, HashMap};
 use std::sync::Arc;
 use sync15::{
     client::{SetupStorageClient, Sync15ClientResponse, Sync15StorageClient},
+    engine::{EngineSyncAssociation, SyncEngineId},
     DeviceType, EngineChoicesModel,
 };
 use sync_manager::{
@@ -41,6 +42,8 @@ pub struct TestClient {
     /// How this client models engine choices. Change it to simulate an old
     /// (per-account) or new (per-device) client, or a client flipping between them.
     pub engine_choices_model: EngineChoicesModel,
+    /// The engines this client declares it has chosen to sync, if any.
+    pub enabled_engines: Option<Vec<String>>,
 }
 
 impl TestClient {
@@ -96,6 +99,7 @@ impl TestClient {
             sync_manager: SyncManager::new(),
             persisted_state: None,
             engine_choices_model: EngineChoicesModel::default(),
+            enabled_engines: None,
         })
     }
 
@@ -115,6 +119,7 @@ impl TestClient {
                 engines: engines.to_vec(),
             },
             engine_choices_model: self.engine_choices_model.clone(),
+            enabled_engines: self.enabled_engines.clone(),
             local_encryption_keys,
             auth_info: sync_info.auth_info,
             persisted_state: self.persisted_state.take(),
@@ -122,7 +127,6 @@ impl TestClient {
                 fxa_device_id: self.device.id.clone(),
                 name: self.device.display_name.clone(),
                 kind: self.device.device_type,
-                enabled_engines: vec![],
             },
         })
     }
@@ -166,6 +170,20 @@ impl TestClient {
         assert!(!result.failures.is_empty(), "No engine failures");
         self.persisted_state = Some(result.persisted_state);
         Ok(result.failures)
+    }
+
+    /// The association of this client's engine for `engine`, which must be
+    /// tabs or passwords.
+    pub fn engine_assoc(&self, engine: SyncEngineId) -> Result<EngineSyncAssociation> {
+        self.tabs_store.clone().register_with_sync_manager();
+        self.logins_store.clone().register_with_sync_manager();
+        let sync_engine = match engine {
+            SyncEngineId::Tabs => tabs::get_registered_sync_engine(&engine),
+            SyncEngineId::Passwords => logins::get_registered_sync_engine(&engine),
+            _ => unimplemented!("No association for {:?}", engine),
+        }
+        .expect("should be registered");
+        sync_engine.get_sync_assoc()
     }
 
     /// Fetches `meta/global` from the server, as JSON (as sync15 parses it, so

@@ -11,11 +11,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
 use sync15::client::{
-    sync_multiple_with_command_processor, MemoryCachedState, Sync15StorageClientInit,
-    SyncRequestInfo,
+    persisted_enabled_engines, sync_multiple_with_command_processor, MemoryCachedState,
+    Sync15StorageClientInit, SyncRequestInfo,
 };
 use sync15::clients_engine::{Command, CommandProcessor, CommandStatus, Settings};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
+use sync15::EngineChoicesModel;
 
 #[derive(Default, uniffi::Object)]
 pub struct SyncManager {
@@ -57,6 +58,7 @@ impl SyncManager {
             breadcrumb!("SyncManager::sync is already in progress, bailing out early");
             return Err(SyncManagerError::Busy);
         };
+        Self::check_enabled_engines(&params)?;
         let engines = self.calc_engines_to_sync(&params.engines)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         let result = if !backoff_in_effect(next_sync_after, &params) {
@@ -72,6 +74,7 @@ impl SyncManager {
                 successful: Default::default(),
                 failures: Default::default(),
                 declined: None,
+                account_engine_choices: None,
                 next_sync_allowed_at: next_sync_after,
                 persisted_state: params.persisted_state.unwrap_or_default(),
                 // It would be nice to record telemetry here.
@@ -90,10 +93,44 @@ impl SyncManager {
     }
 }
 
+/// Whether `reset_changed_engines` should reset engine `name`: if it's
+/// disabled and not yet disconnected, or newly enabled since `previous`.
+fn engine_needs_reset(
+    name: &str,
+    enabled_engines: &[String],
+    previous: Option<&[String]>,
+    disconnected: bool,
+) -> bool {
+    if enabled_engines.iter().any(|e| e == name) {
+        previous.is_some_and(|p| !p.iter().any(|e| e == name))
+    } else {
+        !disconnected
+    }
+}
+
 // additional methods used internally but not exposed over the ffi.
 impl SyncManager {
     fn get_engine_id(engine_name: &str) -> Result<SyncEngineId> {
         SyncEngineId::try_from(engine_name).map_err(SyncManagerError::UnknownEngine)
+    }
+
+    /// With per-device engine choices, checks the declared engines are all
+    /// known, and include every engine selected for this sync.
+    fn check_enabled_engines(params: &SyncParams) -> Result<()> {
+        if !matches!(params.engine_choices_model, EngineChoicesModel::Device) {
+            return Ok(());
+        }
+        let Some(enabled_engines) = &params.enabled_engines else {
+            return Ok(());
+        };
+        for name in enabled_engines {
+            Self::get_engine_id(name)?;
+        }
+        let SyncEngineSelection::Some { engines } = &params.engines;
+        match engines.iter().find(|e| !enabled_engines.contains(e)) {
+            Some(name) => Err(SyncManagerError::UndeclaredEngine(name.clone())),
+            None => Ok(()),
+        }
     }
 
     fn get_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
@@ -140,6 +177,13 @@ impl SyncManager {
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
 
+        if matches!(params.engine_choices_model, EngineChoicesModel::Device) {
+            if let Some(enabled_engines) = &params.enabled_engines {
+                let previous = persisted_enabled_engines(disk_cached_state.as_deref());
+                self.reset_changed_engines(enabled_engines, previous.as_deref());
+            }
+        }
+
         // tell engines about the local encryption key.
         for engine in engines.iter_mut() {
             if let Some(key) = params.local_encryption_keys.get(&*engine.collection_name()) {
@@ -158,7 +202,6 @@ impl SyncManager {
             fxa_device_id: params.device_settings.fxa_device_id,
             device_name: params.device_settings.name,
             device_type: params.device_settings.kind,
-            enabled_engines: params.device_settings.enabled_engines,
         };
         let c = SyncClient::new(settings);
         let result = sync_multiple_with_command_processor(
@@ -171,6 +214,7 @@ impl SyncManager {
             &interruptee,
             Some(SyncRequestInfo {
                 engine_choices_model: params.engine_choices_model,
+                enabled_engines: params.enabled_engines,
                 is_user_action: matches!(params.reason, SyncReason::User),
             }),
         );
@@ -200,10 +244,33 @@ impl SyncManager {
             successful,
             failures,
             declined: result.declined,
+            account_engine_choices: result.account_engine_choices,
             next_sync_allowed_at: result.next_sync_after,
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),
         })
+    }
+
+    /// With per-device engine choices, resets the engines which are disabled, so
+    /// they stop tracking changes, and those newly enabled since `previous`, so
+    /// they fully reconcile when they next sync. With no `previous`, nothing is
+    /// newly enabled.
+    fn reset_changed_engines(&self, enabled_engines: &[String], previous: Option<&[String]>) {
+        for (id, engine) in self.iter_registered_engines() {
+            let name = id.name();
+            let enabled = enabled_engines.iter().any(|e| e == name);
+            let disconnected = matches!(
+                engine.get_sync_assoc(),
+                Ok(EngineSyncAssociation::Disconnected)
+            );
+            if engine_needs_reset(name, enabled_engines, previous, disconnected) {
+                let why = if enabled { "enabled" } else { "disabled" };
+                info!("Resetting engine {}, as it was {}", name, why);
+                if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
+                    warn!("Failed to reset engine {}: {}", name, e);
+                }
+            }
+        }
     }
 
     fn iter_registered_engines(&self) -> impl Iterator<Item = (SyncEngineId, Box<dyn SyncEngine>)> {
@@ -317,7 +384,6 @@ impl CommandProcessor for SyncClient {
 mod test {
     use super::*;
     use crate::types::{DeviceSettings, SyncAuthInfo};
-    use sync15::EngineChoicesModel;
 
     #[test]
     fn test_engine_id_sanity() {
@@ -331,6 +397,7 @@ mod test {
             reason: SyncReason::Scheduled,
             engines: SyncEngineSelection::Some { engines: vec![] },
             engine_choices_model: EngineChoicesModel::default(),
+            enabled_engines: None,
             local_encryption_keys: HashMap::new(),
             auth_info: SyncAuthInfo {
                 kid: "kid".to_string(),
@@ -343,7 +410,6 @@ mod test {
                 fxa_device_id: "device-id".to_string(),
                 name: "Test Device".to_string(),
                 kind: sync15::DeviceType::Mobile,
-                enabled_engines: vec![],
             },
         }
     }
@@ -356,5 +422,60 @@ mod test {
             manager.sync(dummy_sync_params()),
             Err(SyncManagerError::Busy)
         ));
+    }
+
+    fn strings(names: &[&str]) -> Vec<String> {
+        names.iter().map(ToString::to_string).collect()
+    }
+
+    fn device_params(selected: &[&str], enabled: &[&str]) -> SyncParams {
+        SyncParams {
+            engines: SyncEngineSelection::Some {
+                engines: strings(selected),
+            },
+            engine_choices_model: EngineChoicesModel::Device,
+            enabled_engines: Some(strings(enabled)),
+            ..dummy_sync_params()
+        }
+    }
+
+    #[test]
+    fn test_check_enabled_engines() {
+        let check = |params| SyncManager::check_enabled_engines(&params);
+        assert!(check(device_params(&["tabs"], &["tabs", "passwords"])).is_ok());
+        assert!(matches!(
+            check(device_params(&["tabs", "passwords"], &["tabs"])),
+            Err(SyncManagerError::UndeclaredEngine(name)) if name == "passwords"
+        ));
+        assert!(matches!(
+            check(device_params(&[], &["tabs", "logins"])),
+            Err(SyncManagerError::UnknownEngine(name)) if name == "logins"
+        ));
+        // Nothing declared, or per-account choices, means nothing to check.
+        assert!(check(SyncParams {
+            enabled_engines: None,
+            ..device_params(&["tabs"], &[])
+        })
+        .is_ok());
+        assert!(check(SyncParams {
+            engine_choices_model: EngineChoicesModel::default(),
+            ..device_params(&["tabs"], &["logins"])
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn test_engine_needs_reset() {
+        let enabled = strings(&["tabs"]);
+        let previous = strings(&["passwords"]);
+        // Disabled engines are reset unless already disconnected.
+        assert!(engine_needs_reset("passwords", &enabled, None, false));
+        assert!(!engine_needs_reset("passwords", &enabled, None, true));
+        // Newly enabled engines are reset, even if connected.
+        assert!(engine_needs_reset("tabs", &enabled, Some(&previous), false));
+        assert!(engine_needs_reset("tabs", &enabled, Some(&previous), true));
+        // But not if they were already enabled, or nothing was before.
+        assert!(!engine_needs_reset("tabs", &enabled, Some(&enabled), false));
+        assert!(!engine_needs_reset("tabs", &enabled, None, false));
     }
 }

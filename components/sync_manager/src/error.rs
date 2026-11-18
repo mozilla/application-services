@@ -11,6 +11,8 @@ pub enum SyncManagerError {
     UnknownEngine(String),
     #[error("Manager was compiled without support for {0:?}")]
     UnsupportedFeature(String),
+    #[error("Engine {0} is selected but not declared as enabled")]
+    UndeclaredEngine(String),
     #[error("Another sync is already in progress")]
     Busy,
     // Used for things like 'failed to decode the provided sync key because it's

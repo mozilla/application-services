@@ -13,8 +13,15 @@
 
 - Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).
 - `SyncEngineSelection.All` is removed, as no app used it. Pass the engines to sync with `SyncEngineSelection.Some`.
+- `DeviceSettings.enabled_engines` is removed, replaced by `SyncParams.enabled_engines`.
 
 ## ✨ What's Changed ✨
+
+### Sync Manager
+
+- `SyncResult.account_engine_choices` reports the account-wide engine choices in `meta/global`, so apps using per-device engine choices can adopt them.
+- `SyncParams.enabled_engines` declares all the engines this device has chosen to sync. With `EngineChoicesModel.Device` it must name only known engines and include all of `SyncParams.engines`, otherwise the sync fails with `SyncManagerError.UnknownEngine` or the new `SyncManagerError.UndeclaredEngine`.
+- With `EngineChoicesModel.Device` and no `SyncParams.enabled_engines`, a device has yet to make its choices, so the engines `SyncResult.account_engine_choices` declines aren't synced. The app should adopt those choices and declare them in later syncs.
 
 ### Filter Adult
 

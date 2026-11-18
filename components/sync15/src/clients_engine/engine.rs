@@ -410,7 +410,6 @@ mod tests {
                 fxa_device_id: "deviceAAAAAA".into(),
                 device_name: "Laptop".into(),
                 device_type: DeviceType::Desktop,
-                enabled_engines: vec![],
             },
             outgoing_commands: [
                 Command::Wipe("bookmarks".into()),
@@ -565,7 +564,6 @@ mod tests {
                 fxa_device_id: "deviceAAAAAA".into(),
                 device_name: "Laptop".into(),
                 device_type: DeviceType::Desktop,
-                enabled_engines: vec![],
             },
             outgoing_commands: [].iter().cloned().collect(),
         };
@@ -632,7 +630,6 @@ mod tests {
                 fxa_device_id: "deviceAAAAAA".into(),
                 device_name: "Laptop".into(),
                 device_type: DeviceType::Desktop,
-                enabled_engines: vec![],
             },
             outgoing_commands: [].iter().cloned().collect(),
         };
@@ -702,7 +699,6 @@ mod tests {
                 fxa_device_id: "deviceAAAAAA".into(),
                 device_name: "Laptop".into(),
                 device_type: DeviceType::Desktop,
-                enabled_engines: vec![],
             },
             outgoing_commands: HashSet::new(),
         };
