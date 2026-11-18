@@ -416,15 +416,14 @@ mod tests {
         mars::Environment,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
-            get_example_happy_uatile_response, make_happy_placement_requests,
+            get_example_happy_uatile_response, make_happy_placement_requests, memory_http_cache,
         },
     };
 
     use super::builder::AdsClientBuilder;
     use super::*;
-    use crate::bytesize::ByteSize;
-    use crate::http_cache::HttpCache;
-    use std::time::Duration;
+    #[cfg(feature = "stateful")]
+    use crate::test_utils::memory_ads_store;
 
     fn test_client() -> AdsClient {
         AdsClientBuilder::default()
@@ -435,10 +434,7 @@ mod tests {
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
         let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Some(
-                AdsStore::new(crate::IN_MEMORY_DB_PATH, ByteSize::mib(1))
-                    .expect("A memory store should open"),
-            )),
+            ads_store: Arc::new(Some(memory_ads_store())),
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
@@ -631,12 +627,7 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            Duration::from_secs(300),
-            ByteSize::mib(1),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
         let mars_client = MARSClient::new(Environment::Test, Some(cache), None);
         let ads_client = new_with_mars_client(mars_client);
 

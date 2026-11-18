@@ -204,6 +204,7 @@ mod tests {
 
     use super::*;
     use crate::clock::MockClock;
+    use crate::test_utils::memory_http_cache;
     use viaduct::ClientSettings;
 
     fn make_client() -> Client {
@@ -231,15 +232,6 @@ mod tests {
     fn make_post_request() -> TestRequest {
         let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
         TestRequest(Request::post(url).json(&serde_json::json!({"fake":"data"})))
-    }
-
-    fn make_cache() -> HttpCache {
-        HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            Duration::from_secs(60),
-            ByteSize::mib(1),
-        )
-        .expect("cache build should succeed")
     }
 
     fn make_cache_with_ttl(secs: u64) -> (HttpCache, MockClock) {
@@ -297,12 +289,7 @@ mod tests {
 
     #[test]
     fn test_clear_cache() {
-        let cache: HttpCache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            Duration::from_secs(300),
-            ByteSize::mib(10),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
 
         // Create a test request and response
         let hash = RequestHash::new(&("Get", "https://example.com/test"));
@@ -349,7 +336,7 @@ mod tests {
             .expect(1) // only the first call should hit the network
             .create();
 
-        let cache = make_cache();
+        let cache = memory_http_cache();
         let req = make_post_request();
         let client = make_client();
 
@@ -380,7 +367,7 @@ mod tests {
             .expect(2)
             .create();
 
-        let cache = make_cache();
+        let cache = memory_http_cache();
         let req = make_post_request();
         let client = make_client();
 
@@ -415,7 +402,7 @@ mod tests {
             .expect(2) // both calls should hit the network since the response isn't cacheable
             .create();
 
-        let cache = make_cache();
+        let cache = memory_http_cache();
         let req = make_post_request();
         let client = make_client();
 
@@ -449,7 +436,7 @@ mod tests {
             .expect(2) // both calls should hit the network: an error is not cached
             .create();
 
-        let cache = make_cache();
+        let cache = memory_http_cache();
         let req = make_post_request();
         let client = make_client();
 
@@ -765,12 +752,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_hash() {
-        let cache: HttpCache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            Duration::from_secs(300),
-            ByteSize::mib(10),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
 
         let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
         let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));

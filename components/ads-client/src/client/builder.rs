@@ -96,78 +96,51 @@ impl AdsClientBuilder {
 
     #[cfg(feature = "stateful")]
     fn ads_store_db_path(&self) -> String {
-        valid_or_default(
-            self.store_db_path.clone(),
-            DEFAULT_STORE_DB_PATH.to_string(),
-            |db_path| validate_db_path(db_path, AdsStoreError::EmptyDbPath),
-            telemetry::record_ads_store_error,
-        )
+        match &self.store_db_path {
+            Some(db_path) if !db_path.trim().is_empty() => db_path.clone(),
+            Some(_) => {
+                telemetry::record_ads_store_error(&AdsStoreError::EmptyDbPath);
+                DEFAULT_STORE_DB_PATH.to_string()
+            }
+            None => DEFAULT_STORE_DB_PATH.to_string(),
+        }
     }
 
     fn http_cache_settings(&self) -> (String, Duration, ByteSize) {
-        let db_path = valid_or_default(
-            self.cache_db_path.clone(),
-            DEFAULT_CACHE_DB_PATH.to_string(),
-            |db_path| validate_db_path(db_path, HttpCacheError::EmptyDbPath),
-            telemetry::record_build_cache_error,
-        );
-        let default_ttl = valid_or_default(
-            self.cache_default_ttl,
-            DEFAULT_CACHE_TTL,
-            |ttl| {
-                if !CACHE_TTLS.contains(ttl) {
-                    return Err(HttpCacheError::InvalidTtl {
-                        max_ttl: format!("{} seconds", CACHE_TTLS.end().as_secs()),
-                        min_ttl: format!("{} seconds", CACHE_TTLS.start().as_secs()),
-                        ttl: ttl.as_secs(),
-                    });
-                }
-                Ok(())
-            },
-            telemetry::record_build_cache_error,
-        );
-        let max_size = valid_or_default(
-            self.cache_max_size,
-            DEFAULT_CACHE_MAX_SIZE,
-            |max_size| {
-                if !CACHE_MAX_SIZES.contains(max_size) {
-                    return Err(HttpCacheError::InvalidMaxSize {
-                        max_size: CACHE_MAX_SIZES.end().to_string(),
-                        min_size: CACHE_MAX_SIZES.start().to_string(),
-                        size_bytes: max_size.as_u64(),
-                    });
-                }
-                Ok(())
-            },
-            telemetry::record_build_cache_error,
-        );
+        let db_path = match &self.cache_db_path {
+            Some(db_path) if !db_path.trim().is_empty() => db_path.clone(),
+            Some(_) => {
+                telemetry::record_build_cache_error(&HttpCacheError::EmptyDbPath);
+                DEFAULT_CACHE_DB_PATH.to_string()
+            }
+            None => DEFAULT_CACHE_DB_PATH.to_string(),
+        };
+        let default_ttl = match self.cache_default_ttl {
+            Some(ttl) if CACHE_TTLS.contains(&ttl) => ttl,
+            Some(ttl) => {
+                telemetry::record_build_cache_error(&HttpCacheError::InvalidTtl {
+                    max_ttl: format!("{} seconds", CACHE_TTLS.end().as_secs()),
+                    min_ttl: format!("{} seconds", CACHE_TTLS.start().as_secs()),
+                    ttl: ttl.as_secs(),
+                });
+                DEFAULT_CACHE_TTL
+            }
+            None => DEFAULT_CACHE_TTL,
+        };
+        let max_size = match self.cache_max_size {
+            Some(max_size) if CACHE_MAX_SIZES.contains(&max_size) => max_size,
+            Some(max_size) => {
+                telemetry::record_build_cache_error(&HttpCacheError::InvalidMaxSize {
+                    max_size: CACHE_MAX_SIZES.end().to_string(),
+                    min_size: CACHE_MAX_SIZES.start().to_string(),
+                    size_bytes: max_size.as_u64(),
+                });
+                DEFAULT_CACHE_MAX_SIZE
+            }
+            None => DEFAULT_CACHE_MAX_SIZE,
+        };
         (db_path, default_ttl, max_size)
     }
-}
-
-fn valid_or_default<T, E>(
-    value: Option<T>,
-    default: T,
-    validate: impl FnOnce(&T) -> Result<(), E>,
-    record: impl FnOnce(&E),
-) -> T {
-    let Some(value) = value else {
-        return default;
-    };
-    match validate(&value) {
-        Ok(()) => value,
-        Err(error) => {
-            record(&error);
-            default
-        }
-    }
-}
-
-fn validate_db_path<E>(db_path: &str, empty: E) -> Result<(), E> {
-    if db_path.trim().is_empty() {
-        return Err(empty);
-    }
-    Ok(())
 }
 
 #[cfg(test)]

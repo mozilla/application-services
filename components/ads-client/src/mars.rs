@@ -160,7 +160,8 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        get_example_happy_image_response, make_happy_placement_requests, TEST_CONTEXT_ID,
+        get_example_happy_image_response, make_happy_placement_requests, memory_http_cache,
+        TEST_CONTEXT_ID,
     };
     use mockito::mock;
 
@@ -259,12 +260,7 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let cache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            std::time::Duration::from_secs(300),
-            crate::bytesize::ByteSize::mib(1),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
         let client = make_test_client(Some(cache));
 
         // First call should be a miss then warm the cache
@@ -300,12 +296,7 @@ mod tests {
     #[test]
     fn test_record_click_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            std::time::Duration::from_secs(300),
-            crate::bytesize::ByteSize::mib(1),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
 
         let client = make_test_client(Some(cache));
         let callback_url = Url::parse(&format!("{}/click", mockito::server_url())).unwrap();
@@ -320,12 +311,7 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::new(
-            crate::IN_MEMORY_DB_PATH,
-            std::time::Duration::from_secs(300),
-            crate::bytesize::ByteSize::mib(1),
-        )
-        .unwrap();
+        let cache = memory_http_cache();
 
         let client = make_test_client(Some(cache));
         let callback_url = Url::parse(&format!("{}/impression", mockito::server_url())).unwrap();

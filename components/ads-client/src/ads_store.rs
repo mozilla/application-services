@@ -86,15 +86,11 @@ fn open_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::get_example_happy_image_ads;
-
-    fn memory_store() -> AdsStore {
-        AdsStore::new(IN_MEMORY_DB_PATH, ByteSize::mib(1)).unwrap()
-    }
+    use crate::test_utils::{get_example_happy_image_ads, memory_ads_store};
 
     #[test]
     fn test_ads_store_creation() {
-        assert!(memory_store().is_memory().unwrap());
+        assert!(memory_ads_store().is_memory().unwrap());
     }
 
     #[test]
@@ -107,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_clear_store() {
-        let store = memory_store();
+        let store = memory_ads_store();
 
         let (placement_id, ads) = get_example_happy_image_ads("mock_billboard_1");
         store.holder.store_ads(&placement_id, &ads).unwrap();
@@ -126,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_invalidate_by_id() {
-        let store = memory_store();
+        let store = memory_ads_store();
 
         let (placement_1, ads_1) = get_example_happy_image_ads("mock_billboard_1");
         let (placement_2, ads_2) = get_example_happy_image_ads("mock_billboard_2");
