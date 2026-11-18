@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{collections::BTreeSet, fmt};
+use std::fmt;
 
-pub use crate::component_config::Component;
+pub use crate::component_config::SyncEngine;
 pub use crate::schema::Unit;
 use crate::util::slug;
 
@@ -16,7 +16,14 @@ pub struct TeamConfig {
     pub team_name: &'static str,
 
     /// Components that your team manages.
-    pub components: Vec<Component>,
+    ///
+    /// This is used to filter the component errors panel.
+    /// Component names correspond to error type prefixes.
+    /// Filtering by component `foo` will match error types that start with `foo-`.
+    pub components: Vec<&'static str>,
+
+    /// Sync engines that your team manages.
+    pub sync_engines: Vec<SyncEngine>,
 
     /// Track component errors
     ///
@@ -207,14 +214,6 @@ pub enum ReleaseChannel {
 }
 
 impl TeamConfig {
-    pub fn applications(&self) -> BTreeSet<Application> {
-        self.components
-            .iter()
-            .flat_map(Component::applications)
-            .cloned()
-            .collect()
-    }
-
     pub fn team_slug(&self) -> String {
         slug(self.team_name)
     }
@@ -228,6 +227,10 @@ impl TeamConfig {
 }
 
 impl Application {
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Desktop, Self::Android, Self::Ios].into_iter()
+    }
+
     pub fn slug(&self) -> &'static str {
         match self {
             Self::Android => "firefox_android",

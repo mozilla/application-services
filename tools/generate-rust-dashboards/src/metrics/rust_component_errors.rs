@@ -7,9 +7,10 @@
 use crate::{
     config::{Application, ReleaseChannel, TeamConfig},
     schema::{
-        Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
-        FieldConfigDefaults, GridPos, LogPanel, Panel, QueryVariable, QueryVariableQuery, Target,
-        TextBoxVariable, TextPanel, TimeSeriesPanel, Transformation, VariableSortOrder,
+        CustomVariable, CustomVariableSelection, Dashboard, DashboardBuilder, DataLink, Datasource,
+        FieldConfig, FieldConfigCustom, FieldConfigDefaults, GridPos, LogPanel, Panel,
+        QueryVariable, QueryVariableQuery, Target, TextBoxVariable, TextPanel, TimeSeriesPanel,
+        Transformation, VariableSortOrder,
     },
     sql::{Query, Union},
     util::UrlBuilder,
@@ -19,11 +20,20 @@ use crate::{
 pub fn add_to_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> Result<()> {
     builder.add_panel_title("Component Errors");
 
-    for app in config.applications().iter() {
-        builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Nightly));
-        builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Beta));
-        builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Release));
+    for app in Application::all() {
+        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Nightly));
+        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Beta));
+        builder.add_panel_third(count_panel(config, app, ReleaseChannel::Release));
     }
+
+    builder.add_variable(CustomVariable {
+        label: "Component Errors Filter".into(),
+        name: "rust_component_errors_filter".into(),
+        multi: true,
+        query: config.components.join(","),
+        current: CustomVariableSelection::multi(config.components.iter()),
+        ..CustomVariable::default()
+    });
 
     Ok(())
 }
@@ -110,7 +120,7 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         format!("{} - Error List", config.team_name),
         format!("{}-errors", config.team_slug()),
     );
-    builder.add_application_variable(config)?;
+    builder.add_application_variable();
     builder.add_channel_variable();
     builder.add_variable(error_type_variable());
     builder.add_variable(version_variable());
@@ -391,17 +401,18 @@ fn error_subquery() -> Union {
 
 /// Bigquery statements to define the `error_type_re` variable
 ///
-/// This is a bigquery variable created from the `components` grafana variable.
+/// This is a bigquery variable created from the `rust_component_errors_filter` grafana variable.
 /// We use it as a regex to match error pings against.
 fn error_type_re_prep_statements(config: &TeamConfig) -> Vec<String> {
     // `error_type_re` variable;
     let mut query_parts = vec![];
     query_parts.push("SELECT CASE value".into());
     for c in config.components.iter() {
-        query_parts.push(format!("WHEN '{}' THEN '^{}'", c.slug(), c.error_prefix()));
+        query_parts.push(format!("WHEN '{c}' THEN '^{c}-'"));
     }
     query_parts.push("END".into());
-    query_parts.push("FROM UNNEST(SPLIT('${components:csv}', ',')) as value".into());
+    query_parts
+        .push("FROM UNNEST(SPLIT('${rust_component_errors_filter:csv}', ',')) as value".into());
     vec![
         "DECLARE error_type_re STRING".into(),
         format!(

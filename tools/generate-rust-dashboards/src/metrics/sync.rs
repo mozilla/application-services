@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    component_config::SyncEngine,
     config::{Application, ReleaseChannel, TeamConfig, Unit},
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
@@ -49,17 +48,12 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         format!("{} - Sync Details", config.team_name),
         config.details_slug(),
     );
-    builder.add_application_variable(config)?;
+    builder.add_application_variable();
     builder.add_channel_variable();
     builder.add_variable(CustomVariable {
         label: "Sync Engine".into(),
         name: "engine".into(),
-        query: config
-            .components
-            .iter()
-            .flat_map(|a| a.sync_engines())
-            .map(|s| s.to_string())
-            .join(","),
+        query: config.sync_engines.iter().map(|e| e.to_string()).join(","),
         ..CustomVariable::default()
     });
 
@@ -154,20 +148,10 @@ fn add_overview_panels(
 ) {
     builder.add_panel_title(title);
 
-    for app in config.applications().iter() {
-        builder.add_panel_third(overview_panel(
-            config,
-            *app,
-            ReleaseChannel::Nightly,
-            metric,
-        ));
-        builder.add_panel_third(overview_panel(config, *app, ReleaseChannel::Beta, metric));
-        builder.add_panel_third(overview_panel(
-            config,
-            *app,
-            ReleaseChannel::Release,
-            metric,
-        ));
+    for app in Application::all() {
+        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Nightly, metric));
+        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Beta, metric));
+        builder.add_panel_third(overview_panel(config, app, ReleaseChannel::Release, metric));
     }
 }
 
@@ -188,14 +172,6 @@ fn overview_panel(
     }
 
     let column_name = metric.column_name();
-    let all_engines = all_engines(config);
-    let engine_matches: Vec<String> = config.components.iter()
-        .flat_map(|c| c.sync_engines().iter().map(|e| (c.slug(), e.to_string())))
-        .map(|(component, engine)| {
-            format!("(engine_name = '{engine}' AND '{component}' IN (SELECT * FROM UNNEST(SPLIT('${{components:csv}}', ','))))")
-        })
-        .collect();
-
     let query = Query {
         select: vec![
             "TIMESTAMP(submission_date) as time".into(),
@@ -206,20 +182,27 @@ fn overview_panel(
         where_: vec![
             "$__timeFilter(TIMESTAMP(submission_date))".into(),
             format!("channel = '{channel}'"),
+            format!(
+                "engine_name in ({})",
+                config
+                    .sync_engines
+                    .iter()
+                    .map(|e| format!("'{e}'"))
+                    .join(", ")
+            ),
             match application {
                 Application::Desktop => "application = 'desktop'",
                 Application::Ios => "application = 'firefox-ios'",
                 Application::Android => "application = 'firefox-android'",
             }
             .into(),
-            engine_matches.join(" OR "),
         ],
         order_by: Some("time".into()),
         ..Query::default()
     };
 
     let mut color_overrides = vec![];
-    for engine in all_engines.iter() {
+    for engine in config.sync_engines.iter() {
         // Use the SyncEngine discriminant to keep colors consistent across all panels (SYNC-5459)
         color_overrides.push(FieldConfigOverride {
             matcher: FieldConfigOverrideMatcher {
@@ -415,9 +398,9 @@ WHERE
 
     queries.extend(
         config
-            .components
+            .sync_engines
             .iter()
-            .flat_map(|c| c.sync_engines_for_android())
+            .filter(|engine| engine.enabled_on_android())
             .map(|engine| {
                 let table_prefix = engine.to_string().replace("-", "_");
                 format!(
@@ -436,9 +419,9 @@ CROSS JOIN UNNEST(metrics.labeled_string.{table_prefix}_sync_v2_failure_reason) 
     );
     queries.extend(
         config
-            .components
+            .sync_engines
             .iter()
-            .flat_map(|c| c.sync_engines_for_ios())
+            .filter(|engine| engine.enabled_on_ios())
             .map(|engine| {
                 let table_prefix = engine.to_string().replace("-", "_");
                 format!(
@@ -472,18 +455,6 @@ fn sync_legacy_dashboard_panel() -> Panel {
         grid_pos: GridPos::height(8),
     }
     .into()
-}
-
-fn all_engines(config: &TeamConfig) -> Vec<SyncEngine> {
-    let mut engines: Vec<_> = config
-        .components
-        .iter()
-        .flat_map(|c| c.sync_engines())
-        .cloned()
-        .collect();
-    engines.sort_unstable();
-    engines.dedup();
-    engines
 }
 
 /// Subquery that combines the desktop and mobile ETL tables

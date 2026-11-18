@@ -11,7 +11,6 @@ for help.
 
 ## Configuration
 
-Edit `src/component_config.rs` add a `Component` variant for each of your team's components.
 Edit `src/team_config.rs` and add an entry for your team.
 Feel free to copy the and paste other team's configurations to get started.
 

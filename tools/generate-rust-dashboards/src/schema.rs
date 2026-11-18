@@ -10,10 +10,9 @@
 
 use std::cmp::max;
 
-use anyhow::anyhow;
 use serde::{Serialize, Serializer};
 
-use crate::{config::TeamConfig, Result};
+use crate::{config::Application, Result};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -754,26 +753,19 @@ impl DashboardBuilder {
     }
 
     /// Add an `application` variable that the user can select
-    pub fn add_application_variable(&mut self, config: &TeamConfig) -> Result<()> {
-        let applications = config.applications();
-
-        let first_application = applications
-            .iter()
-            .next()
-            .ok_or_else(|| anyhow!("Application list empty for {}", config.team_name))?;
+    pub fn add_application_variable(&mut self) {
+        let first_application = Application::all().next().unwrap();
 
         self.add_variable(CustomVariable {
             label: "Application".into(),
             name: "application".into(),
-            query: applications
-                .iter()
+            query: Application::all()
                 .map(|a| format!("{a} : {}", a.slug()))
                 .collect::<Vec<_>>()
                 .join(","),
             current: CustomVariableSelection::single(first_application.slug()),
             ..CustomVariable::default()
         });
-        Ok(())
     }
 
     /// Add an `channel` variable that the user can select a release channel from
