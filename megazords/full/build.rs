@@ -4,4 +4,5 @@
 
 fn main() {
     println!("cargo:rerun-if-env-changed=MEGAZORD_VERSION");
+    uniffi_bindgen_kotlin_jni::generate_scaffolding();
 }
