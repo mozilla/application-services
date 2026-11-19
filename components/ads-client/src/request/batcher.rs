@@ -21,10 +21,12 @@ pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 
 // Thread sleep delay to wait for new requests to queue before resolving them.
 // This must be a very short amount of time to ensure ads are requested near-immediately on startup.
-pub const ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT: Duration = Duration::from_millis(100);
+pub const BATCH_GATHER_DURATION_DEFAULT: Duration = Duration::from_millis(100);
 
-// Structure for storing and queuing `DispatchRequest`s sent to background worker.
-// AdPlacementRequest will be merged together, allowing fewer network requests to be sent.
+/// Structure for storing and queuing `DispatchRequest`s sent to background worker.
+/// `AdPlacementRequest`s will be merged together, allowing fewer network requests to be sent.
+/// `batch_gather_wait` (passed on creation) measures how long to wait on a new request to allow batching.
+/// (Defaults to `BATCH_GATHER_DURATION_DEFAULT`)
 #[derive(Clone)]
 pub struct RequestBatcher {
     // If the `inner` mutex is locked to add data to the queue, the ready_cond must be notified after data is added.
@@ -32,9 +34,9 @@ pub struct RequestBatcher {
     // Condvar is updated if new data is queued to be retrievable by `next()`. Can be waited with: `wait_available`
     ready_cond: Arc<Condvar>,
 
-    // Batch duration (used by `wait_batch`).
+    // Batch duration (used by `wait_gather`).
     // Used to wait out the waiting period for batching.
-    batch_wait_duration: Duration,
+    batch_gather_wait: Duration,
 }
 
 struct RequestBatcherInner {
@@ -112,17 +114,17 @@ impl RequestQueue for RequestBatcher {
         }
     }
 
-    fn wait_batch(&self) {
-        // If data is available to be polled, we wait for the batching duration, to allow accumulation, then poll.
-        if !self.batch_wait_duration.is_zero() {
-            std::thread::sleep(self.batch_wait_duration);
+    /// Sleeps the calling thread to allow for requests to be gathered.
+    fn wait_gather(&self) {
+        if !self.batch_gather_wait.is_zero() {
+            std::thread::sleep(self.batch_gather_wait);
         }
     }
 }
 
 impl RequestBatcher {
-    // `batch_wait_duration` is the accumulation period allowed for batching after data is available to be queried.
-    pub fn new(batch_wait_duration: Option<Duration>) -> RequestBatcher {
+    // `batch_gather_wait` is the accumulation period allowed for batching after data is available to be queried.
+    pub fn new(batch_gather_wait: Option<Duration>) -> RequestBatcher {
         let inner = RequestBatcherInner {
             queued_ads: HashMap::new(),
             request_queue: VecDeque::new(),
@@ -130,8 +132,7 @@ impl RequestBatcher {
         RequestBatcher {
             inner: Arc::new(Mutex::new(inner)),
             ready_cond: Arc::new(Condvar::new()),
-            batch_wait_duration: batch_wait_duration
-                .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT),
+            batch_gather_wait: batch_gather_wait.unwrap_or(BATCH_GATHER_DURATION_DEFAULT),
         }
     }
 

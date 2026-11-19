@@ -26,7 +26,6 @@ pub struct BackgroundWorker {
 
 impl BackgroundWorker {
     // Create a new worker to handle fire-and-forget requests.
-    // `worker_sleep`: Batch interval, defaulting to `ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT ms`.
     pub fn new(
         inner_client: Arc<AdsClientInner>,
         request_queue: Arc<dyn RequestQueue>,
@@ -65,8 +64,11 @@ impl BackgroundWorker {
 // Endless worker for background thread that synchronously run tasks in the order provided by the RequestQueue.
 fn worker(inner_client: &Arc<AdsClientInner>, request_queue: &Arc<dyn RequestQueue>) {
     loop {
-        let available = request_queue.wait_available_and_wait_batch(None);
+        let available = request_queue.wait_available(None);
         if available {
+            // If data is available to be polled, we wait to allow request accumulation, then poll.
+            request_queue.wait_gather();
+
             if let Some(request) = request_queue.next() {
                 // TODO: Request should be logged via telemetry here.
                 if let Err(e) = request.handle_request(Arc::clone(inner_client)) {

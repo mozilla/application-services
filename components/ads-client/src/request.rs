@@ -10,21 +10,31 @@ pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
 pub mod batcher;
 pub mod simple;
 
+/// Generic structure for queueing `DispatchRequest`s for the background worker.
+/// You can append a request to the queue with `push_request(request)` and pop the next one with `next()`.
+/// Inside the queue, queries might be batched together, depending on the implementation.
 pub trait RequestQueue: Send + Sync {
+    /// Clears all requests from the queue.
+    /// Does not trigger `wait_available`.
     fn clear(&self);
-    fn wait_available(&self, timeout: Option<Duration>) -> bool;
+
+    /// Fetches the next `DispatchRequest` from the queue.
+    /// This is possibly a batch of requests combined into one `DispatchRequest.`
     fn next(&self) -> Option<DispatchRequest>;
+
+    /// Push a request into the queue.
     fn push_request(&self, request: DispatchRequest);
 
-    fn wait_batch(&self);
-    // TODO: Rename, and also reorganize these. (Only need to implement a few)
-    // TODO: This is is an incomplete pattern.
-    // TODO: Timeout only applies to
-    fn wait_available_and_wait_batch(&self, timeout: Option<Duration>) -> bool {
-        let b = self.wait_available(timeout);
-        self.wait_batch();
-        b
-    }
+    /// Waits a defined period to gather requests to build a batch. This sleeps the calling thread.
+    /// This is to be used after the queue is readied, to allow for a period of time to gather requests for batching.
+    /// (Without this, adding one request to an empty queue would result in an initial batch of size=1).
+    fn wait_gather(&self);
+
+    /// Wait for queue to have data retrievable by `next()`, with an optional timeout.
+    /// This should use a condvar internally to ensure a thread can wait with minimal CPU usage.
+    /// If multiple threads call `wait_available`, all will be notified on availability (so, competing threads may not all receive data from `next()`)
+    /// Returns `true` if data is available to be queried by `next()`, and false otherwise (eg: if timeout is reached)
+    fn wait_available(&self, timeout: Option<Duration>) -> bool;
 }
 
 #[cfg(test)]

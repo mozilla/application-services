@@ -68,8 +68,8 @@ impl RequestQueue for RequestSimpleQueue {
         self.ready_cond.notify_all();
     }
 
-    // `wait_batch` is a noop, as no batching happens here.
-    fn wait_batch(&self) {}
+    // `wait_gather` is a noop for `RequestSimpleQueue`, because no batching happens here.
+    fn wait_gather(&self) {}
 }
 
 impl RequestSimpleQueue {
