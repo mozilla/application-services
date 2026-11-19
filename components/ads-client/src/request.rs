@@ -39,35 +39,22 @@ pub trait RequestQueue: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashSet, sync::Arc, time::Duration};
+    use std::{sync::Arc, time::Duration};
     use url::Url;
 
     use crate::{
-        mars::ad_request::AdPlacementRequest,
         request::{
             batcher::RequestBatcher, simple::RequestSimpleQueue, DispatchRequest, RequestQueue,
         },
+        test_utils::get_example_request_ads_dispatch_request,
     };
-
-    // TODO: reuse these in test_utils
-    fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
-        let mut ad_requests = HashSet::new();
-        for id in identifiers {
-            ad_requests.insert(AdPlacementRequest {
-                content: None,
-                count: 4,
-                placement: format!("test_placement_{id}"),
-            });
-        }
-        DispatchRequest::RequestAds { ad_requests }
-    }
 
     #[test]
     fn identical_command_comes_out() {
         #[track_caller]
         fn test_function(queue: Arc<dyn RequestQueue>) {
-            let request = example_request_ads_dispatch(&[0]);
-            let command = example_request_ads_dispatch(&[0]);
+            let request = get_example_request_ads_dispatch_request(&[0]);
+            let command = get_example_request_ads_dispatch_request(&[0]);
             queue.push_request(request.clone());
             let retrieved_dispatch = queue.next().expect("Request should exist in queue");
             assert_eq!(command, retrieved_dispatch);
@@ -118,7 +105,7 @@ mod tests {
             let queue_clone = queue.clone();
 
             // Check immediate result for `wait_available`
-            queue_clone.push_request(example_request_ads_dispatch(&[1]));
+            queue_clone.push_request(get_example_request_ads_dispatch_request(&[1]));
             let available = queue.wait_available(Some(Duration::from_secs(2)));
             assert!(available);
             assert!(queue.next().is_some());
@@ -127,7 +114,7 @@ mod tests {
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_secs(1));
                 println!("Pushing request.");
-                queue_clone.push_request(example_request_ads_dispatch(&[1]));
+                queue_clone.push_request(get_example_request_ads_dispatch_request(&[1]));
             });
 
             assert_eq!(queue.next(), None);

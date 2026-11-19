@@ -206,7 +206,7 @@ mod tests {
         }
     }
 
-    fn example_request_ads_dispatch(identifiers: &[usize]) -> DispatchRequest {
+    fn get_example_request_ads_dispatch_request(identifiers: &[usize]) -> DispatchRequest {
         let mut ad_requests = HashSet::new();
         for id in identifiers {
             ad_requests.insert(AdPlacementRequest {
@@ -220,9 +220,9 @@ mod tests {
 
     #[test]
     fn batch_similar_requests() {
-        let request_0 = example_request_ads_dispatch(&[0]);
-        let request_1 = example_request_ads_dispatch(&[1]);
-        let dispatch = example_request_ads_dispatch(&[0, 1]);
+        let request_0 = get_example_request_ads_dispatch_request(&[0]);
+        let request_1 = get_example_request_ads_dispatch_request(&[1]);
+        let dispatch = get_example_request_ads_dispatch_request(&[0, 1]);
         let queue = RequestBatcher::new(None);
 
         // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
@@ -249,7 +249,7 @@ mod tests {
 
         // Queue enough of this command to go one-over the limit.
         for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
-            let request = example_request_ads_dispatch(&[i]);
+            let request = get_example_request_ads_dispatch_request(&[i]);
             queue.push_request(request.clone());
         }
 

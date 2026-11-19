@@ -3,11 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-
-use url::Url;
-use url_macro::url;
-
 #[cfg(feature = "stateful")]
 use crate::ads::{Ad, PlacementId};
 use crate::ads::{AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking};
@@ -15,7 +10,14 @@ use crate::mars::{
     ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
     ad_response::AdResponse,
 };
+#[cfg(feature = "stateful")]
+use crate::worker::DispatchRequest;
 use crate::MozAdsTelemetry;
+use std::collections::HashMap;
+#[cfg(feature = "stateful")]
+use std::collections::HashSet;
+use url::Url;
+use url_macro::url;
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
@@ -209,4 +211,17 @@ pub fn get_example_happy_uatile_response() -> AdResponse {
             }],
         ),
     ]))
+}
+
+#[cfg(feature = "stateful")]
+pub fn get_example_request_ads_dispatch_request(identifiers: &[usize]) -> DispatchRequest {
+    let mut ad_requests = HashSet::new();
+    for id in identifiers {
+        ad_requests.insert(AdPlacementRequest {
+            content: None,
+            count: 4,
+            placement: format!("test_placement_{id}"),
+        });
+    }
+    DispatchRequest::RequestAds { ad_requests }
 }
