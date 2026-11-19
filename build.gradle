@@ -1,15 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.build = [
-        // These must be kept in sync with the android components in mozilla-central.
-        compileSdkMajorVersion: 36,
-        compileSdkMinorVersion: 1,
-        targetSdkVersion: 36,
-        minSdkVersion: 26,
-        jvmTargetCompatibility: 17,
-    ]
-
     repositories {
         mavenCentral()
         google()
@@ -131,6 +122,7 @@ subprojects {
     afterEvaluate{
         if (it.hasProperty('android')) {
             android {
+                buildToolsVersion = rootProject.config.buildToolsVersion
                 compileOptions {
                     sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
                     targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)

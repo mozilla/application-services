@@ -19,9 +19,9 @@ WORKDIR /builds/worker/
 
 # Configuration
 
-ENV ANDROID_BUILD_TOOLS "36.1.0"
+ENV ANDROID_BUILD_TOOLS "37.0.0"
 ENV ANDROID_TOOLS_VERSION "16111833"
-ENV ANDROID_PLATFORM_VERSION "36.1"
+ENV ANDROID_PLATFORM_VERSION "37.2"
 ENV ANDROID_NDK_VERSION "30.0.16248370"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
