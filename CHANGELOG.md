@@ -2,6 +2,10 @@
 
 [Full Changelog](In progress)
 
+### Sync Manager
+
+- Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
