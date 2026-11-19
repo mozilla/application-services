@@ -2,7 +2,8 @@
 
 # Copies the static libraries to link NSS with from a `build.sh --static` dist: those
 # that its pkg-config files name, and mozpkix, which no .pc names but rc_crypto
-# links for verifying content signatures.
+# links for verifying content signatures. Also copies the pkg-config files, from
+# which nss_build_common reads the same list.
 # Usage: ./copy-nss-libs.sh <BUILD_LIB_DIR> <DIST_LIB_DIR>
 
 set -euo pipefail
@@ -36,15 +37,10 @@ libs=$(
   echo mozpkix
 )
 
-mkdir -p "${DIST_LIB_DIR}"
+mkdir -p "${DIST_LIB_DIR}/pkgconfig"
+cp -p -L "${BUILD_LIB_DIR}/pkgconfig/nss-static.pc" "${BUILD_LIB_DIR}/pkgconfig/nspr.pc" "${DIST_LIB_DIR}/pkgconfig"
 for lib in ${libs}; do
-  if [[ " ${PROVIDED_ELSEWHERE[*]} " == *" ${lib} "* ]]; then
-    continue
-  fi
-  if [[ -e "${BUILD_LIB_DIR}/lib${lib}.a" ]]; then
+  if [[ " ${PROVIDED_ELSEWHERE[*]} " != *" ${lib} "* ]]; then
     cp -p -L "${BUILD_LIB_DIR}/lib${lib}.a" "${DIST_LIB_DIR}"
-  else
-    # A system library, such as NSPR's pthread.
-    echo "Not copying ${lib}, which NSS did not build"
   fi
 done

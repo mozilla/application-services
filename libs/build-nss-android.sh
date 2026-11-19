@@ -8,6 +8,7 @@ if [[ "${#}" -ne 4 ]]
 then
     echo "Usage:"
     echo "./build-nss-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
+    echo "Requires ANDROID_NDK_ROOT and NDK_HOST_TAG in the environment (android_defaults.sh sets both)."
     exit 1
 fi
 
