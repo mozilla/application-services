@@ -30,7 +30,8 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
 fn test_bad_path_opens_memory_db() {
     clear_test_dbs(&["good_path_adsstore.db"]);
 
-    let good_path = AdsStore::builder("good_path_adsstore.db")
+    let good_path = AdsStoreBuilder::new()
+        .db_path("good_path_adsstore.db")
         .build()
         .expect("Should be able to build a bad path");
     assert!(
@@ -38,7 +39,8 @@ fn test_bad_path_opens_memory_db() {
         "A valid path should result in a file-based sqlite database"
     );
 
-    let bad_path = AdsStore::builder("this/is/a/test/bad/path")
+    let bad_path = AdsStoreBuilder::new()
+        .db_path("this/is/a/test/bad/path")
         .build()
         .expect("Should be able to build a bad path");
     assert!(
@@ -46,17 +48,17 @@ fn test_bad_path_opens_memory_db() {
         "Invalid path should result in a memory-based sqlite database"
     );
 
-    let empty_path = AdsStore::builder("").build();
+    let empty_path = AdsStoreBuilder::new().db_path("").build();
     assert!(
         empty_path.is_err(),
         "An empty string for a path should result in an error (because of validation step)"
     );
 
-    let no_path = AdsStore::builder_memory()
+    let no_path = AdsStoreBuilder::new()
         .build()
         .expect("Should be able to build a memory db");
     assert!(
         no_path.is_memory().unwrap(),
-        "`builder_memory` should result in a memory-based sqlite database"
+        "`builder` without `database` should result in a memory-based sqlite database"
     )
 }

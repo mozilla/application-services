@@ -1,28 +1,28 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::{IsTerminal, Write};
+use std::path::Path;
 
 use glob::MatchOptions;
-use std::collections::HashSet;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use super::commands::{
+use crate::backends;
+use crate::backends::info::ManifestInfo;
+use crate::command_line::commands::{
     GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd, LintCmd,
     PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
 };
-use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
+use crate::error::{FMLError, Result};
 use crate::frontend::ManifestFrontEnd;
-use crate::lints::{self, Finding, LintConfig, LintLevel, LintReport};
-use crate::{
-    backends,
-    error::{FMLError, Result},
-    intermediate_representation::{FeatureManifest, TargetLanguage},
-    parser::Parser,
-    util::loaders::{FileLoader, FilePath, LoaderConfig},
-};
-use std::io::{IsTerminal, Write};
-use std::path::Path;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use crate::intermediate_representation::{FeatureManifest, TargetLanguage};
+use crate::lints::{self, Issue, LintReport};
+use crate::parser::Parser;
+use crate::util::loaders::{FileLoader, FilePath, LoaderConfig};
 
 /// Use this when recursively looking for files.
 const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
@@ -70,11 +70,11 @@ fn generate_struct_from_dir(files: &FileLoader, cmd: &GenerateStructCmd, cwd: &P
         let pb = entry.path();
         if pb.is_dir() {
             generate_struct_from_dir(files, cmd, &pb)?;
-        } else if let Some(nm) = pb.file_name().map(|s| s.to_str().unwrap_or_default()) {
-            if nm.ends_with(MATCHING_FML_EXTENSION) {
-                let path = pb.as_path().into();
-                generate_struct_single(files, path, cmd)?;
-            }
+        } else if let Some(nm) = pb.file_name().map(|s| s.to_str().unwrap_or_default())
+            && nm.ends_with(MATCHING_FML_EXTENSION)
+        {
+            let path = pb.as_path().into();
+            generate_struct_single(files, path, cmd)?;
         }
     }
     Ok(())
@@ -99,13 +99,7 @@ fn generate_struct_single(
     manifest_path: FilePath,
     cmd: &GenerateStructCmd,
 ) -> Result<()> {
-    let ir = load_feature_manifest(
-        files.clone(),
-        manifest_path,
-        cmd.load_from_ir,
-        Some(&cmd.channel),
-        false,
-    )?;
+    let ir = load_feature_manifest(files.clone(), manifest_path, Some(&cmd.channel), false)?;
     generate_struct_from_ir(&ir, cmd)
 }
 
@@ -113,10 +107,6 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
     let language = &cmd.language;
     ir.validate_manifest_for_lang(language)?;
     match language {
-        TargetLanguage::IR => {
-            let contents = serde_json::to_string_pretty(&ir)?;
-            std::fs::write(&cmd.output, contents)?;
-        }
         TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, cmd)?,
         TargetLanguage::Swift => backends::swift::generate_struct(ir, cmd)?,
         _ => unimplemented!(
@@ -130,13 +120,7 @@ fn generate_struct_from_ir(ir: &FeatureManifest, cmd: &GenerateStructCmd) -> Res
 pub(crate) fn generate_experimenter_manifest(cmd: &GenerateExperimenterManifestCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let ir = load_feature_manifest(
-        files,
-        path,
-        cmd.load_from_ir,
-        None,
-        cmd.loader.lax_gecko_pref_validation,
-    )?;
+    let ir = load_feature_manifest(files, path, None, cmd.loader.lax_gecko_pref_validation)?;
     backends::experimenter_manifest::generate_manifest(ir, cmd)?;
     Ok(())
 }
@@ -147,7 +131,6 @@ pub(crate) fn generate_single_file_manifest(cmd: &GenerateSingleFileManifestCmd)
     let fm = load_feature_manifest(
         files,
         path,
-        false,
         Some(&cmd.channel),
         cmd.loader.lax_gecko_pref_validation,
     )?;
@@ -159,16 +142,11 @@ pub(crate) fn generate_single_file_manifest(cmd: &GenerateSingleFileManifestCmd)
 fn load_feature_manifest(
     files: FileLoader,
     path: FilePath,
-    load_from_ir: bool,
     channel: Option<&str>,
     lax_gecko_pref_validation: bool,
 ) -> Result<FeatureManifest> {
-    let ir = if !load_from_ir {
-        let parser: Parser = Parser::new(files, path)?;
-        parser.get_intermediate_representation(channel)?
-    } else {
-        files.read_ir::<FeatureManifest>(&path)?
-    };
+    let parser: Parser = Parser::new(files, path)?;
+    let ir = parser.get_intermediate_representation(channel)?;
     ir.validate_manifest_with(lax_gecko_pref_validation)?;
     Ok(ir)
 }
@@ -216,31 +194,25 @@ fn wrapped(text: &str, initial_indent: &str, subsequent_indent: &str) -> String 
     textwrap::fill(text, options)
 }
 
-fn output_finding(stream: &mut impl WriteColor, finding: &Finding) -> Result<()> {
-    let (icon, color) = match finding.level {
-        LintLevel::Error => ("❎", Color::Red),
-        _ => ("⚠️", Color::Yellow),
-    };
-
-    write!(stream, "  {icon} ")?;
-    stream.set_color(ColorSpec::new().set_fg(Some(color)))?;
-    write!(stream, "{:<LINT_NAME_WIDTH$}", finding.lint)?;
+fn output_issue(stream: &mut impl WriteColor, report: &Issue) -> Result<()> {
+    write!(stream, "  ⚠️  ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    write!(stream, "{:<LINT_NAME_WIDTH$}", report.lint)?;
     stream.reset()?;
-    writeln!(stream, "{}", finding.message)?;
+    writeln!(stream, "{}", report.message)?;
 
     Ok(())
 }
 
-/// Print the findings grouped under the feature, object or enum they're about,
-/// followed by the guidance for each lint that fired. The guidance is per lint, not
-/// per finding: eighty features missing a `meta-bug` need telling how once.
-fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
-    // The findings arrive sorted by module and subject, so a change of either starts
-    // the next group.
+/// Print the issues grouped by location, followed by the guidance for each lint
+/// that fired.
+///
+/// Guidance is only shown once per issue, not once per lint.
+fn output_issues(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
     let mut group: Option<(&Option<String>, &String)> = None;
 
-    for finding in &report.findings {
-        let this = (&finding.module, &finding.subject);
+    for issue in &report.issues {
+        let this = (&issue.module, &issue.subject);
         if group != Some(this) {
             if group.is_some() {
                 writeln!(stream)?;
@@ -248,14 +220,14 @@ fn output_findings(stream: &mut impl WriteColor, report: &LintReport) -> Result<
             group = Some(this);
 
             stream.set_color(ColorSpec::new().set_bold(true))?;
-            write!(stream, "{}", finding.subject)?;
+            write!(stream, "{}", issue.subject)?;
             stream.reset()?;
-            match &finding.module {
+            match &issue.module {
                 Some(module) => writeln!(stream, " (imported from {module})")?,
                 None => writeln!(stream)?,
             }
         }
-        output_finding(stream, finding)?;
+        output_issue(stream, issue)?;
     }
 
     let lints = report.triggered_lints();
@@ -305,12 +277,15 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
                 iter_includes.collect::<Vec<String>>().join("\n- ")
             ),
         )?;
-        output_ok(&mut stdout, &format!(
-            "{}\n{}\n{}",
-            "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
-            "- A `channels` list",
-            "- An `about` block",
-        ))?;
+        output_ok(
+            &mut stdout,
+            &format!(
+                "{}\n{}\n{}",
+                "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
+                "- A `channels` list",
+                "- An `about` block",
+            ),
+        )?;
         return Ok(());
     }
     let intermediate_representation =
@@ -384,11 +359,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let file_path = files.file_path(&cmd.manifest)?;
 
-    // One parser for both passes: `load_manifest` walks the whole include tree, and
-    // a second one would fetch and parse all of it again.
     let parser: Parser = Parser::new(files, file_path.clone())?;
-
-    let config = LintConfig::new().denying(&cmd.deny)?;
 
     // Linting an invalid manifest would report nonsense.
     let ir = parser
@@ -403,7 +374,7 @@ fn lint_report(cmd: &LintCmd) -> Result<LintReport> {
             ))
         })?;
 
-    Ok(lints::lint_manifest(&ir, &config))
+    Ok(lints::lint_manifest(&ir))
 }
 
 pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
@@ -411,34 +382,55 @@ pub(crate) fn lint(cmd: &LintCmd) -> Result<()> {
 
     let report = lint_report(cmd)?;
 
-    if cmd.as_json {
-        println!("{}", serde_json::to_string_pretty(&json_report(&report))?);
-    } else {
-        output_findings(&mut stdout, &report)?;
-        output_lint_summary(&mut stdout, &report)?;
+    output_issues(&mut stdout, &report)?;
+    output_lint_summary(&mut stdout, &report)?;
+
+    if let Some(code_review_json_path) = &cmd.code_review_json {
+        write_code_review_json(&cmd.manifest, &report, code_review_json_path)?;
     }
 
-    let error_count = report.error_count();
-    let warning_count = report.warning_count();
+    writeln!(stdout)?;
 
-    if error_count > 0 || warning_count > 0 {
-        return Err(CliError(format!(
-            "Manifest has {warning_count} lint warning(s) and {error_count} lint error(s)",
-        )));
+    let error_count = report.issue_count();
+    if error_count > 0 {
+        return Err(CliError("Manifest has lint error(s)".into()));
     }
 
     Ok(())
 }
 
-/// The shape `--json` emits: the counts a CI job needs, plus the findings.
-fn json_report(report: &LintReport) -> serde_json::Value {
-    serde_json::json!({
-        "errors": report.error_count(),
-        "warnings": report.warning_count(),
-        "suppressed": report.suppressed,
-        "subjects": report.subject_count(),
-        "findings": report.findings,
-    })
+fn write_code_review_json(manifest_path: &str, report: &LintReport, path: &Path) -> Result<()> {
+    let payload = generate_code_review_json(manifest_path, report);
+
+    let mut f = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
+    serde_json::to_writer(&mut f, &payload)?;
+    writeln!(f)?;
+
+    Ok(())
+}
+
+fn generate_code_review_json(manifest_path: &str, report: &LintReport) -> serde_json::Value {
+    let error_count = report.issue_count();
+
+    if error_count > 0 {
+        serde_json::json!({
+            manifest_path: [
+                {
+                    "path": manifest_path,
+                    "line": null,
+                    "column": null,
+                    "level": "error",
+                    "message": format!("There are {error_count} error(s) in this Feature Manifest. Check the task for the full list or run:\n\n./mach android nimbus-cli fml lint {manifest_path}"),
+                }
+            ],
+        })
+    } else {
+        serde_json::json!({})
+    }
 }
 
 fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
@@ -447,42 +439,21 @@ fn output_suppressed(stream: &mut impl WriteColor, report: &LintReport) -> Resul
     }
     output_note(
         stream,
-        &format!(
-            "{} finding{} silenced by `no-lint`",
-            report.suppressed,
-            if report.suppressed > 1 { "s" } else { "" }
-        ),
+        &format!("{} issue(s) silenced by `no-lint`", report.suppressed),
     )
 }
 
 fn output_lint_summary(stream: &mut impl WriteColor, report: &LintReport) -> Result<()> {
     if report.is_empty() {
-        output_ok(stream, "No lint findings")?;
+        output_ok(stream, "No issues.")?;
         return output_suppressed(stream, report);
     }
 
-    let errors = report.error_count();
-    let warnings = report.warning_count();
-    let mut counts = Vec::new();
-    if errors > 0 {
-        counts.push(format!(
-            "{errors} error{}",
-            if errors > 1 { "s" } else { "" }
-        ));
-    }
-    if warnings > 0 {
-        counts.push(format!(
-            "{warnings} warning{}",
-            if warnings > 1 { "s" } else { "" }
-        ));
-    }
-
-    let subjects = report.subject_count();
+    let error_count = report.issue_count();
+    let subject_count = report.subject_count();
     writeln!(
         stream,
-        "Found {} in {subjects} place{}.",
-        counts.join(" and "),
-        if subjects > 1 { "s" } else { "" }
+        "Found {error_count} error(s) in {subject_count} location(s).\n",
     )?;
     output_suppressed(stream, report)?;
     writeln!(
@@ -504,20 +475,18 @@ pub(crate) fn list_lints() -> Result<()> {
 
 fn output_lint_list(stream: &mut impl WriteColor) -> Result<()> {
     const CATEGORY_WIDTH: usize = 15;
-    const LEVEL_WIDTH: usize = 10;
 
     writeln!(
         stream,
-        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}DESCRIPTION",
-        "LINT", "CATEGORY", "DEFAULT"
+        "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}DESCRIPTION",
+        "LINT", "CATEGORY"
     )?;
     for lint in lints::ALL_LINTS.iter() {
         writeln!(
             stream,
-            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{:<LEVEL_WIDTH$}{}",
+            "{:<LINT_NAME_WIDTH$}{:<CATEGORY_WIDTH$}{}",
             lint.name,
             lint.category.as_str(),
-            lint.default_level.as_str(),
             lint.description
         )?;
     }
@@ -541,7 +510,7 @@ pub(crate) fn print_channels(cmd: &PrintChannelsCmd) -> Result<()> {
 pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
     let path = files.file_path(&cmd.manifest)?;
-    let fm = load_feature_manifest(files, path.clone(), false, cmd.channel.as_deref(), false)?;
+    let fm = load_feature_manifest(files, path.clone(), cmd.channel.as_deref(), false)?;
     let info = if let Some(feature_id) = &cmd.feature {
         ManifestInfo::from_feature(&path, &fm, feature_id)?
     } else {
@@ -557,165 +526,20 @@ pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
-
-    use anyhow::anyhow;
     use tempfile::NamedTempFile;
 
     use super::*;
-    use crate::frontend::AboutBlock;
     use crate::util::{join, pkg_dir};
 
     pub(crate) const MANIFEST_PATHS: &[&str] = &[
-        "fixtures/ir/simple_nimbus_validation.ir.json",
-        "fixtures/ir/simple_nimbus_validation.ir.json",
-        "fixtures/ir/with_objects.ir.json",
-        "fixtures/ir/full_homescreen.ir.json",
+        "fixtures/ir/simple_nimbus_validation.fml.yaml",
+        "fixtures/ir/simple_nimbus_validation.fml.yaml",
+        "fixtures/ir/with_objects.fml.yaml",
+        "fixtures/ir/full_homescreen.fml.yaml",
         "fixtures/fe/importing/simple/app.yaml",
         "fixtures/fe/importing/diamond/00-app.yaml",
         "fixtures/fe/gecko-pref.yaml",
     ];
-
-    #[allow(dead_code)]
-    pub(crate) fn generate_and_assert(
-        test_script: &str,
-        manifest: &str,
-        channel: &str,
-        is_ir: bool,
-    ) -> Result<()> {
-        let output = NamedTempFile::new()?;
-        let cmd = create_command_from_test(test_script, manifest, channel, is_ir, output.path())?;
-        generate_struct(&cmd)?;
-        run_script_with_generated_code(
-            &cmd.language,
-            &[cmd.output.as_path().display().to_string()],
-            test_script,
-        )?;
-        Ok(())
-    }
-
-    fn generate_struct_cli_overrides(from_cli: AboutBlock, cmd: &GenerateStructCmd) -> Result<()> {
-        let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
-        let path = files.file_path(&cmd.manifest)?;
-        let mut ir =
-            load_feature_manifest(files, path, cmd.load_from_ir, Some(&cmd.channel), false)?;
-
-        // We do a dance here to make sure that we can override class names and package names during tests,
-        // and while we still have to support setting those options from the command line.
-        // We will deprecate setting classnames, package names etc, then we can simplify.
-        let from_file = ir.about;
-        let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
-        let swift_about = from_cli.swift_about.or(from_file.swift_about);
-        let about = AboutBlock {
-            kotlin_about,
-            swift_about,
-            ..Default::default()
-        };
-        ir.about = about;
-
-        generate_struct_from_ir(&ir, cmd)
-    }
-
-    // Given a manifest.fml and script.kts in the tests directory generate
-    // a manifest.kt and run the script against it.
-    #[allow(dead_code)]
-    pub(crate) fn generate_and_assert_with_config(
-        test_script: &str,
-        manifest: &str,
-        channel: &str,
-        is_ir: bool,
-        config_about: AboutBlock,
-    ) -> Result<()> {
-        let output = NamedTempFile::new()?;
-        let cmd = create_command_from_test(test_script, manifest, channel, is_ir, output.path())?;
-        generate_struct_cli_overrides(config_about, &cmd)?;
-        run_script_with_generated_code(
-            &cmd.language,
-            &[cmd.output.as_path().display().to_string()],
-            test_script,
-        )?;
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn create_command_from_test(
-        test_script: &str,
-        manifest: &str,
-        channel: &str,
-        is_ir: bool,
-        output: &Path,
-    ) -> Result<GenerateStructCmd, crate::error::FMLError> {
-        let test_script = join(pkg_dir(), test_script);
-        let pbuf = PathBuf::from(&test_script);
-        let ext = pbuf
-            .extension()
-            .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
-        let language: TargetLanguage = ext.try_into()?;
-        let manifest_fml = join(pkg_dir(), manifest);
-        let loader = Default::default();
-        Ok(GenerateStructCmd {
-            manifest: manifest_fml,
-            output: output.into(),
-            load_from_ir: is_ir,
-            language,
-            channel: channel.into(),
-            loader,
-        })
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn generate_multiple_and_assert(
-        test_script: &str,
-        manifests: &[(&str, &str)],
-    ) -> Result<()> {
-        let cmds = manifests
-            .iter()
-            .map(|(manifest, channel)| {
-                let output = NamedTempFile::new()?;
-                let cmd =
-                    create_command_from_test(test_script, manifest, channel, false, output.path())?;
-                generate_struct(&cmd)?;
-                Ok(cmd)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let first = cmds
-            .first()
-            .expect("At least one manifests are always used");
-        let language = &first.language;
-
-        let manifests_out = cmds
-            .iter()
-            .map(|cmd| cmd.output.display().to_string())
-            .collect::<Vec<_>>();
-
-        run_script_with_generated_code(language, &manifests_out, test_script)?;
-        Ok(())
-    }
-
-    fn run_script_with_generated_code(
-        language: &TargetLanguage,
-        #[allow(unused_variables)] manifests_out: &[String],
-        #[allow(unused_variables)] test_script: &str,
-    ) -> Result<()> {
-        match language {
-            #[cfg(all(feature = "kotlin-tests", not(feature = "all-features-workaround")))]
-            TargetLanguage::Kotlin => {
-                backends::kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
-            }
-
-            #[cfg(all(feature = "swift-tests", not(feature = "all-features-workaround")))]
-            TargetLanguage::Swift => backends::swift::test::run_script_with_generated_code(
-                manifests_out,
-                test_script.as_ref(),
-            )?,
-
-            _ => unimplemented!(),
-        }
-
-        #[allow(unreachable_code)]
-        Ok(())
-    }
 
     #[test]
     fn test_importing_simple_experimenter_manifest() -> Result<()> {
@@ -799,7 +623,6 @@ mod test {
             manifest,
             output: output.path().into(),
             language: TargetLanguage::ExperimenterYAML,
-            load_from_ir: false,
             channel: "app-debug".to_string(),
             loader: Default::default(),
         };
@@ -830,16 +653,14 @@ mod test {
     fn lint_cmd(path: &str) -> LintCmd {
         LintCmd {
             manifest: join(pkg_dir(), path),
-            loader: Default::default(),
-            deny: Default::default(),
-            as_json: false,
+            ..Default::default()
         }
     }
 
     /// The lints a fixture trips, sorted and deduplicated.
     fn lints_for(path: &str) -> Result<Vec<&'static str>> {
         let report = lint_report(&lint_cmd(path))?;
-        let mut lints: Vec<_> = report.findings.iter().map(|f| f.lint).collect();
+        let mut lints: Vec<_> = report.issues.iter().map(|f| f.lint).collect();
         lints.sort_unstable();
         lints.dedup();
         Ok(lints)
@@ -879,7 +700,7 @@ mod test {
     fn test_lint_command_reports_unknown_names_at_both_levels() -> Result<()> {
         let report = lint_report(&lint_cmd("fixtures/fe/lints/suppressions.fml.yaml"))?;
         let unknown: Vec<_> = report
-            .findings
+            .issues
             .iter()
             .filter(|f| f.lint == "UNKNOWN_LINT")
             .map(|f| (f.subject.as_str(), f.message.as_str()))
@@ -895,46 +716,33 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_lint_command_allow_and_deny() -> Result<()> {
-        let path = "fixtures/fe/lints/needs-work.fml.yaml";
-
-        let mut cmd = lint_cmd(path);
-        assert!(lint(&cmd).is_err());
-
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
-        assert!(lint(&cmd).is_err());
-
-        Ok(())
-    }
-
     /// Render a report the way `lint` does, minus the colour.
     fn rendered(report: &LintReport) -> Result<String> {
         let mut buffer = termcolor::Buffer::no_color();
-        output_findings(&mut buffer, report)?;
+        output_issues(&mut buffer, report)?;
         output_lint_summary(&mut buffer, report)?;
         Ok(String::from_utf8(buffer.into_inner()).expect("output is UTF-8"))
     }
 
     #[test]
-    fn test_every_finding_says_what_it_is_about() -> Result<()> {
-        // Findings are grouped by feature, so two of the same lint in one feature
+    fn test_every_issue_says_what_it_is_about() -> Result<()> {
+        // Issues are grouped by feature, so two of the same lint in one feature
         // are only distinguishable by their messages.
         let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         let report = lint_report(&cmd)?;
         let output = rendered(&report)?;
 
-        let findings: Vec<_> = output
+        let issues: Vec<_> = output
             .lines()
             .filter(|l| l.trim_start().starts_with(['⚠', '❎']))
             .collect();
-        assert_eq!(findings.len(), report.findings.len());
+        assert_eq!(issues.len(), report.issues.len());
 
-        let distinct: HashSet<_> = findings.iter().collect();
+        let distinct: HashSet<_> = issues.iter().collect();
         assert_eq!(
             distinct.len(),
-            findings.len(),
-            "two findings render identically:\n{output}"
+            issues.len(),
+            "two issues render identically:\n{output}"
         );
 
         Ok(())
@@ -981,36 +789,47 @@ mod test {
 
     #[test]
     fn test_summary_counts_what_was_found() -> Result<()> {
-        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+        let cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
         let report = lint_report(&cmd)?;
 
-        let expected = format!(
-            "Found 1 error and {} warnings in 3 places.",
-            report.warning_count()
-        );
-        assert!(rendered(&report)?.contains(&expected), "{expected}");
+        let expected = "Found 12 error(s) in 3 location(s).";
+
+        println!("{}", rendered(&report)?);
+        assert!(rendered(&report)?.contains(expected), "{expected}");
 
         let clean = lint_report(&lint_cmd("fixtures/fe/lints/well-formed.fml.yaml"))?;
-        assert!(rendered(&clean)?.contains("No lint findings"));
+        assert!(rendered(&clean)?.contains("No issues"));
 
         Ok(())
     }
 
     #[test]
-    fn test_lint_command_json_carries_the_counts() -> Result<()> {
-        let mut cmd = lint_cmd("fixtures/fe/lints/needs-work.fml.yaml");
-        cmd.deny = vec!["TRIVIAL_ENUM".to_string()];
+    fn test_lint_command_code_review_json() -> Result<()> {
+        const PATH: &str = "fixtures/fe/lints/needs-work.fml.yaml";
+
+        let cmd = lint_cmd(PATH);
         let report = lint_report(&cmd)?;
 
-        let json = json_report(&report);
-        assert_eq!(json["errors"], 1);
-        assert_eq!(json["warnings"], report.warning_count());
-        assert_eq!(json["suppressed"], 0);
-        assert_eq!(json["subjects"], 3);
+        let json = generate_code_review_json(PATH, &report);
+
+        assert!(json.is_object());
+        assert!(json[PATH].is_array());
+
+        let entries = json[PATH].as_array().unwrap();
+
+        assert_eq!(entries.len(), 1);
+
+        let entry = &entries[0];
+
+        assert_eq!(entry["path"], PATH);
+        assert_eq!(entry["line"], serde_json::Value::Null);
+        assert_eq!(entry["column"], serde_json::Value::Null);
+        assert_eq!(entry["level"], "error");
         assert_eq!(
-            json["findings"].as_array().unwrap().len(),
-            report.findings.len()
+            entry["message"],
+            format!(
+                "There are 12 error(s) in this Feature Manifest. Check the task for the full list or run:\n\n./mach android nimbus-cli fml lint {PATH}"
+            )
         );
 
         Ok(())
@@ -1022,7 +841,7 @@ mod test {
 
         let cmd = lint_cmd(path);
         let report = lint_report(&cmd)?;
-        assert!(report.findings.iter().any(|f| f.module.is_some()));
+        assert!(report.issues.iter().any(|f| f.module.is_some()));
 
         Ok(())
     }
@@ -1042,7 +861,6 @@ mod test {
                 .find(|l| l.starts_with(lint.name))
                 .unwrap_or_else(|| panic!("{} should be listed:\n{output}", lint.name));
             assert!(row.contains(lint.category.as_str()), "{row}");
-            assert!(row.contains(lint.default_level.as_str()), "{row}");
             assert!(row.contains(lint.description), "{row}");
         }
 
@@ -1063,7 +881,7 @@ mod test {
             }
 
             let cmd = lint_cmd(&format!("fixtures/fe/lints/{name}"));
-            fired.extend(lint_report(&cmd)?.findings.iter().map(|f| f.lint));
+            fired.extend(lint_report(&cmd)?.issues.iter().map(|f| f.lint));
         }
 
         let missing: Vec<_> = lints::ALL_LINTS
@@ -1118,13 +936,10 @@ mod test {
         output: &Path,
     ) -> Result<GenerateExperimenterManifestCmd> {
         let manifest = join(pkg_dir(), path);
-        let load_from_ir = manifest.ends_with(".ir.json");
         let loader = Default::default();
         Ok(GenerateExperimenterManifestCmd {
             manifest,
             output: output.into(),
-            language: TargetLanguage::ExperimenterYAML,
-            load_from_ir,
             loader,
         })
     }
@@ -1136,7 +951,7 @@ mod test {
         // Load the source file, and get the default_json()
         let files: FileLoader = TryFrom::try_from(&loader)?;
         let src = files.file_path(&manifest)?;
-        let fm = load_feature_manifest(files, src, false, Some(channel), false)?;
+        let fm = load_feature_manifest(files, src, Some(channel), false)?;
         let expected = fm.default_json();
 
         let output = NamedTempFile::new()?;
@@ -1153,7 +968,7 @@ mod test {
         // Reload the generated file, and get the default_json()
         let dest = FilePath::Local(output.path().into());
         let files: FileLoader = TryFrom::try_from(&loader)?;
-        let fm = load_feature_manifest(files, dest, false, Some(channel), false)?;
+        let fm = load_feature_manifest(files, dest, Some(channel), false)?;
         let observed = fm.default_json();
 
         // They should be the same.
@@ -1194,7 +1009,7 @@ mod test_jsonschema {
     use jsonschema::JSONSchema;
     use tempfile::NamedTempFile;
 
-    use super::test::{create_experimenter_manifest_cmd, MANIFEST_PATHS};
+    use super::test::{MANIFEST_PATHS, create_experimenter_manifest_cmd};
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::util::{join, pkg_dir};
@@ -1240,13 +1055,162 @@ mod test_jsonschema {
 
 #[cfg(all(
     test,
+    any(feature = "kotlin-tests", feature = "swift-tests"),
+    not(feature = "all-features-workaround")
+))]
+mod test_common {
+    //! Utilities shared by the kotlin and swift test modules.
+
+    use std::path::PathBuf;
+
+    use anyhow::anyhow;
+    use tempfile::NamedTempFile;
+
+    use super::*;
+    use crate::frontend::AboutBlock;
+    use crate::util::{join, pkg_dir};
+
+    pub(crate) fn generate_and_assert(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+    ) -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = create_command_from_test(test_script, manifest, channel, output.path())?;
+        generate_struct(&cmd)?;
+        run_script_with_generated_code(
+            &cmd.language,
+            &[cmd.output.as_path().display().to_string()],
+            test_script,
+        )?;
+        Ok(())
+    }
+
+    fn generate_struct_cli_overrides(from_cli: AboutBlock, cmd: &GenerateStructCmd) -> Result<()> {
+        let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+        let path = files.file_path(&cmd.manifest)?;
+        let mut ir = load_feature_manifest(files, path, Some(&cmd.channel), false)?;
+
+        // We do a dance here to make sure that we can override class names and package names during tests,
+        // and while we still have to support setting those options from the command line.
+        // We will deprecate setting classnames, package names etc, then we can simplify.
+        let from_file = ir.about;
+        let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
+        let swift_about = from_cli.swift_about.or(from_file.swift_about);
+        let about = AboutBlock {
+            kotlin_about,
+            swift_about,
+            ..Default::default()
+        };
+        ir.about = about;
+
+        generate_struct_from_ir(&ir, cmd)
+    }
+
+    // Given a manifest.fml and script.kts in the tests directory generate
+    // a manifest.kt and run the script against it.
+    pub(crate) fn generate_and_assert_with_config(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+        config_about: AboutBlock,
+    ) -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = create_command_from_test(test_script, manifest, channel, output.path())?;
+        generate_struct_cli_overrides(config_about, &cmd)?;
+        run_script_with_generated_code(
+            &cmd.language,
+            &[cmd.output.as_path().display().to_string()],
+            test_script,
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn create_command_from_test(
+        test_script: &str,
+        manifest: &str,
+        channel: &str,
+        output: &Path,
+    ) -> Result<GenerateStructCmd, crate::error::FMLError> {
+        let test_script = join(pkg_dir(), test_script);
+        let pbuf = PathBuf::from(&test_script);
+        let ext = pbuf
+            .extension()
+            .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
+        let language: TargetLanguage = ext.try_into()?;
+        let manifest_fml = join(pkg_dir(), manifest);
+        let loader = Default::default();
+        Ok(GenerateStructCmd {
+            manifest: manifest_fml,
+            output: output.into(),
+            language,
+            channel: channel.into(),
+            loader,
+        })
+    }
+
+    pub(crate) fn generate_multiple_and_assert(
+        test_script: &str,
+        manifests: &[(&str, &str)],
+    ) -> Result<()> {
+        let cmds = manifests
+            .iter()
+            .map(|(manifest, channel)| {
+                let output = NamedTempFile::new()?;
+                let cmd = create_command_from_test(test_script, manifest, channel, output.path())?;
+                generate_struct(&cmd)?;
+                Ok(cmd)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let first = cmds
+            .first()
+            .expect("At least one manifests are always used");
+        let language = &first.language;
+
+        let manifests_out = cmds
+            .iter()
+            .map(|cmd| cmd.output.display().to_string())
+            .collect::<Vec<_>>();
+
+        run_script_with_generated_code(language, &manifests_out, test_script)?;
+        Ok(())
+    }
+
+    fn run_script_with_generated_code(
+        language: &TargetLanguage,
+        #[allow(unused_variables)] manifests_out: &[String],
+        #[allow(unused_variables)] test_script: &str,
+    ) -> Result<()> {
+        match language {
+            #[cfg(all(feature = "kotlin-tests", not(feature = "all-features-workaround")))]
+            TargetLanguage::Kotlin => {
+                backends::kotlin::test::run_script_with_generated_code(manifests_out, test_script)?
+            }
+
+            #[cfg(all(feature = "swift-tests", not(feature = "all-features-workaround")))]
+            TargetLanguage::Swift => backends::swift::test::run_script_with_generated_code(
+                manifests_out,
+                test_script.as_ref(),
+            )?,
+
+            _ => unimplemented!(),
+        }
+
+        #[allow(unreachable_code)]
+        Ok(())
+    }
+}
+
+#[cfg(all(
+    test,
     feature = "kotlin-tests",
     not(feature = "all-features-workaround")
 ))]
 mod kts_tests {
     use crate::frontend::{AboutBlock, KotlinAboutBlock};
 
-    use super::test::{
+    use super::test_common::{
         generate_and_assert, generate_and_assert_with_config, generate_multiple_and_assert,
     };
     use super::*;
@@ -1255,9 +1219,8 @@ mod kts_tests {
     fn test_simple_validation_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/simple_nimbus_validation.kts",
-            "fixtures/ir/simple_nimbus_validation.ir.json",
+            "fixtures/ir/simple_nimbus_validation.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1266,9 +1229,8 @@ mod kts_tests {
     fn test_with_objects_code_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.kts",
-            "fixtures/ir/with_objects.ir.json",
+            "fixtures/ir/with_objects.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1277,9 +1239,8 @@ mod kts_tests {
     fn test_with_full_homescreen_from_ir() -> Result<()> {
         generate_and_assert(
             "test/full_homescreen.kts",
-            "fixtures/ir/full_homescreen.ir.json",
+            "fixtures/ir/full_homescreen.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1290,7 +1251,6 @@ mod kts_tests {
             "test/fenix_release.kts",
             "fixtures/fe/browser.yaml",
             "release",
-            false,
             AboutBlock {
                 kotlin_about: Some(KotlinAboutBlock {
                     package: "com.example.app".to_string(),
@@ -1309,7 +1269,6 @@ mod kts_tests {
             "test/fenix_nightly.kts",
             "fixtures/fe/browser.yaml",
             "nightly",
-            false,
             AboutBlock {
                 kotlin_about: Some(KotlinAboutBlock {
                     package: "com.example.app".to_string(),
@@ -1328,7 +1287,6 @@ mod kts_tests {
             "test/fenix_nightly.kts",
             "fixtures/fe/browser-with-prefs.yaml",
             "nightly",
-            false,
             AboutBlock {
                 kotlin_about: Some(KotlinAboutBlock {
                     package: "com.example.app".to_string(),
@@ -1347,7 +1305,6 @@ mod kts_tests {
             "test/dx_improvements_testing.kts",
             "fixtures/fe/dx_improvements.yaml",
             "testing",
-            false,
         )?;
         Ok(())
     }
@@ -1356,9 +1313,8 @@ mod kts_tests {
     fn test_with_app_menu_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.kts",
-            "fixtures/ir/app_menu.ir.json",
+            "fixtures/ir/app_menu.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1369,7 +1325,6 @@ mod kts_tests {
             "test/bundled_resources.kts",
             "fixtures/fe/bundled_resouces.yaml",
             "testing",
-            false,
         )?;
         Ok(())
     }
@@ -1487,7 +1442,6 @@ mod kts_tests {
             "test/threadsafe_feature_holder.kts",
             "fixtures/fe/browser.yaml",
             "release",
-            false,
         )?;
         Ok(())
     }
@@ -1520,16 +1474,15 @@ mod kts_tests {
     not(feature = "all-features-workaround")
 ))]
 mod swift_tests {
-    use super::test::{generate_and_assert, generate_multiple_and_assert};
+    use super::test_common::{generate_and_assert, generate_multiple_and_assert};
     use super::*;
 
     #[test]
     fn test_with_app_menu_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/app_menu.swift",
-            "fixtures/ir/app_menu.ir.json",
+            "fixtures/ir/app_menu.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1538,9 +1491,8 @@ mod swift_tests {
     fn test_with_objects_swift_from_ir() -> Result<()> {
         generate_and_assert(
             "test/with_objects.swift",
-            "fixtures/ir/with_objects.ir.json",
+            "fixtures/ir/with_objects.fml.yaml",
             "release",
-            true,
         )?;
         Ok(())
     }
@@ -1551,7 +1503,6 @@ mod swift_tests {
             "test/bundled_resources.swift",
             "fixtures/fe/bundled_resouces.yaml",
             "testing",
-            false,
         )?;
         Ok(())
     }
@@ -1562,7 +1513,6 @@ mod swift_tests {
             "test/fenix_release.swift",
             "fixtures/fe/browser.yaml",
             "release",
-            false,
         )?;
         Ok(())
     }
@@ -1573,7 +1523,6 @@ mod swift_tests {
             "test/fenix_nightly.swift",
             "fixtures/fe/browser.yaml",
             "nightly",
-            false,
         )?;
         Ok(())
     }
@@ -1584,7 +1533,6 @@ mod swift_tests {
             "test/firefox_ios_release.swift",
             "fixtures/fe/including/ios.yaml",
             "release",
-            false,
         )?;
         Ok(())
     }
@@ -1651,7 +1599,6 @@ mod swift_tests {
             "test/threadsafe_feature_holder.swift",
             "fixtures/fe/browser.yaml",
             "release",
-            false,
         )?;
         Ok(())
     }

@@ -41,10 +41,11 @@ pub struct AdsStoreBuilder {
 }
 
 impl AdsStoreBuilder {
-    // `db_path`: location of sqlite file for file-based db. If `None`, the db will be created in-memory.
-    pub fn new(db_path: Option<impl Into<PathBuf>>) -> Self {
+    /// Create a new AdsStoreBuilder. Concludes with 'build': `AdsStoreBuilder::new().build()`
+    /// This defaults to an in-memory database, unless `.db_path("some_path.db")` is chained.
+    pub fn new() -> Self {
         Self {
-            db_path: db_path.map(Into::into),
+            db_path: None,
             max_size: None,
         }
     }
@@ -59,6 +60,12 @@ impl AdsStoreBuilder {
         let holder = AdsStoreHolder::new(db);
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         Ok(AdsStore { holder, max_size })
+    }
+
+    // `db_path`: location of sqlite file for file-based db. If `db_path()` is not called, the db will be created in-memory.
+    pub fn db_path(mut self, db_path: impl Into<PathBuf>) -> Self {
+        self.db_path = Some(db_path.into());
+        self
     }
 
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
@@ -115,7 +122,7 @@ mod tests {
     use super::*;
 
     fn make_test_builder(path: &str) -> AdsStoreBuilder {
-        AdsStoreBuilder::new(Some(path))
+        AdsStoreBuilder::new().db_path(path)
     }
 
     #[test]

@@ -1,15 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.build = [
-        // These must be kept in sync with the android components in mozilla-central.
-        compileSdkMajorVersion: 36,
-        compileSdkMinorVersion: 1,
-        targetSdkVersion: 36,
-        minSdkVersion: 26,
-        jvmTargetCompatibility: 17,
-    ]
-
     repositories {
         mavenCentral()
         google()
@@ -78,7 +69,7 @@ allprojects {
 }
 
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
 
 // Avoid Gradle namespace collision.  This is here, rather than in `buildscript
@@ -120,9 +111,7 @@ ext.rustTargets += ext.nativeRustTarget
 
 subprojects {
     group = "org.mozilla.appservices"
-    if (!gradle.hasProperty("mozconfig")) {
-        apply plugin: 'maven-publish'
-    }
+    apply plugin: 'maven-publish'
     tasks.withType(AbstractTestTask).configureEach {
         failOnNoDiscoveredTests = false
     }
@@ -133,6 +122,7 @@ subprojects {
     afterEvaluate{
         if (it.hasProperty('android')) {
             android {
+                buildToolsVersion = rootProject.config.buildToolsVersion
                 compileOptions {
                     sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
                     targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
@@ -144,7 +134,7 @@ subprojects {
                 }
             }
         }
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
             compilerOptions.allWarningsAsErrors = true
             compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("${rootProject.config.jvmTargetCompatibility}")
         }
@@ -156,11 +146,11 @@ subprojects {
         repositories {
             maven {
                 name = "rootProjectBuildDir"
-                url = "file://${project.rootProject.buildDir}/maven"
+                url = rootProject.layout.buildDirectory.dir("maven")
             }
             maven {
                 name = "projectBuildDir"
-                url = "file://${project.buildDir}/maven"
+                url = layout.buildDirectory.dir("maven")
             }
         }
     }
@@ -178,20 +168,12 @@ ext.cargoExec = { spec, toolchain ->
 }
 
 detekt {
-    input = files(
-        fileTree(dir: "${projectDir}/components", excludes: ["external", "**/generated", "**/templates"]),
-        "${projectDir}/gradle-plugin",
-        "buildSrc"
-    )
+    source.setFrom(fileTree(dir: "${projectDir}/components", excludes: ["external", "**/build", "**/generated", "**/templates"]))
     buildUponDefaultConfig = true
-    config = files("${projectDir}/.detekt.yml")
+    config.setFrom(files("${projectDir}/.detekt.yml"))
     reports {
-        xml.enabled = false
+        xml.required = false
     }
-}
-
-tasks.withType(io.gitlab.arturbosch.detekt.Detekt) {
-    exclude(".*test.*,.*/resources/.*,.*/tmp/.*,.*/build/.*")
 }
 
 configurations {
@@ -212,7 +194,7 @@ tasks.register("ktlint", JavaExec) {
     description = "Check Kotlin code style."
     classpath = configurations.ktlint
     mainClass = "com.pinterest.ktlint.Main"
-    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
+    args "${projectDir}/components/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
 }
 
 tasks.register("ktlintFormat", JavaExec) {
@@ -220,7 +202,7 @@ tasks.register("ktlintFormat", JavaExec) {
     description = "Fix Kotlin code style deviations."
     classpath = configurations.ktlint
     mainClass = "com.pinterest.ktlint.Main"
-    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
+    args "-F", "${projectDir}/components/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
     // Fix for newer Java from https://github.com/pinterest/ktlint/issues/1195#issuecomment-1009027802
     jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
 }

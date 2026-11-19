@@ -1,6 +1,6 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::BTreeMap;
 
@@ -104,6 +104,7 @@ impl From<ObjectDef> for ObjectBody {
         Self {
             description: value.doc,
             fields,
+            no_lint: value.no_lint.clone(),
         }
     }
 }
@@ -117,6 +118,7 @@ impl From<EnumDef> for EnumBody {
         Self {
             description: value.doc,
             variants,
+            no_lint: vec![],
         }
     }
 }
@@ -142,7 +144,6 @@ impl From<PropDef> for FieldBody {
 impl From<PropDef> for FeatureFieldBody {
     fn from(value: PropDef) -> Self {
         Self {
-            pref_key: value.pref_key.clone(),
             gecko_pref: value.gecko_pref.clone(),
             string_alias: value.string_alias.as_ref().map(TypeRef::to_string),
             field: value.into(),

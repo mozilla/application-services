@@ -1,6 +1,14 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+
+use anyhow::{Error, Result as AnyhowResult, bail};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+
 use crate::defaults::{DefaultsHasher, DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
@@ -9,19 +17,12 @@ use crate::frontend::{
 };
 use crate::schema::{SchemaHasher, SchemaValidator, TypeQuery};
 use crate::util::loaders::FilePath;
-use anyhow::{bail, Error, Result as AnyhowResult};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum TargetLanguage {
     Kotlin,
     Swift,
-    IR,
     ExperimenterYAML,
-    ExperimenterJSON,
 }
 
 impl TargetLanguage {
@@ -29,17 +30,7 @@ impl TargetLanguage {
         match self {
             TargetLanguage::Kotlin => "kt",
             TargetLanguage::Swift => "swift",
-            TargetLanguage::IR => "ir.json",
-            TargetLanguage::ExperimenterJSON => "json",
             TargetLanguage::ExperimenterYAML => "yaml",
-        }
-    }
-
-    pub fn from_extension(path: &str) -> AnyhowResult<TargetLanguage> {
-        if let Some((_, extension)) = path.rsplit_once('.') {
-            extension.try_into()
-        } else {
-            bail!("Unknown or unsupported target language: \"{}\"", path)
         }
     }
 }
@@ -50,9 +41,7 @@ impl TryFrom<&str> for TargetLanguage {
         Ok(match value.to_ascii_lowercase().as_str() {
             "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
             "swift" => TargetLanguage::Swift,
-            "ir.json" => TargetLanguage::IR,
             "yaml" => TargetLanguage::ExperimenterYAML,
-            "json" => TargetLanguage::ExperimenterJSON,
             _ => bail!("Unknown or unsupported target language: \"{}\"", value),
         })
     }
@@ -117,18 +106,6 @@ impl Display for TypeRef {
 }
 
 impl TypeRef {
-    pub(crate) fn supports_prefs(&self) -> bool {
-        match self {
-            Self::Boolean | Self::String | Self::Int | Self::StringAlias(_) | Self::BundleText => {
-                true
-            }
-            // There may be a chance that we can get Self::Option to work, but not at this time.
-            // This may be done by adding a branch to this match and adding a `preference_getter` to
-            // the `OptionalCodeType`.
-            _ => false,
-        }
-    }
-
     pub(crate) fn supports_gecko_prefs(&self, lax_pref_validation: bool) -> bool {
         match self {
             Self::Option(boxed) => matches!(**boxed, Self::Boolean | Self::Int | Self::String),
@@ -300,8 +277,8 @@ impl FeatureManifest {
                 "about".to_string(),
                 format!(
                     "Manifest file {file} is unable to generate {lang} files",
-                    file = &self.id,
-                    lang = &lang.extension(),
+                    file = self.id,
+                    lang = lang.extension(),
                 ),
             ));
         }
@@ -589,10 +566,6 @@ impl FeatureDef {
         Value::Object(props)
     }
 
-    pub fn has_prefs(&self) -> bool {
-        self.props.iter().any(|p| p.has_prefs())
-    }
-
     pub fn has_gecko_prefs(&self) -> bool {
         self.props.iter().any(|p| p.has_gecko_prefs())
     }
@@ -621,7 +594,7 @@ impl FeatureDef {
             .map(|(p, n)| (p, (n, self.name())))
             .rfold(Vec::new(), |mut acc: Vec<(String, Vec<(String, &GeckoPrefDef)>)>, (pref, (prop, feature)): (Option<&GeckoPrefDef>, (String, String))| {
                 match acc.iter_mut().find(|p| p.0 == feature) {
-                    Some((_, ref mut props)) => {
+                    Some((_, props)) => {
                         props.push((prop, pref.unwrap()));
                     }
                     None => {
@@ -647,6 +620,7 @@ pub struct EnumDef {
     pub name: String,
     pub doc: String,
     pub variants: Vec<VariantDef>,
+    pub no_lint: Vec<String>,
 }
 
 impl EnumDef {
@@ -692,6 +666,7 @@ pub struct ObjectDef {
     pub(crate) name: String,
     pub(crate) doc: String,
     pub(crate) props: Vec<PropDef>,
+    pub(crate) no_lint: Vec<String>,
 }
 
 impl ObjectDef {
@@ -761,9 +736,6 @@ pub struct PropDef {
     pub(crate) default: Literal,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) pref_key: Option<String>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) gecko_pref: Option<GeckoPrefDef>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -783,14 +755,8 @@ impl PropDef {
     pub fn default(&self) -> Literal {
         self.default.clone()
     }
-    pub fn has_prefs(&self) -> bool {
-        self.pref_key.is_some() && self.typ.supports_prefs()
-    }
     pub fn has_gecko_prefs(&self) -> bool {
         self.gecko_pref.is_some() && self.typ.supports_gecko_prefs(false)
-    }
-    pub fn pref_key(&self) -> Option<String> {
-        self.pref_key.clone()
     }
     pub fn gecko_pref(&self) -> Option<GeckoPrefDef> {
         self.gecko_pref.clone()

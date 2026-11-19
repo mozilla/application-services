@@ -1,17 +1,48 @@
-# v162.0 (In progress)
+# v163.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v162.0 (_2026-11-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
+
+### Nimbus
+
+- Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- Support for Experimenter JSON files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
+- `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
+parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
+
+## ⚠️ Breaking Changes ⚠️
+
+### Firefox Accounts
+- Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
+  Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
 
 ## ✨ What's Changed ✨
 
 ### Android
 
 - Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
 
 ### Ads-Client
 
 - OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
 - The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
+
+### Autofill
+
+- New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
+
+### Firefox Accounts
+- `CheckAuthorizationStatus` is now ignored from the `AuthIssues` state
+  ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
+- `CheckAuthorizationStatus` now checks for missing scoped keys
+  ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
 
 ### Merino
 
@@ -20,19 +51,31 @@
 ### Nimbus
 
 - Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+- Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
 
 ### Remote Settings
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+- New `glean-sym` feature: uptake telemetry is recorded directly from Rust with the application's Glean SDK. With this feature enabled, `RemoteSettingsTelemetry` implementations are ignored and applications can remove them.
 
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
 
 ## ⚠️ Breaking Changes ⚠️
+
+### Containers
+
+- **BREAKING**: `set_site_association()` takes an `include_subdomains` argument, and `SiteAssociation` reports it. No consumer uses the component yet. The new `lookup_site_association()` also matches a host against the parent domains that include their subdomains.
+- The stored document moves to version 9. Existing associations keep matching their host only.
 
 ### Nimbus
 
 - FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
 - Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
 - `nimbus-fml lint` now always exits with a non-zero status code if un-suppressed lints are repoted. ([#7735](https://github.com/mozilla/application-services/pull/7735))
+- `nimbus-fml lint` no longer distinguishes between errors and warnings during linting. ([#7734](https://github.com/mozilla/application-services/pull/7734))
+- The `pref-key` annotation for FML feature variables has been removed. ([#7753](https://github.com/mozilla/application-services/pull/7753/))
 
 # v161.0 (_2026-11-05_)
 
