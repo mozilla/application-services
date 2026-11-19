@@ -38,6 +38,12 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 - New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
 
+### Firefox Accounts
+- `CheckAuthorizationStatus` is now ignored from the `AuthIssues` state
+  ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
+- `CheckAuthorizationStatus` now checks for missing scoped keys
+  ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
+
 ### Merino
 
 - Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
