@@ -1,6 +1,10 @@
-# v162.0 (In progress)
+# v163.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v162.0 (_2026-11-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
 
 ### Nimbus
 
