@@ -40,6 +40,10 @@ pub(crate) struct AdsClientBuilder {
 }
 
 impl AdsClientBuilder {
+    /// # Telemetry
+    ///
+    /// Records each invalid setting, and each database that fails to open, in
+    /// `ads_client.build_cache_error`.
     pub(crate) fn build(&self) -> AdsClient {
         let (db_path, default_ttl, max_size) = self.http_cache_settings();
         let http_cache = HttpCache::new(db_path, default_ttl, max_size)
@@ -94,6 +98,9 @@ impl AdsClientBuilder {
         self
     }
 
+    /// # Telemetry
+    ///
+    /// Records a blank path in `ads_client.build_cache_error`.
     #[cfg(feature = "stateful")]
     fn ads_store_db_path(&self) -> String {
         match &self.store_db_path {
@@ -106,6 +113,9 @@ impl AdsClientBuilder {
         }
     }
 
+    /// # Telemetry
+    ///
+    /// Records each invalid setting in `ads_client.build_cache_error`.
     fn http_cache_settings(&self) -> (String, Duration, ByteSize) {
         let db_path = match &self.cache_db_path {
             Some(db_path) if !db_path.trim().is_empty() => db_path.clone(),

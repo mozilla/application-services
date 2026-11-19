@@ -34,6 +34,12 @@ pub struct AdsStore {
 
 impl AdsStore {
     /// Falls back to a memory db if `db_path` cannot be opened.
+    ///
+    /// # Telemetry
+    ///
+    /// Records the failure to open `db_path` in `ads_client.build_cache_error`.
+    /// If the memory db fails to open too, that error is returned for the
+    /// caller to record.
     pub fn new<P: AsRef<Path>>(db_path: P, max_size: ByteSize) -> Result<Self, AdsStoreError> {
         Ok(Self {
             holder: AdsStoreHolder::new(open_db(db_path.as_ref())?),
