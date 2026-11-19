@@ -5,7 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use clap::{Parser, Subcommand};
-use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, CREDENTIALS_FILENAME, SYNC_SCOPE};
 use interrupt_support::Interruptee;
 use places::storage::bookmarks::{
     json_tree::{
@@ -363,7 +363,7 @@ enum Command {
         engines: Vec<String>,
 
         /// Path to store our cached fxa credentials.
-        #[arg(name = "credentials", long, default_value = "./credentials.json")]
+        #[arg(name = "credentials", long, default_value = CREDENTIALS_FILENAME)]
         credential_file: String,
 
         /// Wipe ALL storage from the server before syncing.
