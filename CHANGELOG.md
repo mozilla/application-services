@@ -1,6 +1,15 @@
-# v162.0 (In progress)
+# v163.0 (In progress)
 
 [Full Changelog](In progress)
+
+### Filter Adult
+
+- `import-site-list` now builds `adult_set.bin` from a text file with one base
+  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+
+# v162.0 (_2026-11-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
 
 ### Nimbus
 
@@ -34,10 +43,11 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 - New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
 
-### Filter Adult
-
-- `import-site-list` now builds `adult_set.bin` from a text file with one base
-  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+### Firefox Accounts
+- `CheckAuthorizationStatus` is now ignored from the `AuthIssues` state
+  ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
+- `CheckAuthorizationStatus` now checks for missing scoped keys
+  ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
 
 ### Merino
 
