@@ -61,6 +61,7 @@ impl DatabaseCache {
         coenrolling_ids: &HashSet<&str>,
         gecko_pref_store: Option<Arc<GeckoPrefStore>>,
         update_gecko_prefs: bool,
+        language: Option<&str>,
     ) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
@@ -79,7 +80,7 @@ impl DatabaseCache {
         }
 
         let features_by_feature_id =
-            map_features_by_feature_id(&enrollments, &experiments, coenrolling_ids);
+            map_features_by_feature_id(&enrollments, &experiments, coenrolling_ids, language);
 
         let gecko_pref_to_enrollment_slugs = gecko_pref_store.map(|store| {
             store.map_gecko_prefs_to_enrollment_slugs_and_update_store(

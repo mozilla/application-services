@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 use crate::defaults::Defaults;
 use crate::enrollment::{
-    EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-    ExperimentEnrollment, PreviousGeckoPrefState,
+    DisqualifiedReason, EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentsEvolver, ExperimentEnrollment, PreviousGeckoPrefState,
 };
 use crate::error::{BehaviorError, info, warn};
 use crate::evaluator::{
@@ -232,6 +232,7 @@ impl NimbusClient {
             &coenrolling_ids,
             self.gecko_prefs.clone(),
             true,
+            state.targeting_attributes.language.as_deref(),
         )?;
         Ok(())
     }
@@ -361,9 +362,16 @@ impl NimbusClient {
         experiment_slug: String,
         branch: String,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
+        let language = self.get_targeting_attributes().language;
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_in_with_branch(db, &mut writer, &experiment_slug, &branch)?;
+        let result = opt_in_with_branch(
+            db,
+            &mut writer,
+            &experiment_slug,
+            &branch,
+            language.as_deref(),
+        )?;
         let mut state = self.mutable_state.lock().unwrap();
         self.end_initialize(db, writer, &mut state)?;
         Ok(result)
@@ -874,6 +882,7 @@ impl NimbusClient {
             .iter()
             .map(|s| s.as_str())
             .collect();
+        let language = self.get_targeting_attributes().language;
 
         // Registering the Gecko original values does not require a Gecko update,
         // but the cache does need to be refreshed.
@@ -883,6 +892,7 @@ impl NimbusClient {
             &coenrolling_ids,
             self.gecko_prefs.clone(),
             false,
+            language.as_deref(),
         )?;
 
         Ok(())
@@ -1012,7 +1022,24 @@ impl NimbusClient {
                 .get_enrollments()?
                 .into_iter()
                 .filter_map(|e| match experiments.contains(&*e.slug) {
-                    true => Some(e.into()),
+                    true => {
+                        let is_l10n = matches!(
+                            &e.status,
+                            EnrollmentStatus::Disqualified {
+                                reason: DisqualifiedReason::L10nMissingLanguage
+                                    | DisqualifiedReason::L10nMissingEntry
+                                    | DisqualifiedReason::L10nNoClientLanguage,
+                                ..
+                            }
+                        );
+
+                        let mut status: EnrollmentStatusExtraDef = e.into();
+                        if is_l10n && let Some(language) = targeting_helper.language() {
+                            status.language = Some(language.into());
+                        }
+
+                        Some(status)
+                    }
                     false => None,
                 })
                 .collect(),
@@ -1043,9 +1070,11 @@ impl NimbusClient {
             .database_cache
             .check_for_feature_conflict(slug, &self.coenrolling_feature_ids)?;
 
+        let language = self.get_targeting_attributes().language;
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = enroll_in_firefox_lab(db, &mut writer, slug, feature_conflict);
+        let result =
+            enroll_in_firefox_lab(db, &mut writer, slug, feature_conflict, language.as_deref());
         let mut state = self.mutable_state.lock().unwrap();
         self.end_initialize(db, writer, &mut state)?;
         result

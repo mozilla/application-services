@@ -77,6 +77,13 @@ pub enum NotEnrolledReason {
     #[cfg(feature = "stateful")]
     FirefoxLabs,
 
+    /// The client's language is missing from the experiment's localizations.
+    L10nMissingLanguage,
+    /// A required translation is missing for the client's language.
+    L10nMissingEntry,
+    /// The experiment is localized but the client did not provide a language.
+    L10nNoClientLanguage,
+
     /// This state represents several cases:
     ///
     /// - this is an experiment and the user globally opted out of experiments
@@ -108,6 +115,9 @@ impl Display for NotEnrolledReason {
                 NotEnrolledReason::NotTargeted => "NotTargeted",
                 NotEnrolledReason::ExperimentsOptOut => "ExperimentsOptOut",
                 NotEnrolledReason::RolloutsOptOut => "RolloutsOptOut",
+                NotEnrolledReason::L10nMissingLanguage => "L10nMissingLanguage",
+                NotEnrolledReason::L10nMissingEntry => "L10nMissingEntry",
+                NotEnrolledReason::L10nNoClientLanguage => "L10nNoClientLanguage",
                 #[cfg(feature = "stateful")]
                 NotEnrolledReason::FirefoxLabs => "FirefoxLabs",
                 NotEnrolledReason::OptOut => "OptOut",
@@ -150,6 +160,12 @@ pub enum DisqualifiedReason {
     NotTargeted,
     /// The bucketing has changed for an experiment.
     NotSelected,
+    /// The client's language is missing from the experiment's localizations.
+    L10nMissingLanguage,
+    /// A required translation is missing for the client's language.
+    L10nMissingEntry,
+    /// The experiment is localized but the client did not provide a language.
+    L10nNoClientLanguage,
     /// A pref used in the experiment was set by the user.
     #[cfg(feature = "stateful")]
     PrefUnenrollReason {
@@ -169,6 +185,9 @@ impl Display for DisqualifiedReason {
                 DisqualifiedReason::RolloutsOptOut => "ExperimentsOptOut",
                 DisqualifiedReason::NotSelected => "NotSelected",
                 DisqualifiedReason::NotTargeted => "NotTargeted",
+                DisqualifiedReason::L10nMissingLanguage => "L10nMissingLanguage",
+                DisqualifiedReason::L10nMissingEntry => "L10nMissingEntry",
+                DisqualifiedReason::L10nNoClientLanguage => "L10nNoClientLanguage",
                 #[cfg(feature = "stateful")]
                 DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
                     PrefUnenrollReason::Changed => "PrefChanged",
@@ -192,6 +211,9 @@ impl DisqualifiedReason {
             DisqualifiedReason::ExperimentsOptOut => "experiments-opt-out",
             DisqualifiedReason::RolloutsOptOut => "rollouts-opt-out",
             DisqualifiedReason::Error => "error",
+            DisqualifiedReason::L10nMissingLanguage => "l10n-missing-language",
+            DisqualifiedReason::L10nMissingEntry => "l10n-missing-entry",
+            DisqualifiedReason::L10nNoClientLanguage => "l10n-no-client-language",
             #[cfg(feature = "stateful")]
             DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
                 PrefUnenrollReason::Changed => "pref_changed",
@@ -322,6 +344,7 @@ impl ExperimentEnrollment {
         experiment: &Experiment,
         branch_slug: &str,
         reason: EnrolledReason,
+        language: Option<&str>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         if !experiment.has_branch(branch_slug) {
@@ -331,6 +354,7 @@ impl ExperimentEnrollment {
                 reason: Some("does-not-exist".to_string()),
                 change: EnrollmentChangeEventType::EnrollFailed,
                 feature_ids: experiment.get_feature_ids(),
+                language: None,
             });
 
             return Err(NimbusError::NoSuchBranch(
@@ -338,6 +362,24 @@ impl ExperimentEnrollment {
                 experiment.slug.clone(),
             ));
         }
+
+        #[cfg(feature = "stateful")]
+        if let Some(reason) = l10n_unenroll_reason(experiment, branch_slug, language) {
+            let reason = reason.for_enrollment_change_event();
+            let mut event = EnrollmentChangeEvent::new(
+                &experiment.slug,
+                branch_slug,
+                Some(reason),
+                EnrollmentChangeEventType::EnrollFailed,
+                Some(experiment),
+            );
+            if let Some(language) = language {
+                event.language = Some(language.to_owned());
+            }
+            out_enrollment_events.push(event);
+            return Err(NimbusError::LocalizationError(reason.to_owned()));
+        }
+
         let enrollment = Self {
             slug: experiment.slug.clone(),
             status: EnrollmentStatus::new_enrolled(reason, branch_slug),
@@ -416,8 +458,18 @@ impl ExperimentEnrollment {
                         .push(updated_enrollment.get_change_event(Some(updated_experiment)));
                     updated_enrollment
                 } else if matches!(reason, EnrolledReason::OptIn) {
-                    // we check if we opted-in an experiment, if so
-                    // we don't need to update our enrollment
+                    #[cfg(feature = "stateful")]
+                    if let Some(reason) = l10n_unenroll_reason(
+                        updated_experiment,
+                        branch,
+                        targeting_helper.language(),
+                    ) {
+                        self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
+                        let updated_enrollment = self.disqualify_from_enrolled(reason);
+                        out_enrollment_events
+                            .push(updated_enrollment.get_change_event(Some(updated_experiment)));
+                        return Ok(updated_enrollment);
+                    }
                     self.clone()
                 } else {
                     let evaluated_enrollment = evaluate_enrollment(
@@ -475,6 +527,36 @@ impl ExperimentEnrollment {
                             //
                             let updated_enrollment =
                                 self.disqualify_from_enrolled(DisqualifiedReason::NotSelected);
+                            out_enrollment_events.push(
+                                updated_enrollment.get_change_event(Some(updated_experiment)),
+                            );
+                            updated_enrollment
+                        }
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::L10nMissingLanguage,
+                        } => {
+                            let updated_enrollment = self
+                                .disqualify_from_enrolled(DisqualifiedReason::L10nMissingLanguage);
+                            out_enrollment_events.push(
+                                updated_enrollment.get_change_event(Some(updated_experiment)),
+                            );
+                            updated_enrollment
+                        }
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::L10nMissingEntry,
+                        } => {
+                            let updated_enrollment =
+                                self.disqualify_from_enrolled(DisqualifiedReason::L10nMissingEntry);
+                            out_enrollment_events.push(
+                                updated_enrollment.get_change_event(Some(updated_experiment)),
+                            );
+                            updated_enrollment
+                        }
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::L10nNoClientLanguage,
+                        } => {
+                            let updated_enrollment = self
+                                .disqualify_from_enrolled(DisqualifiedReason::L10nNoClientLanguage);
                             out_enrollment_events.push(
                                 updated_enrollment.get_change_event(Some(updated_experiment)),
                             );
@@ -1115,6 +1197,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         reason: Some("feature-conflict".to_string()),
                         change: EnrollmentChangeEventType::EnrollFailed,
                         feature_ids: next_experiment.get_feature_ids(),
+                        language: None,
                     })
                 }
                 // Whether it's our experiment or not that is using these features, no further enrollment can
@@ -1192,6 +1275,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             &next_enrollments,
             &next_experiments_map,
             self.coenrolling_feature_ids,
+            self.targeting_helper.language(),
         );
         if enrolled_features != updated_enrolled_features {
             Err(NimbusError::InternalError(
@@ -1215,7 +1299,11 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Now we have an enrollment object!
             // If it's an enrolled enrollment, then get the FeatureConfigs
             // from the experiment and store them in the enrolled_features or coenrolling_features maps.
-            for enrolled_feature in get_enrolled_feature_configs(&enrollment, experiments) {
+            for enrolled_feature in get_enrolled_feature_configs(
+                &enrollment,
+                experiments,
+                self.targeting_helper.language(),
+            ) {
                 populate_feature_maps(
                     enrolled_feature,
                     self.coenrolling_feature_ids,
@@ -1246,6 +1334,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
         #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> Result<Option<ExperimentEnrollment>> {
+        #[cfg(feature = "stateful")]
+        let events_before = out_enrollment_events.len();
+
         let is_already_enrolled = prev_enrollment
             .map(|e| e.status.is_enrolled())
             .unwrap_or_default();
@@ -1258,7 +1349,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             .targeting_helper
             .put("is_already_enrolled", is_already_enrolled);
 
-        Ok(match (prev_experiment, next_experiment, prev_enrollment) {
+        let next_enrollment = match (prev_experiment, next_experiment, prev_enrollment) {
             // New experiment.
             (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                 is_user_participating,
@@ -1314,7 +1405,21 @@ impl<'a> EnrollmentsEvolver<'a> {
                     "evolve_experiment called with nothing that could evolve or be evolved",
                 ));
             }
-        })
+        };
+
+        #[cfg(feature = "stateful")]
+        for event in &mut out_enrollment_events[events_before..] {
+            if event
+                .reason
+                .as_deref()
+                .is_some_and(|r| r.starts_with("l10n-"))
+                && let Some(language) = targeting_helper.language()
+            {
+                event.language = Some(language.to_owned());
+            }
+        }
+
+        Ok(next_enrollment)
     }
 }
 
@@ -1383,12 +1488,13 @@ fn map_features(
     enrollments: &[ExperimentEnrollment],
     experiments: &HashMap<String, &Experiment>,
     coenrolling_ids: &HashSet<&str>,
+    language: Option<&str>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
     let mut colliding_features = HashMap::with_capacity(enrollments.len());
     let mut coenrolling_features = HashMap::with_capacity(enrollments.len());
     for enrolled_feature_config in enrollments
         .iter()
-        .flat_map(|e| get_enrolled_feature_configs(e, experiments))
+        .flat_map(|e| get_enrolled_feature_configs(e, experiments, language))
     {
         populate_feature_maps(
             enrolled_feature_config,
@@ -1406,6 +1512,7 @@ pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
     coenrolling_ids: &HashSet<&str>,
+    language: Option<&str>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
     let (rollouts, ro_enrollments) = filter_experiments_and_enrollments(
         experiments,
@@ -1419,11 +1526,13 @@ pub fn map_features_by_feature_id(
         &ro_enrollments,
         &map_experiments(&rollouts),
         coenrolling_ids,
+        language,
     );
     let features_under_experiment = map_features(
         &exp_enrollments,
         &map_experiments(&experiments),
         coenrolling_ids,
+        language,
     );
 
     features_under_experiment
@@ -1465,9 +1574,34 @@ pub(crate) fn populate_feature_maps(
     }
 }
 
+#[cfg(feature = "stateful")]
+fn l10n_unenroll_reason(
+    experiment: &Experiment,
+    branch: &str,
+    language: Option<&str>,
+) -> Option<DisqualifiedReason> {
+    let localizations = experiment.localizations.as_ref()?;
+
+    let Some(language) = language else {
+        return Some(DisqualifiedReason::L10nNoClientLanguage);
+    };
+    let Some(translations) = localizations.get(language) else {
+        return Some(DisqualifiedReason::L10nMissingLanguage);
+    };
+
+    let mut features = experiment.get_branch(branch)?.get_feature_configs();
+    for f in features.iter_mut() {
+        if json::replace_l10n_in_map(&mut f.value, translations).is_err() {
+            return Some(DisqualifiedReason::L10nMissingEntry);
+        }
+    }
+    None
+}
+
 fn get_enrolled_feature_configs(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
+    language: Option<&str>,
 ) -> Vec<EnrolledFeatureConfig> {
     // If status is not enrolled, then we can leave early.
     let branch_slug = match &enrollment.status {
@@ -1492,6 +1626,21 @@ fn get_enrolled_feature_configs(
     branch_features.iter_mut().for_each(|f| {
         json::replace_str_in_map(&mut f.value, SLUG_REPLACEMENT_PATTERN, experiment_slug);
     });
+
+    #[cfg(feature = "stateful")]
+    if let Some(l10n) = &experiment.localizations {
+        let Some(translations) = language.and_then(|l| l10n.get(l)) else {
+            warn!("Missing language or translations for {experiment_slug}");
+            return Vec::new();
+        };
+
+        for f in branch_features.iter_mut() {
+            if let Err(e) = json::replace_l10n_in_map(&mut f.value, translations) {
+                warn!("l10n substitution failed for {}: {}", experiment_slug, e);
+                return Vec::new();
+            }
+        }
+    }
 
     let branch_feature_ids = &branch_features
         .iter()
@@ -1598,6 +1747,8 @@ pub struct EnrollmentChangeEvent {
     pub reason: Option<String>,
     pub change: EnrollmentChangeEventType,
     pub feature_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
 }
 
 impl EnrollmentChangeEvent {
@@ -1614,6 +1765,7 @@ impl EnrollmentChangeEvent {
             reason: reason.map(|s| s.to_owned()),
             change,
             feature_ids: experiment.map(|e| e.get_feature_ids()).unwrap_or_default(),
+            language: None,
         }
     }
 }

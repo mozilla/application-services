@@ -49,6 +49,16 @@ impl NimbusTargetingHelper {
         }
     }
 
+    pub(crate) fn language(&self) -> Option<&str> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "stateful")] {
+                self.context.get("language").and_then(|l| l.as_str())
+            } else {
+                None
+            }
+        }
+    }
+
     pub fn eval_jexl(&self, expr: &str) -> Result<bool> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {

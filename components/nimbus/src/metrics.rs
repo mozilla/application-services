@@ -25,6 +25,8 @@ pub struct EnrollmentStatusExtraDef {
     #[cfg(feature = "stateful")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_gecko_pref_states: Option<Vec<PreviousGeckoPrefState>>,
+    #[cfg(feature = "stateful")]
+    pub language: Option<String>,
 }
 
 impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
@@ -64,6 +66,8 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             user_id: None,
             #[cfg(feature = "stateful")]
             prev_gecko_pref_states: None,
+            #[cfg(feature = "stateful")]
+            language: None,
         }
     }
 }
