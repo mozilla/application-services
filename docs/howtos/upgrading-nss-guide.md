@@ -13,7 +13,7 @@ The build code is located in the [`libs/`](https://github.com/mozilla/applicatio
 
 The version string is located in the beginning of [`build-all.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-all.sh#L8-L11).
 
- For most NSS upgrades, you'll need to bump the version number in this file and update the downloaded archive checksum. Then follow the steps for [Updating the cross-compiled NSS Artifacts](#updating-the-cross-compiled-nss-artifacts) below. The actual build invocations are located in platform-specific script files (e.g. [`build-nss-ios.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-nss-ios.sh)) but usually don't require any changes.
+ For most NSS upgrades, you'll need to bump the version number in this file and update the downloaded archive checksum. The actual build invocations are located in platform-specific script files (e.g. [`build-nss-ios.sh`](https://github.com/mozilla/application-services/blob/b0b3daa6580d04906fc53e9e479e8bebb464cf78/libs/build-nss-ios.sh)) but usually don't require any changes.
 
 To test out updating NSS version:
 
@@ -21,21 +21,6 @@ To test out updating NSS version:
 * Clear any old NSS build artifacts: `rm -rf ./libs/desktop && cargo clean`
 * Install the updates version: `./libs/verify-desktop-environment.sh`
 * Try it out: `cargo test`
-
----
-
-### Updating the Cross-Compiled NSS Artifacts
-
-We use a Linux TC worker for cross-compiling NSS for iOS, Android and Linux desktop machines. However, due to the complexity of the NSS build process, there is no easy way for cross-compiling MacOS and Windows -- so we currently use pre-built artifacts for MacOS desktop machines (ref [#5210](https://github.com/mozilla/application-services/issues/5210)).
-
-1. Look for the tagged version from the [NSS CI](https://treeherder.mozilla.org/jobs?repo=nss)
-    > usually a description with something like _`Added tag NSS_3_90_RTM`_
-2. Select the build for the following system(s) (first task with the title "B"):
-    * For Intel MacOS: `mac opt-static`
-3. Update [taskcluster/kinds/fetch/kind.yml](https://github.com/mozilla/application-services/blob/main/taskcluster/kinds/fetch/kind.yml), specifically `nss-artifact` task to the appropriate `url` and `checksum` and `size`
-    > Note: _To get the checksum, you can run `shasum -a 256 {path-to-artifact}` or you can make a PR and see the output of the failed log._
-4. Update the SHA256 value for darwin cross-compile in [libs/build-nss-desktop.sh](https://github.com/mozilla/application-services/blob/main/libs/build-nss-desktop.sh) to the same checksum as above.
-5. Once the pull request lands, `build-nss-desktop.sh` should be updated once more using the L3 cache [Taskcluster artifact](https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest).
 
 ---
 

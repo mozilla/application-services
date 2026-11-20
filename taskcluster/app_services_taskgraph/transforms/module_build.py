@@ -4,10 +4,24 @@
 
 
 from taskgraph.transforms.base import TransformSequence
+from taskgraph.util.schema import resolve_keyed_by
 
 from ..build_config import get_extensions, get_version
 
 transforms = TransformSequence()
+
+
+@transforms.add
+def resolve_keys(config, tasks):
+    for task in tasks:
+        for key in ("scopes", "run.pre-gradlew", "fetches.toolchain"):
+            resolve_keyed_by(
+                task,
+                key,
+                item_name=task["name"],
+                **{"tasks-for": config.params["tasks_for"]},
+            )
+        yield task
 
 
 @transforms.add

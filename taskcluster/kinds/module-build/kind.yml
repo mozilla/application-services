@@ -21,7 +21,12 @@ task-defaults:
   run-on-tasks-for: [github-pull-request, github-pull-request-untrusted, github-issue-comment, github-push, cron]
   description: "{module_name} - Build and test"
   scopes:
-    - project:releng:services/tooltool/api/download/internal
+    by-tasks-for:
+      github-pull-request-untrusted:
+        - project:releng:services/tooltool/api/download/internal
+      default:
+        - project:releng:services/tooltool/api/download/internal
+        - queue:get-artifact:project/gecko/mac-sdk/*
   worker-type: b-linux
   worker:
     chain-of-trust: true
@@ -29,10 +34,18 @@ task-defaults:
     env: {}
   run:
     pre-gradlew:
-      - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
-      - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
-      - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
-      - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,darwin,linux-x86-64\n" > local.properties']
+      by-tasks-for:
+        github-pull-request-untrusted:
+          - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
+          - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
+          - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
+          - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,linux-x86-64\n" > local.properties']
+        default:
+          - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
+          - [taskcluster/scripts/toolchain/fetch-macos-sdk.sh]
+          - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
+          - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
+          - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,darwin,linux-x86-64\n" > local.properties']
     gradlew:
       - ':{module_name}:assembleRelease'
       - ':{module_name}:publish'
@@ -42,7 +55,13 @@ task-defaults:
 
   fetches:
     toolchain:
-      - android-libs
-      - desktop-linux-libs
-      - desktop-macos-libs
-      - rust
+      by-tasks-for:
+        github-pull-request-untrusted:
+          - android-libs
+          - desktop-linux-libs
+          - rust
+        default:
+          - android-libs
+          - desktop-linux-libs
+          - desktop-macos-libs
+          - rust

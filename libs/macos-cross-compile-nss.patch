@@ -1,0 +1,211 @@
+diff --git a/build.sh b/build.sh
+index 040868754..65a47ac85 100755
+--- a/build.sh
++++ b/build.sh
+@@ -120,6 +120,8 @@ while [ $# -gt 0 ]; do
+         --android-api=*) android_api="${1#*=}" ;;
+         --ios-sdk=*) ios_sdk="${1#*=}" ;;
+         --ios-version-min=*) ios_version_min="${1#*=}" ;;
++        --macos-sdk=*) macos_sdk="${1#*=}" ;;
++        --macos-version-min=*) macos_version_min="${1#*=}" ;;
+         --clang) export CC=clang; export CCC=clang++; export CXX=clang++; msvc=0 ;;
+         --gcc) export CC=gcc; export CCC=g++; export CXX=g++; msvc=0 ;;
+         --msvc) msvc=1 ;;
+@@ -190,8 +192,9 @@ case "$target_os" in
+     "") ;;
+     android) source "$cwd/coreconf/android.sh" ;;
+     ios) source "$cwd/coreconf/ios.sh" ;;
++    macos) source "$cwd/coreconf/macos.sh" ;;
+     *)
+-        echo "Unknown --target-os: $target_os; use android or ios." 1>&2
++        echo "Unknown --target-os: $target_os; use android, ios or macos." 1>&2
+         exit 2
+         ;;
+ esac
+@@ -312,7 +315,9 @@ if check_config "$nspr_config" \
+     rebuild_nspr=1
+ fi
+ 
+-if check_config "$gyp_config" "$(Q "${gyp_params[@]}")" gyp_format="$gyp_format"; then
++if check_config "$gyp_config" "$(Q "${gyp_params[@]}")" gyp_format="$gyp_format" \
++                 CPPFLAGS="$(Q "$CPPFLAGS")" CFLAGS="$(Q "$CFLAGS")" \
++                 CXXFLAGS="$(Q "$CXXFLAGS")" LDFLAGS="$(Q "$LDFLAGS")"; then
+     rebuild_gyp=1
+ fi
+ 
+diff --git a/coreconf/macos-tools/libtool b/coreconf/macos-tools/libtool
+new file mode 100755
+index 000000000..239c8f463
+--- /dev/null
++++ b/coreconf/macos-tools/libtool
+@@ -0,0 +1,2 @@
++#!/bin/sh
++exec llvm-libtool-darwin "$@"
+diff --git a/coreconf/macos-tools/nm b/coreconf/macos-tools/nm
+new file mode 100755
+index 000000000..9952b6b3e
+--- /dev/null
++++ b/coreconf/macos-tools/nm
+@@ -0,0 +1,2 @@
++#!/bin/sh
++exec llvm-nm "$@"
+diff --git a/coreconf/macos-tools/otool b/coreconf/macos-tools/otool
+new file mode 100755
+index 000000000..0c3a1594d
+--- /dev/null
++++ b/coreconf/macos-tools/otool
+@@ -0,0 +1,2 @@
++#!/bin/sh
++exec llvm-otool "$@"
+diff --git a/coreconf/macos-tools/xcodebuild b/coreconf/macos-tools/xcodebuild
+new file mode 100755
+index 000000000..a5b3687b5
+--- /dev/null
++++ b/coreconf/macos-tools/xcodebuild
+@@ -0,0 +1,2 @@
++#!/bin/sh
++printf "Xcode 16.0\nBuild version 16A242d\n"
+diff --git a/coreconf/macos-tools/xcrun b/coreconf/macos-tools/xcrun
+new file mode 100755
+index 000000000..ecdbef95d
+--- /dev/null
++++ b/coreconf/macos-tools/xcrun
+@@ -0,0 +1,2 @@
++#!/bin/sh
++exit 1
+diff --git a/coreconf/macos.sh b/coreconf/macos.sh
+new file mode 100644
+index 000000000..87a0c5382
+--- /dev/null
++++ b/coreconf/macos.sh
+@@ -0,0 +1,48 @@
++#!/usr/bin/env bash
++# This script sets up a cross-compile for macOS from another OS with clang, the
++# LLVM binutils and an unpacked macOS SDK. It is sourced by build.sh, which then
++# builds NSPR and NSS with the CC, CXX, AR, ... exported here.
++
++macos_setup()
++{
++    local arch
++    case "${target_arch:=arm64}" in
++        arm64|aarch64) arch=arm64; target_arch=arm64; nspr_target=aarch64-apple-darwin ;;
++        x64) arch=x86_64; nspr_target=x86_64-apple-darwin ;;
++        *)
++            echo "Unsupported macOS target architecture: $target_arch" 1>&2
++            exit 2
++            ;;
++    esac
++
++    if [ ! -d "$macos_sdk" ]; then
++        echo "Cross-compiling for macOS needs --macos-sdk=<path to an unpacked MacOSX.sdk>." 1>&2
++        exit 2
++    fi
++    macos_sdk=$(cd "$macos_sdk" && pwd -P)
++    : "${macos_version_min:=11.0}"
++
++    local tool
++    for tool in clang clang++ ld64.lld llvm-ar llvm-ranlib llvm-strip llvm-libtool-darwin llvm-nm llvm-otool; do
++        if ! hash "$tool" 2>/dev/null; then
++            echo "Cross-compiling for macOS needs $tool on the PATH." 1>&2
++            exit 2
++        fi
++    done
++
++    local target="-target $arch-apple-macos$macos_version_min -isysroot $macos_sdk"
++    export CC=clang CCC=clang++ CXX=clang++
++    export CFLAGS="$CFLAGS $target -DHAS_CONNECTX"
++    export CXXFLAGS="$CXXFLAGS $target"
++    export LDFLAGS="$LDFLAGS $target -fuse-ld=lld"
++    export AR=llvm-ar
++    export RANLIB=llvm-ranlib
++    export STRIP=llvm-strip
++    export MACOSX_DEPLOYMENT_TARGET="$macos_version_min"
++    export PATH="$cwd/coreconf/macos-tools:$PATH"
++
++    gyp_format=ninja-mac
++    gyp_params+=(-DOS=mac -Dsign_libs=0)
++}
++
++macos_setup
+diff --git a/coreconf/nspr.sh b/coreconf/nspr.sh
+index cef858c00..3669c5980 100644
+--- a/coreconf/nspr.sh
++++ b/coreconf/nspr.sh
+@@ -89,7 +89,7 @@ nspr_build()
+     extra_params+=($nspr_opt)
+ 
+     if [ -n "$nspr_target" ]; then
+-        # Set by coreconf/android.sh and coreconf/ios.sh. NSPR builds tools
++        # Set by coreconf/android.sh, ios.sh and macos.sh. NSPR builds tools
+         # such as nsinstall with HOST_CC and runs them during the build, so
+         # that has to be a compiler for this machine. config.guess also runs
+         # CC_FOR_BUILD to identify this machine: with CC, which is the target
+diff --git a/help.txt b/help.txt
+index 373c3870f..2e54c7d4a 100644
+--- a/help.txt
++++ b/help.txt
+@@ -1,8 +1,9 @@
+ Usage: build.sh [-h] [-c|-cc] [-v] [-j <n>] [--gyp|-g] [--opt|-o]
+                 [-t <x64|ia32|...>|--target=<x64|ia32|...>]
+-                [--target-os=<android|ios>] [--android-ndk=<dir>]
++                [--target-os=<android|ios|macos>] [--android-ndk=<dir>]
+                 [--android-api=<level>] [--ios-sdk=<iphoneos|iphonesimulator>]
+-                [--ios-version-min=<version>]
++                [--ios-version-min=<version>] [--macos-sdk=<dir>]
++                [--macos-version-min=<version>]
+                 [--clang|--gcc|--msvc|--clang-cl] [--scan-build[=dir]]
+                 [--disable-tests]
+                 [--pprof] [--asan] [--msan] [--ubsan[=bool,shift,...]
+@@ -32,6 +33,9 @@ NSS build tool options:
+                      x64 or ia32 (default arm64)
+                      --target-os=ios builds with Xcode on macOS, for arm64
+                      or x64 (default arm64)
++                     --target-os=macos builds with clang, the LLVM tools
++                     and lld from a non-macOS host, for arm64 or x64
++                     (default arm64)
+                      use a separate --dist for each target
+     --android-ndk    the NDK to build with, defaults to $ANDROID_NDK_ROOT,
+                      $ANDROID_NDK_HOME or $ANDROID_NDK
+@@ -40,6 +44,8 @@ NSS build tool options:
+     --ios-sdk        iphoneos (the default) for devices, or iphonesimulator
+                      for the simulator, which is the only choice for x64
+     --ios-version-min the minimum iOS version to build for, defaults to 12.0
++    --macos-sdk      the unpacked MacOSX.sdk to build against (required)
++    --macos-version-min the minimum macOS version to build for, defaults to 11.0
+     --clang          build with clang and clang++
+     --gcc            build with gcc and g++
+     --msvc           build with MSVC
+diff --git a/readme.md b/readme.md
+index 220ebdb98..848a43c7f 100644
+--- a/readme.md
++++ b/readme.md
+@@ -43,10 +43,10 @@ directory, e.g., using the `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
+ See [help.txt](https://hg.mozilla.org/projects/nss/raw-file/tip/help.txt) for
+ more information on using build.sh.
+ 
+-### Building for Android and iOS
++### Building for Android, iOS and macOS
+ 
+-`--target-os` cross-compiles NSPR and NSS with the platform's own toolchain.
+-Use a separate `--dist` directory for each target:
++`--target-os` cross-compiles NSPR and NSS for another platform. Use a separate
++`--dist` directory for each target:
+ 
+     # Android: an NDK (r19 or later), on Linux or macOS
+     ./build.sh --target-os=android --android-ndk=$ANDROID_NDK_ROOT \
+@@ -56,8 +56,14 @@ Use a separate `--dist` directory for each target:
+     ./build.sh --target-os=ios --ios-sdk=iphonesimulator -t arm64 \
+         --opt --static --dist=../dist-ios-sim-arm64
+ 
++    # macOS: clang, lld and the LLVM tools with an unpacked macOS SDK, on a
++    # non-macOS host
++    ./build.sh --target-os=macos --macos-sdk=$HOME/MacOSX.sdk -t arm64 \
++        --opt --static --dist=../dist-macos-arm64
++
+ Android supports `-t arm`, `arm64`, `x64` and `ia32`; iOS supports `-t arm64`
+-and `x64` (simulator only). Both default to `arm64`.
++and `x64` (simulator only); macOS supports `-t arm64` and `x64`. All three
++default to `arm64`.
+ 
+ ## Building NSS (legacy build system)
+ 
