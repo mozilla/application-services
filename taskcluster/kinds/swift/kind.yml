@@ -14,7 +14,6 @@ transforms:
   - taskgraph.transforms.task
 
 kind-dependencies:
-  - fetch
   - toolchain
 
 tasks:

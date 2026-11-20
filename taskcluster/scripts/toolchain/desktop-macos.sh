@@ -5,6 +5,7 @@ git submodule update --init
 ./taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
 ./taskcluster/scripts/toolchain/fetch-macos-sdk.sh
 . ./taskcluster/scripts/toolchain/cross-compile-setup.sh
+set -e
 pushd libs
 ./build-all.sh darwin
 popd

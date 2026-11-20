@@ -23,9 +23,6 @@ desktop-macos:
     run-on-tasks-for: [github-push, github-pull-request, github-issue-comment, cron, action]
     scopes:
         - queue:get-artifact:project/gecko/mac-sdk/*
-    fetches:
-        fetch:
-            - nss-artifact
     worker:
         docker-image: {in-tree: linux}
     run:
