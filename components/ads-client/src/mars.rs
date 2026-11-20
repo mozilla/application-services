@@ -12,6 +12,7 @@ pub(crate) mod report_reason;
 mod transport;
 
 pub(crate) use environment::Environment;
+use parking_lot::RwLock;
 pub(crate) use report_reason::ReportReason;
 use sql_support::open_database;
 
@@ -36,6 +37,7 @@ pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
     user_agent: Option<NonEmptyString>,
+    request_options: RwLock<AdsRequestOptions>,
 }
 
 impl MARSClient {
@@ -43,48 +45,66 @@ impl MARSClient {
         environment: Environment,
         http_cache: Option<HttpCache>,
         user_agent: Option<NonEmptyString>,
+        request_options: AdsRequestOptions,
     ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
             user_agent,
+            request_options: RwLock::new(request_options),
         }
+    }
+
+    pub fn set_request_options(&self, new_options: AdsRequestOptionPatch) {
+        self.request_options.write().patch(new_options);
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.transport.clear_cache()
     }
 
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "the fields of an ad request, and how to send it"
-    )]
     pub(crate) fn fetch_ads(
         &self,
-        context_id: Option<String>,
-        flags: AdRequestFlags,
+        context_id: String,
+        request_options_patch: Option<AdsRequestOptionPatch>,
         placements: Vec<AdPlacementRequest>,
-        cache_policy: CachePolicy,
-        ohttp: bool,
-        blocks: Vec<String>,
-        relevance: AdRequestRelevance,
     ) -> Result<(AdResponse, RequestHash), FetchAdsError> {
+        // A patch is applied to the stored `AdsRequestOptions` struct (getting the default settings with any request-specific settings applied overtop).
+        // Get a temporary lock on settings- long enough to clone.
+        let patch_options = request_options_patch.unwrap_or_default();
+        let mut request_options = self.request_options.read().clone();
+        request_options.patch(patch_options);
+
+        // TODO: We need more complex handling for intentionally omitting relevance here if it's a tile ad.
+        // Relevance is not used, and should not be passed if it's not a tile ad (however, this leads to more complex behavior with mixed generic ad requests).
+
+        // Remove context id if relevance is passed (both can and should not be sent to MARS in the same request).
+        let context_id = if request_options.relevance.is_empty() {
+            Some(context_id)
+        } else {
+            None
+        };
+
         let mut ad_request = AdRequest::try_new(
-            blocks,
+            request_options.blocks,
             context_id,
             self.environment.clone(),
-            flags,
-            ohttp,
+            request_options.flags,
+            request_options.ohttp,
             placements,
-            relevance,
+            request_options.relevance,
         )?;
         let request_hash = RequestHash::new(&ad_request);
 
-        if ohttp {
+        if request_options.ohttp {
             ad_request.headers.extend(self.preflight_headers()?);
         }
 
-        let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
+        let response = self.transport.send(
+            ad_request,
+            &request_options.cache_policy,
+            request_options.ohttp,
+        )?;
         let ads: AdResponse = response.json()?;
         Ok((ads, request_hash))
     }
@@ -155,8 +175,47 @@ impl MARSClient {
     }
 }
 
+/// Common request options to MARS.
+/// If new fields are added, their defaults should be explicitly considered,
+/// and an explicit implementation should be created if needed.
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct AdsRequestOptions {
+    pub flags: AdRequestFlags,
+    pub cache_policy: CachePolicy,
+    pub ohttp: bool,
+    pub blocks: Vec<String>,
+    pub relevance: AdRequestRelevance,
+}
+
+/// Client level reusable set options for requests.
+/// They allow overriding of any fields set in `AdsRequestOptions`.
+#[derive(Clone, Default, Debug)]
+pub struct AdsRequestOptionPatch {
+    pub flags: Option<AdRequestFlags>,
+    pub cache_policy: Option<CachePolicy>,
+    pub ohttp: Option<bool>,
+    pub blocks: Option<Vec<String>>,
+    pub relevance: Option<AdRequestRelevance>,
+}
+
+impl AdsRequestOptions {
+    pub fn patch(&mut self, patch: AdsRequestOptionPatch) -> &mut AdsRequestOptions {
+        *self = AdsRequestOptions {
+            flags: patch.flags.unwrap_or(self.flags.clone()),
+            cache_policy: patch.cache_policy.unwrap_or(self.cache_policy),
+            ohttp: patch.ohttp.unwrap_or(self.ohttp),
+            blocks: patch.blocks.unwrap_or(self.blocks.clone()),
+            relevance: patch.relevance.unwrap_or(self.relevance.clone()),
+        };
+
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
+
+    use std::collections::HashMap;
 
     use super::*;
     use crate::test_utils::{
@@ -165,7 +224,12 @@ mod tests {
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache, None)
+        MARSClient::new(
+            Environment::Test,
+            http_cache,
+            None,
+            AdsRequestOptions::default(),
+        )
     }
 
     #[test]
@@ -234,13 +298,9 @@ mod tests {
         let client = make_test_client(None);
 
         let result = client.fetch_ads(
-            Some(TEST_CONTEXT_ID.to_string()),
-            AdRequestFlags::default(),
+            TEST_CONTEXT_ID.to_string(),
+            None,
             make_happy_placement_requests(),
-            CachePolicy::default(),
-            false,
-            Default::default(),
-            AdRequestRelevance::default(),
         );
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
@@ -269,13 +329,9 @@ mod tests {
         // First call should be a miss then warm the cache
         let (response1, _) = client
             .fetch_ads(
-                Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                TEST_CONTEXT_ID.to_string(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
-                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response1, expected);
@@ -283,13 +339,9 @@ mod tests {
         // Second call should be a hit
         let (response2, _) = client
             .fetch_ads(
-                Some(TEST_CONTEXT_ID.to_string()),
-                AdRequestFlags::default(),
+                TEST_CONTEXT_ID.to_string(),
+                None,
                 make_happy_placement_requests(),
-                CachePolicy::default(),
-                false,
-                Default::default(),
-                AdRequestRelevance::default(),
             )
             .unwrap();
         assert_eq!(response2, expected);
@@ -332,5 +384,34 @@ mod tests {
         let result = client.record_impression(callback_url, false);
         assert!(result.is_ok());
         m.assert();
+    }
+
+    #[test]
+    fn test_patching_request_options() {
+        let mut options = AdsRequestOptions::default();
+        let mut expected = AdsRequestOptions {
+            flags: HashMap::new(),
+            ohttp: false,
+            cache_policy: CachePolicy::CacheFirst { ttl: None },
+            blocks: vec![],
+            relevance: HashMap::new(),
+        };
+        assert_eq!(options, expected);
+
+        // Options can be changed.
+        expected.blocks = vec!["test_block_0".to_string()];
+        options.patch(AdsRequestOptionPatch {
+            blocks: Some(vec!["test_block_0".to_owned()]),
+            ..Default::default()
+        });
+        assert_eq!(options, expected);
+
+        // Changing an option doesn't reset others.
+        expected.ohttp = true;
+        options.patch(AdsRequestOptionPatch {
+            ohttp: Some(true),
+            ..Default::default()
+        });
+        assert_eq!(options, expected);
     }
 }
