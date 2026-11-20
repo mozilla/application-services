@@ -2,6 +2,11 @@
 
 [Full Changelog](In progress)
 
+### Filter Adult
+
+- `import-site-list` now builds `adult_set.bin` from a text file with one base
+  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
