@@ -83,6 +83,9 @@ android {
     testOptions {
         unitTests {
             includeAndroidResources = true
+            all {
+                jvmArgs "-javaagent:${configurations.mockitoAgent.asPath}"
+            }
         }
     }
 
@@ -92,12 +95,17 @@ android {
 
 }
 
+configurations { mockitoAgent }
+
 dependencies {
     testImplementation platform(libs.junit.bom)
     testImplementation libs.junit4
     testRuntimeOnly libs.junit.platform.launcher
     testRuntimeOnly libs.junit.vintage
     testImplementation libs.mockito
+    mockitoAgent(libs.mockito) {
+        transitive = false
+    }
     testImplementation libs.robolectric
 
     androidTestImplementation libs.androidx.test.espresso.core
