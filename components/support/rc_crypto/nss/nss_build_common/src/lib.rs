@@ -136,9 +136,12 @@ fn pkg_config_libs(lib_dir: &Path) -> Vec<String> {
         let path = lib_dir.join("pkgconfig").join(pc);
         println!("cargo:rerun-if-changed={}", path.display());
         let text = fs::read_to_string(&path).unwrap_or_else(|e| {
+            // The build scripts skip a dist that exists, so an older one must be deleted.
             panic!(
-                "could not read {}: {e}; build NSS with libs/build-all.sh",
-                path.display()
+                "could not read {}: {e}. This NSS was probably built by an older version of \
+                 libs/; delete {} and rebuild it with `cd libs && ./build-all.sh <platform>`",
+                path.display(),
+                lib_dir.parent().unwrap_or(lib_dir).display()
             )
         });
         libs.extend(
