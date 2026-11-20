@@ -26,6 +26,10 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
   Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
 
+### Error support
+- Removed the `RustComponentsErrorTelemetry` type.  The Rust code now reports telemetry itself.
+  Use `error_support::report_error` if you want to manually trigger the ping.
+
 ## ✨ What's Changed ✨
 
 ### Android
