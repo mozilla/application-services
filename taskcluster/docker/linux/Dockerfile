@@ -61,7 +61,7 @@ RUN apt-get update -qq \
         # libs/ source patching.
         patch \
         # NSS build system.
-        gyp ninja-build \
+        ninja-build \
         # NSS dependency.
         zlib1g-dev \
         # SQLCipher build system.
@@ -119,6 +119,8 @@ RUN apt-get update -qq \
 
 # Only use pip to install things that don't have a ubuntu package.
 RUN pip3 install \
+    # NSS build system. Ubuntu's gyp package is the old Chromium gyp before 25.04.
+    gyp-next==0.22.4 \
     # Required to manipulate archiving operations for upcoming monitoring work
     zstandard \
     # Undocument dependencies
