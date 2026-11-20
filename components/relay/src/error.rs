@@ -55,12 +55,13 @@ impl GetErrorHandling for Error {
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            Error::Viaduct(viaduct::ViaductError::NetworkError(e)) => {
-                ErrorHandling::convert(RelayApiError::Network {
+            Error::Viaduct(e) => viaduct::handle_error(
+                "relay",
+                e,
+                RelayApiError::Network {
                     reason: e.to_string(),
-                })
-                .log_warning()
-            }
+                },
+            ),
             Error::RelayApi { status, body } => {
                 // Accept {"error_code", "detail"} JSON or just "detail"
                 let parsed: Option<ApiErrorJson> = serde_json::from_str(body).ok();

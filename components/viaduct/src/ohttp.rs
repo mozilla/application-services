@@ -360,10 +360,12 @@ pub async fn process_ohttp_request(
             relay_response.status,
             String::from_utf8_lossy(&relay_response.body)
         );
+        // Don't include the body in the error message, since it could have sensitive information
+        // that might end up being sent to the glean error ping.  The log call above is okay since
+        // the information doesn't leave the user's computer.
         return Err(ViaductError::OhttpRequestError(format!(
-            "OHTTP relay returned error: HTTP {} - {}",
+            "OHTTP relay returned error: HTTP {}",
             relay_response.status,
-            String::from_utf8_lossy(&relay_response.body)
         )));
     }
 

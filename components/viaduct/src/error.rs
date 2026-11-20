@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use error_support::{ErrorHandling, ExpectedFailure};
+
 pub type Result<T, E = ViaductError> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -9,13 +11,20 @@ pub enum ViaductError {
     #[error("[no-sentry] Illegal characters in request header '{0}'")]
     RequestHeaderError(String),
 
-    #[error("[no-sentry] Backend error: {0}")]
-    BackendError(String),
-
     #[error("[no-sentry] Network error: {0}")]
     NetworkError(String),
 
-    #[error("The rust-components network backend only be initialized once!")]
+    #[error("[no-sentry] Network timeout error")]
+    NetworkTimeoutError,
+
+    /// Unknown backend error
+    ///
+    /// If possible, return specific errors like `NetworkError` or `NetworkTimeoutError` rather than
+    /// this.
+    #[error("[no-sentry] Backend error: {0}")]
+    BackendError(String),
+
+    #[error("The rust-components network backend must only be initialized once!")]
     BackendAlreadyInitialized,
 
     #[error("The rust-components network backend must be initialized before use!")]
@@ -95,5 +104,37 @@ impl<T, E: ToString> MapBackendError for std::result::Result<T, E> {
 impl From<uniffi::UnexpectedUniFFICallbackError> for ViaductError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
         ViaductError::BackendError(error.to_string())
+    }
+}
+
+/// Handle viaduct errors
+///
+/// This is intended for other components to use when handling `ViaductError` in their
+/// `GetErrorHandling` implementation.
+///
+/// `component_name` will be used for keys for the `expected_failures` counter, it must match one of
+/// the key values in `support/errors/metrics.yaml`.  If your component is not listed there, you can
+/// add a new key.  It's also used to generate error prefixes for unexpected errors
+/// (`[component_name]-`).
+///
+/// `converted_err` is an error with the component's top-level error type.
+pub fn handle_error<E>(
+    component_name: &str,
+    e: &ViaductError,
+    converted_err: E,
+) -> ErrorHandling<E> {
+    match e {
+        // Expected errors, increment the counter and log a warning instead of reporting the error.
+        ViaductError::NetworkError(_) => {
+            ExpectedFailure::Network.increment(component_name);
+            ErrorHandling::convert(converted_err).log_warning()
+        }
+        ViaductError::NetworkTimeoutError => {
+            ExpectedFailure::NetworkTimeout.increment(component_name);
+            ErrorHandling::convert(converted_err).log_warning()
+        }
+        // Unexpected error, report via the Glean error ping.
+        _ => ErrorHandling::convert(converted_err)
+            .report_error(format!("{component_name}-viaduct-unexpected")),
     }
 }

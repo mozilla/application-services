@@ -73,12 +73,13 @@ rust_component_errors:
     expires: never
     dual_labels:
       key:
-        description: Component where the failure 
+        description: Component where the failure occurred
         labels:
           - autofill
           - fxa-client
           - logins
           - places
+          - relay
           - remote-settings
           - suggest
           - tabs

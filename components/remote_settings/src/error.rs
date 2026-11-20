@@ -122,13 +122,13 @@ impl GetErrorHandling for Error {
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            // Network errors are expected to happen in practice.  Let's log, but not report them.
-            Self::RequestError(viaduct::ViaductError::NetworkError(e)) => {
-                ErrorHandling::convert(RemoteSettingsError::Network {
+            Self::RequestError(e) => viaduct::handle_error(
+                "remote-settings",
+                e,
+                RemoteSettingsError::Network {
                     reason: e.to_string(),
-                })
-                .log_warning()
-            }
+                },
+            ),
             // Backoff error shouldn't happen in practice, so let's report them for now.
             // If these do happen in practice and we decide that there is a valid reason for them,
             // then consider switching from reporting to Sentry to counting in Glean.

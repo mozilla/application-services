@@ -14,7 +14,7 @@ use std::{sync::Arc, time::Duration};
 
 use error_support::info;
 use reqwest::redirect::Policy;
-use viaduct::MapBackendError;
+use viaduct::{MapBackendError, ViaductError};
 
 struct Backend {
     runtime: tokio::runtime::Runtime,
@@ -158,7 +158,7 @@ async fn send_single_request(
         req = req.body(body);
     }
 
-    req.send().await.map_backend_error()
+    req.send().await.map_err(map_network_error)
 }
 
 async fn map_response(
@@ -184,8 +184,20 @@ async fn map_response(
         url: response.url().clone(),
         status: response.status().as_u16(),
         headers: resp_headers,
-        body: response.bytes().await.map_backend_error()?.to_vec(),
+        body: response.bytes().await.map_err(map_network_error)?.to_vec(),
     })
+}
+
+/// Map errors from network requests to ViaductError
+///
+/// Use `map_backend_error()` for non-request errors like invalid header names.
+/// This is used for network operations like `RequestBuilder::send`.
+fn map_network_error(e: reqwest::Error) -> ViaductError {
+    if e.is_timeout() {
+        ViaductError::NetworkTimeoutError
+    } else {
+        ViaductError::NetworkError(e.to_string())
+    }
 }
 
 uniffi::setup_scaffolding!();
