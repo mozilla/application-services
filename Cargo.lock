@@ -2815,6 +2815,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2870,7 +2876,9 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "error-support",
+ "mozilla-central-workspace-hack",
  "nimbus-sdk",
+ "rc_crypto",
  "remote_settings",
  "rust-log-forwarder",
  "viaduct",
@@ -2893,9 +2901,11 @@ dependencies = [
  "init_rust_components",
  "logins",
  "merino",
+ "mozilla-central-workspace-hack",
  "nimbus-sdk",
  "places",
  "push",
+ "rc_crypto",
  "relay",
  "remote_settings",
  "rust-log-forwarder",
@@ -3105,7 +3115,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3116,6 +3126,7 @@ dependencies = [
  "glob",
  "heck",
  "local-ip-address",
+ "maplit",
  "nimbus-fml",
  "percent-encoding",
  "remote_settings",
@@ -3146,7 +3157,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-fml"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "askama 0.16.1",
@@ -5192,6 +5203,7 @@ dependencies = [
  "camino",
  "cargo_metadata",
  "clap",
+ "mozilla-central-workspace-hack",
  "uniffi",
  "uniffi_bindgen",
 ]
