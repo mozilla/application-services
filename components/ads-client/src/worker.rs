@@ -6,10 +6,14 @@ use url::Url;
 
 use crate::{
     client::{
+        config::WorkerConfig,
         error::{BackgroundWorkerError, ComponentError},
         AdsClientInner,
     },
-    mars::{ad_request::AdPlacementRequest, ReportReason},
+    mars::{
+        ad_request::{AdPlacementRequest, AdRequestRelevance},
+        MARSRequestOptions, ReportReason,
+    },
     request::RequestQueue,
 };
 use std::{collections::HashSet, sync::Arc, thread::JoinHandle, time::Duration};
@@ -30,12 +34,11 @@ pub struct BackgroundWorker {
 
 impl BackgroundWorker {
     // Create a new worker to handle fire-and-forget requests.
-    // `worker_sleep`: Batch interval, defaulting to `ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT ms`.
-    pub fn new(
-        inner_client: Arc<AdsClientInner>,
-        worker_sleep: Option<Duration>,
-    ) -> BackgroundWorker {
-        let worker_sleep = worker_sleep.unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
+    // `worker_batch`: Batch interval, defaulting to `ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT ms`.
+    pub fn new(inner_client: Arc<AdsClientInner>, worker_config: WorkerConfig) -> BackgroundWorker {
+        let worker_batch = worker_config
+            .worker_batch
+            .unwrap_or(ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT);
         let request_queue = RequestQueue::new();
         let worker_request_queue = request_queue.clone();
 
@@ -43,7 +46,7 @@ impl BackgroundWorker {
         // If it fails, all fields of `BackgroundWorker` will be populated with None, and an error will be logged.
         let Some(worker_thread) = std::thread::Builder::new()
             .name(ADS_CLIENT_WORKER_THREAD_NAME.to_owned())
-            .spawn(move || worker(&inner_client, &worker_request_queue, worker_sleep)).inspect_err(|err| {
+            .spawn(move || worker(&inner_client, &worker_request_queue, worker_batch)).inspect_err(|err| {
                 // TODO: Replace this log with telemetry.
                 error_support::error!("Failed to create ads-client worker thread `{ADS_CLIENT_WORKER_THREAD_NAME}` with: {err}");
             }).ok()
@@ -65,12 +68,12 @@ impl BackgroundWorker {
     }
 
     // Add to the background worker's queue a request. It may be queued or batched, depending on the request.
-    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), ComponentError> {
+    pub fn dispatch(&self, request: DispatchRequest) -> Result<(), BackgroundWorkerError> {
         if self.thread_handle.is_some() {
             self.request_queue.push_request(request);
             Ok(())
         } else {
-            Err(BackgroundWorkerError::Closed.into())
+            Err(BackgroundWorkerError::Closed)
         }
     }
 }
@@ -120,11 +123,28 @@ impl DispatchRequest {
     // The dispatched command calls the corresponding `AdsClient` synchronous method, meaning that behavior between the two is shared.
     pub fn handle_request(
         self,
-        _ads_client_inner: Arc<AdsClientInner>,
+        ads_client_inner: Arc<AdsClientInner>,
     ) -> Result<(), ComponentError> {
-        // TODO: Add 'running a request' logic to here.
-        error_support::error!("Running a request is currently not set up yet: {self:?}");
-
+        match self {
+            // TODO: All of the MARS options are defaulted, as the AdsClient options refactor is required first.
+            // These need to be passed when the request options refactor is merged.
+            // This includes the `ohttp=false` flags, as well as `MARSRequestOptions::default()` in `prefetch_ads` below!
+            // The same is true for relevance: `AdsRequestRelevance::new()`
+            DispatchRequest::RecordClick { url } => ads_client_inner.record_click(url, false)?,
+            DispatchRequest::ReportAd { url, reason } => {
+                ads_client_inner.report_ad(url, reason, false)?
+            }
+            DispatchRequest::RecordImpression { url } => {
+                ads_client_inner.record_impression(url, false)?
+            }
+            DispatchRequest::RequestAds { ad_requests } => {
+                ads_client_inner.prefetch_ads_request(
+                    ad_requests.into_iter().collect(),
+                    MARSRequestOptions::default(),
+                    AdRequestRelevance::new(),
+                )?;
+            }
+        }
         Ok(())
     }
 }

@@ -50,6 +50,8 @@ impl AdsStoreBuilder {
         }
     }
 
+    // Attempt to build the AdsStore. If a file path exists and can be built successfully, we build
+    // a FS sqlite database. Otherwise, we fall back to memory.
     pub fn build(&self) -> Result<AdsStore, AdsStoreBuilderError> {
         self.validate()?;
 

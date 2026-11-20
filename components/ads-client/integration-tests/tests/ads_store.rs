@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[cfg(feature = "stateful")]
-use ads_client::ads_store::builder::AdsStoreBuilder;
+use ads_client::ads_store::AdsStore;
 #[cfg(feature = "stateful")]
 use std::path::Path;
 
@@ -28,7 +28,7 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
 #[test]
 #[ignore = "integration test: run manually with -- --ignored"]
 fn test_bad_path_opens_memory_db() {
-    clear_test_dbs(&["good_path.db"]);
+    clear_test_dbs(&["good_path_adsstore.db"]);
 
     let good_path = AdsStoreBuilder::new()
         .db_path("good_path_adsstore.db")
@@ -51,7 +51,7 @@ fn test_bad_path_opens_memory_db() {
     let empty_path = AdsStoreBuilder::new().db_path("").build();
     assert!(
         empty_path.is_err(),
-        "An empty string for a path should result in an error"
+        "An empty string for a path should result in an error (because of validation step)"
     );
 
     let no_path = AdsStoreBuilder::new()

@@ -4,8 +4,6 @@
 */
 
 use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
-#[cfg(feature = "stateful")]
-use crate::ads_store::AdsStore;
 use crate::bytesize::ByteSize;
 use crate::http_cache::{CachePolicy, HttpCache};
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
@@ -13,6 +11,15 @@ use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
+#[cfg(feature = "stateful")]
+use crate::{
+    ads::{Ad, PlacementId},
+    ads_store::AdsStore,
+    client::error::BackgroundWorkerError,
+    mars::{error::FetchAdsError, MARSRequestOptions},
+    worker::{self, BackgroundWorker, DispatchRequest},
+    MozAdsPlacementRequestWithCount,
+};
 use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
@@ -30,6 +37,8 @@ const DEFAULT_ROTATION_DAYS: u8 = 3;
 
 pub(crate) struct AdsClient {
     inner: Arc<AdsClientInner>,
+    #[cfg(feature = "stateful")]
+    worker: BackgroundWorker,
 }
 
 pub struct AdsClientInner {
@@ -41,8 +50,18 @@ pub struct AdsClientInner {
 
 impl AdsClient {
     pub(crate) fn new(client_config: AdsClientConfig) -> Self {
+        #[cfg(feature = "stateful")]
+        let worker_config = client_config.worker_config.clone();
         let inner = Arc::new(AdsClientInner::new(client_config));
-        AdsClient { inner }
+
+        #[cfg(feature = "stateful")]
+        let worker =
+            worker::BackgroundWorker::new(inner.clone(), worker_config.unwrap_or_default());
+        AdsClient {
+            inner,
+            #[cfg(feature = "stateful")]
+            worker,
+        }
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
@@ -134,6 +153,30 @@ impl AdsClient {
         self.inner.shutdown();
     }
 
+    #[cfg(feature = "stateful")]
+    #[expect(
+        dead_code,
+        reason = "`prefetch_ads_dispatch` will be called when FFI function layer is added"
+    )]
+    pub fn prefetch_ads_dispatch(
+        &self,
+        ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+    ) -> Result<(), BackgroundWorkerError> {
+        self.worker.dispatch(DispatchRequest::RequestAds {
+            ad_requests: ad_requests.into_iter().map(|x| (&x).into()).collect(),
+        })?;
+        Ok(())
+    }
+
+    #[cfg(feature = "stateful")]
+    #[expect(
+        dead_code,
+        reason = "`get_stored_ads` will be called when FFI function layer is added"
+    )]
+    pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
+        self.inner.get_stored_ads(placement_id)
+    }
+
     #[cfg(test)]
     fn request_ads(
         &self,
@@ -209,6 +252,29 @@ impl AdsClientInner {
 
     pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.client.clear_cache()
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn store_ads(&self, ads: HashMap<PlacementId, Vec<Ad>>) -> Result<(), FetchAdsError> {
+        if let Some(ads_store) = self.ads_store.as_ref() {
+            ads_store.store_ads(ads)?;
+            Ok(())
+        } else {
+            Err(FetchAdsError::SqliteShutdown)
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    pub fn get_stored_ads(&self, placement_id: &PlacementId) -> Option<Vec<Ad>> {
+        let Some(ads_store) = self.ads_store.as_ref() else {
+            // TODO: Telemetry should be added here for the database being shut down.
+            return None;
+        };
+
+        ads_store.lookup(placement_id).unwrap_or_else(|_err| {
+            // TODO: Telemetry should return an error here (eg: some internal sqlite error)
+            None
+        })
     }
 
     pub(crate) fn get_context_id(&self) -> context_id::ApiResult<String> {
@@ -290,6 +356,44 @@ impl AdsClientInner {
             .inspect(|_| {
                 telemetry::record_client_operation(ClientOperation::ReportAd);
             })
+    }
+
+    /// Ad fetching function designed to be run in the background.
+    /// It can fetch and store ads of any type (handled with `Ad` enum), storing them
+    /// in client's AdStore structure (to be fetched later, by a different function).
+    #[cfg(feature = "stateful")]
+    pub(crate) fn prefetch_ads_request(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        mars_options: MARSRequestOptions,
+        relevance: AdRequestRelevance,
+    ) -> Result<(), RequestAdsError> {
+        let response = self
+            .request_ads(
+                ad_placement_requests,
+                mars_options.flags,
+                Some(mars_options.cache_policy),
+                mars_options.ohttp,
+                mars_options.blocks,
+                relevance,
+            )
+            .inspect_err(|e| {
+                telemetry::record_client_error(ClientOperation::RequestAds, e);
+            })?;
+        telemetry::record_client_operation(ClientOperation::RequestAds);
+
+        // Extract ads, and convert the raw Strings into PlacementIds.
+        let ads = response
+            .data
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
+
+        // Stores the ads in the ad store.
+        // TODO: All synchronous ad requests will need to work this way- prefetch, get from the store.
+        self.store_ads(ads)?;
+
+        Ok(())
     }
 
     // relevance is not implemented for image ads, using an empty HashMap.
@@ -446,7 +550,7 @@ impl AdsClientInner {
 mod tests {
 
     #[cfg(feature = "stateful")]
-    use crate::ads_store::builder::AdsStoreBuilder;
+    use crate::{ads_store::builder::AdsStoreBuilder, client::config::WorkerConfig};
     use crate::{
         mars::Environment,
         test_utils::{
@@ -476,6 +580,8 @@ mod tests {
         });
         AdsClient {
             inner: inner.clone(),
+            #[cfg(feature = "stateful")]
+            worker: worker::BackgroundWorker::new(inner.clone(), WorkerConfig::default()),
         }
     }
 
@@ -487,6 +593,8 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -579,6 +687,8 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 
@@ -618,6 +728,8 @@ mod tests {
             #[cfg(feature = "stateful")]
             store_config: None,
             user_agent: None,
+            #[cfg(feature = "stateful")]
+            worker_config: None,
         };
         let client = AdsClient::new(config);
 
