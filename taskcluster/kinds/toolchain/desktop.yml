@@ -20,8 +20,9 @@ desktop-linux:
 
 desktop-macos:
     description: 'Desktop libs (macOS): build'
+    run-on-tasks-for: [github-push, github-pull-request, github-issue-comment, cron, action]
     scopes:
-        - project:releng:services/tooltool/api/download/internal
+        - queue:get-artifact:project/gecko/mac-sdk/*
     fetches:
         fetch:
             - nss-artifact
@@ -33,3 +34,4 @@ desktop-macos:
         toolchain-artifact: public/build/macos.tar.gz
         resources:
             - taskcluster/scripts/toolchain/cross-compile-setup.sh
+            - taskcluster/scripts/toolchain/fetch-macos-sdk.sh
