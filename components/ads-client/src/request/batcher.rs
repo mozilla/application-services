@@ -1,0 +1,282 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+use parking_lot::{Condvar, Mutex};
+use url::Url;
+
+use crate::{
+    ads::PlacementId,
+    mars::{ad_request::AdPlacementRequest, ReportReason},
+    request::RequestQueue,
+    worker::DispatchRequest,
+};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
+    time::Duration,
+};
+
+pub const MAXIMUM_ADS_BATCH_COUNT: usize = 100;
+
+// Thread sleep delay to wait for new requests to queue before resolving them.
+// This must be a very short amount of time to ensure ads are requested near-immediately on startup.
+pub const BATCH_GATHER_DURATION_DEFAULT: Duration = Duration::from_millis(100);
+
+/// Structure for storing and queuing `DispatchRequest`s sent to background worker.
+/// `AdPlacementRequest`s will be merged together, allowing fewer network requests to be sent.
+/// `batch_gather_wait` (passed on creation) measures how long to wait on a new request to allow batching.
+/// (Defaults to `BATCH_GATHER_DURATION_DEFAULT`)
+#[derive(Clone)]
+pub struct RequestBatcher {
+    // If the `inner` mutex is locked to add data to the queue, the ready_cond must be notified after data is added.
+    inner: Arc<Mutex<RequestBatcherInner>>,
+    // Condvar is updated if new data is queued to be retrievable by `next()`. Can be waited with: `wait_available`
+    ready_cond: Arc<Condvar>,
+
+    // Batch duration (used by `wait_gather`).
+    // Used to wait out the waiting period for batching.
+    batch_gather_wait: Duration,
+}
+
+struct RequestBatcherInner {
+    queued_ads: HashMap<PlacementId, AdPlacementRequest>,
+
+    // The ordered queue of non-AdPlacementRequest commands to iterate through.
+    request_queue: VecDeque<QueuedRequest>,
+}
+
+impl RequestQueue for RequestBatcher {
+    fn clear(&self) {
+        // Get lock and clear data. No need to update 'ready' condvar, as this can't result in more data.
+        let mut inner = self.inner.lock();
+        inner.request_queue = VecDeque::new();
+        inner.queued_ads = HashMap::new();
+    }
+
+    // Wait for queue to have data retrievable by `next()`, with an optional timeout.
+    // Uses a condvar internally to ensure a thread can wait with minimal CPU usage.
+    // If multiple threads call `wait_available`, all will be notified on availability (so, competing threads may not all receive data from `next()`)
+    // Returns `true` if data is available to be queried by `next()`, and false otherwise (eg: if timeout is reached)
+    fn wait_available(&self, timeout: Option<Duration>) -> bool {
+        let mut waiting = self.inner.lock();
+
+        // Return immediately if data is currently available
+        if waiting.next_available() {
+            return true;
+        }
+
+        if let Some(timeout) = timeout {
+            if self.ready_cond.wait_for(&mut waiting, timeout).timed_out() {
+                return false;
+            }
+        } else {
+            self.ready_cond.wait(&mut waiting);
+        }
+        waiting.next_available()
+    }
+
+    // Pops the next available DispatchRequest to be run by the worker.
+    // This will prioritize any ad_requests, batched, followed by any queued QueuedRequests (eg: RecordClick, etc)
+    fn next(&self) -> Option<DispatchRequest> {
+        let mut inner = self.inner.lock();
+
+        // First, if any ad requests are queued, batch the first `MAXIMUM_ADS_BATCH_COUNT` and resolve those.
+        let num_ads = inner.queued_ads.len().min(MAXIMUM_ADS_BATCH_COUNT);
+        let mut ad_requests: Vec<_> = inner.queued_ads.drain().collect();
+        if !ad_requests.is_empty() {
+            let requeue_requests = ad_requests.split_off(num_ads);
+            inner.queued_ads = requeue_requests.into_iter().collect();
+            return Some(DispatchRequest::RequestAds {
+                ad_requests: ad_requests.into_iter().map(|(_, v)| v).collect(),
+            });
+        }
+
+        // Otherwise, pop the next queue-able command.
+        inner.request_queue.pop_front().map(Into::into)
+    }
+
+    // Add a `DispatchRequest` to the `RequestBatcher` (primary entry point for queuing requests).
+    // If new helper functions are added, they must include a convdvar notification.
+    fn push_request(&self, request: DispatchRequest) {
+        // Split DispatchRequest into either a queue-able request, or a batchable ad request, and queue it.
+        match request {
+            DispatchRequest::RequestAds { ad_requests } => self.push_ad_requests(ad_requests),
+            DispatchRequest::RecordImpression { url } => {
+                self.push_queued_request(QueuedRequest::RecordImpression { url });
+            }
+            DispatchRequest::RecordClick { url } => {
+                self.push_queued_request(QueuedRequest::RecordClick { url });
+            }
+            DispatchRequest::ReportAd { url, reason } => {
+                self.push_queued_request(QueuedRequest::ReportAd { url, reason });
+            }
+        }
+    }
+
+    /// Sleeps the calling thread to allow for requests to be gathered.
+    fn wait_gather(&self) {
+        if !self.batch_gather_wait.is_zero() {
+            std::thread::sleep(self.batch_gather_wait);
+        }
+    }
+}
+
+impl RequestBatcher {
+    // `batch_gather_wait` is the accumulation period allowed for batching after data is available to be queried.
+    pub fn new(batch_gather_wait: Option<Duration>) -> RequestBatcher {
+        let inner = RequestBatcherInner {
+            queued_ads: HashMap::new(),
+            request_queue: VecDeque::new(),
+        };
+        RequestBatcher {
+            inner: Arc::new(Mutex::new(inner)),
+            ready_cond: Arc::new(Condvar::new()),
+            batch_gather_wait: batch_gather_wait.unwrap_or(BATCH_GATHER_DURATION_DEFAULT),
+        }
+    }
+
+    fn push_ad_requests(&self, ad_requests: HashSet<AdPlacementRequest>) {
+        if ad_requests.is_empty() {
+            return;
+        }
+
+        let mut inner = self.inner.lock();
+        for ad_request in ad_requests {
+            inner
+                .queued_ads
+                .insert(ad_request.placement.clone().into(), ad_request);
+        }
+
+        // Queue was written to, so we notify any threads with `wait_available`.
+        self.ready_cond.notify_all();
+    }
+
+    fn push_queued_request(&self, queued_command: QueuedRequest) {
+        let mut inner = self.inner.lock();
+        inner.request_queue.push_back(queued_command);
+
+        // Queue was written to, so we notify any threads with `wait_available`.
+        self.ready_cond.notify_all();
+    }
+}
+
+impl RequestBatcherInner {
+    pub(crate) fn next_available(&self) -> bool {
+        !self.queued_ads.is_empty() || !self.request_queue.is_empty()
+    }
+}
+
+// Queue-able command (ReportAd, etc.)
+#[derive(Clone, Debug, PartialEq)]
+enum QueuedRequest {
+    RecordClick { url: Url },
+    RecordImpression { url: Url },
+    ReportAd { reason: ReportReason, url: Url },
+}
+
+impl From<QueuedRequest> for DispatchRequest {
+    fn from(value: QueuedRequest) -> Self {
+        match value {
+            QueuedRequest::ReportAd { reason, url } => DispatchRequest::ReportAd { reason, url },
+            QueuedRequest::RecordClick { url } => DispatchRequest::RecordClick { url },
+            QueuedRequest::RecordImpression { url } => DispatchRequest::RecordImpression { url },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mars::ad_request::AdPlacementRequest;
+    use crate::request::RequestQueue;
+    use std::collections::HashSet;
+
+    use crate::request::{batcher::RequestBatcher, DispatchRequest, MAXIMUM_ADS_BATCH_COUNT};
+
+    fn extract_request_ads(req: &mut DispatchRequest) -> Option<&mut HashSet<AdPlacementRequest>> {
+        #[allow(irrefutable_let_patterns)]
+        if let DispatchRequest::RequestAds {
+            ref mut ad_requests,
+            ..
+        } = req
+        {
+            Some(ad_requests)
+        } else {
+            None
+        }
+    }
+
+    fn get_example_request_ads_dispatch_request(identifiers: &[usize]) -> DispatchRequest {
+        let mut ad_requests = HashSet::new();
+        for id in identifiers {
+            ad_requests.insert(AdPlacementRequest {
+                content: None,
+                count: 4,
+                placement: format!("test_placement_{id}"),
+            });
+        }
+        DispatchRequest::RequestAds { ad_requests }
+    }
+
+    #[test]
+    fn batch_similar_requests() {
+        let request_0 = get_example_request_ads_dispatch_request(&[0]);
+        let request_1 = get_example_request_ads_dispatch_request(&[1]);
+        let dispatch = get_example_request_ads_dispatch_request(&[0, 1]);
+        let queue = RequestBatcher::new(None);
+
+        // Having two "placement_0" and one "placement_1" should result in returning a single DispatchRequest with one "placement_0" and one "placement_1"
+        queue.push_request(request_0.clone());
+        queue.push_request(request_0.clone());
+        queue.push_request(request_1.clone());
+
+        let retrieved_dispatch = queue.next().expect("Request should exist in queue");
+
+        assert!(queue.next().is_none());
+
+        {
+            let inner = queue.inner.lock();
+            assert!(inner.queued_ads.is_empty());
+            assert!(inner.request_queue.is_empty());
+        }
+
+        assert_eq!(dispatch, retrieved_dispatch);
+    }
+
+    #[test]
+    fn split_off_too_many_ads() {
+        let queue = RequestBatcher::new(None);
+
+        // Queue enough of this command to go one-over the limit.
+        for i in 0..(MAXIMUM_ADS_BATCH_COUNT + 1) {
+            let request = get_example_request_ads_dispatch_request(&[i]);
+            queue.push_request(request.clone());
+        }
+
+        let mut retrieved_dispatch_many =
+            queue.next().expect("First command should exist in queue");
+        let mut retrieved_dispatch_overflow =
+            queue.next().expect("Second command should exist in queue");
+
+        assert!(queue.next().is_none());
+        {
+            let inner = queue.inner.lock();
+            assert!(inner.queued_ads.is_empty());
+            assert!(inner.request_queue.is_empty());
+        }
+
+        // We do not check for a precise match with sample data here, because HashMap<..>s are unsorted, so which placement gets pushed to the next one is random.
+        // It is also irrelevant to the MARS request.
+        // (So for example, if we have 101 requests, and a batch size of 100, the one excluded may be placement 1, placement 37, etc.)
+        // Here, we specifically only check for the number of requests provided.
+        // Retrieved command should have `MAXIMUM_ADS_BATCH_COUNT` requests.
+        let retrieved_dispatch_many_ads = extract_request_ads(&mut retrieved_dispatch_many)
+            .expect("Example DispatchRequest should be RequestAds variant");
+        assert_eq!(retrieved_dispatch_many_ads.len(), MAXIMUM_ADS_BATCH_COUNT);
+
+        // Retrieved overflow should have 1 request, matching the original command.
+        let retrieved_dispatch_overflow_ads = extract_request_ads(&mut retrieved_dispatch_overflow)
+            .expect("Example DispatchRequest should be RequestAds variant");
+        assert_eq!(retrieved_dispatch_overflow_ads.len(), 1);
+    }
+}
