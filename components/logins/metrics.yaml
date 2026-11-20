@@ -8,11 +8,7 @@
 # specific to the *syncing* of logins are defined in a separate "sync_ping"
 # package.
 #
-# Changes to these metrics require data review, which should take into
-# consideration the following known consumers of the logins component
-# Android bindings:
-#
-#  * Fenix for Android
+# Changes to these metrics require data review.
 
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0

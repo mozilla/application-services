@@ -1284,11 +1284,9 @@ dependencies = [
  "backtrace",
  "env_logger",
  "error-support-macros",
- "glean",
- "glean-build",
- "glean-sym",
  "lazy_static",
  "log",
+ "metrics-support",
  "parking_lot",
  "tracing-subscriber",
  "tracing-support",
@@ -2769,6 +2767,7 @@ dependencies = [
  "interrupt-support",
  "jwcrypto",
  "lazy_static",
+ "metrics-support",
  "nss-as",
  "parking_lot",
  "rusqlite",
@@ -2969,6 +2968,16 @@ dependencies = [
  "serde_json",
  "viaduct",
  "viaduct-backend-rust",
+]
+
+[[package]]
+name = "metrics-support"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glean",
+ "glean-build",
+ "glean-sym",
 ]
 
 [[package]]
@@ -3538,13 +3547,12 @@ dependencies = [
  "dogear",
  "error-support",
  "glean",
- "glean-build",
- "glean-sym",
  "icu_casemap",
  "idna",
  "interrupt-support",
  "lazy_static",
  "memchr",
+ "metrics-support",
  "parking_lot",
  "percent-encoding",
  "rusqlite",
@@ -3957,9 +3965,8 @@ dependencies = [
  "error-support",
  "expect-test",
  "firefox-versioning",
- "glean-build",
- "glean-sym",
  "jexl-eval",
+ "metrics-support",
  "mockall",
  "mockito",
  "nss-as",
