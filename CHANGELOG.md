@@ -2,6 +2,11 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's New ✨
+
+### Sync15
+- Added support for per collection limit overrides from the server
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)

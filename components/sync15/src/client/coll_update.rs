@@ -94,7 +94,7 @@ impl<'a> CollectionUpdate<'a> {
         let mut failed = vec![];
         let mut q = self.client.new_post_queue(
             &self.collection,
-            &self.state.config,
+            self.state.config,
             self.xius,
             NormalResponseHandler::new(!self.fully_atomic),
         )?;
