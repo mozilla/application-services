@@ -1,12 +1,19 @@
-# v162.0 (In progress)
+# v163.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v162.0 (_2026-11-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
 
 ### Nimbus
 
 - Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
 - Support for Experimenter JSON files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
 - `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
+- `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
+parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -19,6 +26,8 @@
 ### Android
 
 - Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
 
 ### Ads-Client
 
@@ -29,6 +38,12 @@
 ### Autofill
 
 - New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
+
+### Firefox Accounts
+- `CheckAuthorizationStatus` is now ignored from the `AuthIssues` state
+  ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
+- `CheckAuthorizationStatus` now checks for missing scoped keys
+  ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
 
 ### Merino
 

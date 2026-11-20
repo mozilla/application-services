@@ -319,7 +319,7 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let cache = HttpCache::builder_memory()
+        let cache = HttpCache::builder()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn test_record_click_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory()
+        let cache = HttpCache::builder()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory()
+        let cache = HttpCache::builder()
             .default_ttl(std::time::Duration::from_secs(300))
             .max_size(crate::bytesize::ByteSize::mib(1))
             .build()
