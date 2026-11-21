@@ -1271,6 +1271,87 @@ mod tests {
     }
 
     #[test]
+    fn test_delete_nested_folders() -> Result<()> {
+        let conn = new_mem_connection();
+
+        let guid1 = SyncGuid::random();
+        let guid2 = SyncGuid::random();
+        let guid2_1 = SyncGuid::random();
+        let guid2_1_1 = SyncGuid::random();
+        let guid3 = SyncGuid::random();
+
+        let jtree = json!({
+            "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+            "children": [
+                {
+                    "guid": &guid1,
+                    "title": "the first bookmark",
+                    "url": "https://www.example.com/"
+                },
+                {
+                    "guid": &guid2,
+                    "title": "A folder",
+                    "children": [
+                        {
+                            "guid": &guid2_1,
+                            "title": "A subfolder",
+                            "children": [
+                                {
+                                    "guid": &guid2_1_1,
+                                    "title": "subfolder bookmark",
+                                    "url": "https://www.example2.com/"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "guid": &guid3,
+                    "title": "the last bookmark",
+                    "url": "https://www.example3.com/"
+                },
+            ]
+        });
+        insert_json_tree(&conn, jtree);
+
+        conn.execute(
+            &format!(
+                "UPDATE moz_bookmarks SET syncChangeCounter = 1, syncStatus = {}",
+                SyncStatus::Normal as u8
+            ),
+            [],
+        )
+        .expect("should work");
+
+        // Make sure the positions are correct now.
+        assert_eq!(get_pos(&conn, &guid1), 0);
+        assert_eq!(get_pos(&conn, &guid2), 1);
+        assert_eq!(get_pos(&conn, &guid3), 2);
+
+        let global_change_tracker = conn.global_bookmark_change_tracker();
+        // Delete the middle folder
+        delete_bookmark(&conn, &guid2)?;
+        // Middle folder should no longer exist
+        assert!(get_raw_bookmark(&conn, &guid2)?.is_none());
+        // And neither should its child folder
+        assert!(get_raw_bookmark(&conn, &guid2_1)?.is_none());
+        // And neither should its grandchild bookmark.
+        assert!(get_raw_bookmark(&conn, &guid2_1_1)?.is_none());
+        // Positions of the remaining should be correct.
+        assert_eq!(get_pos(&conn, &guid1), 0);
+        assert_eq!(get_pos(&conn, &guid3), 1);
+        assert!(global_change_tracker.changed());
+
+        assert_eq!(
+            conn.conn_ext_query_one::<i64>(
+                "SELECT COUNT(*) FROM moz_origins WHERE host='www.example2.com';"
+            )?,
+            0
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_delete_roots() {
         let conn = new_mem_connection();
 

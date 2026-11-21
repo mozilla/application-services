@@ -88,6 +88,13 @@ impl ConnectionInitializer for PlacesInitializer {
             -- We want foreign-key support.
             PRAGMA foreign_keys = ON;
 
+            -- We want recursive triggers (was the assumed behavior, see 
+            -- https://bugzilla.mozilla.org/show_bug.cgi?id=2084607). This will cause 
+            -- moz_bookmarks_parent_afterdelete_trigger to cascade delete similar to 
+            -- the previous FK constraint that was deleted in bug 1935797; it will also 
+            -- enforce that delete triggers fire when REPLACE INTO conflicts are resolved.
+            PRAGMA recursive_triggers = ON;
+
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
 
