@@ -194,6 +194,7 @@ impl RemoteSettingsTelemetryWrapper {
 fn error_to_status(error: &Error) -> SyncStatus {
     match error {
         Error::RequestError(viaduct::ViaductError::NetworkError(_))
+        | Error::RequestError(viaduct::ViaductError::NetworkTimeoutError)
         | Error::ResponseError { .. } => SyncStatus::NetworkError,
         Error::BackoffError(_) => SyncStatus::BackoffError,
         #[cfg(feature = "signatures")]

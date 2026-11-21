@@ -222,7 +222,7 @@ impl GetErrorHandling for Error {
             Error::RemoteError { code: 403, .. } => {
                 ErrorHandling::convert(FxaError::Forbidden).log_warning()
             }
-            Error::RequestError(_) => ErrorHandling::convert(FxaError::Network).log_warning(),
+            Error::RequestError(e) => viaduct::handle_error("fxa-client", e, FxaError::Network),
             Error::SyncScopedKeyMissingInServerResponse => {
                 ErrorHandling::convert(FxaError::SyncScopedKeyMissingInServerResponse)
                     .report_error("fxa-client-scoped-key-missing")

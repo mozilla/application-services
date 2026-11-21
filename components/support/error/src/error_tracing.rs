@@ -12,6 +12,13 @@ use parking_lot::Mutex;
 
 static GLOBALS: Mutex<Globals> = Mutex::new(Globals::new());
 
+/// Report an unexpected error in a component
+///
+/// Call this to report an unexpected error via the rust-component-errors ping.
+/// `type_name` identifies the error, it should be prefixed with `[component_name]-`.
+///
+/// The common path for this is through the `GetErrorHandling` trait.
+/// See `handling.rs` for details on that.
 #[uniffi::export]
 pub fn report_error(type_name: String, message: String) {
     // First step: perform all actions that we need the lock for.

@@ -60,17 +60,21 @@ convert between one error to another and choose if you want to report the error
 and/or log a warning.  When reporting an error you can choose a type name to
 group the error with.  This system is extremely flexible, since you can inspect
 the internal error and use error codes or other data to determine if it should
-be reported or not, which type name to report it with, etc. Eventually we also
-hope to allow expected errors to be counted in telemetry (think things like
-network errors, shutdown errors, etc.).
+be reported or not, which type name to report it with, etc.
 
 To assist this conversion, the `handle_error` procedural macro can be used to
 automatically convert between `Result` and `ApiResult` using
 `GetErrorHandling`.  Note that this depends on having the `Result` type
 imported in your module with a `use` statement.
 
-See the `logins::errors` and `logins::store` modules for an example of how this
-all fits together.
+We can also count expected failures, like network errors, sqlite corruption,
+etc. using the `ExpectedFailure` enum which increments a Glean counter.  This
+has lower overhead than the error ping and is preferred for failures that are
+expected to happen, are not indicative of a code error, and don't need extra
+context like breadcrumbs or error messages.  See `viaduct::handle_error` for
+an example of how this is used.
+
+See the `example/src/error.rs` for an example of how this all fits together.
 
 ## ⚠️  Personally Identifiable Information ⚠️
 

@@ -89,14 +89,16 @@ impl GetErrorHandling for Error {
     /// logging/reporting should we have
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            Self::RequestError(viaduct::ViaductError::NetworkError(e)) => {
-                // Viaduct errors are converted to the `Network` variant
-                ErrorHandling::convert(ApiError::Network {
+            // Use viaduct::handle_error for ViaductError
+            Self::RequestError(e) => viaduct::handle_error(
+                // Replace with the name of your component.
+                // This will be used as a prefix for the error type strings.
+                "example",
+                e,
+                ApiError::Network {
                     reason: e.to_string(),
-                })
-                // Network errors are expected in practice.  Let's log, but not report them.
-                .log_warning()
-            }
+                },
+            ),
             // Database errors are converted to `Other` and reported.
             //
             // The string passed to `report_error` controls how errors get grouped together in
