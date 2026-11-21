@@ -71,6 +71,10 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 - `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
 
+### Tabs
+
+- New optional `tabsDisabled` field in the tabs record. Clients set it with `LocalTabsInfo.tabs_disabled` and read it with `ClientRemoteTabs.tabs_disabled`.
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Containers
