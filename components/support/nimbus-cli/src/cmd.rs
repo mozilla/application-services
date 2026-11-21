@@ -588,13 +588,6 @@ impl LaunchableApp {
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        if open.pbcopy {
-            let len = self.copy_to_clipboard(&app_protocol, open)?;
-            write_info(
-                &mut stdout,
-                &format!("Copied a deeplink URL ({len} characters) in to the clipboard"),
-            )?;
-        }
         #[cfg(feature = "server")]
         if open.pbpaste {
             let url = self.longform_url(&app_protocol, open)?;
@@ -627,7 +620,7 @@ impl LaunchableApp {
                 )?;
             }
         }
-        if open.pbcopy || open.pbpaste || open.output.is_some() {
+        if open.pbpaste || open.output.is_some() {
             return Ok(true);
         }
 
@@ -753,9 +746,7 @@ impl LaunchableApp {
             if let Some(deeplink) = self.deeplink(open)? {
                 let deeplink = deeplink::longform_deeplink_url(&deeplink, &app_protocol)?;
                 if deeplink.len() >= 2047 {
-                    anyhow::bail!(
-                        "Deeplink is too long for xcrun simctl openurl. Use --pbcopy to copy the URL to the clipboard"
-                    )
+                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl.")
                 }
                 args.push("openurl".to_string());
                 args.extend_from_slice(starting_args);

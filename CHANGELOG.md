@@ -9,6 +9,12 @@
   `AuthorizationInfo` struct.  The main difference is that applications should now handle
   `AuthorizationStatus::Unknown` which indicates the check was inconclusive.
 
+### Nimbus
+
+- The `--pbcopy` flag has been removed from nimbus-cli. ([#7825](https://github.com/mozilla/application-services/pull/7825))
+
+## ✨ What's Changed ✨
+
 ### Sync Manager
 
 - Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).

@@ -443,9 +443,6 @@ impl CliCommand {
         if let Some(open) = self.open_args() {
             if open.reset_app || !open.passthrough.is_empty() {
                 const ERR: &str = "does not work with --reset-app or passthrough args";
-                if open.pbcopy {
-                    bail!(format!("{} {}", "--pbcopy", ERR));
-                }
                 if open.pbpaste {
                     bail!(format!("{} {}", "--pbpaste", ERR));
                 }
@@ -500,7 +497,7 @@ impl CliCommand {
 
     fn should_kill(&self, maybe_app: Option<App>) -> bool {
         if let Some(open) = self.open_args() {
-            let using_links = open.pbcopy || open.pbpaste;
+            let using_links = open.pbpaste;
             let output_to_file = open.output.is_some();
             let no_clobber = if let Self::Open { no_clobber, .. } = self {
                 *no_clobber
@@ -539,7 +536,6 @@ impl CliCommand {
 pub(crate) struct AppOpenArgs {
     deeplink: Option<String>,
     passthrough: Vec<String>,
-    pbcopy: bool,
     pbpaste: bool,
 
     output: Option<PathBuf>,
@@ -551,7 +547,6 @@ impl From<OpenArgs> for AppOpenArgs {
         Self {
             deeplink: value.deeplink,
             passthrough: value.passthrough,
-            pbcopy: value.pbcopy,
             pbpaste: value.pbpaste,
             output: value.output,
             legacy_open_mode: value.legacy_open_mode,
@@ -764,13 +759,6 @@ mod unit_tests {
     fn with_deeplink(link: &str) -> AppOpenArgs {
         AppOpenArgs {
             deeplink: Some(link.to_string()),
-            ..Default::default()
-        }
-    }
-
-    fn with_pbcopy() -> AppOpenArgs {
-        AppOpenArgs {
-            pbcopy: true,
             ..Default::default()
         }
     }
@@ -1261,40 +1249,6 @@ mod unit_tests {
                     "--esn",
                     "TEST_FLAG",
                 ]),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_enroll_with_pbcopy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--pbcopy",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: with_pbcopy(),
             },
         ];
         assert_eq!(expected, observed);
@@ -2073,29 +2027,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_open_with_pbcopy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--pbcopy",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Open {
-                app: fenix(),
-                open: with_pbcopy(),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
     fn test_fetch() -> Result<()> {
         let file = Some(PathBuf::from("./archived.json"));
         let observed = get_commands_from_cli([
@@ -2497,31 +2428,6 @@ mod unit_tests {
                 app: fenix(),
                 expression: "locale == 'en-US'".to_string(),
                 open: Default::default(),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_jexl_with_pbcopy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "eval-jexl",
-            "locale == 'en-US'",
-            "--pbcopy",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::EvalJexl {
-                app: fenix(),
-                expression: "locale == 'en-US'".to_string(),
-                open: with_pbcopy(),
             },
         ];
         assert_eq!(expected, observed);

@@ -27,7 +27,6 @@ whoami = "1.4.0"
 update-informer = { version = "1.0.0", default-features = false }
 serde_yaml = "0.9.21"
 percent-encoding = "2.3.0"
-copypasta = "0.8.2"
 chrono = "0.4.26"
 axum = { version = "0.8", optional = true }
 tokio = { version = "1.49", optional = true, features = ["sync", "net", "rt", "macros", "rt-multi-thread"] }
