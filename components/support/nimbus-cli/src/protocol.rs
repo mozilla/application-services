@@ -2,15 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::process::{Command};
+use std::process::{Command, Stdio};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use serde_json::Value;
-use termcolor::{StandardStream, ColorChoice};
+use termcolor::{ColorChoice, StandardStream};
 
-use crate::cmd::{write_info, write_prompt};
 use crate::AppOpenArgs;
+use crate::cmd::{write_info, write_prompt};
 
 /// Instructions for an Nimbus client application.
 ///
@@ -56,17 +57,11 @@ impl<'a> LaunchProtocol<'a> {
     }
 
     pub fn logging_state(self, log_state: bool) -> Self {
-        Self {
-            log_state,
-            ..self
-        }
+        Self { log_state, ..self }
     }
 
     pub fn resetting_db(self, reset_db: bool) -> Self {
-        Self {
-            reset_db,
-            ..self
-        }
+        Self { reset_db, ..self }
     }
 
     pub fn has_actions(&self) -> bool {
@@ -79,7 +74,7 @@ pub enum LaunchableApp {
     Android(AndroidApp),
 
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    Ios(IosApp)
+    Ios(IosApp),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,10 +83,19 @@ pub struct AndroidApp {
     pub package_name: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+enum DeviceKind {
+    Simulator,
+    Phsyical,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IosApp {
     pub device_id: String,
     pub app_id: String,
+
+    device_kind: RefCell<Option<DeviceKind>>,
 }
 
 impl AndroidApp {
@@ -145,25 +149,23 @@ impl AndroidApp {
     }
 
     pub fn kill(&self) -> Result<bool> {
-        Ok(
-            self.adb()
-                .arg("shell")
-                .arg(format!("am force-stop {}", &self.package_name))
-                .spawn()?
-                .wait()?
-                .success()
-        )
+        Ok(self
+            .adb()
+            .arg("shell")
+            .arg(format!("am force-stop {}", &self.package_name))
+            .spawn()?
+            .wait()?
+            .success())
     }
 
     pub fn reset_app(&self) -> Result<bool> {
-        Ok(
-            self.adb()
-                .arg("shell")
-                .arg(format!("pm clear {}", &self.package_name))
-                .spawn()?
-                .wait()?
-                .success()
-        )
+        Ok(self
+            .adb()
+            .arg("shell")
+            .arg(format!("pm clear {}", &self.package_name))
+            .spawn()?
+            .wait()?
+            .success())
     }
 
     pub fn tail_logs(&self, stream: &mut StandardStream) -> Result<bool> {
@@ -178,11 +180,7 @@ impl AndroidApp {
         args.append(&mut vec!["-d"]);
         write_prompt(
             stream,
-            &format!(
-                "adb {} > {}",
-                args.join(" "),
-                dest.display()
-            ),
+            &format!("adb {} > {}", args.join(" "), dest.display()),
         )?;
         let output = self.adb().args(args).output()?;
         std::fs::write(dest, String::from_utf8_lossy(&output.stdout).to_string())?;
@@ -190,26 +188,23 @@ impl AndroidApp {
     }
 
     pub fn try_capture_jexl_result_logs(&self) -> Result<Vec<u8>> {
-        Ok(
-            self.adb()
-                .args([
-                    "logcat",
-                    // Dump logs to stdout and exit.
-                    "-d",
-                    // Silence the default log filter.
-                    "-s",
-                    // Dump only logs tagged NimbusTooling at INFO or higher.
-                    "NimbusTooling:I",
-                ])
-                .output()?
-                .stdout
-        )
+        Ok(self
+            .adb()
+            .args([
+                "logcat",
+                // Dump logs to stdout and exit.
+                "-d",
+                // Silence the default log filter.
+                "-s",
+                // Dump only logs tagged NimbusTooling at INFO or higher.
+                "NimbusTooling:I",
+            ])
+            .output()?
+            .stdout)
     }
 
     pub fn clear_logs(&self) -> Result<()> {
-        let output = self.adb()
-                .args(["logcat", "-c"])
-                .output()?;
+        let output = self.adb().args(["logcat", "-c"]).output()?;
 
         if !output.status.success() {
             bail!("{}", String::from_utf8_lossy(&output.stderr));
@@ -240,9 +235,17 @@ impl AndroidApp {
 }
 
 impl IosApp {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn new(device_id: String, app_id: String) -> Self {
+        Self {
+            device_id,
+            app_id,
+            device_kind: RefCell::new(None),
+        }
+    }
+
     pub fn build_launch_cmd(&self, protocol: LaunchProtocol, open: &AppOpenArgs) -> Result<Command> {
         let mut args: Vec<String> = Vec::new();
-
         let (starting_args, ending_args) = open.args();
 
         args.push("launch".to_string());
@@ -338,14 +341,12 @@ impl IosApp {
         )?;
         let log_path = self.get_log_path()?;
 
-        Ok(
-            Command::new("tail")
+        Ok(Command::new("tail")
             .arg("-f")
             .arg(log_path.as_path().to_str().unwrap())
             .spawn()?
             .wait()?
-            .success()
-        )
+            .success())
     }
 
     pub fn capture_logs(&self, stream: &mut StandardStream, dest: &Path) -> Result<bool> {
@@ -363,23 +364,21 @@ impl IosApp {
     }
 
     pub fn try_capture_jexl_result_logs(&self) -> Result<Vec<u8>> {
-        Ok(
-            Self::xcrun_simctl()
-                .args([
-                    "spawn",
-                    &self.device_id,
-                    "log",
-                    "show",
-                    "--predicate",
-                    "process == 'Client'",
-                    "--last",
-                    "10s",
-                    "--style",
-                    "compact",
-                ])
-                .output()?
-                .stdout
-        )
+        Ok(Self::xcrun_simctl()
+            .args([
+                "spawn",
+                &self.device_id,
+                "log",
+                "show",
+                "--predicate",
+                "process == 'Client'",
+                "--last",
+                "10s",
+                "--style",
+                "compact",
+            ])
+            .output()?
+            .stdout)
     }
 
     fn get_log_file_command(&self) -> String {
@@ -392,7 +391,12 @@ impl IosApp {
     fn get_app_container(&self, container: &str) -> Result<String> {
         // We need to get the app container directories, and delete them.
         let output = Self::xcrun_simctl()
-            .args(["get_app_container", &self.device_id, &self.app_id, container])
+            .args([
+                "get_app_container",
+                &self.device_id,
+                &self.app_id,
+                container,
+            ])
             .output()
             .expect("Expected an app-container from the simulator");
 
@@ -410,10 +414,114 @@ impl IosApp {
         })??)
     }
 
+    fn get_device_kind(&self) -> Result<DeviceKind> {
+        if let Some(device_kind) = *self.device_kind.borrow() {
+            return Ok(device_kind);
+        }
+
+        let device_kind = Self::query_device_kind(&self.device_id)?;
+        self.device_kind.replace(Some(device_kind));
+
+        Ok(device_kind)
+    }
+
+    fn query_device_kind(device_id: &str) -> Result<DeviceKind> {
+        if device_id == "booted" {
+            // "booted" is a special device we can pass to simctl to interact
+            // with the currently running simulator. However, `devicectl info`
+            // won't resolve "booted" to a simulator and will instead return an
+            // error.
+            return Ok(DeviceKind::Simulator);
+        }
+
+        let output = Self::xcrun_devicectl()
+            .args([
+                "device",
+                "info",
+                "details",
+                "-q",
+                "-j",
+                "-",
+                "--device",
+                device_id,
+            ])
+            .stderr(Stdio::null())
+            .output()?;
+
+        const PARSE_ERROR: &'static str = "could not parse devicectl output";
+        const BOOT_STATE_BOOTED: &'static str = "booted";
+        const REALITY_PHYSICAL: &'static str = "physical";
+        const REALITY_SIMULATOR: &'static str = "simulator";
+
+        if output.status.success() {
+            let json =
+                serde_json::from_slice::<serde_json::Value>(&output.stdout).context(PARSE_ERROR)?;
+            let result = json
+                .as_object()
+                .and_then(|obj| obj.get("result")?.as_object());
+
+            let boot_state = result
+                .and_then(|obj| {
+                    obj.get("deviceProperties")?
+                        .as_object()?
+                        .get("bootState")?
+                        .as_str()
+                })
+                .context(PARSE_ERROR)?;
+
+            if boot_state != BOOT_STATE_BOOTED {
+                return Err(anyhow!("Device {} is not booted", device_id));
+            }
+
+            let reality = result
+                .and_then(|obj| {
+                    obj.get("hardwareProperties")?
+                        .as_object()?
+                        .get("reality")?
+                        .as_str()
+                })
+                .context(PARSE_ERROR)?;
+
+            match reality {
+                REALITY_PHYSICAL => Ok(DeviceKind::Phsyical),
+                REALITY_SIMULATOR => Ok(DeviceKind::Simulator),
+                _ => Err(anyhow!("Unknown device reality {reality}")),
+            }
+        } else {
+            let json =
+                serde_json::from_slice::<serde_json::Value>(&output.stdout).context(PARSE_ERROR)?;
+            let err = json
+                .as_object()
+                .and_then(|rsp| {
+                    rsp.get("error")?
+                        .as_object()?
+                        .get("userInfo")?
+                        .as_object()?
+                        .get("NSLocalizedDescription")?
+                        .as_object()?
+                        .get("string")?
+                        .as_str()
+                })
+                .context(PARSE_ERROR)?;
+
+            Err(anyhow!("devicectl error: {}", err))
+        }
+    }
+
     fn xcrun_simctl() -> Command {
-        let xcrun = std::env::var("XCRUN_PATH").unwrap_or_else(|_| "xcrun".to_string());
-        let mut cmd = Command::new(xcrun);
+        let mut cmd = Self::xcrun();
         cmd.arg("simctl");
         cmd
+    }
+
+    fn xcrun_devicectl() -> Command {
+        let mut cmd = Self::xcrun();
+        cmd.arg("devicectl");
+        cmd
+    }
+
+    fn xcrun() -> Command {
+        let xcrun = std::env::var("XCRUN_PATH").unwrap_or_else(|_| "xcrun".to_string());
+        Command::new(xcrun)
     }
 }

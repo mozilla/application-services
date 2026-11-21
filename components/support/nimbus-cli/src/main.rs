@@ -527,10 +527,7 @@ mod unit_tests {
             })
         }
         fn ios(id: &str) -> LaunchableApp {
-            LaunchableApp::Ios(IosApp {
-                device_id: "booted".to_string(),
-                app_id: id.to_string(),
-            })
+            LaunchableApp::Ios(IosApp::new("booted".into(), id.into()))
         }
 
         // Firefox for Android, a.k.a. fenix
@@ -621,10 +618,7 @@ mod unit_tests {
     }
 
     fn firefox_ios() -> LaunchableApp {
-        LaunchableApp::Ios(IosApp {
-            app_id: "org.mozilla.ios.Fennec".into(),
-            device_id: "foobar".into(),
-        })
+        LaunchableApp::Ios(IosApp::new("foobar".into(), "org.mozilla.ios.Fennec".into()))
     }
 
     fn fenix_params() -> NimbusApp {
