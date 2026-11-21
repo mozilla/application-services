@@ -8,6 +8,7 @@
 
 - The `--pbcopy` flag has been removed from nimbus-cli. ([#7825](https://github.com/mozilla/application-services/pull/7825))
 - The `start-server` subcommand has been removed from nimbus-cli. ([#7826](https://github.com/mozilla/application-services/pull/7826))
+- Deeplink support has been removed from nimbus-cli. ([#7828](https://github.com/mozilla/application-services/pull/7828))
 
 ## ✨ What's Changed ✨
 

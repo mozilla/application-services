@@ -57,7 +57,7 @@ where
 
     // Validating the command line args. Most of this should be done with clap,
     // but for everything else there's:
-    cli.command.check_valid(cli.app)?;
+    cli.command.check_valid()?;
 
     // Validating experiments against manifests
     commands.push(AppCommand::try_validate(&cli)?);
@@ -66,10 +66,12 @@ where
         let app = LaunchableApp::try_from(&cli)?;
         commands.push(AppCommand::Kill { app });
     }
+
     if cli.command.should_reset() {
         let app = LaunchableApp::try_from(&cli)?;
         commands.push(AppCommand::Reset { app });
     }
+
     commands.push(main_command);
 
     Ok(commands)
@@ -79,15 +81,11 @@ where
 enum LaunchableApp {
     Android {
         package_name: String,
-        activity_name: String,
         device_id: Option<String>,
-        scheme: String,
-        open_deeplink: String,
     },
     Ios {
         device_id: String,
         app_id: String,
-        scheme: String,
     },
 }
 
@@ -433,39 +431,12 @@ impl TryFrom<&Cli> for AppCommand {
 }
 
 impl CliCommand {
-    fn check_valid(&self, maybe_app: Option<App>) -> Result<()> {
+    fn check_valid(&self) -> Result<()> {
         // Check validity of the OpenArgs.
         if let Some(open) = self.open_args() {
             if open.reset_app || !open.passthrough.is_empty() {
-                const ERR: &str = "does not work with --reset-app or passthrough args";
                 if open.output.is_some() {
-                    bail!(format!("{} {}", "--output", ERR));
-                }
-            }
-            if open.deeplink.is_some() {
-                const ERR: &str = "does not work with --deeplink";
-                if open.output.is_some() {
-                    bail!("--output {ERR}");
-                }
-            }
-
-            if let Some(app) = maybe_app {
-                match app {
-                    App::Fenix => {
-                        if !open.legacy_open_mode
-                            && open.deeplink.is_some()
-                            && !matches!(self, Self::Open { .. })
-                        {
-                            bail!(
-                                "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
-                            );
-                        }
-                    }
-
-                    _ if open.legacy_open_mode => {
-                        bail!("--legacy-open-mode is not supported for {app}");
-                    }
-                    _ => {}
+                    bail!("--output does not work with --reset-app or passthrough args");
                 }
             }
         }
@@ -488,29 +459,20 @@ impl CliCommand {
     }
 
     fn should_kill(&self, maybe_app: Option<App>) -> bool {
-        if let Some(open) = self.open_args() {
-            let output_to_file = open.output.is_some();
-            let no_clobber = if let Self::Open { no_clobber, .. } = self {
-                *no_clobber
-            } else {
-                false
-            };
-
-            if !open.legacy_open_mode {
-                match (maybe_app, &self) {
-                    (Some(App::Fenix), Self::Open { no_clobber, .. }) => {
-                        return !no_clobber && !output_to_file;
-                    }
-                    (Some(App::Fenix), _) => {
-                        return false;
-                    }
-                    _ => {}
-                }
-            }
-
-            !no_clobber && !output_to_file
+        // Ensure the app is closed before opening.
+        // The ResetApp command explcitly kills the app.
+        if matches!(self, Self::Open { .. } | Self::ResetApp) {
+            true
         } else {
-            matches!(self, Self::ResetApp)
+            match (self.open_args(), maybe_app) {
+                // We never launch Fenix: we only broadcast intents.
+                (_, Some(App::Fenix)) => false,
+
+                // If we are writing to a file we do not need to kill the app.
+                (Some(OpenArgs { output, .. }), _) => !output.is_some(),
+
+                _ => matches!(self, Self::ResetApp),
+            }
         }
     }
 
@@ -525,20 +487,16 @@ impl CliCommand {
 
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct AppOpenArgs {
-    deeplink: Option<String>,
     passthrough: Vec<String>,
 
     output: Option<PathBuf>,
-    legacy_open_mode: bool,
 }
 
 impl From<OpenArgs> for AppOpenArgs {
     fn from(value: OpenArgs) -> Self {
         Self {
-            deeplink: value.deeplink,
             passthrough: value.passthrough,
             output: value.output,
-            legacy_open_mode: value.legacy_open_mode,
         }
     }
 }
@@ -571,58 +529,49 @@ mod unit_tests {
                 command: CliCommand::ResetApp,
             }
         }
-        fn android(
-            package: &str,
-            activity: &str,
-            scheme: &str,
-            open_deeplink: &str,
-        ) -> LaunchableApp {
+        fn android(package: &str) -> LaunchableApp {
             LaunchableApp::Android {
                 package_name: package.to_string(),
-                activity_name: activity.to_string(),
                 device_id: None,
-                scheme: scheme.into(),
-                open_deeplink: open_deeplink.into(),
             }
         }
-        fn ios(id: &str, scheme: &str) -> LaunchableApp {
+        fn ios(id: &str) -> LaunchableApp {
             LaunchableApp::Ios {
                 app_id: id.to_string(),
                 device_id: "booted".to_string(),
-                scheme: scheme.into(),
             }
         }
 
         // Firefox for Android, a.k.a. fenix
         assert_eq!(
             LaunchableApp::try_from(&cli(App::Fenix, Channel::Developer))?,
-            android("org.mozilla.fenix.debug", ".App", "fenix-dev", "open")
+            android("org.mozilla.fenix.debug")
         );
         assert_eq!(
             LaunchableApp::try_from(&cli(App::Fenix, Channel::Nightly))?,
-            android("org.mozilla.fenix", ".App", "fenix-nightly", "open")
+            android("org.mozilla.fenix")
         );
         assert_eq!(
             LaunchableApp::try_from(&cli(App::Fenix, Channel::Beta))?,
-            android("org.mozilla.firefox_beta", ".App", "fenix-beta", "open")
+            android("org.mozilla.firefox_beta")
         );
         assert_eq!(
             LaunchableApp::try_from(&cli(App::Fenix, Channel::Release))?,
-            android("org.mozilla.firefox", ".App", "fenix", "open")
+            android("org.mozilla.firefox")
         );
 
         // Firefox for iOS
         assert_eq!(
             LaunchableApp::try_from(&cli(App::FirefoxIos, Channel::Developer))?,
-            ios("org.mozilla.ios.Fennec", "fennec")
+            ios("org.mozilla.ios.Fennec")
         );
         assert_eq!(
             LaunchableApp::try_from(&cli(App::FirefoxIos, Channel::Beta))?,
-            ios("org.mozilla.ios.FirefoxBeta", "firefox-beta")
+            ios("org.mozilla.ios.FirefoxBeta")
         );
         assert_eq!(
             LaunchableApp::try_from(&cli(App::FirefoxIos, Channel::Release))?,
-            ios("org.mozilla.ios.Firefox", "firefox-internal")
+            ios("org.mozilla.ios.Firefox")
         );
 
         Ok(())
@@ -676,10 +625,7 @@ mod unit_tests {
     fn fenix() -> LaunchableApp {
         LaunchableApp::Android {
             package_name: "org.mozilla.fenix.debug".into(),
-            activity_name: ".App".into(),
             device_id: None,
-            scheme: "fenix-dev".into(),
-            open_deeplink: "open".into(),
         }
     }
 
@@ -687,7 +633,6 @@ mod unit_tests {
         LaunchableApp::Ios {
             app_id: "org.mozilla.ios.Fennec".into(),
             device_id: "foobar".into(),
-            scheme: "fennec".into(),
         }
     }
 
@@ -745,13 +690,6 @@ mod unit_tests {
         }
     }
 
-    fn with_deeplink(link: &str) -> AppOpenArgs {
-        AppOpenArgs {
-            deeplink: Some(link.to_string()),
-            ..Default::default()
-        }
-    }
-
     fn with_passthrough(params: &[&str]) -> AppOpenArgs {
         AppOpenArgs {
             passthrough: params.iter().map(|s| s.to_string()).collect(),
@@ -792,44 +730,6 @@ mod unit_tests {
             filter: ExperimentListFilter::for_enrolling_on(date),
             inner: Box::new(list),
         }
-    }
-
-    #[test]
-    fn test_enroll_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
     }
 
     #[test]
@@ -908,68 +808,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_enroll_ios_legacy() {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "firefox_ios",
-            "--channel",
-            "release",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--legacy-open",
-        ]);
-
-        assert_eq!(
-            observed.unwrap_err().to_string(),
-            "--legacy-open-mode is not supported for firefox_ios"
-        );
-    }
-
-    #[test]
-    fn test_enroll_with_reset_app_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--reset-app",
-            "--no-validate",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Reset { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
     fn test_enroll_with_reset_app_fenix() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
@@ -998,49 +836,6 @@ mod unit_tests {
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
                 open: Default::default(),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_enroll_with_validate_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--reset-app",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: fenix_manifest(),
-                experiment: experiment("my-experiment"),
-            },
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Reset { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
             },
         ];
         assert_eq!(expected, observed);
@@ -1079,120 +874,6 @@ mod unit_tests {
                 preserve_bucketing: false,
                 preserve_nimbus_db: false,
                 open: Default::default(),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_enroll_with_deeplink_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--deeplink",
-            "host/path?key=value",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..with_deeplink("host/path?key=value")
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_enroll_with_deeplink_fenix() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--deeplink",
-            "host/path?key=value",
-        ]);
-
-        assert_eq!(
-            observed.unwrap_err().to_string(),
-            "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_enroll_with_passthrough_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "enroll",
-            "my-experiment",
-            "--branch",
-            "my-branch",
-            "--no-validate",
-            "--legacy-open",
-            "--",
-            "--start-profiler",
-            "./profile.file",
-            "{}",
-            "--esn",
-            "TEST_FLAG",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: experiment("my-experiment"),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..with_passthrough(&[
-                        "--start-profiler",
-                        "./profile.file",
-                        "{}",
-                        "--esn",
-                        "TEST_FLAG",
-                    ])
-                },
             },
         ];
         assert_eq!(expected, observed);
@@ -1375,231 +1056,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_test_feature_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: fenix_manifest(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-            },
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        // With a specific version of the manifest.
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--version",
-            "114",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: fenix_old_manifest_with_ref("releases_v114"),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-            },
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        // With a specific version of the manifest, via a ref.
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--ref",
-            "my-tag",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: fenix_manifest_with_ref("my-tag"),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-            },
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        // With a file on disk
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--manifest",
-            "./manifest.fml.yaml",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::ValidateExperiment {
-                params: fenix_params(),
-                manifest: manifest_from_file("./manifest.fml.yaml"),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-            },
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--no-validate",
-            "--deeplink",
-            "host/path?key=value",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Enroll {
-                app: fenix(),
-                params: fenix_params(),
-                experiment: feature_experiment(
-                    "my-feature",
-                    &["./my-branch.json", "./my-treatment.json"],
-                ),
-                rollouts: Default::default(),
-                branch: "my-branch".to_string(),
-                preserve_targeting: false,
-                preserve_bucketing: false,
-                preserve_nimbus_db: false,
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..with_deeplink("host/path?key=value")
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        Ok(())
-    }
-
-    #[test]
     fn test_test_feature_fenix() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
@@ -1762,26 +1218,6 @@ mod unit_tests {
         ];
         assert_eq!(expected, observed);
 
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "test-feature",
-            "my-feature",
-            "./my-branch.json",
-            "./my-treatment.json",
-            "--no-validate",
-            "--deeplink",
-            "host/path?key=value",
-        ]);
-
-        assert_eq!(
-            observed.unwrap_err().to_string(),
-            "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
-        );
-
         Ok(())
     }
 
@@ -1809,35 +1245,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_open_with_reset_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--reset-app",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Reset { app: fenix() },
-            AppCommand::Open {
-                app: fenix(),
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
     fn test_open_with_reset_fenix() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
@@ -1856,101 +1263,6 @@ mod unit_tests {
             AppCommand::Open {
                 app: fenix(),
                 open: Default::default(),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_open_with_deeplink_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--deeplink",
-            "host/path",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Open {
-                app: fenix(),
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..with_deeplink("host/path")
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_open_with_deeplink_fenix() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--deeplink",
-            "host/path",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Open {
-                app: fenix(),
-                open: with_deeplink("host/path"),
-            },
-        ];
-        assert_eq!(expected, observed);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_open_with_passthrough_params_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--legacy-open",
-            "--",
-            "--start-profiler",
-            "./profile.file",
-            "{}",
-            "--esn",
-            "TEST_FLAG",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::Open {
-                app: fenix(),
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..with_passthrough(&[
-                        "--start-profiler",
-                        "./profile.file",
-                        "{}",
-                        "--esn",
-                        "TEST_FLAG",
-                    ])
-                },
             },
         ];
         assert_eq!(expected, observed);
@@ -1986,29 +1298,6 @@ mod unit_tests {
                     "--esn",
                     "TEST_FLAG",
                 ]),
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_open_with_noclobber() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "open",
-            "--no-clobber",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Open {
-                app: fenix(),
-                open: Default::default(),
             },
         ];
         assert_eq!(expected, observed);
@@ -2371,35 +1660,6 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_jexl_fenix_legacy() -> Result<()> {
-        let observed = get_commands_from_cli([
-            "nimbus-cli",
-            "--app",
-            "fenix",
-            "--channel",
-            "developer",
-            "eval-jexl",
-            "locale == 'en-US'",
-            "--legacy-open",
-        ])?;
-
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::Kill { app: fenix() },
-            AppCommand::EvalJexl {
-                app: fenix(),
-                expression: "locale == 'en-US'".to_string(),
-                open: AppOpenArgs {
-                    legacy_open_mode: true,
-                    ..Default::default()
-                },
-            },
-        ];
-        assert_eq!(expected, observed);
-        Ok(())
-    }
-
-    #[test]
     fn test_jexl_fenix() -> Result<()> {
         let observed = get_commands_from_cli([
             "nimbus-cli",
@@ -2411,15 +1671,17 @@ mod unit_tests {
             "locale == 'en-US'",
         ])?;
 
-        let expected = vec![
-            AppCommand::NoOp,
-            AppCommand::EvalJexl {
-                app: fenix(),
-                expression: "locale == 'en-US'".to_string(),
-                open: Default::default(),
-            },
-        ];
-        assert_eq!(expected, observed);
+        assert_eq!(
+            observed,
+            &[
+                AppCommand::NoOp,
+                AppCommand::EvalJexl {
+                    app: fenix(),
+                    expression: "locale == 'en-US'".to_string(),
+                    open: Default::default(),
+                },
+            ]
+        );
         Ok(())
     }
 }
