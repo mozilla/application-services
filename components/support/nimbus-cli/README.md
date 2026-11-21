@@ -102,9 +102,6 @@ Options:
       --preserve-bucketing
           Preserves the original experiment bucketing
 
-      --deeplink <DEEPLINK>
-          Optional deeplink. If present, launch with this link
-
       --reset-app
           Resets the app back to its initial state before launching
 
