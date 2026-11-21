@@ -192,6 +192,10 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v159.0...v160.0)
 
+### Remote Settings
+
+- When signature verification is enabled, newly synchronized records remain unavailable until verification completes.
+
 # v159.0 (_2026-10-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v158.0...v159.0)
