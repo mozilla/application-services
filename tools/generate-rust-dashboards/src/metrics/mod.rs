@@ -10,28 +10,8 @@ pub mod labeled_distribution;
 pub mod rust_component_errors;
 pub mod sync;
 
-use crate::{
-    config::{Metric, TeamConfig},
-    schema::DashboardBuilder,
-    Result,
-};
-
-impl Metric {
-    pub fn add_to_dashboard(
-        &self,
-        builder: &mut DashboardBuilder,
-        config: &TeamConfig,
-    ) -> Result<()> {
-        match self {
-            Self::Counter(metric) => counter::add_to_dashboard(builder, config, metric),
-            Self::LabeledCounter(metric) => {
-                labeled_counter::add_to_dashboard(builder, config, metric)
-            }
-            Self::Distribution(metric) => distribution::add_to_dashboard(builder, config, metric),
-            Self::LabeledDistribution(metric) => {
-                labeled_distribution::add_to_dashboard(builder, config, metric)
-            }
-            Self::Events(metric) => event::add_to_dashboard(builder, config, metric),
-        }
-    }
-}
+pub use counter::{CounterMetric, CounterOptions};
+pub use distribution::DistributionMetric;
+pub use event::{EventsMetric, EventsOptions};
+pub use labeled_counter::{LabeledCounterMetric, LabeledCounterOptions};
+pub use labeled_distribution::LabeledDistributionMetric;

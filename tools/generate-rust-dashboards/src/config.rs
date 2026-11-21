@@ -2,9 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{collections::BTreeSet, fmt};
+use std::fmt;
 
-pub use crate::component_config::Component;
 pub use crate::schema::Unit;
 use crate::util::slug;
 
@@ -14,182 +13,6 @@ pub struct TeamConfig {
     ///
     /// This is what shows up on your dashboard titles.  Spell it out however you want.
     pub team_name: &'static str,
-
-    /// Components that your team manages.
-    pub components: Vec<Component>,
-
-    /// Track component errors
-    ///
-    /// This adds a panel to the main dashboard as well as creates a extra dashboard for error
-    /// details.
-    pub component_errors: bool,
-
-    /// Track sync metrics
-    ///
-    /// This adds a panel to the main dashboard as well as creates a extra dashboard for sync
-    /// errors.
-    pub sync_metrics: bool,
-
-    /// Metric to include on your main dashboard
-    pub main_dashboard_metrics: Vec<Metric>,
-
-    /// Extra dashboards to generate
-    pub extra_dashboards: Vec<ExtraDashboard>,
-}
-
-/// Extra dashboard to generate for a team
-pub struct ExtraDashboard {
-    pub name: &'static str,
-    /// Metrics to include in the dashboard
-    pub metrics: Vec<Metric>,
-}
-
-/// Metric to add to your team dashboard
-///
-/// Metrics will add panels to your overview dashboard and/or create secondary dashboards.
-pub enum Metric {
-    Counter(CounterMetric),
-    LabeledCounter(LabeledCounterMetric),
-    Distribution(DistributionMetric),
-    LabeledDistribution(LabeledDistributionMetric),
-    Events(EventsMetric),
-}
-
-/// Glean counter
-///
-/// This will create time-series panels for the counter
-pub struct CounterMetric {
-    /// Name to display on the dashboard
-    pub display_name: &'static str,
-    /// Name of the ping ("metrics" by default)
-    pub ping: &'static str,
-    /// Category name (top-level key in metrics.yaml)
-    pub category: &'static str,
-    /// Metric name (key for the metric)
-    pub metric: &'static str,
-    // Which applications report this metric
-    pub applications: Vec<Application>,
-    pub options: CounterOptions,
-}
-
-#[derive(Default)]
-pub struct CounterOptions {
-    pub unique_user_counts: bool,
-}
-
-/// Glean labeled counter
-///
-/// This will create time-series panels for the counter, partitioned by the label
-pub struct LabeledCounterMetric {
-    /// Name to display on the dashboard
-    pub display_name: &'static str,
-    /// Name of the ping ("metrics" by default)
-    pub ping: &'static str,
-    /// Category name (top-level key in metrics.yaml)
-    pub category: &'static str,
-    /// Metric name (key for the metric)
-    pub metric: &'static str,
-    // Which applications report this metric
-    pub applications: Vec<Application>,
-    pub options: LabeledCounterOptions,
-}
-
-#[derive(Default)]
-pub struct LabeledCounterOptions {
-    pub unique_user_counts: bool,
-    // List of all possible labels.  Listing these can result in a nicer color scheme, especially
-    // when `unique_user_counts` is set.
-    pub labels: Option<Vec<String>>,
-}
-
-/// Glean timing/memory distribution
-///
-/// This will create time-series panels for the 5th, 50th and 95th percentile.
-pub struct DistributionMetric {
-    pub kind: DistributionMetricKind,
-    /// Name to display on the dashboard
-    pub display_name: &'static str,
-    /// Label describing what we're measure
-    pub axis_label: &'static str,
-    /// Unit label
-    pub unit: Option<Unit>,
-    /// Name of the ping ("metrics" by default)
-    pub ping: &'static str,
-    /// Category name (top-level key in metrics.yaml)
-    pub category: &'static str,
-    /// Metric name (key for the metric)
-    pub metric: &'static str,
-    // Which applications report this metric
-    pub applications: Vec<Application>,
-    // Divide each value by this amount
-    //
-    // Note:
-    // * Timing distributions are always stored in nanoseconds, regardless of the unit listed in
-    //   `metrics.yaml`
-    // * Memory distributions are always stored in bytes, regardless of the unit listed in
-    //   `metrics.yaml`
-    pub value_divisor: Option<u64>,
-    // Link to an extra dashboard, the inner value is the name of the dashboard
-    pub link_to: Option<&'static str>,
-}
-
-/// Glean labeled timing/memory distribution
-///
-/// This will create time-series panels for the 5th, 50th and 95th percentile.
-/// Percentiles will be partitioned by the metric label.
-pub struct LabeledDistributionMetric {
-    pub kind: DistributionMetricKind,
-    /// Name to display on the dashboard
-    pub display_name: &'static str,
-    /// Label describing what we're measure
-    pub axis_label: &'static str,
-    /// Unit label
-    pub unit: Option<Unit>,
-    /// Name of the ping ("metrics" by default)
-    pub ping: &'static str,
-    /// Category name (top-level key in metrics.yaml)
-    pub category: &'static str,
-    /// Metric name (key for the metric)
-    pub metric: &'static str,
-    // Which applications report this metric
-    pub applications: Vec<Application>,
-    // Divide each value by this amount
-    //
-    // Note:
-    // * Timing distributions are always stored in nanoseconds, regardless of the unit listed in
-    //   `metrics.yaml`
-    // * Memory distributions are always stored in bytes, regardless of the unit listed in
-    //   `metrics.yaml`
-    pub value_divisor: Option<u64>,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum DistributionMetricKind {
-    Memory,
-    Timing,
-    Custom,
-}
-
-/// Track multiple Glean events together
-///
-/// This will create time-series panels with event counts for each event
-pub struct EventsMetric {
-    /// Name to display on the dashboard
-    pub display_name: &'static str,
-    /// Name of the ping ("metrics" by default)
-    pub ping: &'static str,
-    /// Category name (top-level key in metrics.yaml)
-    pub category: &'static str,
-    /// Metric name (key for the metric)
-    pub metrics: Vec<&'static str>,
-    // Which applications report this metric
-    pub applications: Vec<Application>,
-    pub options: EventsOptions,
-}
-
-#[derive(Default)]
-pub struct EventsOptions {
-    pub unique_user_counts: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -207,27 +30,20 @@ pub enum ReleaseChannel {
 }
 
 impl TeamConfig {
-    pub fn applications(&self) -> BTreeSet<Application> {
-        self.components
-            .iter()
-            .flat_map(Component::applications)
-            .cloned()
-            .collect()
-    }
-
     pub fn team_slug(&self) -> String {
         slug(self.team_name)
     }
 
-    /// Slug for the extra dashboard
-    pub fn details_slug(&self) -> String {
-        // Every once in a while uploading the JSON fails for me (BDK).
-        // To hack around this, I bump the number at the end there.
-        format!("{}-sync-details2", self.team_slug())
+    pub fn dashboard_slug(&self, dashboard_slug: &str) -> String {
+        format!("{}-{dashboard_slug}", self.team_slug())
     }
 }
 
 impl Application {
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Desktop, Self::Android, Self::Ios].into_iter()
+    }
+
     pub fn slug(&self) -> &'static str {
         match self {
             Self::Android => "firefox_android",
@@ -282,35 +98,5 @@ impl fmt::Display for ReleaseChannel {
             Self::Beta => write!(f, "beta"),
             Self::Release => write!(f, "release"),
         }
-    }
-}
-
-impl From<CounterMetric> for Metric {
-    fn from(m: CounterMetric) -> Self {
-        Self::Counter(m)
-    }
-}
-
-impl From<LabeledCounterMetric> for Metric {
-    fn from(m: LabeledCounterMetric) -> Self {
-        Self::LabeledCounter(m)
-    }
-}
-
-impl From<DistributionMetric> for Metric {
-    fn from(m: DistributionMetric) -> Self {
-        Self::Distribution(m)
-    }
-}
-
-impl From<LabeledDistributionMetric> for Metric {
-    fn from(m: LabeledDistributionMetric) -> Self {
-        Self::LabeledDistribution(m)
-    }
-}
-
-impl From<EventsMetric> for Metric {
-    fn from(m: EventsMetric) -> Self {
-        Self::Events(m)
     }
 }

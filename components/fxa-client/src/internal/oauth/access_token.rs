@@ -53,7 +53,7 @@ impl FirefoxAccount {
                     }
                     // but it missing should be impossible!?
                     error_support::report_error!(
-                        "fxaclient-lost-scoped-key",
+                        "fxa-client-lost-scoped-key",
                         "have cached token without a key"
                     );
                 }
