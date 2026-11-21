@@ -85,7 +85,7 @@ def _import_modules(modules):
 
 
 def get_decision_parameters(graph_config, parameters):
-    if parameters["tasks_for"] == "github-pull-request":
+    if parameters["tasks_for"].startswith("github-pull-request"):
         pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
         preview_match = PREVIEW_RE.search(pr_title)
         if preview_match is not None:
