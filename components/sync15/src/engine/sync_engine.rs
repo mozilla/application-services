@@ -123,7 +123,9 @@ impl TryFrom<&str> for SyncEngineId {
 pub trait SyncEngine {
     fn collection_name(&self) -> CollectionName;
 
-    /// Indicates that a sync is starting.
+    /// Indicates that a sync is starting. This is called before any `stage_incoming()`
+    /// calls, and is where engines should discard anything staged by an earlier sync that
+    /// never reached `apply()` (see `stage_incoming()`).
     fn sync_started(&self) -> Result<()> {
         Ok(())
     }
@@ -162,19 +164,36 @@ pub trait SyncEngine {
         unimplemented!("This engine does not support local encryption");
     }
 
-    /// Stage some incoming records. This might be called multiple times in the same sync
-    /// if we fetch the incoming records in batches.
+    /// Stage some incoming records.
     ///
-    /// Note there is no timestamp provided here, because the procedure for fetching in batches
-    /// means that the timestamp advancing during a batch means we must abort and start again.
-    /// The final collection timestamp after staging all records is supplied to `apply()`
+    /// The sync client downloads a collection a page at a time and calls this once per page,
+    /// so it's normally called several times in a sync; engines must not assume they see all
+    /// incoming records in one call. The records in each call are exactly one page, in the
+    /// server's order for the collection request (see `get_collection_request()`).
+    ///
+    /// * If `get_collection_request()` returns `None`, there's no download and this isn't
+    ///   called at all; `apply()` is still called. If the download returns no records, it's
+    ///   called once with an empty `inbound`.
+    /// * If the collection changes on the server mid-download, the sync of this engine is
+    ///   abandoned after some pages have already been staged: `apply()`, `set_uploaded()`
+    ///   and `sync_finished()` are not called. Engines must therefore not treat staged records
+    ///   as final, and must not advance their last-sync timestamp here; the next sync will
+    ///   download those records again. `sync_started()` must discard anything left staged.
+    /// * Engines which apply records directly here rather than staging them (eg, history,
+    ///   tabs) must cope with the same record being applied again by a later sync.
+    ///
+    /// There's no timestamp here because none is final until every page has been downloaded.
+    /// `apply()` is given the collection's timestamp once staging is complete.
     fn stage_incoming(
         &self,
         inbound: Vec<IncomingBso>,
         telem: &mut telemetry::Engine,
     ) -> Result<()>;
 
-    /// Apply the staged records, returning outgoing records.
+    /// Apply the staged records, returning outgoing records. Called once per sync, after
+    /// every page of incoming records has been staged (or when there was nothing to
+    /// download), and not at all if the download was abandoned. `timestamp` is the
+    /// collection's last-modified time as reported by the server when the sync started.
     /// Ideally we would adjust this model to better support batching of outgoing records
     /// without needing to keep them all in memory (ie, an iterator or similar?)
     fn apply(
@@ -201,6 +220,9 @@ pub trait SyncEngine {
     /// request saying "give me full records since that date" - however, other
     /// engines might do something fancier. It can return None if the server timestamp
     /// has not advanced since the last sync.
+    /// The sync client may split this request into pages, adding its own `limit` and
+    /// `offset`. If the request already has a limit, that's treated as the total across
+    /// all pages, and its sort order is kept.
     /// This could even later be extended to handle "backfills", and we might end up
     /// wanting one engine to use multiple collections (eg, as a "foreign key" via guid), etc.
     fn get_collection_request(

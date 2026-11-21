@@ -11,6 +11,7 @@ pub struct CollectionRequest {
     pub limit: Option<RequestLimit>,
     pub older: Option<ServerTimestamp>,
     pub newer: Option<ServerTimestamp>,
+    pub offset: Option<String>,
 }
 
 impl CollectionRequest {
@@ -47,6 +48,12 @@ impl CollectionRequest {
     #[inline]
     pub fn newer_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
         self.newer = Some(ts);
+        self
+    }
+
+    #[inline]
+    pub fn offset(mut self, offset: Option<String>) -> CollectionRequest {
+        self.offset = offset;
         self
     }
 

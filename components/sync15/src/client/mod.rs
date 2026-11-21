@@ -27,7 +27,9 @@ mod token;
 mod util;
 
 pub(crate) use coll_state::{CollState, LocalCollStateMachine};
-pub(crate) use coll_update::{CollectionUpdate, fetch_incoming};
+pub(crate) use coll_update::{
+    CollectionUpdate, DEFAULT_DOWNLOAD_BATCH_SIZE, fetch_incoming, fetch_incoming_batched,
+};
 pub(crate) use collection_keys::CollectionKeys;
 pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
