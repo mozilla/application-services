@@ -14,7 +14,7 @@ use crate::clients_engine::{self, CLIENTS_TTL_REFRESH, CommandProcessor};
 use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::{Error, debug, info, trace, warn};
 use crate::telemetry;
-use crate::{EngineChoicesModel, KeyBundle};
+use crate::{AccountEngineChoices, EngineChoicesModel, KeyBundle};
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::result;
@@ -132,6 +132,7 @@ pub fn sync_multiple_with_command_processor(
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
         declined: None,
+        account_engine_choices: None,
         next_sync_after: None,
         engine_results: HashMap::with_capacity(engines.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
@@ -441,6 +442,14 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
             }
             Ok(state) => state,
         };
+        // If we wrote meta/global, the state machine fetched it again, so this
+        // is what we wrote.
+        let mut enabled: Vec<String> = state.global.engines.keys().cloned().collect();
+        enabled.sort();
+        self.result.account_engine_choices = Some(AccountEngineChoices {
+            enabled,
+            declined: state.global.declined.clone(),
+        });
         self.result.telemetry.uid(client_info.client.hashed_uid()?);
         // As for client_info, put None back now so we start from scratch on error.
         self.mem_cached_state.last_global_state = None;

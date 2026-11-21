@@ -41,3 +41,14 @@ impl EngineChoicesModel {
         }
     }
 }
+
+/// The account-wide engine choices, as recorded in `meta/global`. Maintained by
+/// clients using `EngineChoicesModel::Account`, but reported with either model,
+/// so apps using per-device choices can adopt them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, uniffi::Record)]
+pub struct AccountEngineChoices {
+    /// The engines in `meta/global`'s engines.
+    pub enabled: Vec<String>,
+    /// The engines in `meta/global`'s declined.
+    pub declined: Vec<String>,
+}

@@ -57,7 +57,8 @@ impl SyncManager {
             breadcrumb!("SyncManager::sync is already in progress, bailing out early");
             return Err(SyncManagerError::Busy);
         };
-        let engines = self.calc_engines_to_sync(&params.engines)?;
+        let engines =
+            self.calc_engines_to_sync(&params.engines, params.enabled_engines.as_deref())?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         let result = if !backoff_in_effect(next_sync_after, &params) {
             info!("No backoff in effect (or we decided to ignore it), starting sync");
@@ -72,6 +73,7 @@ impl SyncManager {
                 successful: Default::default(),
                 failures: Default::default(),
                 declined: None,
+                account_engine_choices: None,
                 next_sync_allowed_at: next_sync_after,
                 persisted_state: params.persisted_state.unwrap_or_default(),
                 // It would be nice to record telemetry here.
@@ -158,7 +160,6 @@ impl SyncManager {
             fxa_device_id: params.device_settings.fxa_device_id,
             device_name: params.device_settings.name,
             device_type: params.device_settings.kind,
-            enabled_engines: params.device_settings.enabled_engines,
         };
         let c = SyncClient::new(settings);
         let result = sync_multiple_with_command_processor(
@@ -200,6 +201,7 @@ impl SyncManager {
             successful,
             failures,
             declined: result.declined,
+            account_engine_choices: result.account_engine_choices,
             next_sync_allowed_at: result.next_sync_after,
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),
@@ -213,6 +215,7 @@ impl SyncManager {
     fn calc_engines_to_sync(
         &self,
         selection: &SyncEngineSelection,
+        enabled_engines: Option<&[String]>,
     ) -> Result<Vec<Box<dyn SyncEngine>>> {
         // BTreeMap to ensure we sync the engines in priority order.
         let mut engine_map: BTreeMap<_, _> = self.iter_registered_engines().collect();
@@ -239,6 +242,20 @@ impl SyncManager {
             }
             // Filter engines based on the selection
             engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id))
+        } else if let Some(enabled_engines) = enabled_engines {
+            // "All" means all the engines this device has chosen. It's only a
+            // declaration, so names we don't know aren't an error.
+            let enabled_engine_ids: HashSet<SyncEngineId> = enabled_engines
+                .iter()
+                .filter_map(|name| match Self::get_engine_id(name) {
+                    Ok(id) => Some(id),
+                    Err(_) => {
+                        warn!("Ignoring unknown enabled engine {:?}", name);
+                        None
+                    }
+                })
+                .collect();
+            engine_map.retain(|engine_id, _| enabled_engine_ids.contains(engine_id))
         }
         Ok(engine_map.into_values().collect())
     }
@@ -333,6 +350,7 @@ mod test {
             reason: SyncReason::Scheduled,
             engines: SyncEngineSelection::All,
             engine_choices_model: EngineChoicesModel::default(),
+            enabled_engines: None,
             local_encryption_keys: HashMap::new(),
             auth_info: SyncAuthInfo {
                 kid: "kid".to_string(),
@@ -345,7 +363,6 @@ mod test {
                 fxa_device_id: "device-id".to_string(),
                 name: "Test Device".to_string(),
                 kind: sync15::DeviceType::Mobile,
-                enabled_engines: vec![],
             },
         }
     }

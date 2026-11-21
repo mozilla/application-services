@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::time::SystemTime;
-use sync15::{DeviceType, EngineChoicesModel};
+use sync15::{AccountEngineChoices, DeviceType, EngineChoicesModel};
 
 #[derive(Debug, uniffi::Record)]
 pub struct SyncParams {
@@ -14,6 +14,12 @@ pub struct SyncParams {
     pub engines: SyncEngineSelection,
     /// How the user's choice of engines to sync is modelled.
     pub engine_choices_model: EngineChoicesModel,
+    /// All the engines this device has chosen to sync, which may be more than
+    /// `engines` asks for in this sync. A declaration of the device's choices,
+    /// not used to decide what to sync, except that `SyncEngineSelection::All`
+    /// means these engines when specified.
+    #[uniffi(default)]
+    pub enabled_engines: Option<Vec<String>>,
     /// Keys to encrypt/decrypt data from local database files.  These are
     /// separate from the key we use to encrypt the sync payload as a whole.
     pub local_encryption_keys: HashMap<String, String>,
@@ -59,10 +65,6 @@ pub struct DeviceSettings {
     pub fxa_device_id: String,
     pub name: String,
     pub kind: DeviceType,
-    /// The engines this device syncs, to be published for other devices on the
-    /// account to see. Not yet published.
-    #[uniffi(default)]
-    pub enabled_engines: Vec<String>,
 }
 
 #[derive(Debug, uniffi::Record)]
@@ -86,6 +88,12 @@ pub struct SyncResult {
     /// choices are local without remote updates. `None` means "no change", not
     /// "nothing declined".
     pub declined: Option<Vec<String>>,
+    /// The account-wide engine choices in `meta/global`, reported with either
+    /// `EngineChoicesModel` variant. Will also return the value this sync wrote
+    /// to `meta/global` if any.
+    /// Apps using `EngineChoicesModel::Device` may use these to seed their own
+    /// choices. `None` if the sync didn't get far enough to know them.
+    pub account_engine_choices: Option<AccountEngineChoices>,
     /// Earliest time that the next sync should happen at
     pub next_sync_allowed_at: Option<SystemTime>,
     /// JSON string encoding a `SyncTelemetryPing` object

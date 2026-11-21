@@ -21,6 +21,9 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 ## ⚠️ Breaking Changes ⚠️
 
+### Sync Manager
+- `DeviceSettings.enabled_engines` is removed, replaced by `SyncParams.enabled_engines`.
+
 ### Firefox Accounts
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
   Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
@@ -70,6 +73,8 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 ### Sync Manager
 
 - `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
+- `SyncResult.account_engine_choices` reports the account-wide engine choices in `meta/global`, so apps using per-device engine choices can adopt them.
+- `SyncParams.enabled_engines` declares all the engines this device has chosen to sync. With `SyncEngineSelection.All`, only those engines are synced.
 
 ## ⚠️ Breaking Changes ⚠️
 

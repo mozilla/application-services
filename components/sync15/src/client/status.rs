@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::AccountEngineChoices;
 use crate::error::{Error, ErrorResponse};
 use crate::telemetry::SyncTelemetryPing;
 use std::collections::HashMap;
@@ -69,6 +70,10 @@ pub struct SyncResult {
 
     /// The set of declined engines, if we know them.
     pub declined: Option<Vec<String>>,
+
+    /// The account-wide engine choices in `meta/global`, including one we wrote
+    /// in this sync. `None` if we didn't get as far as knowing them.
+    pub account_engine_choices: Option<AccountEngineChoices>,
 
     /// The result of the sync.
     pub result: Result<(), Error>,
