@@ -3,8 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::io::Write;
-use std::path::PathBuf;
-use std::process::Command;
+use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -103,7 +102,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     Ok(status)
 }
 
-fn prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
+pub(crate) fn write_prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
     write!(stream, "$ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
@@ -113,7 +112,7 @@ fn prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_info(stream: &mut StandardStream, text: &str) -> Result<()> {
+pub(crate) fn write_info(stream: &mut StandardStream, text: &str) -> Result<()> {
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
     write!(stream, "ℹ️ ")?;
     stream.set_color(ColorSpec::new().set_fg(None))?;
@@ -123,7 +122,7 @@ fn output_info(stream: &mut StandardStream, text: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
+pub(crate) fn write_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
     write!(stream, "✅ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
     writeln!(stream, "{title}")?;
@@ -132,7 +131,7 @@ fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+pub(crate) fn write_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
     write!(stream, "❎ ")?;
     stream.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
     write!(stream, "{title}")?;
@@ -143,52 +142,11 @@ fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<
 }
 
 impl LaunchableApp {
-    fn exe(&self) -> Result<Command> {
-        Ok(match self {
-            Self::Android { device_id, .. } => {
-                let adb_name = if std::env::consts::OS != "windows" {
-                    "adb"
-                } else {
-                    "adb.exe"
-                };
-                let adb = std::env::var("ADB_PATH").unwrap_or_else(|_| adb_name.to_string());
-                let mut cmd = Command::new(adb);
-                if let Some(id) = device_id {
-                    cmd.args(["-s", id]);
-                }
-                cmd
-            }
-            Self::Ios { .. } => {
-                if std::env::consts::OS != "macos" {
-                    panic!("Cannot run commands for iOS on anything except macOS");
-                }
-                let xcrun = std::env::var("XCRUN_PATH").unwrap_or_else(|_| "xcrun".to_string());
-                let mut cmd = Command::new(xcrun);
-                cmd.arg("simctl");
-                cmd
-            }
-        })
-    }
-
     fn kill_app(&self) -> Result<bool> {
-        Ok(match self {
-            Self::Android { package_name, .. } => self
-                .exe()?
-                .arg("shell")
-                .arg(format!("am force-stop {}", package_name))
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios {
-                app_id, device_id, ..
-            } => {
-                let _ = self
-                    .exe()?
-                    .args(["terminate", device_id, app_id])
-                    .output()?;
-                true
-            }
-        })
+        match self {
+            Self::Android(android_app) => android_app.kill(),
+            Self::Ios(ios_app) => ios_app.kill(),
+        }
     }
 
     fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
@@ -198,117 +156,31 @@ impl LaunchableApp {
             experiments: Some(&payload),
             ..Default::default()
         };
-        self.start_app(protocol, open)
+        self.launch(protocol, open)
     }
 
     fn reset_app(&self) -> Result<bool> {
-        Ok(match self {
-            Self::Android { package_name, .. } => self
-                .exe()?
-                .arg("shell")
-                .arg(format!("pm clear {}", package_name))
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios {
-                app_id, device_id, ..
-            } => {
-                self.exe()?
-                    .args(["privacy", device_id, "reset", "all", app_id])
-                    .status()?;
-                let data = self.ios_app_container("data")?;
-                let groups = self.ios_app_container("groups")?;
-                self.ios_reset(data, groups)?;
-                true
-            }
-        })
+        match self {
+            Self::Android(android_app) => android_app.reset_app(),
+            Self::Ios(ios_app) => ios_app.reset_app(),
+        }
     }
 
     fn tail_logs(&self) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
-        Ok(match self {
-            Self::Android { .. } => {
-                let mut args = logcat_args();
-                args.append(&mut vec!["-v", "color"]);
-                prompt(&mut stdout, &format!("adb {}", args.join(" ")))?;
-                self.exe()?.args(args).spawn()?.wait()?.success()
-            }
-            Self::Ios { .. } => {
-                prompt(
-                    &mut stdout,
-                    &format!("{} | xargs tail -f", self.ios_log_file_command()),
-                )?;
-                let log = self.ios_log_file()?;
-
-                Command::new("tail")
-                    .arg("-f")
-                    .arg(log.as_path().to_str().unwrap())
-                    .spawn()?
-                    .wait()?
-                    .success()
-            }
-        })
+        match self {
+            Self::Android(android_app) => android_app.tail_logs(&mut stdout),
+            Self::Ios(ios_app) => ios_app.tail_logs(&mut stdout)
+        }
     }
 
-    fn capture_logs(&self, file: &PathBuf) -> Result<bool> {
+    fn capture_logs(&self, file: &Path) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
-        Ok(match self {
-            Self::Android { .. } => {
-                let mut args = logcat_args();
-                args.append(&mut vec!["-d"]);
-                prompt(
-                    &mut stdout,
-                    &format!(
-                        "adb {} > {}",
-                        args.join(" "),
-                        file.as_path().to_str().unwrap()
-                    ),
-                )?;
-                let output = self.exe()?.args(args).output()?;
-                std::fs::write(file, String::from_utf8_lossy(&output.stdout).to_string())?;
-                true
-            }
-
-            Self::Ios { .. } => {
-                let log = self.ios_log_file()?;
-                prompt(
-                    &mut stdout,
-                    &format!(
-                        "{} | xargs -J %log_file% cp %log_file% {}",
-                        self.ios_log_file_command(),
-                        file.as_path().to_str().unwrap()
-                    ),
-                )?;
-                std::fs::copy(log, file)?;
-                true
-            }
-        })
-    }
-
-    fn ios_log_file(&self) -> Result<PathBuf> {
-        let data = self.ios_app_container("data")?;
-        let mut files = glob::glob(&format!("{}/**/*.log", data))?;
-        let log = files.next();
-        Ok(log.ok_or_else(|| {
-            anyhow::Error::msg(
-                "Logs are not available before the app is started for the first time",
-            )
-        })??)
-    }
-
-    fn ios_log_file_command(&self) -> String {
-        if let Self::Ios {
-            device_id, app_id, ..
-        } = self
-        {
-            format!(
-                "find $(xcrun simctl get_app_container {0} {1} data) -name \\*.log",
-                device_id, app_id
-            )
-        } else {
-            unreachable!()
+        match self {
+            Self::Android(android_app) => android_app.capture_logs(&mut stdout, file),
+            Self::Ios(ios_app) => ios_app.capture_logs(&mut stdout, file),
         }
     }
 
@@ -317,7 +189,7 @@ impl LaunchableApp {
             log_state: true,
             ..Default::default()
         };
-        self.start_app(protocol, open)
+        self.launch(protocol, open)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -344,7 +216,7 @@ impl LaunchableApp {
             *preserve_targeting,
             *preserve_bucketing,
         )?];
-        output_info(
+        write_info(
             &mut stdout,
             &format!("Enrolling in the '{0}' branch of '{1}'", branch, slug),
         )?;
@@ -358,7 +230,7 @@ impl LaunchableApp {
                 *preserve_targeting,
                 *preserve_bucketing,
             )?);
-            output_info(
+            write_info(
                 &mut stdout,
                 &format!("# Enrolling into the '{0}' rollout", slug),
             )?;
@@ -371,7 +243,7 @@ impl LaunchableApp {
             log_state: true,
             jexl_expression: None,
         };
-        self.start_app(protocol, open)
+        self.launch(protocol, open)
     }
 
     fn apply_list(
@@ -388,64 +260,24 @@ impl LaunchableApp {
             log_state: true,
             jexl_expression: None,
         };
-        self.start_app(protocol, open)
+        self.launch(protocol, open)
     }
 
-    fn ios_app_container(&self, container: &str) -> Result<String> {
-        if let Self::Ios {
-            app_id, device_id, ..
-        } = self
-        {
-            // We need to get the app container directories, and delete them.
-            let output = self
-                .exe()?
-                .args(["get_app_container", device_id, app_id, container])
-                .output()
-                .expect("Expected an app-container from the simulator");
-            let string = String::from_utf8_lossy(&output.stdout).to_string();
-            Ok(string.trim().to_string())
-        } else {
-            unreachable!()
-        }
-    }
-
-    fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        output_info(&mut stdout, "Resetting the app")?;
-        if !data_dir.is_empty() {
-            prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
-            let _ = std::fs::remove_dir_all(&data_dir);
-            let _ = std::fs::create_dir_all(&data_dir);
-        }
-        let lines = groups_string.split('\n');
-
-        for line in lines {
-            let words = line.splitn(2, '\t').collect::<Vec<_>>();
-            if let [_, dir] = words.as_slice()
-                && !dir.is_empty()
-            {
-                prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
-                let _ = std::fs::remove_dir_all(dir);
-                let _ = std::fs::create_dir_all(dir);
-            }
-        }
-        Ok(true)
-    }
 
     fn open(&self, open: &AppOpenArgs) -> Result<bool> {
-        self.start_app(Default::default(), open)
+        self.launch(Default::default(), open)
     }
 
     fn eval_jexl(&self, expression: &str, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        output_info(
+        write_info(
             &mut stdout,
             &format!("Evaluating JEXL expression `{expression}`"),
         )?;
 
         // Clear logcat before starting to ensure we only read fresh logs
-        if matches!(self, Self::Android { .. }) {
-            self.exe()?.args(["logcat", "-c"]).output()?;
+        if let Self::Android(android_app) = &self {
+            android_app.clear_logs()?;
         }
 
         let protocol = StartAppProtocol {
@@ -453,9 +285,9 @@ impl LaunchableApp {
             ..Default::default()
         };
 
-        self.start_app(protocol, open)?;
+        self.launch(protocol, open)?;
 
-        output_info(&mut stdout, "Waiting for result...")?;
+        write_info(&mut stdout, "Waiting for result...")?;
 
         const MAX_RETRIES: u32 = 3;
         const SLEEP_DURATION: Duration = Duration::from_secs(3);
@@ -464,14 +296,14 @@ impl LaunchableApp {
         let rsp = loop {
             sleep(SLEEP_DURATION);
 
-            match self.capture_jexl_result()? {
+            match self.try_capture_jexl_result()? {
                 Some(rsp) => break rsp,
                 None => {
                     if attempt >= MAX_RETRIES {
                         bail!("Failed to find JEXL result in logs after {attempt} attempts")
                     }
 
-                    output_info(
+                    write_info(
                         &mut stdout,
                         &format!("Retry {}/{}...", attempt, MAX_RETRIES - 1),
                     )?;
@@ -498,9 +330,9 @@ impl LaunchableApp {
             })?;
 
             if let Some(v) = result.as_bool() {
-                output_ok(&mut stdout, &v.to_string())?;
+                write_ok(&mut stdout, &v.to_string())?;
             } else {
-                output_info(
+                write_info(
                     &mut stdout,
                     &format!(
                         "Did not evaluate to a boolean: {}",
@@ -519,46 +351,17 @@ impl LaunchableApp {
                 .as_str()
                 .ok_or_else(|| anyhow!("Unexpected response: error is not a string"))?;
 
-            output_err(&mut stdout, "Error", error)?;
+            write_err(&mut stdout, "Error", error)?;
             Ok(false)
         }
     }
 
-    fn capture_jexl_result(&self) -> Result<Option<String>> {
+    fn try_capture_jexl_result(&self) -> Result<Option<String>> {
         let output = match self {
-            Self::Android { .. } => {
-                self.exe()?
-                    .args([
-                        "logcat",
-                        // Dump logs to stdout and exit.
-                        "-d",
-                        // Silence the default log filter.
-                        "-s",
-                        // Dump only logs tagged NimbusTooling at INFO or higher.
-                        "NimbusTooling:I",
-                    ])
-                    .output()?
-                    .stdout
-            }
-
-            Self::Ios { device_id, .. } => {
-                self.exe()?
-                    .args([
-                        "spawn",
-                        device_id,
-                        "log",
-                        "show",
-                        "--predicate",
-                        "process == 'Client'",
-                        "--last",
-                        "10s",
-                        "--style",
-                        "compact",
-                    ])
-                    .output()?
-                    .stdout
-            }
+            Self::Android(android_app) => android_app.try_capture_jexl_result_logs()?,
+            Self::Ios(ios_app) => ios_app.try_capture_jexl_result_logs()?,
         };
+
         let logs = String::from_utf8_lossy(&output);
 
         for line in logs.lines().rev() {
@@ -570,13 +373,13 @@ impl LaunchableApp {
         Ok(None)
     }
 
-    fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
+    fn launch(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         if let Some(file) = &open.output {
             let ex = app_protocol.experiments;
             if let Some(contents) = ex {
                 value_utils::write_to_file_or_print(Some(file), contents)?;
-                output_ok(
+                write_ok(
                     &mut stdout,
                     &format!(
                         "Written to JSON to file {}",
@@ -584,7 +387,7 @@ impl LaunchableApp {
                     ),
                 )?;
             } else {
-                output_err(
+                write_err(
                     &mut stdout,
                     "No content",
                     &format!("File {} not written", file.to_str().unwrap_or_default()),
@@ -594,141 +397,13 @@ impl LaunchableApp {
             return Ok(true);
         }
 
-        Ok(match self {
-            Self::Android { .. } => self
-                .android_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios { .. } => self
-                .ios_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
-        })
+        let mut cmd = match self {
+            Self::Android(android_app) => android_app.build_launch_cmd(app_protocol, open)?,
+            Self::Ios(ios_app) => ios_app.build_launch_cmd(app_protocol, open)?,
+        };
+
+        Ok(cmd.spawn()?.wait()?.success())
     }
-
-    fn android_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
-        if let Self::Android { package_name, .. } = self {
-            let mut args: Vec<String> = Vec::new();
-
-            let (start_args, ending_args) = open.args();
-            args.extend_from_slice(start_args);
-
-            args.extend([
-                format!("-p {}", package_name),
-                "-a org.mozilla.fenix.NIMBUS_TOOLING".to_string(),
-                "-f 0x20".to_string(), // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
-            ]);
-
-            let StartAppProtocol {
-                reset_db,
-                experiments,
-                log_state,
-                jexl_expression,
-            } = app_protocol;
-
-            if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
-                args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
-            }
-
-            if reset_db {
-                args.push("--ez reset-db true".to_string());
-            }
-
-            if let Some(s) = experiments {
-                let json = s.to_string().replace('\'', "&apos;");
-                args.push(format!("--es experiments '{}'", json))
-            }
-
-            if log_state {
-                args.push("--ez log-state true".to_string());
-            }
-
-            if let Some(expr) = jexl_expression {
-                let escaped = expr.replace('\'', "&apos;");
-                args.push(format!("--es eval-jexl '{}'", escaped));
-            };
-
-            args.extend_from_slice(ending_args);
-
-            let sh = format!(r#"am broadcast {}"#, args.join(" \\\n        "),);
-            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-            prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
-            let mut cmd = self.exe()?;
-            cmd.arg("shell").arg(&sh);
-            Ok(cmd)
-        } else {
-            unreachable!();
-        }
-    }
-
-    fn ios_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
-        if let Self::Ios {
-            app_id, device_id, ..
-        } = self
-        {
-            let mut args: Vec<String> = Vec::new();
-
-            let (starting_args, ending_args) = open.args();
-
-            args.push("launch".to_string());
-            args.extend_from_slice(starting_args);
-            args.extend([device_id.to_string(), app_id.to_string()]);
-
-            let StartAppProtocol {
-                log_state,
-                experiments,
-                reset_db,
-                jexl_expression,
-            } = app_protocol;
-
-            if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
-                args.extend([
-                    "--nimbus-cli".to_string(),
-                    "--version".to_string(),
-                    "1".to_string(),
-                ]);
-            }
-
-            if reset_db {
-                // We don't check launch here, because reset-db is never used
-                // without enroll.
-                args.push("--reset-db".to_string());
-            }
-
-            if let Some(s) = experiments {
-                args.extend([
-                    "--experiments".to_string(),
-                    s.to_string().replace('\'', "&apos;"),
-                ]);
-            }
-
-            if log_state {
-                args.push("--log-state".to_string());
-            }
-
-            if let Some(expr) = jexl_expression {
-                args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
-            }
-
-            args.extend_from_slice(ending_args);
-
-            let mut cmd = self.exe()?;
-            cmd.args(args.clone());
-
-            let sh = format!(r#"xcrun simctl {}"#, args.join(" \\\n        "),);
-            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-            prompt(&mut stdout, &sh)?;
-            Ok(cmd)
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-fn logcat_args<'a>() -> Vec<&'a str> {
-    vec!["logcat", "-b", "main"]
 }
 
 impl NimbusApp {
@@ -742,14 +417,14 @@ impl NimbusApp {
 
         let manifest = match TryInto::<FeatureManifest>::try_into(manifest_source) {
             Ok(manifest) => {
-                output_ok(
+                write_ok(
                     &mut stdout,
                     &format!("Loaded manifest from {manifest_source}"),
                 )?;
                 manifest
             }
             Err(err) => {
-                output_err(
+                write_err(
                     &mut stdout,
                     &format!("Problem with manifest from {manifest_source}"),
                     &err.to_string(),
@@ -768,10 +443,10 @@ impl NimbusApp {
                     .unwrap_or_else(|| panic!("Branch {branch} feature {id} has no value"));
                 let res = manifest.validate_feature_config(id, value.clone());
                 match res {
-                    Ok(_) => output_ok(&mut stdout, &format!("{branch: <15} {id}"))?,
+                    Ok(_) => write_ok(&mut stdout, &format!("{branch: <15} {id}"))?,
                     Err(err) => {
                         is_valid = false;
-                        output_err(
+                        write_err(
                             &mut stdout,
                             &format!("{branch: <15} {id}"),
                             &err.to_string(),

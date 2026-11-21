@@ -22,6 +22,8 @@ use clap::Parser;
 use crate::cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
 use crate::config::App;
 use crate::sources::{ExperimentListSource, ExperimentSource, ManifestSource};
+use crate::protocol::{LaunchableApp};
+
 
 pub(crate) static USER_AGENT: &str =
     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
@@ -75,18 +77,6 @@ where
     commands.push(main_command);
 
     Ok(commands)
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum LaunchableApp {
-    Android {
-        package_name: String,
-        device_id: Option<String>,
-    },
-    Ios {
-        device_id: String,
-        app_id: String,
-    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -518,6 +508,7 @@ mod unit_tests {
 
     use super::config::Channel;
     use super::*;
+    use crate::protocol::{LaunchableApp, AndroidApp, IosApp};
 
     #[test]
     fn test_launchable_app() -> Result<()> {
@@ -530,16 +521,16 @@ mod unit_tests {
             }
         }
         fn android(package: &str) -> LaunchableApp {
-            LaunchableApp::Android {
-                package_name: package.to_string(),
+            LaunchableApp::Android(AndroidApp {
                 device_id: None,
-            }
+                package_name: package.to_string(),
+            })
         }
         fn ios(id: &str) -> LaunchableApp {
-            LaunchableApp::Ios {
-                app_id: id.to_string(),
+            LaunchableApp::Ios(IosApp {
                 device_id: "booted".to_string(),
-            }
+                app_id: id.to_string(),
+            })
         }
 
         // Firefox for Android, a.k.a. fenix
@@ -623,17 +614,17 @@ mod unit_tests {
     }
 
     fn fenix() -> LaunchableApp {
-        LaunchableApp::Android {
+        LaunchableApp::Android(AndroidApp {
             package_name: "org.mozilla.fenix.debug".into(),
             device_id: None,
-        }
+        })
     }
 
     fn firefox_ios() -> LaunchableApp {
-        LaunchableApp::Ios {
+        LaunchableApp::Ios(IosApp {
             app_id: "org.mozilla.ios.Fennec".into(),
             device_id: "foobar".into(),
-        }
+        })
     }
 
     fn fenix_params() -> NimbusApp {
