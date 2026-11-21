@@ -34,7 +34,6 @@ Commands:
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
   open          Open the app without changing the state of experiment enrollments
-  start-server  Start a server
   reset-app     Reset the app back to its just installed state
   tail-logs     Follow the logs for the given app
   test-feature  Configure an application feature with one or more feature config files
@@ -232,9 +231,6 @@ Arguments:
 Options:
       --deeplink <DEEPLINK>
           Optional deeplink. If present, launch with this link
-
-      --pbpaste
-          Use the deeplink URL from clipboard
 
       --output <OUTPUT>
           Write the deeplink URL to a file

@@ -12,6 +12,7 @@
 ### Nimbus
 
 - The `--pbcopy` flag has been removed from nimbus-cli. ([#7825](https://github.com/mozilla/application-services/pull/7825))
+- The `start-server` subcommand has been removed from nimbus-cli. ([#7826](https://github.com/mozilla/application-services/pull/7826))
 
 ## ✨ What's Changed ✨
 
