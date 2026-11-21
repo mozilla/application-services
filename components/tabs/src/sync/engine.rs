@@ -153,13 +153,13 @@ impl SyncEngine for TabsEngine {
         }
         telem.incoming(incoming_telemetry);
         let mut storage = self.store.storage.lock().unwrap();
-        // In desktop we might end up here with zero records when doing a quick-write, in
-        // which case we don't want to wipe the DB.
+        // A batch can leave us with no records to store, eg if it only had our own
+        // record or invalid ones. Closures can only be completed or time out when a
+        // device's record changes, so there's then nothing to clean up either.
         if !remote_tabs.is_empty() {
             storage.replace_remote_tabs(&remote_tabs)?;
+            storage.remove_old_pending_closures(&remote_tabs)?;
         }
-        storage.remove_stale_clients()?;
-        storage.remove_old_pending_closures(&remote_tabs)?;
         Ok(())
     }
 
@@ -170,6 +170,13 @@ impl SyncEngine for TabsEngine {
     ) -> Result<Vec<OutgoingBso>> {
         // We've already applied them - we just need to fetch outgoing.
         let local_id = &*self.local_id.read().unwrap();
+
+        // Stale clients are devices that stopped writing, so this has to run even
+        // when there was nothing to download. It runs before we update last-sync,
+        // so the TTL is measured from the previous sync as before, and before the
+        // "no local tabs" early return below.
+        self.store.storage.lock().unwrap().remove_stale_clients()?;
+
         // Timestamp will be zero when used as a "bridged" engine.
         if timestamp.0 != 0 {
             self.set_last_sync(timestamp)?;
@@ -308,6 +315,7 @@ pub mod test {
     use super::*;
     use crate::DeviceType;
     use serde_json::json;
+    use sql_support::ConnExt;
     use sync15::bso::IncomingBso;
 
     #[test]
@@ -551,5 +559,118 @@ pub mod test {
             ServerTimestamp::from_millis(123),
             "didn't set a zero timestamp"
         )
+    }
+
+    // Stale clients are devices that have stopped writing, so they have to be
+    // removed even on syncs that download nothing - when `get_collection_request`
+    // returns `None`, and on desktop's quick-write, which only calls `apply(0)`.
+    #[test]
+    fn test_apply_removes_stale_clients_without_a_download() {
+        error_support::init_for_tests();
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-stale-clients-without-download",
+        )));
+        let stored_clients = |engine: &TabsEngine| -> i64 {
+            let mut storage = engine.store.storage.lock().unwrap();
+            storage
+                .open_if_exists()
+                .unwrap()
+                .unwrap()
+                .conn_ext_query_one("SELECT COUNT(*) FROM tabs")
+                .unwrap()
+        };
+        let mut telem = telemetry::Engine::new("tabs");
+        let ttl_ms = (TABS_CLIENT_TTL as i64) * 1000;
+
+        // A sync downloads another device's record, last modified at 0. The new
+        // last-sync is more than the TTL after it.
+        engine
+            .stage_incoming(
+                vec![IncomingBso::from_test_content(json!({
+                    "id": "other-device",
+                    "clientName": "other device",
+                    "tabs": [],
+                }))],
+                &mut telem,
+            )
+            .unwrap();
+        engine
+            .apply(ServerTimestamp::from_millis(ttl_ms + 1), &mut telem)
+            .unwrap();
+        // The cleanup ran before last-sync was updated, so it measured from the
+        // previous sync (none yet) and kept the client.
+        assert_eq!(stored_clients(&engine), 1);
+
+        // The next sync downloads nothing, so `stage_incoming` isn't called.
+        engine
+            .apply(ServerTimestamp::from_millis(ttl_ms + 1), &mut telem)
+            .unwrap();
+        assert_eq!(
+            stored_clients(&engine),
+            0,
+            "the stale client should be removed even without a download"
+        );
+    }
+
+    // Completed "close tab" requests are resolved when the device's record
+    // arrives: `stage_incoming` cleans them up, without waiting for `apply()`.
+    #[test]
+    fn test_stage_incoming_resolves_completed_closures() {
+        use crate::RemoteCommand;
+        error_support::init_for_tests();
+        let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
+            "test-stage-incoming-resolves-closures",
+        )));
+
+        // This device asked the other device to close two tabs.
+        {
+            let mut storage = engine.store.storage.lock().unwrap();
+            for url in ["https://closed.example/", "https://still-open.example/"] {
+                storage
+                    .add_remote_tab_command(
+                        "other-device",
+                        &RemoteCommand::CloseTab { url: url.into() },
+                    )
+                    .unwrap();
+            }
+        }
+        let pending_urls = |engine: &TabsEngine| -> Vec<String> {
+            let mut urls: Vec<_> = engine
+                .store
+                .storage
+                .lock()
+                .unwrap()
+                .get_unsent_commands()
+                .unwrap()
+                .into_iter()
+                .map(|c| {
+                    let RemoteCommand::CloseTab { url } = c.command;
+                    url
+                })
+                .collect();
+            urls.sort();
+            urls
+        };
+
+        // The other device's new record: it closed one tab but not the other.
+        let mut telem = telemetry::Engine::new("tabs");
+        engine
+            .stage_incoming(
+                vec![IncomingBso::from_test_content(json!({
+                    "id": "other-device",
+                    "clientName": "other device",
+                    "tabs": [{
+                        "title": "still open",
+                        "urlHistory": ["https://still-open.example/"],
+                        "icon": null,
+                        "lastUsed": 1643764207
+                    }]
+                }))],
+                &mut telem,
+            )
+            .unwrap();
+
+        // Resolved by `stage_incoming` itself - `apply()` hasn't run.
+        assert_eq!(pending_urls(&engine), vec!["https://still-open.example/"]);
     }
 }
