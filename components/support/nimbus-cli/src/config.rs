@@ -11,9 +11,10 @@ use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use maplit::hashmap;
 
+use crate::NimbusApp;
 use crate::cli::Cli;
+use crate::protocol::{AndroidApp, LaunchableApp};
 use crate::version_utils::{is_before, pad_major, pad_major_minor, pad_major_minor_patch};
-use crate::{LaunchableApp, NimbusApp};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
@@ -123,14 +124,19 @@ impl LaunchableApp {
         };
 
         Ok(match app {
-            App::Fenix => Self::Android {
-                package_name: package.into(),
+            App::Fenix => Self::Android(AndroidApp {
                 device_id: device_id.map(Into::into),
-            },
-            App::FirefoxIos => Self::Ios {
-                app_id: package.into(),
+                package_name: package.into(),
+            }),
+
+            #[cfg(target_os = "macos")]
+            App::FirefoxIos => Self::Ios(crate::protocol::IosApp {
                 device_id: device_id.unwrap_or("booted").into(),
-            },
+                app_id: package.into(),
+            }),
+
+            #[cfg(not(target_os = "macos"))]
+            App::FirefoxIos => bail!("nimbus-cli can only drive iOS applications on macOS"),
         })
     }
 }
