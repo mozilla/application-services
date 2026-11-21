@@ -212,12 +212,6 @@ pub(crate) enum CliCommand {
     Open {
         #[command(flatten)]
         open: OpenArgs,
-
-        /// By default, the app is terminated before sending the a deeplink.
-        ///
-        /// If this flag is set, then do not terminate the app if it is already running.
-        #[arg(long, default_value = "false")]
-        no_clobber: bool,
     },
 
     /// Reset the app back to its just installed state
@@ -303,10 +297,6 @@ pub(crate) struct ManifestArgs {
 
 #[derive(Args, Clone, Debug, Default)]
 pub(crate) struct OpenArgs {
-    /// Optional deeplink. If present, launch with this link.
-    #[arg(long, value_name = "DEEPLINK")]
-    pub(crate) deeplink: Option<String>,
-
     /// Resets the app back to its initial state before launching
     #[arg(long, default_value = "false")]
     pub(crate) reset_app: bool,
@@ -320,12 +310,6 @@ pub(crate) struct OpenArgs {
     /// `adb am start` or `xcrun simctl launch` commands directly.
     #[arg(last = true, value_name = "PASSTHROUGH_ARGS")]
     pub(crate) passthrough: Vec<String>,
-
-    /// Attempt to trigger Firefox via the legacy codepath.
-    ///
-    /// This is required for some older Firefox versions.
-    #[arg(long = "legacy-open")]
-    pub(crate) legacy_open_mode: bool,
 
     /// An optional file to dump experiments into.
     ///

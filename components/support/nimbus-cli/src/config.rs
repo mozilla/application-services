@@ -52,12 +52,7 @@ impl fmt::Display for Channel {
 }
 
 struct ApplicationConfig {
-    channels: HashMap<Channel, ChannelConfig>,
-}
-
-struct ChannelConfig {
-    package: &'static str,
-    scheme: &'static str,
+    package_by_channel: HashMap<Channel, &'static str>,
 }
 
 static APPLICATIONS: LazyLock<HashMap<App, ApplicationConfig>> = LazyLock::new(|| {
@@ -65,23 +60,11 @@ static APPLICATIONS: LazyLock<HashMap<App, ApplicationConfig>> = LazyLock::new(|
         // Firefox for Android defines per channel deeplink schemes in the app/build.gradle.
         // e.g. https://github.com/mozilla-mobile/firefox-android/blob/5d18e7ffe2f3e4505ea815d584d20e66ad10f515/fenix/app/build.gradle#L154
         App::Fenix => ApplicationConfig {
-            channels: hashmap! {
-                Channel::Developer => ChannelConfig {
-                    package: "org.mozilla.fenix.debug",
-                    scheme: "fenix-dev",
-                },
-                Channel::Nightly => ChannelConfig {
-                    package: "org.mozilla.fenix",
-                    scheme: "fenix-nightly",
-                },
-                Channel::Beta => ChannelConfig {
-                    package: "org.mozilla.firefox_beta",
-                    scheme: "fenix-beta",
-                },
-                Channel::Release => ChannelConfig {
-                    package: "org.mozilla.firefox",
-                    scheme: "fenix",
-                },
+            package_by_channel: hashmap! {
+                Channel::Developer => "org.mozilla.fenix.debug",
+                Channel::Nightly => "org.mozilla.fenix",
+                Channel::Beta =>"org.mozilla.firefox_beta",
+                Channel::Release => "org.mozilla.firefox",
             },
         },
 
@@ -93,19 +76,10 @@ static APPLICATIONS: LazyLock<HashMap<App, ApplicationConfig>> = LazyLock::new(|
         // public, so very useful for launching the specific app on a phone where you
         // have multiple versions installed.
         App::FirefoxIos => ApplicationConfig {
-            channels: hashmap! {
-                Channel::Developer => ChannelConfig {
-                    package: "org.mozilla.ios.Fennec",
-                    scheme: "fennec",
-                },
-                Channel::Beta => ChannelConfig {
-                    package: "org.mozilla.ios.FirefoxBeta",
-                    scheme: "firefox-beta",
-                },
-                Channel::Release => ChannelConfig {
-                    package: "org.mozilla.ios.Firefox",
-                    scheme: "firefox-internal",
-                },
+            package_by_channel: hashmap! {
+                Channel::Developer => "org.mozilla.ios.Fennec",
+                Channel::Beta =>  "org.mozilla.ios.FirefoxBeta",
+                Channel::Release =>  "org.mozilla.ios.Firefox",
             },
         }
     }
@@ -138,9 +112,9 @@ impl LaunchableApp {
         };
 
         let app_cfg = &(*APPLICATIONS)[&app];
-        let Some(channel_cfg) = app_cfg.channels.get(&channel) else {
+        let Some(package) = app_cfg.package_by_channel.get(&channel).cloned() else {
             let supported_channels = app_cfg
-                .channels
+                .package_by_channel
                 .keys()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>()
@@ -150,16 +124,12 @@ impl LaunchableApp {
 
         Ok(match app {
             App::Fenix => Self::Android {
-                package_name: channel_cfg.package.into(),
-                activity_name: ".App".into(),
+                package_name: package.into(),
                 device_id: device_id.map(Into::into),
-                scheme: channel_cfg.scheme.into(),
-                open_deeplink: "open".into(),
             },
             App::FirefoxIos => Self::Ios {
-                app_id: channel_cfg.package.into(),
+                app_id: package.into(),
                 device_id: device_id.unwrap_or("booted").into(),
-                scheme: channel_cfg.scheme.into(),
             },
         })
     }
