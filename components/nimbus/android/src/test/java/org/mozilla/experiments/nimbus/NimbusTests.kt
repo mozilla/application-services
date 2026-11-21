@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
+import android.content.Intent
 import android.os.Looper
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
@@ -55,6 +56,7 @@ import org.mozilla.experiments.nimbus.internal.RecordedContext
 import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowLog
 import java.io.File
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -105,6 +107,11 @@ class NimbusTests {
 
     @get:Rule
     val gleanRule = GleanTestRule(context)
+
+    @Before
+    fun setupLogging() {
+        ShadowLog.setupLogging()
+    }
 
     @Before
     fun setupGlean() {
@@ -1213,6 +1220,78 @@ class NimbusTests {
 
         nimbus.resetTelemetryIdentifiersOnThisThread()
         assertCalls(1)
+    }
+
+    @Test
+    fun `initializeTooling evalJexl`() {
+        ShadowLog.clear()
+
+        val intent = createNimbusCliIntent().apply {
+            putExtra("eval-jexl", "true")
+        }
+
+        nimbus.initializeTooling(context, intent)
+
+        val logs = ShadowLog.getLogs()
+        assertEquals(1, logs.size)
+
+        assertEquals("NimbusTooling", logs[0].tag)
+        assertTrue(logs[0].msg.startsWith("JEXL_RESULT: "))
+
+        val json = logs[0].msg.removePrefix("JEXL_RESULT: ")
+        val result = JSONObject(json)
+
+        assertTrue(result.getBoolean("success"))
+        assertTrue(result.getBoolean("result"))
+    }
+
+    @Test
+    fun `initializeTooling evalJexl with non-boolean result`() {
+        ShadowLog.clear()
+
+        val intent = createNimbusCliIntent().apply {
+            putExtra("eval-jexl", "\"true\"")
+        }
+
+        nimbus.initializeTooling(context, intent)
+
+        val logs = ShadowLog.getLogs()
+        assertEquals(1, logs.size)
+        assertEquals("NimbusTooling", logs[0].tag)
+        assertTrue(logs[0].msg.startsWith("JEXL_RESULT: "))
+
+        val json = logs[0].msg.removePrefix("JEXL_RESULT: ")
+        val result = JSONObject(json)
+
+        assertTrue(result.getBoolean("success"))
+        assertEquals("true", result.getString("result"))
+    }
+
+    @Test
+    fun `initializeTooling evalJexl with UUID invalid identifier`() {
+        ShadowLog.clear()
+
+        val intent = createNimbusCliIntent().apply {
+            putExtra("eval-jexl", "bogus")
+        }
+
+        nimbus.initializeTooling(context, intent)
+
+        val logs = ShadowLog.getLogs()
+        assertEquals(1, logs.size)
+        assertEquals("NimbusTooling", logs[0].tag)
+        assertTrue(logs[0].msg.startsWith("JEXL_RESULT: "))
+
+        val json = logs[0].msg.removePrefix("JEXL_RESULT: ")
+        val result = JSONObject(json)
+
+        assertFalse(result.getBoolean("success"))
+        assertEquals("EvaluationError: Identifier 'bogus' is undefined", result.getString("error"))
+    }
+
+    private fun createNimbusCliIntent() = Intent("bogus").apply {
+        putExtra("nimbus-cli", null as String?)
+        putExtra("version", 1)
     }
 }
 
