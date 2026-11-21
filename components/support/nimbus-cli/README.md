@@ -233,9 +233,6 @@ Options:
       --deeplink <DEEPLINK>
           Optional deeplink. If present, launch with this link
 
-      --pbcopy
-          Copy the deeplink URL to clipboard instead of launching
-
       --pbpaste
           Use the deeplink URL from clipboard
 
@@ -253,9 +250,6 @@ nimbus-cli --app fenix --channel developer eval-jexl "locale == 'en-US'"
 
 # Test version comparison
 nimbus-cli --app firefox_ios --channel beta eval-jexl "app_version|versionCompare('120.0') >= 0"
-
-# Copy deeplink to clipboard for manual testing
-nimbus-cli --app fenix --channel developer eval-jexl "is_default_browser" --pbcopy
 ```
 
 ## Environment Variables
