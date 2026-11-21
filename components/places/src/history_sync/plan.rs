@@ -16,10 +16,11 @@ use crate::storage::{
 };
 use crate::types::{UnknownFields, VisitType};
 use interrupt_support::Interruptee;
+use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso};
-use sync15::telemetry;
+use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -177,6 +178,31 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     }
 }
 
+/// Whether a local deletion that hasn't been uploaded yet should win over an
+/// incoming record for the same page. Matches desktop's reconciliation: the
+/// incoming record only wins if the server's copy changed after we deleted the
+/// page. Like desktop, this compares the server's clock with ours (bug 721181).
+fn local_deletion_wins(
+    db: &PlacesDb,
+    guid: &SyncGuid,
+    remote_modified: ServerTimestamp,
+) -> Result<bool> {
+    let time_deleted: Option<Option<i64>> = db.try_query_row(
+        "SELECT time_deleted FROM moz_places_tombstones WHERE guid = :guid",
+        &[(":guid", guid)],
+        |row: &rusqlite::Row<'_>| -> rusqlite::Result<Option<i64>> { row.get(0) },
+        true,
+    )?;
+    Ok(match time_deleted {
+        // Not deleted locally.
+        None => false,
+        // A tombstone from before we recorded deletion times. It hasn't been
+        // uploaded yet, so the deletion is recent; let it win.
+        Some(None) => true,
+        Some(Some(deleted)) => remote_modified.as_millis() <= deleted,
+    })
+}
+
 pub fn apply_plan(
     db: &PlacesDb,
     inbound: Vec<IncomingBso>,
@@ -188,9 +214,23 @@ pub fn apply_plan(
     for incoming in inbound {
         interruptee.err_if_interrupted()?;
         let content = incoming.into_content::<HistoryRecord>();
+        let remote_modified = content.envelope.modified;
         let plan = match content.kind {
             IncomingKind::Tombstone => IncomingPlan::Delete,
-            IncomingKind::Content(record) => plan_incoming_record(db, record, MAX_VISITS),
+            IncomingKind::Content(record) => {
+                if local_deletion_wins(db, &record.id, remote_modified)? {
+                    // Keep our tombstone: it's uploaded as outgoing, and deletes
+                    // the page on other devices. Desktop counts this as
+                    // reconciled too.
+                    trace!(
+                        "incoming: {:?} was deleted locally since it last changed",
+                        record.id
+                    );
+                    IncomingPlan::Reconciled
+                } else {
+                    plan_incoming_record(db, record, MAX_VISITS)
+                }
+            }
             IncomingKind::Malformed => {
                 // We could push IncomingPlan::Invalid here, but the code before the IncomingKind
                 // refactor didn't know what `id` to use, so skipped it - so we do too.

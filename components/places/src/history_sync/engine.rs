@@ -153,3 +153,126 @@ impl SyncEngine for HistorySyncEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::places_api::test::new_mem_api;
+    use crate::storage::{fetch_page_info, history::delete_visits_for};
+    use types::Timestamp;
+    use url::Url;
+
+    // If a sync applies a record but stops before `apply()` (eg, it was
+    // interrupted), last-sync doesn't advance and the next sync downloads the
+    // same record again. A page the user deleted in between must stay deleted,
+    // and its tombstone must still be uploaded.
+    #[test]
+    fn test_reapplied_record_does_not_resurrect_deleted_page() {
+        let api = new_mem_api();
+        let engine = HistorySyncEngine::new(api.get_sync_connection().unwrap()).unwrap();
+        let guid = Guid::new("historyAAA01");
+        let url = Url::parse("https://example.com/deleted").unwrap();
+        let record = || {
+            vec![IncomingBso::from_test_content(serde_json::json!({
+                "id": guid,
+                "histUri": url.as_str(),
+                "title": "deleted page",
+                // Microseconds; 1 == "link".
+                "visits": [{ "date": 1_700_000_000_000_000u64, "type": 1 }],
+            }))]
+        };
+        let page_exists = || {
+            let conn = api.get_sync_connection().unwrap();
+            let db = conn.lock();
+            fetch_page_info(&db, &url).unwrap().is_some()
+        };
+        let has_tombstone = || -> bool {
+            let conn = api.get_sync_connection().unwrap();
+            let db = conn.lock();
+            db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM moz_places_tombstones WHERE guid = ?)",
+                [guid.as_str()],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        let mut telem = telemetry::Engine::new("history");
+
+        // A sync applies the record, then stops before `apply()`, so last-sync
+        // isn't advanced.
+        engine.stage_incoming(record(), &mut telem).unwrap();
+        assert!(page_exists());
+
+        // The user deletes the page. It came from sync and isn't bookmarked, so
+        // the page row goes and a page tombstone is written.
+        {
+            let conn = api.get_sync_connection().unwrap();
+            delete_visits_for(&conn.lock(), &guid).unwrap();
+        }
+        assert!(!page_exists());
+        assert!(has_tombstone(), "sanity check: deleting wrote a tombstone");
+
+        // The next sync downloads the same, unchanged record again.
+        engine.stage_incoming(record(), &mut telem).unwrap();
+
+        assert!(!page_exists(), "the deleted page came back");
+        assert!(has_tombstone(), "the deletion will never be uploaded");
+
+        // And the deletion is what gets uploaded.
+        let outgoing = engine.apply(ServerTimestamp(0), &mut telem).unwrap();
+        assert!(
+            outgoing.iter().any(|bso| bso.envelope.id == guid),
+            "the page's tombstone should be uploaded"
+        );
+    }
+
+    // The other half of desktop's rule: if the page changed on the server
+    // after we deleted it locally, the server's copy wins and the page is back.
+    #[test]
+    fn test_newer_remote_record_restores_deleted_page() {
+        let api = new_mem_api();
+        let engine = HistorySyncEngine::new(api.get_sync_connection().unwrap()).unwrap();
+        let guid = Guid::new("historyAAA02");
+        let url = Url::parse("https://example.com/restored").unwrap();
+        let record = |modified: ServerTimestamp| {
+            vec![IncomingBso::from_test_content_ts(
+                serde_json::json!({
+                    "id": guid,
+                    "histUri": url.as_str(),
+                    "title": "restored page",
+                    // Microseconds; 1 == "link".
+                    "visits": [{ "date": 1_700_000_000_000_000u64, "type": 1 }],
+                }),
+                modified,
+            )]
+        };
+        let mut telem = telemetry::Engine::new("history");
+
+        engine
+            .stage_incoming(record(ServerTimestamp(0)), &mut telem)
+            .unwrap();
+        {
+            let conn = api.get_sync_connection().unwrap();
+            delete_visits_for(&conn.lock(), &guid).unwrap();
+        }
+
+        // Another device visits the page after we deleted it.
+        let later = ServerTimestamp::from_millis(Timestamp::now().as_millis() as i64 + 60_000);
+        engine.stage_incoming(record(later), &mut telem).unwrap();
+
+        let conn = api.get_sync_connection().unwrap();
+        let db = conn.lock();
+        assert!(
+            fetch_page_info(&db, &url).unwrap().is_some(),
+            "the page should be back"
+        );
+        let has_tombstone: bool = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM moz_places_tombstones WHERE guid = ?)",
+                [guid.as_str()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!has_tombstone, "the stale deletion should be dropped");
+    }
+}
