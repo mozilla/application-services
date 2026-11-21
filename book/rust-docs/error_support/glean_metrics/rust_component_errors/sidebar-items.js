@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["breadcrumbs","details","error_type","expected_failures"]};

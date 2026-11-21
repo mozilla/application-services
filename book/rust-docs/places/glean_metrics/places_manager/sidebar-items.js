@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["db_size_after_maintenance","run_maintenance_chk_pnt_time","run_maintenance_optimize_time","run_maintenance_prune_time","run_maintenance_time","run_maintenance_vacuum_time"]};

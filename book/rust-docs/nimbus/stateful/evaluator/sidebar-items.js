@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_calculated_attributes"],"struct":["CalculatedAttributes","TargetingAttributes"]};

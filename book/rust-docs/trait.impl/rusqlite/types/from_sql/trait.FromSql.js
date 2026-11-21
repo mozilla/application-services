@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["places",[["impl FromSql for <a class=\"enum\" href=\"places/match_impl/enum.MatchBehavior.html\" title=\"enum places::match_impl::MatchBehavior\">MatchBehavior</a>",0],["impl FromSql for <a class=\"enum\" href=\"places/storage/history_metadata/enum.DocumentType.html\" title=\"enum places::storage::history_metadata::DocumentType\">DocumentType</a>",0],["impl FromSql for <a class=\"enum\" href=\"places/types/enum.BookmarkType.html\" title=\"enum places::types::BookmarkType\">BookmarkType</a>",0],["impl FromSql for <a class=\"enum\" href=\"places/types/enum.SyncStatus.html\" title=\"enum places::types::SyncStatus\">SyncStatus</a>",0],["impl FromSql for <a class=\"struct\" href=\"places/match_impl/struct.SearchBehavior.html\" title=\"struct places::match_impl::SearchBehavior\">SearchBehavior</a>",0],["impl FromSql for <a class=\"struct\" href=\"places/storage/struct.RowId.html\" title=\"struct places::storage::RowId\">RowId</a>",0]]],["suggest",[["impl FromSql for <a class=\"enum\" href=\"suggest/enum.SuggestionProvider.html\" title=\"enum suggest::SuggestionProvider\">SuggestionProvider</a>",0],["impl FromSql for <a class=\"enum\" href=\"suggest/enum.YelpSubjectType.html\" title=\"enum suggest::YelpSubjectType\">YelpSubjectType</a>",0]]],["sync_guid",[["impl FromSql for <a class=\"struct\" href=\"sync_guid/struct.Guid.html\" title=\"struct sync_guid::Guid\">Guid</a>",0]]],["types",[["impl FromSql for <a class=\"struct\" href=\"types/struct.Timestamp.html\" title=\"struct types::Timestamp\">Timestamp</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[945,311,137,140]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_VARIABLE_NUMBER"],"enum":["Pragma"],"struct":["GLOBAL_BOOKMARK_CHANGE_COUNTERS","GlobalChangeCounterTracker","PlacesDb","PlacesInitializer","PragmaGuard","SharedPlacesDb"]};
