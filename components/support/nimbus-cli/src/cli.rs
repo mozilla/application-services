@@ -24,6 +24,8 @@ pub(crate) struct Cli {
     pub(crate) channel: Option<Channel>,
 
     /// The device id of the simulator, emulator or device.
+    ///
+    /// For iOS this defaults to the booted simulator.
     #[arg(short, long, value_name = "DEVICE_ID")]
     pub(crate) device_id: Option<String>,
 

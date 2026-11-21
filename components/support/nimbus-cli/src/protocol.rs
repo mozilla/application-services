@@ -3,14 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::str::FromStr;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
+use serde::Deserialize;
 use serde_json::Value;
 use termcolor::{ColorChoice, StandardStream};
 
-use crate::cmd::{write_info, write_prompt};
+use crate::cmd::{write_err, write_info, write_prompt};
 
 /// Instructions for an Nimbus client application.
 ///
@@ -82,10 +85,19 @@ pub struct AndroidApp {
     pub package_name: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub enum DeviceKind {
+    Simulator,
+    Physical,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IosApp {
     pub device_id: String,
     pub app_id: String,
+
+    device_kind: RefCell<Option<DeviceKind>>,
 }
 
 impl AndroidApp {
@@ -241,6 +253,15 @@ impl AndroidApp {
 }
 
 impl IosApp {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn new(device_id: String, app_id: String) -> Self {
+        Self {
+            device_id,
+            app_id,
+            device_kind: RefCell::new(None),
+        }
+    }
+
     pub fn build_launch_cmd(&self, protocol: LaunchProtocol) -> Result<Command> {
         let mut args: Vec<Cow<str>> = ["simctl", "launch", &self.device_id, &self.app_id]
             .map(Into::into)
@@ -283,6 +304,8 @@ impl IosApp {
     }
 
     pub fn kill(&self) -> Result<bool> {
+        self.require_simulator("open")?;
+
         let _ = Self::xcrun()
             .args(["simctl", "terminate", &self.device_id, &self.app_id])
             .output()?;
@@ -290,6 +313,8 @@ impl IosApp {
     }
 
     pub fn reset_app(&self) -> Result<bool> {
+        self.require_simulator("reset-app")?;
+
         Self::xcrun()
             .args([
                 "simctl",
@@ -300,6 +325,7 @@ impl IosApp {
                 &self.app_id,
             ])
             .status()?;
+
         let data_dir = self.get_app_container("data")?;
         let groups = self.get_app_container("groups")?;
 
@@ -327,6 +353,8 @@ impl IosApp {
     }
 
     pub fn tail_logs(&self, stream: &mut StandardStream) -> Result<bool> {
+        self.require_simulator("tail-logs")?;
+
         write_prompt(
             stream,
             &format!("{} | xargs tail -f", self.get_log_file_command()),
@@ -342,6 +370,8 @@ impl IosApp {
     }
 
     pub fn capture_logs(&self, stream: &mut StandardStream, dest: &Path) -> Result<bool> {
+        self.require_simulator("capture-logs")?;
+
         let log = self.get_log_path()?;
         write_prompt(
             stream,
@@ -356,6 +386,8 @@ impl IosApp {
     }
 
     pub fn try_capture_jexl_result_logs(&self) -> Result<Vec<u8>> {
+        assert_eq!(self.get_device_kind()?, DeviceKind::Simulator);
+
         Ok(Self::xcrun()
             .args([
                 "simctl",
@@ -382,6 +414,8 @@ impl IosApp {
     }
 
     fn get_app_container(&self, container: &str) -> Result<String> {
+        assert_eq!(self.get_device_kind()?, DeviceKind::Simulator);
+
         // We need to get the app container directories, and delete them.
         let output = Self::xcrun()
             .args([
@@ -407,8 +441,206 @@ impl IosApp {
             .context("Logs are not available before the app is started for the first time")
     }
 
+    pub fn require_simulator(&self, command: &str) -> Result<()> {
+        match self.get_device_kind()? {
+            DeviceKind::Physical => {
+                let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+                write_err(&mut stdout, command, "unsupported on physical devices")?;
+
+                Err(anyhow!("Unsupported on physical devices"))
+            }
+
+            DeviceKind::Simulator => Ok(()),
+        }
+    }
+
+    pub fn get_device_kind(&self) -> Result<DeviceKind> {
+        if let Some(device_kind) = *self.device_kind.borrow() {
+            return Ok(device_kind);
+        }
+
+        let device_kind = Self::query_device_kind(&self.device_id)?;
+        self.device_kind.replace(Some(device_kind));
+
+        Ok(device_kind)
+    }
+
+    fn query_device_kind(device_id: &str) -> Result<DeviceKind> {
+        const BOOT_STATE_BOOTED: &'static str = "booted";
+        const REALITY_PHYSICAL: &'static str = "physical";
+        const REALITY_SIMULATOR: &'static str = "simulator";
+
+        if device_id == "booted" {
+            // "booted" is a special device we can pass to simctl to interact
+            // with the currently running simulator. However, `devicectl info`
+            // won't resolve "booted" to a simulator and will instead return an
+            // error.
+            return Ok(DeviceKind::Simulator);
+        }
+
+        Self::require_devicectl()?;
+
+        let output = Self::xcrun()
+            .args([
+                "devicectl",
+                "device",
+                "info",
+                "details",
+                "-q",
+                "-j",
+                "-",
+                "--device",
+                device_id,
+            ])
+            .stderr(Stdio::null())
+            .output()?;
+
+        if !output.status.success() {
+            Self::report_devicectl_error(
+                "devicectl",
+                &format!("Could not query information about device {device_id}"),
+                &output.stdout,
+            )?;
+        }
+
+        let details =
+            serde_json::from_slice::<DeviceCtlRsp<DeviceCtlDeviceDetails>>(&output.stdout)
+                .with_context(|| {
+                    format!(
+                        "Could not get information about device {} from devicectl",
+                        device_id
+                    )
+                })?
+                .result;
+
+        if details.device_properties.boot_state != BOOT_STATE_BOOTED {
+            bail!("Device {} is not booted", device_id);
+        }
+
+        match &*details.hardware_properties.reality {
+            REALITY_PHYSICAL => Ok(DeviceKind::Physical),
+            REALITY_SIMULATOR => Ok(DeviceKind::Simulator),
+            _ => Err(anyhow!(
+                "Unknown device reality {}",
+                details.hardware_properties.reality
+            )),
+        }
+    }
+
+    fn require_devicectl() -> Result<()> {
+        const PARSE_ERROR: &'static str = "Could not parse devicectl version";
+        const IS_IT_INSTALLED: &'static str = "Could not query devicectl version: is it installed?";
+
+        let output = Self::xcrun()
+            .args(["devicectl", "--version"])
+            .output()
+            .context(IS_IT_INSTALLED)?;
+
+        if !output.status.success() {
+            bail!(IS_IT_INSTALLED);
+        }
+
+        let output = String::from_utf8_lossy(&output.stdout);
+        let Some((major, minor)) = output.trim().split_once('.') else {
+            bail!(PARSE_ERROR);
+        };
+        let (Ok(major), Ok(minor)) = (u32::from_str(major), u32::from_str(minor)) else {
+            bail!(PARSE_ERROR);
+        };
+
+        if (major, minor) < (651, 31) {
+            bail!(
+                "Your version of devicectl ({major}.{minor}) is too old; at least 651.31 is required"
+            );
+        }
+
+        Ok(())
+    }
+
+    fn report_devicectl_error(title: &str, detail: &str, rsp: &[u8]) -> Result<()> {
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        write_err(&mut stdout, title, detail)?;
+
+        let json = serde_json::from_slice::<serde_json::Value>(rsp).with_context(|| {
+            format!(
+                "Failed to parse devicectl error: {}",
+                String::from_utf8_lossy(rsp)
+            )
+        })?;
+        let err = json
+            .as_object()
+            .and_then(|rsp| {
+                rsp.get("error")?
+                    .as_object()?
+                    .get("userInfo")?
+                    .as_object()?
+                    .get("NSLocalizedDescription")?
+                    .as_object()?
+                    .get("string")?
+                    .as_str()
+            })
+            .with_context(|| {
+                format!(
+                    "Failed to parse devicectl error: {}",
+                    String::from_utf8_lossy(rsp)
+                )
+            })?;
+
+        Err(anyhow!("devicectl error: {}", err))
+    }
+
     fn xcrun() -> Command {
         let xcrun = std::env::var("XCRUN_PATH").unwrap_or_else(|_| "xcrun".to_string());
         Command::new(xcrun)
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlRsp<T> {
+    result: T,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlDeviceDetails {
+    device_properties: DeviceCtlDeviceProperties,
+    hardware_properties: DeviceCtlHardwareProperties,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlDeviceProperties {
+    boot_state: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlHardwareProperties {
+    reality: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlApplicationList {
+    apps: Vec<DeviceCtlApplicationInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlApplicationInfo {
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlProcessList {
+    running_processes: Vec<DeviceCtlProcessInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceCtlProcessInfo {
+    executable: String,
+    process_identifier: u32,
 }

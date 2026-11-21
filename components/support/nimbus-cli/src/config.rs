@@ -130,10 +130,10 @@ impl LaunchableApp {
             }),
 
             #[cfg(target_os = "macos")]
-            App::FirefoxIos => Self::Ios(crate::protocol::IosApp {
-                device_id: device_id.unwrap_or("booted").into(),
-                app_id: package.into(),
-            }),
+            App::FirefoxIos => Self::Ios(crate::protocol::IosApp::new(
+                device_id.unwrap_or("booted").into(),
+                package.into(),
+            )),
 
             #[cfg(not(target_os = "macos"))]
             App::FirefoxIos => bail!("nimbus-cli can only drive iOS applications on macOS"),
