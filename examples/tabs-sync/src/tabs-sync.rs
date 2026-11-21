@@ -5,7 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use clap::Parser;
-use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, CREDENTIALS_FILENAME, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
 use std::path::Path;
@@ -26,9 +26,9 @@ pub struct Opts {
         value_name = "CREDENTIAL_JSON",
         long = "credentials",
         short = 'c',
-        default_value = "./credentials.json"
+        default_value = CREDENTIALS_FILENAME
     )]
-    /// Path to credentials.json.
+    /// Path to credentials json file
     pub creds_file: String,
 
     #[arg(
