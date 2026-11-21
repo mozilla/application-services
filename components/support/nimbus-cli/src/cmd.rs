@@ -14,8 +14,6 @@ use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::output::deeplink;
-#[cfg(feature = "server")]
-use crate::output::server;
 use crate::protocol::StartAppProtocol;
 use crate::sources::ManifestSource;
 use crate::value_utils::{
@@ -95,8 +93,6 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             app, open: args, ..
         } => app.open(args)?,
         AppCommand::Reset { app } => app.reset_app()?,
-        #[cfg(feature = "server")]
-        AppCommand::StartServer => server::start_server()?,
         AppCommand::TailLogs { app } => app.tail_logs()?,
         AppCommand::Unenroll { app, open } => app.unenroll_all(open)?,
         AppCommand::ValidateExperiment {
@@ -154,14 +150,6 @@ fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<
 }
 
 impl LaunchableApp {
-    #[cfg(feature = "server")]
-    fn platform(&self) -> &str {
-        match self {
-            Self::Android { .. } => "android",
-            Self::Ios { .. } => "ios",
-        }
-    }
-
     fn exe(&self) -> Result<Command> {
         Ok(match self {
             Self::Android { device_id, .. } => {
@@ -591,19 +579,6 @@ impl LaunchableApp {
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        #[cfg(feature = "server")]
-        if open.pbpaste {
-            let url = self.longform_url(&app_protocol, open)?;
-            let addr = server::get_address()?;
-            match server::post_deeplink(self.platform(), &url, app_protocol.experiments) {
-                Err(_) => output_err(
-                    &mut stdout,
-                    "Cannot post to the server",
-                    "Start the server with `nimbus-cli start-server`",
-                )?,
-                _ => output_info(&mut stdout, &format!("Posted to server at http://{addr}"))?,
-            };
-        }
         if let Some(file) = &open.output {
             let ex = app_protocol.experiments;
             if let Some(contents) = ex {
@@ -622,8 +597,7 @@ impl LaunchableApp {
                     &format!("File {} not written", file.to_str().unwrap_or_default()),
                 )?;
             }
-        }
-        if open.pbpaste || open.output.is_some() {
+
             return Ok(true);
         }
 

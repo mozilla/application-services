@@ -206,9 +206,6 @@ enum AppCommand {
         app: LaunchableApp,
     },
 
-    #[cfg(feature = "server")]
-    StartServer,
-
     TailLogs {
         app: LaunchableApp,
     },
@@ -391,8 +388,6 @@ impl TryFrom<&Cli> for AppCommand {
                     open: open.into(),
                 }
             }
-            #[cfg(feature = "server")]
-            CliCommand::StartServer => AppCommand::StartServer,
             CliCommand::TailLogs => {
                 let app = LaunchableApp::try_from(cli)?;
                 AppCommand::TailLogs { app }
@@ -443,9 +438,6 @@ impl CliCommand {
         if let Some(open) = self.open_args() {
             if open.reset_app || !open.passthrough.is_empty() {
                 const ERR: &str = "does not work with --reset-app or passthrough args";
-                if open.pbpaste {
-                    bail!(format!("{} {}", "--pbpaste", ERR));
-                }
                 if open.output.is_some() {
                     bail!(format!("{} {}", "--output", ERR));
                 }
@@ -497,7 +489,6 @@ impl CliCommand {
 
     fn should_kill(&self, maybe_app: Option<App>) -> bool {
         if let Some(open) = self.open_args() {
-            let using_links = open.pbpaste;
             let output_to_file = open.output.is_some();
             let no_clobber = if let Self::Open { no_clobber, .. } = self {
                 *no_clobber
@@ -508,7 +499,7 @@ impl CliCommand {
             if !open.legacy_open_mode {
                 match (maybe_app, &self) {
                     (Some(App::Fenix), Self::Open { no_clobber, .. }) => {
-                        return !using_links && !no_clobber && !output_to_file;
+                        return !no_clobber && !output_to_file;
                     }
                     (Some(App::Fenix), _) => {
                         return false;
@@ -517,7 +508,7 @@ impl CliCommand {
                 }
             }
 
-            !using_links && !no_clobber && !output_to_file
+            !no_clobber && !output_to_file
         } else {
             matches!(self, Self::ResetApp)
         }
@@ -536,7 +527,6 @@ impl CliCommand {
 pub(crate) struct AppOpenArgs {
     deeplink: Option<String>,
     passthrough: Vec<String>,
-    pbpaste: bool,
 
     output: Option<PathBuf>,
     legacy_open_mode: bool,
@@ -547,7 +537,6 @@ impl From<OpenArgs> for AppOpenArgs {
         Self {
             deeplink: value.deeplink,
             passthrough: value.passthrough,
-            pbpaste: value.pbpaste,
             output: value.output,
             legacy_open_mode: value.legacy_open_mode,
         }
