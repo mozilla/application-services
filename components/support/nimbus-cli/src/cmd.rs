@@ -77,13 +77,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
         )?,
 
         AppCommand::FetchList { list, file } => list.fetch_list(file.as_ref())?,
-
-        #[cfg(not(test))]
         AppCommand::FmlPassthrough { cmd } => cmd.dispatch().map(|_| true)?,
-
-        #[cfg(test)]
-        AppCommand::FmlPassthrough { .. } => true,
-
         AppCommand::Info { experiment, output } => experiment.print_info(output.as_ref())?,
         AppCommand::Kill { app } => app.kill_app()?,
         AppCommand::List { list, .. } => list.print_list()?,
