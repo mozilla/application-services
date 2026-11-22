@@ -12,18 +12,60 @@ use termcolor::{ColorChoice, StandardStream};
 
 use crate::cmd::{write_info, write_prompt};
 
-/// This is the protocol that each app understands.
+/// Instructions for an Nimbus client application.
 ///
-/// It is sent to the apps via the `launch()` API.
-///
-/// Any change to this protocol requires changing the Kotlin and Swift code,
-/// and perhaps the app code itself.
+/// This determines if the nimbus-cli integration in the application will be
+/// invoked and what actions it will take.
 #[derive(Clone, Debug, Default)]
-pub(crate) struct StartAppProtocol<'a> {
-    pub(crate) reset_db: bool,
-    pub(crate) experiments: Option<&'a Value>,
-    pub(crate) log_state: bool,
-    pub(crate) jexl_expression: Option<&'a str>,
+pub struct LaunchProtocol<'a> {
+    /// Reset the database before invoking the given action.
+    pub reset_db: bool,
+
+    /// Log the state of the internal enrollment store after performing the
+    /// action.
+    pub log_state: bool,
+
+    /// An optional action to perform.
+    pub action: Option<LaunchAction<'a>>,
+}
+
+/// An action the application will take upon opening.
+#[derive(Clone, Debug)]
+pub enum LaunchAction<'a> {
+    /// Set the set of local experiments to the given payload and then apply
+    /// them.
+    SetExperiments(&'a Value),
+
+    /// Evaluate the given JEXL expression and print the result.
+    EvalJexl(&'a str),
+}
+
+impl<'a> LaunchProtocol<'a> {
+    pub fn setting_experiments(experiments: &'a Value) -> Self {
+        Self {
+            action: Some(LaunchAction::SetExperiments(experiments)),
+            ..Default::default()
+        }
+    }
+
+    pub fn evaluating_jexl(jexl_expression: &'a str) -> Self {
+        Self {
+            action: Some(LaunchAction::EvalJexl(jexl_expression)),
+            ..Default::default()
+        }
+    }
+
+    pub fn logging_state(self, log_state: bool) -> Self {
+        Self { log_state, ..self }
+    }
+
+    pub fn resetting_db(self, reset_db: bool) -> Self {
+        Self { reset_db, ..self }
+    }
+
+    pub fn has_actions(&self) -> bool {
+        self.reset_db || self.log_state || self.action.is_some()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,17 +89,10 @@ pub struct IosApp {
 }
 
 impl AndroidApp {
-    pub fn build_launch_cmd(&self, protocol: StartAppProtocol) -> Result<Command> {
+    pub fn build_launch_cmd(&self, protocol: LaunchProtocol) -> Result<Command> {
         let mut args = Vec::<Cow<str>>::new();
 
-        let StartAppProtocol {
-            reset_db,
-            experiments,
-            log_state,
-            jexl_expression,
-        } = protocol;
-
-        if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
+        if protocol.has_actions() {
             args.extend(["am", "broadcast"].map(Into::into));
             args.extend([
                 "-p".into(),
@@ -70,24 +105,28 @@ impl AndroidApp {
             ]);
             args.extend(["--esn", "nimbus-cli", "--ei", "version", "1"].map(Into::into));
 
-            if reset_db {
+            if protocol.reset_db {
                 args.extend(["--ez", "reset-db", "true"].map(Into::into));
             }
 
-            if let Some(s) = experiments {
-                let json = s.to_string().replace('\'', "&apos;");
-                args.extend(["--es".into(), "experiments".into(), json.into()]);
-            }
-
-            if log_state {
+            if protocol.log_state {
                 args.extend(["--ez", "log-state", "true"].map(Into::into));
             }
 
-            if let Some(expr) = jexl_expression {
-                let escaped = expr.replace('\'', "&apos;");
-                args.extend(["--es", "eval-jexl"].map(Into::into));
-                args.push(escaped.into());
-            };
+            match protocol.action {
+                Some(LaunchAction::SetExperiments(experiments)) => {
+                    let json = experiments.to_string().replace('\'', "&apos;");
+                    args.extend(["--es".into(), "experiments".into(), json.into()]);
+                }
+
+                Some(LaunchAction::EvalJexl(expr)) => {
+                    let escaped = expr.replace('\'', "&apos;");
+                    args.extend(["--es", "eval-jexl"].map(Into::into));
+                    args.push(escaped.into());
+                }
+
+                None => {}
+            }
         } else {
             args.extend(["am", "start"].map(Into::into));
             args.push("-n".into());
@@ -202,40 +241,35 @@ impl AndroidApp {
 }
 
 impl IosApp {
-    pub fn build_launch_cmd(&self, protocol: StartAppProtocol) -> Result<Command> {
+    pub fn build_launch_cmd(&self, protocol: LaunchProtocol) -> Result<Command> {
         let mut args: Vec<Cow<str>> = ["simctl", "launch", &self.device_id, &self.app_id]
             .map(Into::into)
             .into();
 
-        let StartAppProtocol {
-            reset_db,
-            experiments,
-            log_state,
-            jexl_expression,
-        } = protocol;
-
-        if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
+        if protocol.has_actions() {
             args.extend(["--", "--nimbus-cli", "--version", "1"].map(Into::into));
 
-            if reset_db {
-                // We don't check launch here, because reset-db is never used
-                // without enroll.
+            if protocol.reset_db {
                 args.push("--reset-db".into());
             }
 
-            if let Some(s) = experiments {
-                args.push("--experiments".into());
-                args.push(s.to_string().replace('\'', "&apos;").into());
-            }
-
-            if log_state {
+            if protocol.log_state {
                 args.push("--log-state".into());
             }
 
-            if let Some(expr) = jexl_expression {
-                let escaped = expr.replace('\'', "&apos;");
-                args.push("--eval-jexl".into());
-                args.push(escaped.into());
+            match protocol.action {
+                Some(LaunchAction::SetExperiments(experiments)) => {
+                    args.push("--experiments".into());
+                    args.push(experiments.to_string().replace('\'', "&apos;").into());
+                }
+
+                Some(LaunchAction::EvalJexl(jexl_expression)) => {
+                    let escaped = jexl_expression.replace('\'', "&apos;");
+                    args.push("--eval-jexl".into());
+                    args.push(escaped.into());
+                }
+
+                None => {}
             }
         }
 
