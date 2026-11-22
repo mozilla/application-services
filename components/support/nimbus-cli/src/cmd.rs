@@ -12,7 +12,7 @@ use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::protocol::StartAppProtocol;
+use crate::protocol::{LaunchAction, LaunchProtocol};
 use crate::sources::ManifestSource;
 use crate::value_utils::{
     self, CliUtils, prepare_experiment, prepare_rollout, try_find_branches_from_experiment,
@@ -150,12 +150,8 @@ impl LaunchableApp {
     }
 
     fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
-        let payload = TryFrom::try_from(&ExperimentListSource::Empty)?;
-        let protocol = StartAppProtocol {
-            log_state: true,
-            experiments: Some(&payload),
-            ..Default::default()
-        };
+        let experiments = Value::try_from(&ExperimentListSource::Empty)?;
+        let protocol = LaunchProtocol::setting_experiments(&experiments).logging_state(true);
         self.launch(protocol, open)
     }
 
@@ -185,10 +181,7 @@ impl LaunchableApp {
     }
 
     fn log_state(&self, open: &AppOpenArgs) -> Result<bool> {
-        let protocol = StartAppProtocol {
-            log_state: true,
-            ..Default::default()
-        };
+        let protocol = LaunchProtocol::default().logging_state(true);
         self.launch(protocol, open)
     }
 
@@ -236,13 +229,10 @@ impl LaunchableApp {
             )?;
         }
 
-        let payload = json! {{ "data": recipes }};
-        let protocol = StartAppProtocol {
-            reset_db: !preserve_nimbus_db,
-            experiments: Some(&payload),
-            log_state: true,
-            jexl_expression: None,
-        };
+        let experiments = json! {{ "data": recipes }};
+        let protocol = LaunchProtocol::setting_experiments(&experiments)
+            .resetting_db(!preserve_nimbus_db)
+            .logging_state(true);
         self.launch(protocol, open)
     }
 
@@ -252,14 +242,10 @@ impl LaunchableApp {
         list: &ExperimentListSource,
         preserve_nimbus_db: &bool,
     ) -> Result<bool> {
-        let value: Value = list.try_into()?;
-
-        let protocol = StartAppProtocol {
-            reset_db: !preserve_nimbus_db,
-            experiments: Some(&value),
-            log_state: true,
-            jexl_expression: None,
-        };
+        let experiments = Value::try_from(list)?;
+        let protocol = LaunchProtocol::setting_experiments(&experiments)
+            .resetting_db(!preserve_nimbus_db)
+            .logging_state(true);
         self.launch(protocol, open)
     }
 
@@ -280,10 +266,7 @@ impl LaunchableApp {
             android_app.clear_logs()?;
         }
 
-        let protocol = StartAppProtocol {
-            jexl_expression: Some(expression),
-            ..Default::default()
-        };
+        let protocol = LaunchProtocol::evaluating_jexl(expression);
 
         self.launch(protocol, open)?;
 
@@ -373,11 +356,10 @@ impl LaunchableApp {
         Ok(None)
     }
 
-    fn launch(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
+    fn launch(&self, app_protocol: LaunchProtocol, open: &AppOpenArgs) -> Result<bool> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         if let Some(file) = &open.output {
-            let ex = app_protocol.experiments;
-            if let Some(contents) = ex {
+            if let Some(LaunchAction::SetExperiments(contents)) = app_protocol.action {
                 value_utils::write_to_file_or_print(Some(file), contents)?;
                 write_ok(
                     &mut stdout,
