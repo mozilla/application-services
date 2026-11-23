@@ -164,10 +164,16 @@ debug = true
 lto = "thin"
 
 [patch.crates-io]
-# uniffi is using an experimental ffi based on 0.31.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
-uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "81c5d86ccb453ff4a51e91f03d51aa91a8cc549b" }
+# Patch uniffi `main`
+# TODO: remove this once 0.33.0 is released
+uniffi = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+uniffi_bindgen = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+uniffi_pipeline = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+uniffi_internal_macros = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+uniffi-bindgen-kotlin-jni = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+uniffi-bindgen-kotlin-jni-runtime = { git = "https://github.com/bendk/uniffi-rs.git", rev = "a90e9ad4f469818e0b9ce24dc20be1e7bbd2e442" }
+glean = { git = "https://github.com/mozilla/glean.git", rev = "89d4d44972e71cef2803aacfaeb39db1fe6ca704" }
+glean-sym = { git = "https://github.com/mozilla/glean.git", rev = "89d4d44972e71cef2803aacfaeb39db1fe6ca704" }
 # dummy crates for m-c integration hacks.
 mozilla-central-workspace-hack = { path = "monorepo-hacks/workspace-hack" }
 mozbuild = { path = "monorepo-hacks/mozbuild" }
