@@ -374,11 +374,15 @@ impl TabsStorage {
                             ":ttl": client_ttl_ms,
                         },
                     )?;
-                    info!(
-                        "removed {} stale clients (threshold was {})",
-                        num_removed,
-                        last_sync - client_ttl_ms
-                    );
+                    // This runs on every sync (and every desktop quick-write), so
+                    // only log when it actually removed something.
+                    if num_removed > 0 {
+                        info!(
+                            "removed {} stale clients (threshold was {})",
+                            num_removed,
+                            last_sync - client_ttl_ms
+                        );
+                    }
                     tx.commit()?;
                 }
             }
@@ -866,6 +870,52 @@ mod tests {
         assert_eq!(remote_tabs.len(), 1);
         // Assert the correct record is still being returned
         assert_eq!(remote_tabs[0].client_id, "device-1");
+    }
+
+    // Builds before ~154 that crashed during a desktop quick-write could leave
+    // last-sync at FAR_FUTURE. Measured from that, every client would look
+    // stale, so `remove_stale_clients` must leave them all alone.
+    #[test]
+    fn test_remove_stale_clients_ignores_far_future_last_sync() {
+        error_support::init_for_tests();
+        let mut storage =
+            TabsStorage::new_with_mem_path("test_remove_stale_clients_ignores_far_future");
+        let stored_clients = |storage: &mut TabsStorage| -> i64 {
+            storage
+                .open_if_exists()
+                .unwrap()
+                .unwrap()
+                .conn_ext_query_one("SELECT COUNT(*) FROM tabs")
+                .unwrap()
+        };
+        storage
+            .open_or_create()
+            .unwrap()
+            .execute(
+                "INSERT INTO tabs (guid, record, last_modified)
+                 VALUES ('device-outdated', '', 1443764207000)",
+                [],
+            )
+            .unwrap();
+
+        // Stored in milliseconds, so desktop's old seconds value * 1000.
+        storage
+            .put_meta(schema::LAST_SYNC_META_KEY, &(FAR_FUTURE * 1000))
+            .unwrap();
+        storage.remove_stale_clients().unwrap();
+        assert_eq!(
+            stored_clients(&mut storage),
+            1,
+            "a FAR_FUTURE last-sync must not remove any clients"
+        );
+
+        // Control: with an ordinary last-sync the same client is stale and is
+        // removed, so the check above is what kept it.
+        storage
+            .put_meta(schema::LAST_SYNC_META_KEY, &1643764207000_i64)
+            .unwrap();
+        storage.remove_stale_clients().unwrap();
+        assert_eq!(stored_clients(&mut storage), 0);
     }
 
     fn pending_url_command(device_id: &str, url: &str, ts: Timestamp) -> PendingCommand {

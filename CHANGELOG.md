@@ -71,6 +71,10 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 - `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
 
+### Tabs
+
+- Remote clients whose tabs haven't changed for more than 180 days are now removed on every sync, including syncs with nothing to download and desktop's quick-write. Previously they were only removed when tabs records were downloaded, so they could stay indefinitely if no other device was syncing tabs. Pending "close tab" requests are still resolved when a device's record arrives ([#7793](https://github.com/mozilla/application-services/pull/7793)).
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Containers
