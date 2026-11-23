@@ -1,14 +1,6 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 apply from: "$publishDir/publish.gradle"
 
-// Needs to happen before `dependencies` in order for the variables
-// exposed by the plugin to be available for this project.
-ext {
-    gleanNamespace = "mozilla.telemetry.glean"
-    gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
-}
-apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
-
 android {
     namespace = 'org.mozilla.appservices.logins'
 }
@@ -21,13 +13,10 @@ dependencies {
 
     implementation project(':init_rust_components')
 
-    implementation libs.mozilla.glean
-
     testImplementation project(":syncmanager")
 
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.work.testing
-    testImplementation libs.mozilla.glean.forUnitTests
 }
 
 ext.configureUniFFIBindgen("logins")

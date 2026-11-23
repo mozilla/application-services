@@ -179,8 +179,8 @@ macro_rules! define_error {
     };
 }
 
-pub mod glean_metrics {
-    include!(concat!(env!("OUT_DIR"), "/glean_metrics.rs"));
+mod glean_metrics {
+    pub use metrics_support::rust_component_errors;
 }
 
 uniffi::setup_scaffolding!("errorsupport");
