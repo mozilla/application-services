@@ -36,13 +36,26 @@ pub fn escape_string_for_pragma(s: &str) -> String {
     s.replace('\'', "''")
 }
 
+/// Keep TEMP tables and statement journals in memory where it is safe to do so.
+///
+/// This is required on Android, which has no tmp partition. On other 32-bit
+/// targets SQLite's file-backed default is kept: an in-memory statement journal
+/// has no size limit, so a single large write can exhaust the address space,
+/// while a file-backed one only spills to disk once it outgrows a small buffer.
+pub fn setup_temp_store(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+    if cfg!(any(target_os = "android", target_pointer_width = "64")) {
+        conn.execute_batch("PRAGMA temp_store = 2;")?;
+    }
+    Ok(())
+}
+
 /// Default SQLite pragmas
 ///
 /// Most components should just stick to these defaults.
 pub fn setup_sqlite_defaults(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+    setup_temp_store(conn)?;
     conn.execute_batch(
         "
-        PRAGMA temp_store = 2;
         PRAGMA journal_mode = WAL;
         ",
     )?;

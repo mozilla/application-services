@@ -20,6 +20,10 @@
 - `import-site-list` now builds `adult_set.bin` from a text file with one base
   domain per line, instead of from the old `FilterAdult.sys.mjs`.
 
+### SQL support
+
+- Components no longer keep SQLite temp storage in memory on 32-bit targets other than Android, so large write statements spill their statement journal to a file instead of exhausting the address space ([bug 2096379](https://bugzilla.mozilla.org/show_bug.cgi?id=2096379)).
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)

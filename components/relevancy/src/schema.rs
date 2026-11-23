@@ -50,9 +50,8 @@ impl ConnectionInitializer for RelevancyConnectionInitializer {
     const END_VERSION: u32 = VERSION;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
+        sql_support::setup_temp_store(conn)?;
         let initial_pragmas = "
-            -- Use in-memory storage for TEMP tables.
-            PRAGMA temp_store = 2;
             PRAGMA journal_mode = WAL;
             PRAGMA foreign_keys = ON;
         ";
