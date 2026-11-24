@@ -171,7 +171,7 @@ impl From<QueuedRequest> for DispatchRequest {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashSet, time::Duration};
+    use std::{collections::HashSet, num::NonZeroU32, time::Duration};
     use url::Url;
 
     use crate::request::{
@@ -196,7 +196,7 @@ mod tests {
         for id in identifiers {
             ad_requests.insert(AdPlacementRequest {
                 content: None,
-                count: 4,
+                count: NonZeroU32::new(4).unwrap(),
                 placement: format!("test_placement_{id}"),
             });
         }

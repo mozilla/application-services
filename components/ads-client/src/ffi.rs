@@ -20,6 +20,7 @@ use crate::AdsClientUrl;
 use crate::MozAdsClient;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Weak;
@@ -62,15 +63,7 @@ pub struct MozAdsIABContent {
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementRequest {
     #[uniffi(default = None)]
-    pub iab_content: Option<MozAdsIABContent>,
-    pub placement_id: String,
-}
-
-/// One placement to request `count` ads for. `placement_id` must be unique
-/// within one request.
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacementRequestWithCount {
-    pub count: u32,
+    pub count: Option<u32>,
     #[uniffi(default = None)]
     pub iab_content: Option<MozAdsIABContent>,
     pub placement_id: String,
@@ -500,21 +493,34 @@ impl From<MozAdsRequestOptions> for CachePolicy {
     }
 }
 
-impl From<&MozAdsPlacementRequest> for AdPlacementRequest {
-    fn from(request: &MozAdsPlacementRequest) -> Self {
+impl From<MozAdsCacheConfig> for AdsCacheConfig {
+    fn from(config: MozAdsCacheConfig) -> Self {
         Self {
-            content: request.iab_content.as_ref().map(Into::into),
-            count: 1,
-            placement: request.placement_id.clone(),
+            db_path: config.db_path,
+            default_cache_ttl_seconds: config.default_cache_ttl_seconds,
+            max_size_mib: config.max_size_mib,
         }
     }
 }
 
-impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
-    fn from(request: &MozAdsPlacementRequestWithCount) -> Self {
+#[cfg(feature = "stateful")]
+impl From<MozAdsStoreConfig> for AdsStoreConfig {
+    fn from(config: MozAdsStoreConfig) -> Self {
+        Self {
+            db_path: config.db_path,
+        }
+    }
+}
+
+// TODO: Should we allow non-one values when we pass?
+impl From<&MozAdsPlacementRequest> for AdPlacementRequest {
+    fn from(request: &MozAdsPlacementRequest) -> Self {
         Self {
             content: request.iab_content.as_ref().map(Into::into),
-            count: request.count,
+            count: request
+                .count
+                .and_then(NonZeroU32::new)
+                .unwrap_or(NonZeroU32::new(1).expect("NonZeroU32::new(1) should be creatable")),
             placement: request.placement_id.clone(),
         }
     }

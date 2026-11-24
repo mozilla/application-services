@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroU32;
 
 use serde::Serialize;
 use viaduct::{Headers, Request};
@@ -134,7 +135,7 @@ pub(crate) type AdRequestRelevance = HashMap<String, f64>;
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 pub struct AdPlacementRequest {
     pub content: Option<AdContentCategory>,
-    pub count: u32,
+    pub count: NonZeroU32,
     pub placement: String,
 }
 
@@ -164,7 +165,7 @@ pub enum IABContentTaxonomy {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::TEST_CONTEXT_ID;
+    use crate::test_utils::{TEST_CONTEXT_ID, TEST_NON_ZERO_ONE};
 
     use super::*;
     use serde_json::{json, to_value};
@@ -177,7 +178,7 @@ mod tests {
                 categories: vec!["Technology".into(), "Programming".into()],
                 taxonomy: IABContentTaxonomy::IAB2_1,
             }),
-            count: 1,
+            count: TEST_NON_ZERO_ONE,
             placement: "example_placement".into(),
         };
 
@@ -230,7 +231,7 @@ mod tests {
                         categories: vec!["entertainment".to_string()],
                         taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
@@ -238,7 +239,7 @@ mod tests {
                         categories: vec![],
                         taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
-                    count: 2,
+                    count: NonZeroU32::new(2).unwrap(),
                     placement: "example_placement_2".to_string(),
                 },
             ],
@@ -259,7 +260,7 @@ mod tests {
                         categories: vec!["entertainment".to_string()],
                         taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
@@ -267,7 +268,7 @@ mod tests {
                         categories: vec![],
                         taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
-                    count: 2,
+                    count: NonZeroU32::new(2).unwrap(),
                     placement: "example_placement_2".to_string(),
                 },
             ],
@@ -287,7 +288,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -313,7 +314,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -338,7 +339,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -364,7 +365,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -390,7 +391,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -414,7 +415,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             HashMap::from([
@@ -441,7 +442,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "example_placement".to_string(),
             }],
             HashMap::from([("sports".to_string(), 0.8)]),
@@ -466,7 +467,7 @@ mod tests {
             vec![
                 AdPlacementRequest {
                     content: None,
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "newtab_stories_v2_1".to_string(),
                 },
                 AdPlacementRequest {
@@ -474,7 +475,7 @@ mod tests {
                         categories: vec!["338".to_string()],
                         taxonomy: IABContentTaxonomy::IAB3_0,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "newtab_stories_v2_3".to_string(),
                 },
                 AdPlacementRequest {
@@ -482,7 +483,7 @@ mod tests {
                         categories: vec!["596".to_string()],
                         taxonomy: IABContentTaxonomy::IAB3_0,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "newtab_stories_v2_4".to_string(),
                 },
             ],
@@ -510,7 +511,7 @@ mod tests {
         let make_placements = || {
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }]
         };
@@ -546,7 +547,7 @@ mod tests {
         let make_placements = || {
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }]
         };
@@ -589,7 +590,7 @@ mod tests {
                         categories: vec!["entertainment".to_string()],
                         taxonomy: IABContentTaxonomy::IAB2_1,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "example_placement_1".to_string(),
                 },
                 AdPlacementRequest {
@@ -597,7 +598,7 @@ mod tests {
                         categories: vec![],
                         taxonomy: IABContentTaxonomy::IAB3_0,
                     }),
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "example_placement_1".to_string(),
                 },
             ],
@@ -627,7 +628,7 @@ mod tests {
         let make_placements = || {
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }]
         };
@@ -671,7 +672,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -686,7 +687,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 3,
+                count: NonZeroU32::new(3).unwrap(),
                 placement: "tile_2".to_string(),
             }],
             AdRequestRelevance::default(),
@@ -703,7 +704,7 @@ mod tests {
         let make_placements = || {
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }]
         };
@@ -745,7 +746,7 @@ mod tests {
                 false,
                 vec![AdPlacementRequest {
                     content: None,
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "tile_1".to_string(),
                 }],
                 relevance,
@@ -790,7 +791,7 @@ mod tests {
                 false,
                 vec![AdPlacementRequest {
                     content: None,
-                    count: 1,
+                    count: TEST_NON_ZERO_ONE,
                     placement: "tile_1".to_string(),
                 }],
                 relevance,
@@ -816,7 +817,7 @@ mod tests {
             false,
             vec![AdPlacementRequest {
                 content: None,
-                count: 1,
+                count: TEST_NON_ZERO_ONE,
                 placement: "tile_1".to_string(),
             }],
             AdRequestRelevance::default(),

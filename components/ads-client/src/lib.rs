@@ -137,7 +137,7 @@ impl MozAdsClient {
     #[uniffi::method(default(options = None))]
     pub fn request_spoc_ads(
         &self,
-        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();
@@ -163,7 +163,7 @@ impl MozAdsClient {
     #[uniffi::method(default(options = None))]
     pub fn request_spoc_or_image_ads(
         &self,
-        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsImageOrSpoc>>> {
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(Into::into).collect();

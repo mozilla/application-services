@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use ads_client::{
     MozAdsClientBuilder, MozAdsEnvironment, MozAdsIABContent, MozAdsIABContentTaxonomy,
-    MozAdsPlacementRequest, MozAdsPlacementRequestWithCount, MozAdsReportReason,
+    MozAdsPlacementRequest, MozAdsReportReason,
     MozAdsRequestOptions,
 };
 
@@ -31,6 +31,7 @@ fn test_contract_image_prod() {
         vec![MozAdsPlacementRequest {
             iab_content: None,
             placement_id: "mock_billboard_1".to_string(),
+                count: None
         }],
         None,
     );
@@ -57,6 +58,7 @@ fn test_contract_image_with_categories_prod() {
                 taxonomy: MozAdsIABContentTaxonomy::IAB3_0,
             }),
             placement_id: "mock_billboard_1".to_string(),
+                count: None
         }],
         Some(MozAdsRequestOptions {
             flags: std::collections::HashMap::from([("contextual_placement".to_string(), true)]),
@@ -84,8 +86,8 @@ fn test_contract_spoc_prod() {
 
     let client = prod_client();
     let result = client.request_spoc_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            count: 3,
+        vec![MozAdsPlacementRequest {
+            count: Some(3),
             iab_content: None,
             placement_id: "mock_spoc_1".to_string(),
         }],
@@ -108,8 +110,8 @@ fn test_contract_spoc_or_image_spocs_prod() {
 
     let client = prod_client();
     let result = client.request_spoc_or_image_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            count: 3,
+        vec![MozAdsPlacementRequest {
+            count: Some(3),
             iab_content: None,
             placement_id: "mock_spoc_1".to_string(),
         }],
@@ -132,8 +134,8 @@ fn test_contract_spoc_or_image_images_prod() {
 
     let client = prod_client();
     let result = client.request_spoc_or_image_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            count: 1,
+        vec![MozAdsPlacementRequest {
+            count: Some(1),
             iab_content: None,
             placement_id: "mock_billboard_1".to_string(),
         }],
@@ -159,6 +161,7 @@ fn test_contract_tile_prod() {
         vec![MozAdsPlacementRequest {
             iab_content: None,
             placement_id: "mock_tile_1".to_string(),
+                count: None
         }],
         None,
     );
@@ -179,6 +182,7 @@ fn test_record_impression() {
             vec![MozAdsPlacementRequest {
                 placement_id: "mock_tile_1".to_string(),
                 iab_content: None,
+                count: None
             }],
             None,
         )
@@ -207,6 +211,7 @@ fn test_record_click() {
             vec![MozAdsPlacementRequest {
                 placement_id: "mock_tile_1".to_string(),
                 iab_content: None,
+                count: None
             }],
             None,
         )
@@ -231,6 +236,7 @@ fn test_report_ad() {
             vec![MozAdsPlacementRequest {
                 placement_id: "mock_tile_1".to_string(),
                 iab_content: None,
+                count: None
             }],
             None,
         )
@@ -280,6 +286,7 @@ fn test_contract_tile_ohttp_prod() {
             vec![MozAdsPlacementRequest {
                 iab_content: None,
                 placement_id: "mock_tile_1".to_string(),
+                count: None
             }],
             Some(MozAdsRequestOptions {
                 ohttp: true,

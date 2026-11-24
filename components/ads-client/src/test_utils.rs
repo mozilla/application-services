@@ -4,6 +4,7 @@
 */
 
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::time::Duration;
 
 use url::Url;
@@ -23,6 +24,7 @@ use crate::mars::{
 use crate::{MozAdsTelemetry, IN_MEMORY_DB_PATH};
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
+pub const TEST_NON_ZERO_ONE: NonZeroU32 = NonZeroU32::new(1).unwrap();
 
 pub fn memory_http_cache() -> HttpCache {
     HttpCache::new(
@@ -64,7 +66,7 @@ pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
                 categories: vec!["entertainment".to_string()],
                 taxonomy: IABContentTaxonomy::IAB2_1,
             }),
-            count: 1,
+            count: TEST_NON_ZERO_ONE,
             placement: "example_placement_1".to_string(),
         },
         AdPlacementRequest {
@@ -72,7 +74,7 @@ pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
                 categories: vec!["entertainment".to_string()],
                 taxonomy: IABContentTaxonomy::IAB2_1,
             }),
-            count: 1,
+            count: TEST_NON_ZERO_ONE,
             placement: "example_placement_2".to_string(),
         },
     ]
