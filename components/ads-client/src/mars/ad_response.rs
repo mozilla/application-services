@@ -167,7 +167,7 @@ mod tests {
             full,
             AdImage {
                 alt_text: Some("An ad for an anvil".into()),
-                block_key: "abc123".into(),
+                block_key: Some("abc123".into()),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://buyanvilseveryday.test/click").unwrap(),
                     impression: Url::parse("https://buyanvilseveryday.test/impression").unwrap(),
@@ -201,7 +201,7 @@ mod tests {
             partial,
             AdImage {
                 alt_text: None,
-                block_key: "abc123".into(),
+                block_key: Some("abc123".into()),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://example.test/click").unwrap(),
                     impression: Url::parse("https://example.test/impression").unwrap(),
@@ -291,7 +291,7 @@ mod tests {
                 url: url!("https://ads.fakeexample.org/example_ad_3"),
                 image_url: url!("https://ads.fakeexample.org/example_image_3"),
                 format: "skyscraper".to_string(),
-                block_key: "abc123".into(),
+                block_key: Some("abc123".into()),
                 alt_text: Some("An ad for a pet duck".to_string()),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://ads.fakeexample.org/click/example_ad_3").unwrap(),
@@ -331,7 +331,7 @@ mod tests {
             vec![
                 AdImage {
                     alt_text: Some("First ad".to_string()),
-                    block_key: "key1".to_string(),
+                    block_key: Some("key1".to_string()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click1").unwrap(),
                         impression: Url::parse("https://example.com/impression1").unwrap(),
@@ -343,7 +343,7 @@ mod tests {
                 },
                 AdImage {
                     alt_text: Some("Second ad".to_string()),
-                    block_key: "key2".to_string(),
+                    block_key: Some("key2".to_string()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click2").unwrap(),
                         impression: Url::parse("https://example.com/impression2").unwrap(),
@@ -359,7 +359,7 @@ mod tests {
             "placement_2".to_string(),
             vec![AdImage {
                 alt_text: Some("Third ad".to_string()),
-                block_key: "key3".to_string(),
+                block_key: Some("key3".to_string()),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://example.com/click3").unwrap(),
                     impression: Url::parse("https://example.com/impression3").unwrap(),
@@ -381,11 +381,11 @@ mod tests {
 
         let first_ad = result.get("placement_1").unwrap();
         assert_eq!(first_ad.alt_text, Some("First ad".to_string()));
-        assert_eq!(first_ad.block_key, "key1");
+        assert_eq!(first_ad.block_key, Some("key1".to_string()));
 
         let second_ad = result.get("placement_2").unwrap();
         assert_eq!(second_ad.alt_text, Some("Third ad".to_string()));
-        assert_eq!(second_ad.block_key, "key3");
+        assert_eq!(second_ad.block_key, Some("key3".to_string()));
     }
 
     #[test]
@@ -443,7 +443,7 @@ mod tests {
             vec![
                 AdImage {
                     alt_text: None,
-                    block_key: "key1".into(),
+                    block_key: Some("key1".into()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click1").unwrap(),
                         impression: Url::parse("https://example.com/impression1").unwrap(),
@@ -455,7 +455,7 @@ mod tests {
                 },
                 AdImage {
                     alt_text: None,
-                    block_key: "key2".into(),
+                    block_key: Some("key2".into()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click2").unwrap(),
                         impression: Url::parse("https://example.com/impression2").unwrap(),
@@ -516,7 +516,7 @@ mod tests {
             "tile1".into(),
             vec![
                 AdSpoc {
-                    block_key: "block_key1".into(),
+                    block_key: Some("block_key1".into()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click1").unwrap(),
                         impression: Url::parse("https://example.com/impression1").unwrap(),
@@ -541,7 +541,7 @@ mod tests {
                     title: "title1".into(),
                 },
                 AdSpoc {
-                    block_key: "block_key2".into(),
+                    block_key: Some("block_key2".into()),
                     callbacks: AdCallbacks {
                         click: Url::parse("https://example.com/click2").unwrap(),
                         impression: Url::parse("https://example.com/impression2").unwrap(),
@@ -595,7 +595,7 @@ mod tests {
             "mock_tile_1".to_string(),
             vec![AdImage {
                 alt_text: None,
-                block_key: "key1".into(),
+                block_key: Some("key1".into()),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://example.com/click").unwrap(),
                     impression: Url::parse("https://example.com/impression").unwrap(),

@@ -271,7 +271,7 @@ pub enum MozAdsCacheMode {
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsImage {
     pub alt_text: Option<String>,
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
     pub image_url: AdsClientUrl,
@@ -281,7 +281,7 @@ pub struct MozAdsImage {
 /// A sponsored content (spoc) ad returned by MARS.
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsSpoc {
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: MozAdsCallbacks,
     pub caps: MozAdsSpocFrequencyCaps,
     pub domain: String,
@@ -314,13 +314,13 @@ pub struct MozAdsSpocFrequencyCaps {
 pub struct MozAdsSpocRanking {
     pub item_score: f64,
     pub personalization_models: HashMap<String, u32>,
-    pub priority: u32,
+    pub priority: i32,
 }
 
 /// A tile ad returned by MARS.
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsTile {
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
     pub image_url: AdsClientUrl,

@@ -87,7 +87,7 @@ pub fn get_example_happy_image_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_ad_1"),
                 image_url: url!("https://ads.fakeexample.org/example_image_1"),
                 format: "billboard".to_string(),
-                block_key: "abc123".into(),
+                block_key: Some("abc123".into()),
                 alt_text: Some("An ad for a puppy".to_string()),
                 callbacks: AdCallbacks {
                     click: Url::parse(&format!("{}/click/example_ad_1", base_url)).unwrap(),
@@ -103,7 +103,7 @@ pub fn get_example_happy_image_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_ad_2"),
                 image_url: url!("https://ads.fakeexample.org/example_image_2"),
                 format: "skyscraper".to_string(),
-                block_key: "abc123".into(),
+                block_key: Some("abc123".into()),
                 alt_text: Some("An ad for a pet duck".to_string()),
                 callbacks: AdCallbacks {
                     click: Url::parse(&format!("{}/click/example_ad_2", base_url)).unwrap(),
@@ -124,7 +124,7 @@ pub fn get_example_happy_spoc_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_spoc_1"),
                 image_url: url!("https://ads.fakeexample.org/example_spoc_image_1"),
                 format: "spoc".to_string(),
-                block_key: "spoc123".into(),
+                block_key: Some("spoc123".into()),
                 title: "Example Spoc Title".to_string(),
                 excerpt: "This is an example spoc excerpt".to_string(),
                 domain: "example.com".to_string(),
@@ -155,7 +155,7 @@ pub fn get_example_happy_spoc_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_spoc_2"),
                 image_url: url!("https://ads.fakeexample.org/example_spoc_image_2"),
                 format: "spoc".to_string(),
-                block_key: "spoc456".into(),
+                block_key: Some("spoc456".into()),
                 title: "Another Spoc Title".to_string(),
                 excerpt: "This is another example spoc excerpt".to_string(),
                 domain: "another-example.com".to_string(),
@@ -191,7 +191,7 @@ pub fn get_example_happy_uatile_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_uatile_1"),
                 image_url: url!("https://ads.fakeexample.org/example_uatile_image_1"),
                 format: "tile".to_string(),
-                block_key: "uatile123".into(),
+                block_key: Some("uatile123".into()),
                 name: "Example UA Tile".to_string(),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://ads.fakeexample.org/click/example_uatile_1")
@@ -212,7 +212,7 @@ pub fn get_example_happy_uatile_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_uatile_2"),
                 image_url: url!("https://ads.fakeexample.org/example_uatile_image_2"),
                 format: "tile".to_string(),
-                block_key: "uatile456".into(),
+                block_key: Some("uatile456".into()),
                 name: "Another UA Tile".to_string(),
                 callbacks: AdCallbacks {
                     click: Url::parse("https://ads.fakeexample.org/click/example_uatile_2")
