@@ -19,7 +19,7 @@ autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs" }
 places = { path = "../../components/places" }
-remote_settings = { path = "../../components/remote_settings", features=["telemetry-submission"] }
+remote_settings = { path = "../../components/remote_settings", features=["telemetry-submission", "glean-sym"] }
 suggest = { path = "../../components/suggest" }
 sync15 = { path = "../../components/sync15" }
 db-crypto = { path = "../../components/support/db-crypto" }
