@@ -46,7 +46,7 @@ impl From<PlacementId> for String {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdImage {
     pub alt_text: Option<String>,
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: AdCallbacks,
     pub format: String,
     pub image_url: Url,
@@ -55,7 +55,7 @@ pub struct AdImage {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdSpoc {
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: AdCallbacks,
     pub caps: SpocFrequencyCaps,
     pub domain: String,
@@ -71,7 +71,7 @@ pub struct AdSpoc {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdTile {
-    pub block_key: String,
+    pub block_key: Option<String>,
     pub callbacks: AdCallbacks,
     pub format: String,
     pub image_url: Url,
@@ -239,7 +239,7 @@ pub struct SpocFrequencyCaps {
 pub struct SpocRanking {
     pub item_score: f64,
     pub personalization_models: Option<HashMap<String, u32>>,
-    pub priority: u32,
+    pub priority: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
