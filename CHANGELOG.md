@@ -13,6 +13,13 @@
 
 - Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).
 
+## ✨ What's Changed ✨
+
+### Filter Adult
+
+- `import-site-list` now builds `adult_set.bin` from a text file with one base
+  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
@@ -59,11 +66,6 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
   ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
 - `CheckAuthorizationStatus` now checks for missing scoped keys
   ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
-
-### Filter Adult
-
-- `import-site-list` now builds `adult_set.bin` from a text file with one base
-  domain per line, instead of from the old `FilterAdult.sys.mjs`.
 
 ### Merino
 
