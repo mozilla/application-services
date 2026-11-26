@@ -116,8 +116,16 @@ impl CliFxa {
     ///
     /// Uses the state machine: `Initialize` → `BeginOAuthFlow` if needed → `CompleteOAuthFlow`.
     /// Persists credentials after a successful login.
+    ///
+    /// `SESSION_SCOPE` is always requested in addition to `scopes`, because fxa-client
+    /// considers an account without a session token to be in an invalid auth state, which
+    /// would cause the persisted credentials to be rejected on the next run.
     pub fn ensure_logged_in(&mut self, scopes: &[&str]) -> Result<&FirefoxAccount> {
         let service = ""; // TODO: expose this.
+        let mut oauth_scopes = scopes.to_vec();
+        if !oauth_scopes.contains(&SESSION_SCOPE) {
+            oauth_scopes.push(SESSION_SCOPE);
+        }
         if self.account.is_none() {
             crate::info!("Creating new FxA account object");
             self.account = Some(FirefoxAccount::new(self.config.clone()));
@@ -135,15 +143,17 @@ impl CliFxa {
 
         match state {
             FxaState::Connected => {
+                // Being `Connected` implies we hold a session token, so only check the
+                // scopes the caller asked for.
                 let have_all_scopes = account.has_scope(&scopes.join(" "));
                 crate::info!("FxA: already connected, all scopes is {have_all_scopes}");
                 if !have_all_scopes {
-                    self.handle_oauth_flow(service, scopes)?;
+                    self.handle_oauth_flow(service, &oauth_scopes)?;
                 }
             }
             FxaState::Disconnected | FxaState::AuthIssues => {
                 crate::info!("FxA: need to authenticate (state was {state:?})");
-                self.handle_oauth_flow(service, scopes)?;
+                self.handle_oauth_flow(service, &oauth_scopes)?;
             }
             other => {
                 anyhow::bail!("Unexpected FxA state after Initialize: {other:?}");
