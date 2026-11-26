@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::borrow::Cow;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
@@ -174,8 +175,7 @@ impl LaunchableApp {
         Ok(match self {
             Self::Android { package_name, .. } => self
                 .exe()?
-                .arg("shell")
-                .arg(format!("am force-stop {}", package_name))
+                .args(["shell", "--", "am", "force-stop", &*package_name])
                 .spawn()?
                 .wait()?
                 .success(),
@@ -205,8 +205,7 @@ impl LaunchableApp {
         Ok(match self {
             Self::Android { package_name, .. } => self
                 .exe()?
-                .arg("shell")
-                .arg(format!("pm clear {}", package_name))
+                .args(["shell", "--", "pm", "clear", &*package_name])
                 .spawn()?
                 .wait()?
                 .success(),
@@ -603,12 +602,16 @@ impl LaunchableApp {
 
     fn android_start(&self, app_protocol: StartAppProtocol) -> Result<Command> {
         if let Self::Android { package_name, .. } = self {
-            let mut args: Vec<String> = Vec::new();
+            let mut args = Vec::<Cow<str>>::new();
 
             args.extend([
-                format!("-p {}", package_name),
-                "-a org.mozilla.fenix.NIMBUS_TOOLING".to_string(),
-                "-f 0x20".to_string(), // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
+                "-p".into(),
+                package_name.into(),
+                "-a".into(),
+                "org.mozilla.fenix.NIMBUS_TOOLING".into(),
+                "-f".into(),
+                // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
+                "0x20".into(),
             ]);
 
             let StartAppProtocol {
@@ -619,32 +622,38 @@ impl LaunchableApp {
             } = app_protocol;
 
             if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
-                args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
+                args.extend(["--esn", "nimbus-cli", "--ei", "version", "1"].map(Into::into));
             }
 
             if reset_db {
-                args.push("--ez reset-db true".to_string());
+                args.extend(["--ez", "reset-db", "true"].map(Into::into));
             }
 
             if let Some(s) = experiments {
                 let json = s.to_string().replace('\'', "&apos;");
-                args.push(format!("--es experiments '{}'", json))
+                args.extend(["--es".into(), "experiments".into(), json.into()]);
             }
 
             if log_state {
-                args.push("--ez log-state true".to_string());
+                args.extend(["--ez", "log-state", "true"].map(Into::into));
             }
 
             if let Some(expr) = jexl_expression {
                 let escaped = expr.replace('\'', "&apos;");
-                args.push(format!("--es eval-jexl '{}'", escaped));
+                args.extend(["--es", "eval-jexl"].map(Into::into));
+                args.push(escaped.into());
             };
 
-            let sh = format!(r#"am broadcast {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-            write_prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
+            write_prompt(
+                &mut stdout,
+                &format!("adb shell -- am broadcast {}", args.join(" \\\n        ")),
+            )?;
+
             let mut cmd = self.exe()?;
-            cmd.arg("shell").arg(&sh);
+            cmd.args(["shell", "--", "am", "broadcast"])
+                .args(args.iter().map(AsRef::as_ref));
+
             Ok(cmd)
         } else {
             unreachable!();
