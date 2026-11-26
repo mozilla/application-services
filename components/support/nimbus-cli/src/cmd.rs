@@ -8,7 +8,7 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -452,7 +452,11 @@ impl LaunchableApp {
             ..Default::default()
         };
 
-        self.start_app(protocol, open)?;
+        if !self.start_app(protocol, open)? {
+            write_err(&mut stdout, "Error", "Failed to launch the application")?;
+
+            return Err(anyhow!("Could not evaluate JEXL expression"));
+        }
 
         write_info(&mut stdout, "Waiting for result...")?;
 
