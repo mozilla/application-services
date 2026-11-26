@@ -57,8 +57,6 @@ configurations {
     // Stores the JNA jar file
     jna {
         canBeConsumed = false
-        canBeResolved = true
-        canBeDeclared = true
     }
     // Native megazord library, this is the one compatible with the user's local machine.  We use it
     // to run uniffi-bindgen against.
@@ -67,11 +65,7 @@ configurations {
 
 dependencies {
     // Needed so we can copy the libraries into libsForTests.
-    jna(libs.jna) {
-        artifact {
-            type = "jar"
-        }
-    }
+    jna libs.jna
 }
 
 abstract class GenerateJniLibsTask extends DefaultTask {
@@ -151,7 +145,7 @@ def jnaLibJniDispatch = zipTree(configurations.jna.singleFile).matching {
 
 def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
     from jnaLibJniDispatch
-    into layout.buildDirectory.dir("libjnidispatch").get()
+    into layout.buildDirectory.dir("libjnidispatch")
 }
 
 def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
@@ -161,14 +155,10 @@ def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
     if (!gradle.hasProperty("mozconfig")) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
-    }
-
-    if (gradle.hasProperty("mozconfig")) {
-        if (gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_DESKTOP_ARCHITECTURES) {
-            from "${gradle.mozconfig.topobjdir}/dist/fat-aar/output/desktop/resources"
-        } else {
-            from "${gradle.mozconfig.topobjdir}/dist/host/bin/appservices/resources"
-        }
+    } else if (gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_DESKTOP_ARCHITECTURES) {
+        from "${gradle.mozconfig.topobjdir}/dist/fat-aar/output/desktop/resources"
+    } else {
+        from "${gradle.mozconfig.topobjdir}/dist/host/bin/appservices/resources"
     }
 }
 
@@ -178,14 +168,10 @@ artifacts {
 }
 
 if (!gradle.hasProperty("mozconfig")) {
-    def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
-        from layout.buildDirectory.dir("rustJniLibs/desktop")
-        into layout.buildDirectory.dir("megazordNative")
-        dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
-    }
-
     artifacts {
-        megazordNative(copyMegazordNative)
+        megazordNative(layout.buildDirectory.dir("rustJniLibs/desktop")) {
+            builtBy "cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"
+        }
     }
 
     cargo {
