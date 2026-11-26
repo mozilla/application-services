@@ -4,6 +4,10 @@ apply from: "$publishDir/publish.gradle"
 android {
     namespace = 'org.mozilla.appservices.init_rust_components'
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.config.componentsVersion}\"")
     }
