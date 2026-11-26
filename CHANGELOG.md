@@ -16,6 +16,12 @@
 - Deeplink support has been removed from nimbus-cli. ([#7828](https://github.com/mozilla/application-services/pull/7828))
 - The `--passthrough` flag has been removed from nimbus-cli. ([#TODO](https://github.com/mozilla/application-services/pull/TODO))
 
+## 🔧 What's Fixed 🔧
+
+### Nimbus
+
+- `nimbus-cli open` now works correctly on Android. ([#TODO](https://github.com/mozilla/application-services/pull/TODO))
+
 ## ✨ What's Changed ✨
 
 ### Nimbus

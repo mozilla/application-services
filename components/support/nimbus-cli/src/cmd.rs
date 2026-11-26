@@ -604,16 +604,6 @@ impl LaunchableApp {
         if let Self::Android { package_name, .. } = self {
             let mut args = Vec::<Cow<str>>::new();
 
-            args.extend([
-                "-p".into(),
-                package_name.into(),
-                "-a".into(),
-                "org.mozilla.fenix.NIMBUS_TOOLING".into(),
-                "-f".into(),
-                // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
-                "0x20".into(),
-            ]);
-
             let StartAppProtocol {
                 reset_db,
                 experiments,
@@ -622,36 +612,59 @@ impl LaunchableApp {
             } = app_protocol;
 
             if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
+                args.extend(["am", "broadcast"].map(Into::into));
+                args.extend([
+                    "-p".into(),
+                    package_name.into(),
+                    "-a".into(),
+                    "org.mozilla.fenix.NIMBUS_TOOLING".into(),
+                    "-f".into(),
+                    // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
+                    "0x20".into(),
+                ]);
                 args.extend(["--esn", "nimbus-cli", "--ei", "version", "1"].map(Into::into));
-            }
 
-            if reset_db {
-                args.extend(["--ez", "reset-db", "true"].map(Into::into));
-            }
+                if reset_db {
+                    args.extend(["--ez", "reset-db", "true"].map(Into::into));
+                }
 
-            if let Some(s) = experiments {
-                let json = s.to_string().replace('\'', "&apos;");
-                args.extend(["--es".into(), "experiments".into(), json.into()]);
-            }
+                if let Some(s) = experiments {
+                    let json = s.to_string().replace('\'', "&apos;");
+                    args.extend(["--es".into(), "experiments".into(), json.into()]);
+                }
 
-            if log_state {
-                args.extend(["--ez", "log-state", "true"].map(Into::into));
-            }
+                if log_state {
+                    args.extend(["--ez", "log-state", "true"].map(Into::into));
+                }
 
-            if let Some(expr) = jexl_expression {
-                let escaped = expr.replace('\'', "&apos;");
-                args.extend(["--es", "eval-jexl"].map(Into::into));
-                args.push(escaped.into());
-            };
+                if let Some(expr) = jexl_expression {
+                    let escaped = expr.replace('\'', "&apos;");
+                    args.extend(["--es", "eval-jexl"].map(Into::into));
+                    args.push(escaped.into());
+                };
+            } else {
+                args.extend(["am", "start"].map(Into::into));
+                args.push("-n".into());
+                args.push(format!("{package_name}/.App").into());
+                args.extend(
+                    [
+                        "-a",
+                        "android.intent.action.MAIN",
+                        "-c",
+                        "android.intent.category.LAUNCHER",
+                    ]
+                    .map(Into::into),
+                );
+            }
 
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
             write_prompt(
                 &mut stdout,
-                &format!("adb shell -- am broadcast {}", args.join(" \\\n        ")),
+                &format!("adb shell -- {}", args.join(" \\\n        ")),
             )?;
 
             let mut cmd = self.exe()?;
-            cmd.args(["shell", "--", "am", "broadcast"])
+            cmd.args(["shell", "--"])
                 .args(args.iter().map(AsRef::as_ref));
 
             Ok(cmd)
