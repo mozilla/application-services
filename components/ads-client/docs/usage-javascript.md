@@ -363,7 +363,7 @@ The image ad creative, callbacks, and metadata provided for each image ad return
 /**
  * @typedef {Object} MozAdsImage
  * @property {string|null} altText - Alt text if available.
- * @property {string} blockKey - The block key generated for the advertiser.
+ * @property {string|null} blockKey - The block key generated for the advertiser.
  * @property {MozAdsCallbacks} callbacks - Lifecycle callback endpoints.
  * @property {string} format - Ad format e.g., "skyscraper".
  * @property {string} imageUrl - Creative asset URL.
@@ -376,7 +376,7 @@ The image ad creative, callbacks, and metadata provided for each image ad return
 | `url`       | `string`          | Destination URL.                            |
 | `imageUrl`  | `string`          | Creative asset URL.                         |
 | `format`    | `string`          | Ad format e.g., `"skyscraper"`.             |
-| `blockKey`  | `string`          | The block key generated for the advertiser. |
+| `blockKey`  | `string \| null`  | The block key generated for the advertiser. |
 | `altText`   | `string \| null`  | Alt text if available.                      |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 
@@ -389,7 +389,7 @@ The spoc ad creative, callbacks, and metadata provided for each spoc ad returned
 ```javascript
 /**
  * @typedef {Object} MozAdsSpoc
- * @property {string} blockKey - The block key generated for the advertiser.
+ * @property {string|null} blockKey - The block key generated for the advertiser.
  * @property {MozAdsCallbacks} callbacks - Lifecycle callback endpoints.
  * @property {MozAdsSpocFrequencyCaps} caps - Frequency capping information.
  * @property {string} domain - Domain of the spoc ad.
@@ -409,7 +409,7 @@ The spoc ad creative, callbacks, and metadata provided for each spoc ad returned
 | `url`                   | `string`                  | Destination URL.                            |
 | `imageUrl`              | `string`                  | Creative asset URL.                         |
 | `format`                | `string`                  | Ad format e.g., `"spoc"`.                   |
-| `blockKey`              | `string`                  | The block key generated for the advertiser. |
+| `blockKey`              | `string \| null`          | The block key generated for the advertiser. |
 | `title`                 | `string`                  | Spoc ad title.                              |
 | `excerpt`               | `string`                  | Spoc ad excerpt/description.                |
 | `domain`                | `string`                  | Domain of the spoc ad.                      |
@@ -428,7 +428,7 @@ The tile ad creative, callbacks, and metadata provided for each tile ad returned
 ```javascript
 /**
  * @typedef {Object} MozAdsTile
- * @property {string} blockKey - The block key generated for the advertiser.
+ * @property {string|null} blockKey - The block key generated for the advertiser.
  * @property {MozAdsCallbacks} callbacks - Lifecycle callback endpoints.
  * @property {string} format - Ad format e.g., "tile".
  * @property {string} imageUrl - Creative asset URL.
@@ -442,7 +442,7 @@ The tile ad creative, callbacks, and metadata provided for each tile ad returned
 | `url`       | `string`          | Destination URL.                            |
 | `imageUrl`  | `string`          | Creative asset URL.                         |
 | `format`    | `string`          | Ad format e.g., `"tile"`.                   |
-| `blockKey`  | `string`          | The block key generated for the advertiser. |
+| `blockKey`  | `string \| null`  | The block key generated for the advertiser. |
 | `name`      | `string`          | Tile ad name.                               |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 

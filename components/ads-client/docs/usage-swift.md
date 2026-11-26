@@ -324,7 +324,7 @@ The image ad creative, callbacks, and metadata provided for each image ad return
 ```swift
 struct MozAdsImage {
     let altText: String?
-    let blockKey: String
+    let blockKey: String?
     let callbacks: MozAdsCallbacks
     let format: String
     let imageUrl: String
@@ -337,7 +337,7 @@ struct MozAdsImage {
 | `url`       | `String`          | Destination URL.                            |
 | `imageUrl`  | `String`          | Creative asset URL.                         |
 | `format`    | `String`          | Ad format e.g., `"skyscraper"`.             |
-| `blockKey`  | `String`          | The block key generated for the advertiser. |
+| `blockKey`  | `String?`         | The block key generated for the advertiser. |
 | `altText`   | `String?`         | Alt text if available.                      |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 
@@ -349,7 +349,7 @@ The spoc ad creative, callbacks, and metadata provided for each spoc ad returned
 
 ```swift
 struct MozAdsSpoc {
-    let blockKey: String
+    let blockKey: String?
     let callbacks: MozAdsCallbacks
     let caps: MozAdsSpocFrequencyCaps
     let domain: String
@@ -369,7 +369,7 @@ struct MozAdsSpoc {
 | `url`                   | `String`                  | Destination URL.                            |
 | `imageUrl`              | `String`                  | Creative asset URL.                         |
 | `format`                | `String`                  | Ad format e.g., `"spoc"`.                   |
-| `blockKey`              | `String`                  | The block key generated for the advertiser. |
+| `blockKey`              | `String?`                 | The block key generated for the advertiser. |
 | `title`                 | `String`                  | Spoc ad title.                              |
 | `excerpt`               | `String`                  | Spoc ad excerpt/description.                |
 | `domain`                | `String`                  | Domain of the spoc ad.                      |
@@ -387,7 +387,7 @@ The tile ad creative, callbacks, and metadata provided for each tile ad returned
 
 ```swift
 struct MozAdsTile {
-    let blockKey: String
+    let blockKey: String?
     let callbacks: MozAdsCallbacks
     let format: String
     let imageUrl: String
@@ -401,7 +401,7 @@ struct MozAdsTile {
 | `url`       | `String`          | Destination URL.                            |
 | `imageUrl`  | `String`          | Creative asset URL.                         |
 | `format`    | `String`          | Ad format e.g., `"tile"`.                   |
-| `blockKey`  | `String`          | The block key generated for the advertiser. |
+| `blockKey`  | `String?`         | The block key generated for the advertiser. |
 | `name`      | `String`          | Tile ad name.                               |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 

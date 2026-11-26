@@ -324,7 +324,7 @@ The image ad creative, callbacks, and metadata provided for each image ad return
 ```kotlin
 data class MozAdsImage(
     val altText: String?,
-    val blockKey: String,
+    val blockKey: String?,
     val callbacks: MozAdsCallbacks,
     val format: String,
     val imageUrl: String,
@@ -337,7 +337,7 @@ data class MozAdsImage(
 | `url`       | `String`          | Destination URL.                            |
 | `imageUrl`  | `String`          | Creative asset URL.                         |
 | `format`    | `String`          | Ad format e.g., `"skyscraper"`.             |
-| `blockKey`  | `String`          | The block key generated for the advertiser. |
+| `blockKey`  | `String?`         | The block key generated for the advertiser. |
 | `altText`   | `String?`         | Alt text if available.                      |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 
@@ -349,7 +349,7 @@ The spoc ad creative, callbacks, and metadata provided for each spoc ad returned
 
 ```kotlin
 data class MozAdsSpoc(
-    val blockKey: String,
+    val blockKey: String?,
     val callbacks: MozAdsCallbacks,
     val caps: MozAdsSpocFrequencyCaps,
     val domain: String,
@@ -369,7 +369,7 @@ data class MozAdsSpoc(
 | `url`                   | `String`                  | Destination URL.                            |
 | `imageUrl`              | `String`                  | Creative asset URL.                         |
 | `format`                | `String`                  | Ad format e.g., `"spoc"`.                   |
-| `blockKey`              | `String`                  | The block key generated for the advertiser. |
+| `blockKey`              | `String?`                 | The block key generated for the advertiser. |
 | `title`                 | `String`                  | Spoc ad title.                              |
 | `excerpt`               | `String`                  | Spoc ad excerpt/description.                |
 | `domain`                | `String`                  | Domain of the spoc ad.                      |
@@ -387,7 +387,7 @@ The tile ad creative, callbacks, and metadata provided for each tile ad returned
 
 ```kotlin
 data class MozAdsTile(
-    val blockKey: String,
+    val blockKey: String?,
     val callbacks: MozAdsCallbacks,
     val format: String,
     val imageUrl: String,
@@ -401,7 +401,7 @@ data class MozAdsTile(
 | `url`       | `String`          | Destination URL.                            |
 | `imageUrl`  | `String`          | Creative asset URL.                         |
 | `format`    | `String`          | Ad format e.g., `"tile"`.                   |
-| `blockKey`  | `String`          | The block key generated for the advertiser. |
+| `blockKey`  | `String?`         | The block key generated for the advertiser. |
 | `name`      | `String`          | Tile ad name.                               |
 | `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 

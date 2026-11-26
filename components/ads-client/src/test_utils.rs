@@ -103,7 +103,7 @@ pub fn get_example_happy_image_response() -> AdResponse {
                 url: url!("https://ads.fakeexample.org/example_ad_2"),
                 image_url: url!("https://ads.fakeexample.org/example_image_2"),
                 format: "skyscraper".to_string(),
-                block_key: Some("abc123".into()),
+                block_key: None,
                 alt_text: Some("An ad for a pet duck".to_string()),
                 callbacks: AdCallbacks {
                     click: Url::parse(&format!("{}/click/example_ad_2", base_url)).unwrap(),
@@ -135,7 +135,7 @@ pub fn get_example_happy_spoc_response() -> AdResponse {
                     day: 7,
                 },
                 ranking: SpocRanking {
-                    priority: 1,
+                    priority: -1,
                     personalization_models: Some(HashMap::from([("model1".to_string(), 10)])),
                     item_score: 0.85,
                 },
