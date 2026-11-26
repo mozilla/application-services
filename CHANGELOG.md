@@ -23,6 +23,9 @@
 ### SQL support
 
 - Components no longer keep SQLite temp storage in memory on 32-bit targets other than Android, so large write statements spill their statement journal to a file instead of exhausting the address space ([bug 2096379](https://bugzilla.mozilla.org/show_bug.cgi?id=2096379)).
+### Logins
+
+- Added `LoginStore::check_decryptability()`, which counts the stored logins that do not decrypt with the current key without returning or deleting anything, to tell a few unreadable logins apart from a key that no longer fits the store. It fails as soon as the key itself is unavailable, with the key manager's own error (`AuthenticationCanceled`, `MissingKey`, `InvalidKey`, `NSSAuthenticationError`, ...) rather than `UnexpectedLoginsApiError`, instead of asking for the key once per login. ([bug 2095514](https://bugzilla.mozilla.org/show_bug.cgi?id=2095514))
 
 # v162.0 (_2026-11-19_)
 
