@@ -93,17 +93,8 @@ ext.rustTargets = [
 ]
 
 // Generate libs for our current platform so we can run unit tests.
-switch (DefaultPlatform.RESOURCE_PREFIX) {
-    case 'darwin-x86-64':
-        ext.nativeRustTarget = 'darwin-x86-64'
-        break
-    case 'darwin-aarch64':
-        ext.nativeRustTarget = 'darwin-aarch64'
-        break
-    case 'linux-x86-64':
-        ext.nativeRustTarget = 'linux-x86-64'
-        break
-}
+// rust-android-gradle names its Linux and macOS desktop targets after JNA's resource prefixes.
+ext.nativeRustTarget = DefaultPlatform.RESOURCE_PREFIX
 ext.rustTargets += ext.nativeRustTarget
 
 subprojects {
@@ -115,26 +106,23 @@ subprojects {
     tasks.withType(Test).configureEach {
         jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
-    // Kotlin settings applicable to all modules.
-    afterEvaluate{
-        if (it.hasProperty('android')) {
-            android {
-                buildToolsVersion = rootProject.config.buildToolsVersion
-                compileOptions {
-                    sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
-                    targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
-                }
-                publishing {
-                    singleVariant('release') {
-                        withSourcesJar()
-                    }
+    // Settings shared by all modules, applied before each module's own build script configures them.
+    pluginManager.withPlugin('com.android.base') {
+        android {
+            buildToolsVersion = rootProject.config.buildToolsVersion
+            compileOptions {
+                sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+            }
+            publishing {
+                singleVariant('release') {
+                    withSourcesJar()
                 }
             }
         }
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-            compilerOptions.allWarningsAsErrors = true
-            compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("${rootProject.config.jvmTargetCompatibility}")
-        }
+    }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        compilerOptions.allWarningsAsErrors = true
     }
 
     // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
