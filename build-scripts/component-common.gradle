@@ -60,7 +60,6 @@ android {
         minSdkVersion rootProject.config.minSdkVersion
         targetSdkVersion rootProject.config.targetSdkVersion
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.config.componentsVersion}\"")
     }
 
@@ -71,7 +70,6 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
@@ -103,9 +101,6 @@ dependencies {
         transitive = false
     }
     testImplementation libs.robolectric
-
-    androidTestImplementation libs.androidx.test.espresso.core
-    androidTestImplementation libs.androidx.test.runner
 }
 
 ext.appServicesGroupId = rootProject.config.appServicesGroupId
