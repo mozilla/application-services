@@ -19,8 +19,6 @@ dependencies {
     api project(':sync15')
     api project(':db-crypto')
 
-    implementation project(':init_rust_components')
-
     implementation libs.mozilla.glean
 
     testImplementation project(":syncmanager")

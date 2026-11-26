@@ -71,8 +71,6 @@ def setupProject(name, projectProps, appServicesRootDir) {
         if (project.name == name) {
             project.ext.description = description
             project.ext.artifactId = artifactId
-            // Expose the rest of the project properties, mostly for validation reasons.
-            project.ext.configProps = projectProps
             project.ext.appServicesRootDir = appServicesRootDir
             project.ext.publishDir = appServicesRootDir
 

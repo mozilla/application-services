@@ -42,10 +42,6 @@ abstract class GenerateUniffiBindingsCargo extends DefaultTask {
             include "${nativeRustTarget.get()}/libmegazord.*"
         }.singleFile
 
-        if (libraryPath == null) {
-            throw new GradleException("libmegazord dynamic library path not found")
-        }
-
         execOperations.exec {
             workingDir workingDirectory.get().asFile
             commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate',

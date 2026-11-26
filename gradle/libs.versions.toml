@@ -10,7 +10,6 @@ android-gradle-plugin = "9.5.1"
 # Kotlin
 kotlin = "2.4.21"
 coroutines = "1.11.0"
-kotlinx-serialization = "1.13.0"
 
 # Mozilla
 android-components = "150.0.3"
@@ -48,8 +47,6 @@ android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", ve
 # Kotlin
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-kotlin-serialization = { group = "org.jetbrains.kotlin.plugin.serialization", name = "org.jetbrains.kotlin.plugin.serialization.gradle.plugin", version.ref = "kotlin" }
 
 # Mozilla
 mozilla-concept-fetch = { group = "org.mozilla.components", name = "concept-fetch", version.ref = "android-components" }
@@ -78,7 +75,6 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 # Third Party Testing
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
 junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit6" }
-junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 junit-vintage = { group = "org.junit.vintage", name = "junit-vintage-engine" }
 mockito = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
@@ -86,4 +82,3 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

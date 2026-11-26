@@ -15,13 +15,6 @@ dependencies {
     implementation libs.mozilla.glean
 
     testImplementation libs.mozilla.glean.forUnitTests
-}
-
-ext.configureUniFFIBindgen("remote_settings")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
-
-dependencies {
     if (gradle.hasProperty("mozconfig")) {
         testImplementation project(':components:concept-fetch')
     } else {
@@ -29,3 +22,7 @@ dependencies {
     }
     testImplementation project(":viaduct")
 }
+
+ext.configureUniFFIBindgen("remote_settings")
+ext.dependsOnTheMegazord()
+ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

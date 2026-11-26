@@ -4,9 +4,7 @@ buildscript {
     repositories {
         mavenCentral()
         google()
-        maven {
-            url = "https://plugins.gradle.org/m2/"
-        }
+        gradlePluginPortal()
         maven {
             name = "Mozilla"
             url = "https://maven.mozilla.org/maven2"
@@ -42,7 +40,6 @@ buildscript {
 
 plugins {
     alias libs.plugins.detekt
-    alias libs.plugins.kotlin.serialization apply false
 }
 
 allprojects {
