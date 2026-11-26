@@ -678,9 +678,10 @@ impl LaunchableApp {
             app_id, device_id, ..
         } = self
         {
-            let mut args: Vec<String> = Vec::new();
+            let mut args = Vec::<Cow<str>>::new();
 
-            args.extend(["launch", device_id, app_id].map(Into::into));
+            args.push("launch".into());
+            args.extend([device_id, app_id].map(Into::into));
 
             let StartAppProtocol {
                 log_state,
@@ -690,41 +691,36 @@ impl LaunchableApp {
             } = app_protocol;
 
             if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
-                args.extend([
-                    "--".to_string(),
-                    "--nimbus-cli".to_string(),
-                    "--version".to_string(),
-                    "1".to_string(),
-                ]);
+                args.extend(["--", "--nimbus-cli", "--version", "1"].map(Into::into));
             }
 
             if reset_db {
                 // We don't check launch here, because reset-db is never used
                 // without enroll.
-                args.push("--reset-db".to_string());
+                args.push("--reset-db".into());
             }
 
             if let Some(s) = experiments {
-                args.extend([
-                    "--experiments".to_string(),
-                    s.to_string().replace('\'', "&apos;"),
-                ]);
+                args.push("--experiments".into());
+                args.push(s.to_string().replace('\'', "&apos;").into());
             }
 
             if log_state {
-                args.push("--log-state".to_string());
+                args.push("--log-state".into());
             }
 
             if let Some(expr) = jexl_expression {
-                args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
+                let escaped = expr.replace('\'', "&apos;");
+                args.push("--eval-jexl".into());
+                args.push(escaped.into());
             }
 
-            let mut cmd = self.exe()?;
-            cmd.args(args.clone());
-
-            let sh = format!(r#"xcrun simctl {}"#, args.join(" \\\n        "),);
+            let sh = format!(r#"xcrun simctl {}"#, args.join(" \\\n        "));
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
             write_prompt(&mut stdout, &sh)?;
+
+            let mut cmd = self.exe()?;
+            cmd.args(args.iter().map(AsRef::as_ref));
             Ok(cmd)
         } else {
             unreachable!()
