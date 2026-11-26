@@ -83,7 +83,14 @@ android {
 
 }
 
-configurations { mockitoAgent }
+// Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
+// sets of files produced by one component and consumed by another.
+configurations {
+    mockitoAgent
+    megazordNative {
+        canBeConsumed = false
+    }
+}
 
 dependencies {
     testImplementation platform(libs.junit.bom)
@@ -95,47 +102,32 @@ dependencies {
         transitive = false
     }
     testImplementation libs.robolectric
-}
 
-ext.appServicesGroupId = rootProject.config.appServicesGroupId
+    // Every component depends on libmegazord
+    //
+    // This ensures that libmegazord will be in the library path so that it can be loaded.  It also adds
+    // the transitive JNA dependency.
+    api project(":full-megazord")
 
-// Shared logic for projects that depend on libmegazord
-//
-// This ensures that libmegazord will be in the library path so that it can be loaded.  It also adds
-// the transitive JNA dependency.
-ext.dependsOnTheMegazord = {
-    dependencies {
-        api project(":full-megazord")
-
-        // Add a JNA dependency, which is required by UniFFI.
-        implementation(libs.jna) {
-            artifact {
-                type = "aar"
-            }
+    // Add a JNA dependency, which is required by UniFFI.
+    implementation(libs.jna) {
+        artifact {
+            type = "aar"
         }
     }
 
-    // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
-    // sets of files produced by one component and consumed by another.
-    configurations {
-        megazordNative {
-            canBeConsumed = false
-        }
-    }
-
-    dependencies {
-        megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
-        testImplementation(project(":full-megazord")) {
-            capabilities {
-                requireCapability("org.mozilla.appservices:full-megazord-libsForTests")
-            }
+    megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
+    testImplementation(project(":full-megazord")) {
+        capabilities {
+            requireCapability("org.mozilla.appservices:full-megazord-libsForTests")
         }
     }
 }
+
+apply from: "$publishDir/publish.gradle"
+ext.configurePublish(rootProject.config.appServicesGroupId, project.name, project.ext.description)
 
 // Shared logic for projects that use UniFFI-generated bindings
-//
-// Make sure to also call dependsOnTheMegazord()
 ext.configureUniFFIBindgen = { crateName ->
     if (gradle.hasProperty("mozconfig")) {
         // For now, generated source files are checked into `firefox-main`.

@@ -1,5 +1,4 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
@@ -29,5 +28,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("logins")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

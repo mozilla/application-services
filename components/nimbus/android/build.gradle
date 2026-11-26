@@ -1,5 +1,4 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
@@ -26,5 +25,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("nimbus")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
