@@ -9,7 +9,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
+use anyhow::Context;
 use url::Url;
 
 use crate::SUPPORT_URL_LOADING;
@@ -456,8 +456,8 @@ impl FileLoader {
                         .json::<serde_json::Value>()?
                         .get("download_url")
                         .and_then(serde_json::Value::as_str)
-                        .ok_or_else(|| {
-                            anyhow!(
+                        .with_context(|| {
+                            format!(
                                 "GitHub API did not return a download_url for @{}/{} at ref {}",
                                 p.repo_id(),
                                 p.path(),

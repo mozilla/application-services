@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use maplit::hashmap;
 
@@ -173,7 +173,7 @@ impl NimbusApp {
     ) -> Result<String> {
         let app_name = self
             .app_name()
-            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+            .context("Either an --app or a --manifest must be specified")?;
 
         if version.is_none() {
             return Ok(ref_.to_string());
@@ -229,7 +229,7 @@ impl NimbusApp {
     pub(crate) fn github_repo<'a>(&self, version: &Option<String>) -> Result<&'a str> {
         let app_name = self
             .app_name()
-            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+            .context("Either an --app or a --manifest must be specified")?;
         Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo
             "fenix" => {
@@ -259,7 +259,7 @@ impl NimbusApp {
     pub(crate) fn manifest_location<'a>(&self, version: &Option<String>) -> Result<&'a str> {
         let app_name = self
             .app_name()
-            .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+            .context("Either an --app or a --manifest must be specified")?;
         Ok(match app_name.as_str() {
             "fenix" => {
                 if is_before(version, 98) {

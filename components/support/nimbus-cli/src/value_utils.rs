@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -30,13 +30,9 @@ impl CliUtils for Value {
     fn get_str<'a>(&'a self, key: &str) -> Result<&'a str> {
         let v = self
             .get(key)
-            .ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Expected a string with key '{key}' in the JSONObject"
-                ))
-            })?
+            .with_context(|| format!("Expected a string with key '{key}' in the JSONObject"))?
             .as_str()
-            .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
+            .context("value is not a string")?;
 
         Ok(v)
     }
@@ -44,13 +40,9 @@ impl CliUtils for Value {
     fn get_bool(&self, key: &str) -> Result<bool> {
         let v = self
             .get(key)
-            .ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Expected a string with key '{key}' in the JSONObject"
-                ))
-            })?
+            .with_context(|| format!("Expected a string with key '{key}' in the JSONObject"))?
             .as_bool()
-            .ok_or_else(|| anyhow::Error::msg("value is not a string"))?;
+            .context("value is not a string")?;
 
         Ok(v)
     }
@@ -58,57 +50,41 @@ impl CliUtils for Value {
     fn get_array<'a>(&'a self, key: &str) -> Result<&'a Vec<Value>> {
         let v = self
             .get(key)
-            .ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Expected an array with key '{key}' in the JSONObject"
-                ))
-            })?
+            .with_context(|| format!("Expected an array with key '{key}' in the JSONObject"))?
             .as_array()
-            .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
+            .context("value is not a array")?;
         Ok(v)
     }
 
     fn get_mut_array<'a>(&'a mut self, key: &str) -> Result<&'a mut Vec<Value>> {
         let v = self
             .get_mut(key)
-            .ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Expected an array with key '{key}' in the JSONObject"
-                ))
-            })?
+            .with_context(|| format!("Expected an array with key '{key}' in the JSONObject"))?
             .as_array_mut()
-            .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
+            .context("value is not a array")?;
         Ok(v)
     }
 
     fn get_object<'a>(&'a self, key: &str) -> Result<&'a Value> {
-        let v = self.get(key).ok_or_else(|| {
-            anyhow::Error::msg(format!(
-                "Expected an object with key '{key}' in the JSONObject"
-            ))
-        })?;
+        let v = self
+            .get(key)
+            .with_context(|| format!("Expected an object with key '{key}' in the JSONObject"))?;
         Ok(v)
     }
 
     fn get_mut_object<'a>(&'a mut self, key: &str) -> Result<&'a mut Value> {
-        let v = self.get_mut(key).ok_or_else(|| {
-            anyhow::Error::msg(format!(
-                "Expected an object with key '{key}' in the JSONObject"
-            ))
-        })?;
+        let v = self
+            .get_mut(key)
+            .with_context(|| format!("Expected an object with key '{key}' in the JSONObject"))?;
         Ok(v)
     }
 
     fn get_u64(&self, key: &str) -> Result<u64> {
         let v = self
             .get(key)
-            .ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Expected an array with key '{key}' in the JSONObject"
-                ))
-            })?
+            .with_context(|| format!("Expected an array with key '{key}' in the JSONObject"))?
             .as_u64()
-            .ok_or_else(|| anyhow::Error::msg("value is not a array"))?;
+            .context("value is not a array")?;
         Ok(v)
     }
 
@@ -140,7 +116,7 @@ pub(crate) fn try_find_experiment(value: &Value, slug: &str) -> Result<Value> {
                 false
             }
         })
-        .ok_or_else(|| anyhow::Error::msg(format!("No experiment with slug {}", slug)))?;
+        .with_context(|| format!("No experiment with slug {}", slug))?;
 
     Ok(exp.clone())
 }
