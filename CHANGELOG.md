@@ -80,6 +80,10 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 - Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
 - Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
 
+### Places
+
+- Updated history sync so that it emulates desktop's handling of tombstone, particularly preventing the restoration of tombstones during an interrupted sync, which needs a schema upgrade (v21 to v22).
+
 ### Remote Settings
 
 - Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.

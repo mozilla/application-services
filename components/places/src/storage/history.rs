@@ -351,9 +351,9 @@ fn delete_all_visits_for_page(db: &PlacesDb, page_id: RowId) -> Result<()> {
 /// Inserts a Sync tombstone for a page.
 fn insert_tombstone_for_page(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
     db.execute_cached(
-        "INSERT OR IGNORE INTO moz_places_tombstones (guid)
-         VALUES(:guid)",
-        &[(":guid", guid)],
+        "INSERT OR IGNORE INTO moz_places_tombstones (guid, time_deleted)
+         VALUES(:guid, :now)",
+        rusqlite::named_params! { ":guid": guid, ":now": Timestamp::now() },
     )?;
     Ok(())
 }
@@ -707,14 +707,15 @@ fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
         db.conn().execute(
             &format!(
                 "
-                INSERT OR IGNORE INTO moz_places_tombstones (guid)
-                SELECT guid FROM moz_places
+                INSERT OR IGNORE INTO moz_places_tombstones (guid, time_deleted)
+                SELECT guid, {now} FROM moz_places
                 WHERE id in ({ids}) AND sync_status = {status}
                     AND foreign_count = 0
                     AND last_visit_date_local = 0
                     AND last_visit_date_remote = 0",
                 ids = sql_support::repeat_sql_vars(chunk.len()),
                 status = SyncStatus::Normal as u8,
+                now = Timestamp::now().as_millis(),
             ),
             rusqlite::params_from_iter(chunk),
         )?;

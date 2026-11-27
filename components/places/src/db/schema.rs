@@ -14,7 +14,7 @@ use sql_support::ConnExt;
 
 use super::db::{Pragma, PragmaGuard};
 
-pub const VERSION: u32 = 21;
+pub const VERSION: u32 = 22;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -390,6 +390,11 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             // Manually call analyze so the planner can start using the index immediately
             db.execute("ANALYZE moz_origins", [])?;
         }
+        21 => {
+            // Record when a page was deleted locally, so an incoming record can
+            // be compared against the deletion (see `local_deletion_wins`).
+            db.execute_batch("ALTER TABLE moz_places_tombstones ADD COLUMN time_deleted INTEGER")?;
+        }
         // Add more migrations here...
 
         // Any other from value indicates that something very wrong happened
@@ -465,7 +470,7 @@ mod tests {
         let guid = SyncGuid::random();
 
         conn.execute_cached(
-            "INSERT INTO moz_places_tombstones VALUES (:guid)",
+            "INSERT INTO moz_places_tombstones (guid) VALUES (:guid)",
             &[(":guid", &guid)],
         )
         .expect("should work");
@@ -1220,6 +1225,29 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn test_upgrade_schema_21_22() {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V17_DB);
+        db_file.upgrade_to(21);
+        db_file
+            .open()
+            .execute_batch("INSERT INTO moz_places_tombstones(guid) VALUES ('page_guid__1')")
+            .expect("should insert a v21 tombstone");
+
+        db_file.upgrade_to(22);
+
+        // Tombstones from before the upgrade have no deletion time.
+        let time_deleted: Option<i64> = db_file
+            .open()
+            .query_row(
+                "SELECT time_deleted FROM moz_places_tombstones WHERE guid = 'page_guid__1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("the tombstone should survive the upgrade");
+        assert_eq!(time_deleted, None);
     }
 
     #[test]
