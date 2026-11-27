@@ -263,9 +263,28 @@ impl IosApp {
     }
 
     pub fn build_launch_cmd(&self, protocol: LaunchProtocol) -> Result<Command> {
-        let mut args: Vec<Cow<str>> = ["simctl", "launch", &self.device_id, &self.app_id]
-            .map(Into::into)
-            .into();
+        let mut args = Vec::<Cow<str>>::new();
+
+        match self.get_device_kind()? {
+            DeviceKind::Simulator => {
+                args.extend(["simctl", "launch", &self.device_id, &self.app_id].map(Into::into));
+            }
+
+            DeviceKind::Physical => {
+                args.extend(
+                    [
+                        "devicectl",
+                        "device",
+                        "process",
+                        "launch",
+                        "--device",
+                        &self.device_id,
+                        &self.app_id,
+                    ]
+                    .map(Into::into),
+                );
+            }
+        }
 
         if protocol.has_actions() {
             args.extend(["--", "--nimbus-cli", "--version", "1"].map(Into::into));
@@ -285,6 +304,8 @@ impl IosApp {
                 }
 
                 Some(LaunchAction::EvalJexl(jexl_expression)) => {
+                    assert_eq!(self.get_device_kind()?, DeviceKind::Simulator);
+
                     let escaped = jexl_expression.replace('\'', "&apos;");
                     args.push("--eval-jexl".into());
                     args.push(escaped.into());
@@ -304,12 +325,147 @@ impl IosApp {
     }
 
     pub fn kill(&self) -> Result<bool> {
-        self.require_simulator("open")?;
+        match self.get_device_kind()? {
+            DeviceKind::Simulator => {
+                let _ = Self::xcrun()
+                    .args(["simctl", "terminate", &self.device_id, &self.app_id])
+                    .output()?;
+                Ok(true)
+            }
 
-        let _ = Self::xcrun()
-            .args(["simctl", "terminate", &self.device_id, &self.app_id])
+            DeviceKind::Physical => self.kill_on_physical_device(),
+        }
+    }
+
+    fn kill_on_physical_device(&self) -> Result<bool> {
+        assert_eq!(self.get_device_kind()?, DeviceKind::Physical);
+
+        let application_path = self.query_application_path()?;
+        let Some(pid) = self.query_process_id(&application_path)? else {
+            return Ok(true);
+        };
+
+        let output = Self::xcrun()
+            .args([
+                "devicectl",
+                "device",
+                "process",
+                "terminate",
+                "--device",
+                &self.device_id,
+                "--pid",
+                &pid.to_string(),
+                "-j",
+                "-",
+                "-q",
+            ])
             .output()?;
+
+        if !output.status.success() {
+            Self::report_devicectl_error(
+                "open",
+                &format!(
+                    "Could not kill {} on device {}",
+                    self.app_id, self.device_id
+                ),
+                &output.stdout,
+            )?;
+        }
+
         Ok(true)
+    }
+
+    fn query_application_path(&self) -> Result<String> {
+        assert_eq!(self.get_device_kind()?, DeviceKind::Physical);
+
+        let output = Self::xcrun()
+            .args([
+                "devicectl",
+                "device",
+                "info",
+                "apps",
+                "--device",
+                &self.device_id,
+                "--bundle-id",
+                &self.app_id,
+                "--include-default-apps",
+                "-j",
+                "-",
+                "-q",
+            ])
+            .output()?;
+
+        if !output.status.success() {
+            Self::report_devicectl_error(
+                "kill",
+                &format!(
+                    "Could not determine application path on device {}",
+                    self.device_id
+                ),
+                &output.stdout,
+            )?;
+        }
+
+        let apps = serde_json::from_slice::<DeviceCtlRsp<DeviceCtlApplicationList>>(&output.stdout)
+            .context("Could not parse application list")?
+            .result
+            .apps;
+
+        if apps.is_empty() {
+            bail!(
+                "Could not find the application {} on device {}: is it installed?",
+                self.app_id,
+                self.device_id
+            );
+        } else if apps.len() > 1 {
+            bail!(
+                "Too many results ({}) for application {} on device {}: is it installed?",
+                apps.len(),
+                self.app_id,
+                self.device_id
+            );
+        }
+
+        Ok(format!("{}Client", apps[0].url))
+    }
+
+    fn query_process_id(&self, executable: &str) -> Result<Option<u32>> {
+        assert_eq!(self.get_device_kind()?, DeviceKind::Physical);
+
+        let output = Self::xcrun()
+            .args([
+                "devicectl",
+                "device",
+                "info",
+                "processes",
+                "--device",
+                &self.device_id,
+                "-j",
+                "-",
+                "-q",
+            ])
+            .output()?;
+
+        if !output.status.success() {
+            Self::report_devicectl_error(
+                "open",
+                &format!(
+                    "Could not determine process ID for {} on device {}",
+                    self.app_id, self.device_id
+                ),
+                &output.stdout,
+            )?;
+        }
+
+        let rsp: DeviceCtlRsp<DeviceCtlProcessList> =
+            serde_json::from_slice(&output.stdout).context("Could not parse process list")?;
+
+        Ok(rsp
+            .result
+            .running_processes
+            .iter()
+            .find(|entry| entry.executable == executable)
+            .map(|entry| entry.process_identifier))
     }
 
     pub fn reset_app(&self) -> Result<bool> {

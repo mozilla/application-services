@@ -150,10 +150,6 @@ impl LaunchableApp {
     }
 
     fn unenroll_all(&self, open: &AppOpenArgs) -> Result<bool> {
-        if let Self::Ios(app) = self {
-            app.require_simulator("unenroll")?;
-        }
-
         let experiments = Value::try_from(&ExperimentListSource::Empty)?;
         let protocol = LaunchProtocol::setting_experiments(&experiments).logging_state(true);
         self.launch(protocol, open)
@@ -185,10 +181,6 @@ impl LaunchableApp {
     }
 
     fn log_state(&self, open: &AppOpenArgs) -> Result<bool> {
-        if let Self::Ios(app) = self {
-            app.require_simulator("log-state")?;
-        }
-
         let protocol = LaunchProtocol::default().logging_state(true);
         self.launch(protocol, open)
     }
@@ -205,10 +197,6 @@ impl LaunchableApp {
         preserve_nimbus_db: &bool,
         open: &AppOpenArgs,
     ) -> Result<bool> {
-        if let Self::Ios(app) = self {
-            app.require_simulator("enroll")?;
-        }
-
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
         let experiment = Value::try_from(experiment)?;
@@ -254,10 +242,6 @@ impl LaunchableApp {
         list: &ExperimentListSource,
         preserve_nimbus_db: &bool,
     ) -> Result<bool> {
-        if let Self::Ios(app) = self {
-            app.require_simulator("apply-file")?;
-        }
-
         let experiments = Value::try_from(list)?;
         let protocol = LaunchProtocol::setting_experiments(&experiments)
             .resetting_db(!preserve_nimbus_db)
@@ -266,10 +250,6 @@ impl LaunchableApp {
     }
 
     fn open(&self, open: &AppOpenArgs) -> Result<bool> {
-        if let Self::Ios(app) = self {
-            app.require_simulator("open")?;
-        }
-
         self.launch(Default::default(), open)
     }
 
