@@ -219,21 +219,17 @@ impl<'a> SchemaValidator<'a> {
 
     fn validate_type_ref(&self, path: &str, type_ref: &TypeRef) -> Result<()> {
         match type_ref {
-            TypeRef::Enum(name) => {
-                if !self.enum_defs.contains_key(name) {
-                    return Err(FMLError::ValidationError(
-                        path.to_string(),
-                        format!("Found enum reference with name: {name}, but no definition"),
-                    ));
-                }
+            TypeRef::Enum(name) if !self.enum_defs.contains_key(name) => {
+                return Err(FMLError::ValidationError(
+                    path.to_string(),
+                    format!("Found enum reference with name: {name}, but no definition"),
+                ));
             }
-            TypeRef::Object(name) => {
-                if !self.object_defs.contains_key(name) {
-                    return Err(FMLError::ValidationError(
-                        path.to_string(),
-                        format!("Found object reference with name: {name}, but no definition"),
-                    ));
-                }
+            TypeRef::Object(name) if !self.object_defs.contains_key(name) => {
+                return Err(FMLError::ValidationError(
+                    path.to_string(),
+                    format!("Found object reference with name: {name}, but no definition"),
+                ));
             }
             TypeRef::EnumMap(key_type, value_type) => match key_type.as_ref() {
                 TypeRef::Enum(_) | TypeRef::String | TypeRef::StringAlias(_) => {

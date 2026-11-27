@@ -427,12 +427,10 @@ where
                 warn!("Server changed its mind about supporting batching mid-batch...");
             }
 
-            BatchState::InBatch(cur_id) => {
-                if cur_id != &batch_id {
-                    return Err(ErrorKind::ServerBatchProblem(
-                        "Invalid server response: 202 without a batch ID",
-                    ));
-                }
+            BatchState::InBatch(cur_id) if cur_id != &batch_id => {
+                return Err(ErrorKind::ServerBatchProblem(
+                    "Invalid server response: 202 without a batch ID",
+                ));
             }
             _ => {}
         }

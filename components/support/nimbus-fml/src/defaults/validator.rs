@@ -429,14 +429,14 @@ impl<'a> DefaultsValidator<'a> {
         // a string-alias.
         let should_validate = |v: &TypeRef| -> bool { skip.as_ref() != Some(v) };
         match (typ, value) {
-            (TypeRef::StringAlias(_), Value::String(s)) => {
-                if !is_string_alias_value_valid(typ, s, definitions, feature_value) {
-                    let path = path.final_error_quoted(s);
-                    errors.push(FeatureValidationError {
-                        path,
-                        kind: ErrorKind::invalid_value(typ),
-                    });
-                }
+            (TypeRef::StringAlias(_), Value::String(s))
+                if !is_string_alias_value_valid(typ, s, definitions, feature_value) =>
+            {
+                let path = path.final_error_quoted(s);
+                errors.push(FeatureValidationError {
+                    path,
+                    kind: ErrorKind::invalid_value(typ),
+                });
             }
             (TypeRef::Option(_), &Value::Null) => (),
             (TypeRef::Option(inner), _) => self.validate_string_aliases(
@@ -448,19 +448,17 @@ impl<'a> DefaultsValidator<'a> {
                 skip,
                 errors,
             ),
-            (TypeRef::List(inner), Value::Array(array)) => {
-                if should_validate(inner) {
-                    for (index, value) in array.iter().enumerate() {
-                        self.validate_string_aliases(
-                            &path.array_index(index),
-                            inner,
-                            value,
-                            definitions,
-                            feature_value,
-                            skip,
-                            errors,
-                        );
-                    }
+            (TypeRef::List(inner), Value::Array(array)) if should_validate(inner) => {
+                for (index, value) in array.iter().enumerate() {
+                    self.validate_string_aliases(
+                        &path.array_index(index),
+                        inner,
+                        value,
+                        definitions,
+                        feature_value,
+                        skip,
+                        errors,
+                    );
                 }
             }
             (TypeRef::EnumMap(key_type, value_type), Value::Object(map)) => {
@@ -490,19 +488,17 @@ impl<'a> DefaultsValidator<'a> {
                     }
                 }
             }
-            (TypeRef::StringMap(vt), Value::Object(map)) => {
-                if should_validate(vt) {
-                    for (key, value) in map {
-                        self.validate_string_aliases(
-                            &path.map_key(key),
-                            vt,
-                            value,
-                            definitions,
-                            feature_value,
-                            skip,
-                            errors,
-                        );
-                    }
+            (TypeRef::StringMap(vt), Value::Object(map)) if should_validate(vt) => {
+                for (key, value) in map {
+                    self.validate_string_aliases(
+                        &path.map_key(key),
+                        vt,
+                        value,
+                        definitions,
+                        feature_value,
+                        skip,
+                        errors,
+                    );
                 }
             }
             (TypeRef::Object(obj_nm), Value::Object(map)) => {
