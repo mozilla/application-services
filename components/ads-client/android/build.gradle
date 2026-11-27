@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
@@ -22,5 +21,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("ads_client")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

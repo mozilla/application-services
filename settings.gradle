@@ -71,8 +71,6 @@ def setupProject(name, projectProps, appServicesRootDir) {
         if (project.name == name) {
             project.ext.description = description
             project.ext.artifactId = artifactId
-            // Expose the rest of the project properties, mostly for validation reasons.
-            project.ext.configProps = projectProps
             project.ext.appServicesRootDir = appServicesRootDir
             project.ext.publishDir = appServicesRootDir
 
@@ -100,7 +98,7 @@ if (file('local.properties').canRead()) {
     logger.lifecycle('Local configuration: absent local.properties; proceeding as normal.')
 }
 
-def calcVersion(buildconfig) {
+def calcVersion() {
     def local = gradle.rootProject.findProperty("local")
 
     if (gradle.rootProject.hasProperty("nightlyVersion")) {
@@ -119,49 +117,6 @@ def calcGroupId(buildconfig) {
     return buildconfig.groupId + (gradle.rootProject.hasProperty("nightlyVersion") ? ".nightly" : "")
 }
 
-// This is a copy of the `Config` object used in moz-central (but with the addition of ndkVersion for UniFFI)
-// This is only used when not in mozilla-central - on m-c the existing Config class is used.
-// In the short term we should keep them in sync.
-// Once in moz-central we should remove this.
-class Config {
-    // This "componentsVersion" number is defined in "version.txt" and should follow
-    // semantic versioning (MAJOR.MINOR.PATCH). See https://semver.org/
-    public final String componentsVersion
-    public final String componentsGroupId
-    public final String appServicesGroupId
-    public final Integer jvmTargetCompatibility
-    public final Integer compileSdkMajorVersion
-    public final Integer compileSdkMinorVersion
-    public final Integer minSdkVersion
-    public final Integer targetSdkVersion
-    public final String buildToolsVersion
-    public final String ndkVersion
-
-    Config(
-            String componentsVersion,
-            String componentsGroupId,
-            String appServicesGroupId,
-            Integer jvmTargetCompatibility,
-            Integer compileSdkMajorVersion,
-            Integer compileSdkMinorVersion,
-            Integer minSdkVersion,
-            Integer targetSdkVersion,
-            String buildToolsVersion,
-            String ndkVersion
-    ) {
-        this.componentsVersion = componentsVersion
-        this.componentsGroupId = componentsGroupId
-        this.appServicesGroupId = appServicesGroupId
-        this.jvmTargetCompatibility = jvmTargetCompatibility
-        this.compileSdkMajorVersion = compileSdkMajorVersion
-        this.compileSdkMinorVersion = compileSdkMinorVersion
-        this.minSdkVersion = minSdkVersion
-        this.targetSdkVersion = targetSdkVersion
-        this.buildToolsVersion = buildToolsVersion
-        this.ndkVersion = ndkVersion
-    }
-}
-
 gradle.projectsLoaded { ->
     if (gradle.root.hasProperty("mozconfig")) {
         gradle.rootProject.tasks.register("generateUniffiBindings")
@@ -169,23 +124,24 @@ gradle.projectsLoaded { ->
 
     // Wait until root project is "loaded" before we set "config"
     // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
-    // gradle files. This means that they can just access "config.<value>", and it'll function properly
+    // gradle files. This means that they can just access "config.<value>", and it'll function properly.
+    // mozilla-central provides its own `config`, without `buildToolsVersion` and `jvmTargetCompatibility`.
     if (!gradle.hasProperty("mozconfig")) {
-        gradle.rootProject.ext.config = new Config(
+        gradle.rootProject.ext.config = [
             // You can use -Plocal=true to help with mavenLocal publishing workflow.
             // It makes a fake version number that's smaller than any published version,
             // which can be depended on specifically by the ./build-scripts/substitute-local-appservices.gradle
             // but which is unlikely to be depended on by accident otherwise.
-            calcVersion(buildconfig), // version,
-            calcGroupId(buildconfig), // componentsGroupId
-            calcGroupId(buildconfig), // appServicesGroupId
-            17, // jvmTargetCompatibility,
-            37, // compileSdkMajorVersion,
-            2,  // compileSdkMinorVersion,
-            26, // minSdkVersion,
-            37, // targetSdkVersion,
-            "37.0.0", // buildToolsVersion - Keep it in sync in TC Dockerfile.
-            "30.0.16248370", // ndkVersion - Keep it in sync in TC Dockerfile.
-        )
+            // The version in "version.txt" should follow semantic versioning (MAJOR.MINOR.PATCH).
+            componentsVersion: calcVersion(),
+            appServicesGroupId: calcGroupId(buildconfig),
+            jvmTargetCompatibility: 17,
+            compileSdkMajorVersion: 37,
+            compileSdkMinorVersion: 2,
+            minSdkVersion: 26,
+            targetSdkVersion: 37,
+            buildToolsVersion: "37.0.0", // Keep it in sync in TC Dockerfile.
+            ndkVersion: "30.0.16248370", // Keep it in sync in TC Dockerfile.
+        ]
     }
 }

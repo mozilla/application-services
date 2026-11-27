@@ -1,5 +1,4 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 android {
     namespace = 'org.mozilla.appservices.rust_log_forwarder'
@@ -10,5 +9,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("rust_log_forwarder")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

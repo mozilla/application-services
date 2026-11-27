@@ -5,16 +5,13 @@
 // There is a companion gradle command `autoPublishForLocalDevelopment` that can be used to publish
 // the local development versions that are targeted by this script.
 
-def version = null
-if (gradle.hasProperty("localProperties.autoPublish.application-services.dir")) {
-    //  We're doing local development using the autoPublish system.  This automatically rebuilds and
-    //  publishes application-services packages whenever the source changes.
-    // This version string will selected the latest build package
-    version = '0.0.1-SNAPSHOT-+'
-
-} else {
+// We're doing local development using the autoPublish system.  This automatically rebuilds and
+// publishes application-services packages whenever the source changes.
+if (!gradle.hasProperty("localProperties.autoPublish.application-services.dir")) {
     throw new Exception("substitute-local-appservices.gradle called from unexpected context")
 }
+// This version string will select the latest build package
+def version = '0.0.1-SNAPSHOT-+'
 logger.lifecycle("[local-appservices] adjusting ${project} to use locally published application-services modules (${version})")
 
 // Inject mavenLocal repository. This is where we're expected to publish modules.
