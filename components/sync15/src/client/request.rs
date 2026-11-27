@@ -59,50 +59,37 @@ impl LimitTracker {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct InfoConfiguration {
     /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
     /// server.
-    #[serde(default = "default_max_request_bytes")]
     pub max_request_bytes: usize,
 
     /// The maximum number of records that can be uploaded to a collection in a single POST request.
-    #[serde(default = "usize::max_value")]
     pub max_post_records: usize,
 
     /// The maximum combined size in bytes of the record payloads that can be uploaded to a
     /// collection in a single POST request.
-    #[serde(default = "usize::max_value")]
     pub max_post_bytes: usize,
 
     /// The maximum total number of records that can be uploaded to a collection as part of a
     /// batched upload.
-    #[serde(default = "usize::max_value")]
     pub max_total_records: usize,
 
     /// The maximum total combined size in bytes of the record payloads that can be uploaded to a
     /// collection as part of a batched upload.
-    #[serde(default = "usize::max_value")]
     pub max_total_bytes: usize,
 
     /// The maximum size of an individual BSO payload, in bytes.
-    #[serde(default = "default_max_record_payload_bytes")]
     pub max_record_payload_bytes: usize,
-}
-
-// This is annoying but seems to be the only way to do it...
-fn default_max_request_bytes() -> usize {
-    260 * 1024
-}
-fn default_max_record_payload_bytes() -> usize {
-    256 * 1024
 }
 
 impl Default for InfoConfiguration {
     #[inline]
     fn default() -> InfoConfiguration {
         InfoConfiguration {
-            max_request_bytes: default_max_request_bytes(),
-            max_record_payload_bytes: default_max_record_payload_bytes(),
+            max_request_bytes: 260 * 1024,
+            max_record_payload_bytes: 256 * 1024,
             max_post_records: usize::MAX,
             max_post_bytes: usize::MAX,
             max_total_records: usize::MAX,
@@ -747,6 +734,17 @@ mod test {
             .iter()
             .map(|&size| size + 1 + *NON_PAYLOAD_OVERHEAD)
             .sum::<usize>()
+    }
+
+    #[test]
+    fn test_info_configuration_defaults() {
+        let cfg: InfoConfiguration = serde_json::from_str(r#"{"max_post_records": 3}"#).unwrap();
+        assert_eq!(cfg.max_request_bytes, 260 * 1024);
+        assert_eq!(cfg.max_post_records, 3);
+        assert_eq!(cfg.max_post_bytes, usize::MAX);
+        assert_eq!(cfg.max_total_records, usize::MAX);
+        assert_eq!(cfg.max_total_bytes, usize::MAX);
+        assert_eq!(cfg.max_record_payload_bytes, 256 * 1024);
     }
 
     #[test]
