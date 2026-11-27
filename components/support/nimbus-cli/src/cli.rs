@@ -301,16 +301,6 @@ pub(crate) struct OpenArgs {
     #[arg(long, default_value = "false")]
     pub(crate) reset_app: bool,
 
-    /// Optionally, add platform specific arguments to the adb or xcrun command.
-    ///
-    /// By default, arguments are added to the end of the command, likely to be passed
-    /// directly to the app.
-    ///
-    /// Arguments before a special placeholder `{}` are passed to
-    /// `adb am start` or `xcrun simctl launch` commands directly.
-    #[arg(last = true, value_name = "PASSTHROUGH_ARGS")]
-    pub(crate) passthrough: Vec<String>,
-
     /// An optional file to dump experiments into.
     ///
     /// If present, then the app is not launched, so this option does not work with

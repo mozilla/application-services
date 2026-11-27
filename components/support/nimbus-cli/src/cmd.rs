@@ -596,25 +596,14 @@ impl LaunchableApp {
         }
 
         Ok(match self {
-            Self::Android { .. } => self
-                .android_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
-            Self::Ios { .. } => self
-                .ios_start(app_protocol, open)?
-                .spawn()?
-                .wait()?
-                .success(),
+            Self::Android { .. } => self.android_start(app_protocol)?.spawn()?.wait()?.success(),
+            Self::Ios { .. } => self.ios_start(app_protocol)?.spawn()?.wait()?.success(),
         })
     }
 
-    fn android_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
+    fn android_start(&self, app_protocol: StartAppProtocol) -> Result<Command> {
         if let Self::Android { package_name, .. } = self {
             let mut args: Vec<String> = Vec::new();
-
-            let (start_args, ending_args) = open.args();
-            args.extend_from_slice(start_args);
 
             args.extend([
                 format!("-p {}", package_name),
@@ -651,8 +640,6 @@ impl LaunchableApp {
                 args.push(format!("--es eval-jexl '{}'", escaped));
             };
 
-            args.extend_from_slice(ending_args);
-
             let sh = format!(r#"am broadcast {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
             write_prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
@@ -664,18 +651,14 @@ impl LaunchableApp {
         }
     }
 
-    fn ios_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
+    fn ios_start(&self, app_protocol: StartAppProtocol) -> Result<Command> {
         if let Self::Ios {
             app_id, device_id, ..
         } = self
         {
             let mut args: Vec<String> = Vec::new();
 
-            let (starting_args, ending_args) = open.args();
-
-            args.push("launch".to_string());
-            args.extend_from_slice(starting_args);
-            args.extend([device_id.to_string(), app_id.to_string()]);
+            args.extend(["launch", device_id, app_id].map(Into::into));
 
             let StartAppProtocol {
                 log_state,
@@ -713,8 +696,6 @@ impl LaunchableApp {
             if let Some(expr) = jexl_expression {
                 args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
             }
-
-            args.extend_from_slice(ending_args);
 
             let mut cmd = self.exe()?;
             cmd.args(args.clone());
