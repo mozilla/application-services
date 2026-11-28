@@ -418,12 +418,8 @@ fn assert_outgoing_unknown_fields_eq(
     for (key, mut expected) in expected_map {
         let mut actual = actual_map[&key].clone();
         assert_eq!(expected.fields, actual.fields);
-        expected
-            .visits_fields
-            .sort_by(|(ts0, _), (ts1, _)| ts0.cmp(ts1));
-        actual
-            .visits_fields
-            .sort_by(|(ts0, _), (ts1, _)| ts0.cmp(ts1));
+        expected.visits_fields.sort_by_key(|(ts0, _)| *ts0);
+        actual.visits_fields.sort_by_key(|(ts0, _)| *ts0);
         assert_eq!(expected.visits_fields, actual.visits_fields);
     }
 }

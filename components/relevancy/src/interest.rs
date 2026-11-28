@@ -270,7 +270,7 @@ impl InterestVector {
         if interests.is_empty() {
             return "<inconclusive>".to_string();
         }
-        interests.sort_by(|a, b| b.1.cmp(&a.1));
+        interests.sort_by_key(|x| std::cmp::Reverse(x.1));
         let counts = interests
             .into_iter()
             .map(|(interest, count)| format!("{interest:?}: {count}"))
@@ -281,7 +281,7 @@ impl InterestVector {
 
     pub fn print_all_counts(&self) {
         let mut counts = self.as_vec();
-        counts.sort_by(|a, b| b.1.cmp(&a.1));
+        counts.sort_by_key(|x| std::cmp::Reverse(x.1));
         for (interest, count) in counts {
             println!("{interest:?}: {count}")
         }

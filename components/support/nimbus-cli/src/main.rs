@@ -462,15 +462,14 @@ impl CliCommand {
 
             if let Some(app) = maybe_app {
                 match app {
-                    App::Fenix => {
+                    App::Fenix
                         if !open.legacy_open_mode
                             && open.deeplink.is_some()
-                            && !matches!(self, Self::Open { .. })
-                        {
-                            bail!(
-                                "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
-                            );
-                        }
+                            && !matches!(self, Self::Open { .. }) =>
+                    {
+                        bail!(
+                            "--deeplink requires --legacy-open for fenix and is not compatible with newer releases"
+                        );
                     }
 
                     _ if open.legacy_open_mode => {

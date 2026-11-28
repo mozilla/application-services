@@ -49,7 +49,7 @@ pub fn prepare_for_upload(record: &mut TabsRecord) {
         })
         .collect::<Vec<_>>();
     // Sort the tabs so when we trim tabs it's the oldest tabs
-    sanitized_tabs.sort_by(|a, b| b.last_used.cmp(&a.last_used));
+    sanitized_tabs.sort_by_key(|tab| tab.last_used);
     // deduct tab group and window info from the total.
     let used = payload_support::compute_serialized_size(&record.windows)
         .unwrap_or_default()

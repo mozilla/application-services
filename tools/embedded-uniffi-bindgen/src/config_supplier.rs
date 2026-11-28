@@ -45,10 +45,7 @@ fn find_workspace_crates() -> Result<HashMap<String, Utf8PathBuf>> {
     let mut toml_paths_processed = HashSet::new();
     let mut map = HashMap::new();
 
-    loop {
-        let Some(crate_dir) = toml_paths_to_process.pop() else {
-            break;
-        };
+    while let Some(crate_dir) = toml_paths_to_process.pop() {
         let toml_path = join(&crate_dir, "Cargo.toml")?;
         if !toml_paths_processed.insert(toml_path.clone()) {
             continue;

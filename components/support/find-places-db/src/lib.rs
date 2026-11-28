@@ -108,7 +108,7 @@ pub fn get_all_places_dbs() -> Result<Vec<PlacesLocation>> {
             }
         })
         .collect::<Vec<_>>();
-    res.sort_by(|a, b| b.db_size.cmp(&a.db_size));
+    res.sort_by_key(|loc| std::cmp::Reverse(loc.db_size));
     Ok(res)
 }
 

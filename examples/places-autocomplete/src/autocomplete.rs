@@ -378,7 +378,7 @@ mod autocomplete {
             return vec![(source, false)];
         }
         // Sort ranges in ascending order based on where they appear in `source`.
-        ranges.sort_by(|a, b| a.0.cmp(&b.0));
+        ranges.sort_by_key(|range| std::cmp::Reverse(range.0));
 
         // Combine ranges that overlap.
         let mut coalesced = vec![ranges[0]];
@@ -505,15 +505,13 @@ mod autocomplete {
                 last_keypress = Instant::now();
                 match key {
                     Key::Esc => return Ok(()),
-                    Key::Char('\n') | Key::Char('\r') => {
-                        if !query_str.is_empty() {
-                            last_query = Instant::now();
-                            pending_change = false;
-                            autocompleter.query(SearchParams {
-                                search_string: query_str.clone(),
-                                limit: 10,
-                            })?;
-                        }
+                    Key::Char('\n') | Key::Char('\r') if !query_str.is_empty() => {
+                        last_query = Instant::now();
+                        pending_change = false;
+                        autocompleter.query(SearchParams {
+                            search_string: query_str.clone(),
+                            limit: 10,
+                        })?;
                     }
                     Key::Char(ch) => {
                         query_str.insert(cursor_idx, ch);
@@ -528,40 +526,30 @@ mod autocomplete {
                             }
                         }
                     }
-                    Key::Ctrl('p') | Key::Up => {
-                        if results.is_some() && pos > 0 {
-                            pos -= 1;
-                            repaint_results = true;
-                        }
+                    Key::Ctrl('p') | Key::Up if results.is_some() && pos > 0 => {
+                        pos -= 1;
+                        repaint_results = true;
                     }
                     Key::Ctrl('k') => {
                         query_str.truncate(cursor_idx);
                         input_changed = true;
                     }
-                    Key::Right | Key::Ctrl('f') => {
-                        if cursor_idx < query_str.len() {
-                            write!(stdout, "{}", termion::cursor::Right(1))?;
-                            cursor_idx += 1;
-                        }
+                    Key::Right | Key::Ctrl('f') if cursor_idx < query_str.len() => {
+                        write!(stdout, "{}", termion::cursor::Right(1))?;
+                        cursor_idx += 1;
                     }
-                    Key::Left | Key::Ctrl('b') => {
-                        if cursor_idx > 0 {
-                            write!(stdout, "{}", termion::cursor::Left(1))?;
-                            cursor_idx -= 1;
-                        }
+                    Key::Left | Key::Ctrl('b') if cursor_idx > 0 => {
+                        write!(stdout, "{}", termion::cursor::Left(1))?;
+                        cursor_idx -= 1;
                     }
-                    Key::Backspace => {
-                        if cursor_idx > 0 {
-                            query_str.remove(cursor_idx - 1);
-                            cursor_idx -= 1;
-                            input_changed = true;
-                        }
+                    Key::Backspace if cursor_idx > 0 => {
+                        query_str.remove(cursor_idx - 1);
+                        cursor_idx -= 1;
+                        input_changed = true;
                     }
-                    Key::Delete | Key::Ctrl('d') => {
-                        if cursor_idx + 1 != query_str.len() {
-                            query_str.remove(cursor_idx + 1);
-                            input_changed = true;
-                        }
+                    Key::Delete | Key::Ctrl('d') if cursor_idx + 1 != query_str.len() => {
+                        query_str.remove(cursor_idx + 1);
+                        input_changed = true;
                     }
                     Key::Ctrl('a') | Key::Home => {
                         write!(stdout, "{}", Goto(3, 2))?;

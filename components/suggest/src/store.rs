@@ -617,7 +617,7 @@ where
                 record_types_by_collection
                     .entry(collection)
                     .or_default()
-                    .extend(provider_rts.into_iter());
+                    .extend(provider_rts);
             }
         }
 
@@ -961,7 +961,7 @@ where
                 (name, count)
             })
             .collect();
-        table_names_with_counts.sort_by(|a, b| b.1.cmp(&a.1));
+        table_names_with_counts.sort_by_key(|x| std::cmp::Reverse(x.1));
         table_names_with_counts
     }
 
