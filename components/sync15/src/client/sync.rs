@@ -48,26 +48,31 @@ pub fn synchronize_with_clients_engine(
             info!("skipping incoming for {} - not needed.", collection);
         }
         Some(collection_request) => {
-            // Ideally we would "batch" incoming records (eg, fetch just 1000 at a time)
-            // and ask the engine to "stage" them as they come in - but currently we just read
-            // them all in one request.
-
-            // Doing this batching will involve specifying a "limit=" param and
-            // "x-if-unmodified-since" for each request, looking for an
-            // "X-Weave-Next-Offset header in the response and using that in subsequent
-            // requests.
+            // Page through the incoming records `DEFAULT_DOWNLOAD_BATCH_SIZE` at a time,
+            // staging each page as it arrives. This is what desktop's `Collection.getBatched()`
+            // does, but without holding every record in memory.
             // See https://mozilla-services.readthedocs.io/en/latest/storage/apis-1.5.html#syncstorage-paging
-            //
-            // But even if we had that, we need to deal with a 412 response on a subsequent batch,
-            // so we can't know if we've staged *every* record for that timestamp; the next
-            // sync must use an earlier one.
-            //
-            // For this reason, an engine can't really trust a server timestamp until the
-            // very end when we know we've staged them all.
-            let incoming = super::fetch_incoming(client, &coll_state, collection_request)?;
-            info!("Downloaded {} remote changes", incoming.len());
-            engine.stage_incoming(incoming, telem_engine)?;
-            interruptee.err_if_interrupted()?;
+
+            // Every page after the first is sent with "X-If-Unmodified-Since". If the
+            // collection changes mid-download, we get `CollectionChangedDuringDownload`
+            // and return early deliberately skipping `apply()`, the upload and
+            // `sync_finished()`. Some pages may already have been staged (and history and
+            // tabs apply records directly in `stage_incoming`), but no engine advances its
+            // last-sync timestamp before `apply()`, so the next sync re-downloads
+            // everything. `sync_multiple` treats that error as a soft failure.
+            let total = super::fetch_incoming_batched(
+                &coll_state.key,
+                collection_request,
+                super::DEFAULT_DOWNLOAD_BATCH_SIZE,
+                |request, xius| client.get_encrypted_records_page(request, xius),
+                |batch| {
+                    info!("Staging a batch of {} remote changes", batch.len());
+                    engine.stage_incoming(batch, telem_engine)?;
+                    interruptee.err_if_interrupted()?;
+                    Ok(())
+                },
+            )?;
+            info!("Downloaded {} remote changes", total);
         }
     };
 

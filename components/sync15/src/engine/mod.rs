@@ -21,6 +21,9 @@
 mod bridged_engine;
 mod request;
 mod sync_engine;
+// Like `bso::test_utils`, this is small enough to always build rather than
+// hide behind a feature.
+pub mod test_utils;
 
 pub use bridged_engine::BridgedEngineWrapper;
 #[cfg(feature = "sync-client")]

@@ -153,3 +153,52 @@ impl SyncEngine for HistorySyncEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::places_api::test::new_mem_api;
+    use sync15::engine::test_utils::stage_in_batches;
+
+    #[test]
+    fn test_restaging_is_idempotent() {
+        let api = new_mem_api();
+        let engine = HistorySyncEngine::new(api.get_sync_connection().unwrap()).unwrap();
+        let records = || -> Vec<IncomingBso> {
+            (0..3)
+                .map(|i| {
+                    IncomingBso::from_test_content(serde_json::json!({
+                        "id": format!("historyAAA{i:02}"),
+                        "histUri": format!("https://example.com/{i}"),
+                        "title": "title",
+                        // Microseconds; 1 == "link".
+                        "visits": [
+                            { "date": 1_700_000_000_000_000u64 + i, "type": 1 },
+                            { "date": 1_700_000_100_000_000u64 + i, "type": 1 },
+                        ],
+                    }))
+                })
+                .collect()
+        };
+        let count_visits = || -> i64 {
+            let conn = api.get_sync_connection().unwrap();
+            let db = conn.lock();
+            db.query_row("SELECT COUNT(*) FROM moz_historyvisits", [], |r| r.get(0))
+                .unwrap()
+        };
+
+        let mut telem = telemetry::Engine::new("history");
+        // First attempt, in batches of one...
+        stage_in_batches(&engine, records(), 1, &mut telem).unwrap();
+        assert_eq!(count_visits(), 6);
+        // ...then the same records again, as a retry would.
+        stage_in_batches(&engine, records(), 2, &mut telem).unwrap();
+        assert_eq!(count_visits(), 6, "re-staging must not duplicate visits");
+
+        let outgoing = engine.apply(ServerTimestamp(0), &mut telem).unwrap();
+        assert!(
+            outgoing.is_empty(),
+            "nothing changed locally, so nothing to upload"
+        );
+    }
+}

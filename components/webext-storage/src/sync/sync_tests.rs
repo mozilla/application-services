@@ -27,8 +27,11 @@ fn do_sync(
     incoming_payloads: &[IncomingContent<WebextRecord>],
 ) -> Result<Vec<OutgoingBso>> {
     info!("test do_sync() starting");
-    // First we stage the incoming in the temp tables.
-    stage_incoming(tx, incoming_payloads, &NeverInterrupts)?;
+    // First we stage the incoming in the temp tables with one record per call,
+    // as the sync client does when records arrive in different download batches.
+    for payload in incoming_payloads {
+        stage_incoming(tx, std::slice::from_ref(payload), &NeverInterrupts)?;
+    }
     // Then we process them getting a Vec of (item, state), which we turn into
     // a Vec of (item, action)
     let actions = get_incoming(tx)?
@@ -544,5 +547,20 @@ fn test_invalid_incoming() -> Result<()> {
 
     // Should do nothing.
     assert_eq!(do_sync(&tx, &[record])?.len(), 0);
+    Ok(())
+}
+
+#[test]
+fn test_incoming_across_batches() -> Result<()> {
+    let db = new_syncable_mem_db();
+    let conn = db.get_connection().expect("should retrieve connection");
+    let tx = conn.unchecked_transaction()?;
+    let records = [
+        make_incoming(&Guid::new("guid-1"), "ext-1", &json!({"key1": "one"})),
+        make_incoming(&Guid::new("guid-2"), "ext-2", &json!({"key2": "two"})),
+    ];
+    assert_eq!(do_sync(&tx, &records)?.len(), 0);
+    assert_eq!(get(&tx, "ext-1", json!("key1"))?, json!({"key1": "one"}));
+    assert_eq!(get(&tx, "ext-2", json!("key2"))?, json!({"key2": "two"}));
     Ok(())
 }
