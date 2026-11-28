@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::time::SystemTime;
-use sync15::{DeviceType, EngineChoicesModel};
+use sync15::{AccountEngineChoices, DeviceType, EngineChoicesModel};
 
 #[derive(Debug, uniffi::Record)]
 pub struct SyncParams {
@@ -14,6 +14,16 @@ pub struct SyncParams {
     pub engines: SyncEngineSelection,
     /// How the user's choice of engines to sync is modelled.
     pub engine_choices_model: EngineChoicesModel,
+    /// All the engines this device has chosen to sync, which may be more than
+    /// `engines` asks for in this sync, but must include all of them. Doesn't
+    /// limit `engines`. Engines the device stops choosing are reset, so they
+    /// stop tracking changes. Ignored with `EngineChoicesModel::Account`.
+    /// With `EngineChoicesModel::Device`, `None` means the device has yet to
+    /// make any choices, so this sync skips the engines the account declined.
+    /// The app should adopt `SyncResult::account_engine_choices` and declare
+    /// them in later syncs, so this is normally only its first sync.
+    #[uniffi(default)]
+    pub enabled_engines: Option<Vec<String>>,
     /// Keys to encrypt/decrypt data from local database files.  These are
     /// separate from the key we use to encrypt the sync payload as a whole.
     pub local_encryption_keys: HashMap<String, String>,
@@ -40,9 +50,10 @@ pub enum SyncReason {
     Backgrounded,
 }
 
+/// The engines to sync. Only `Some` exists; this remains an enum to avoid
+/// breaking callers, and may become a plain list of engine names.
 #[derive(Debug, uniffi::Enum)]
 pub enum SyncEngineSelection {
-    All,
     Some { engines: Vec<String> },
 }
 
@@ -59,10 +70,6 @@ pub struct DeviceSettings {
     pub fxa_device_id: String,
     pub name: String,
     pub kind: DeviceType,
-    /// The engines this device syncs, to be published for other devices on the
-    /// account to see. Not yet published.
-    #[uniffi(default)]
-    pub enabled_engines: Vec<String>,
 }
 
 #[derive(Debug, uniffi::Record)]
@@ -86,6 +93,14 @@ pub struct SyncResult {
     /// choices are local without remote updates. `None` means "no change", not
     /// "nothing declined".
     pub declined: Option<Vec<String>>,
+    /// The account-wide engine choices in `meta/global`, reported with either
+    /// `EngineChoicesModel` variant. Will also return the value this sync wrote
+    /// to `meta/global` if any.
+    /// Apps using `EngineChoicesModel::Device` may use these to seed their own
+    /// choices: a sync with no `SyncParams::enabled_engines` only syncs the
+    /// engines not declined here. `None` if the sync didn't get far enough to
+    /// know them.
+    pub account_engine_choices: Option<AccountEngineChoices>,
     /// Earliest time that the next sync should happen at
     pub next_sync_allowed_at: Option<SystemTime>,
     /// JSON string encoding a `SyncTelemetryPing` object

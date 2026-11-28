@@ -31,6 +31,7 @@ pub(crate) use coll_update::{CollectionUpdate, fetch_incoming};
 pub(crate) use collection_keys::CollectionKeys;
 pub(crate) use request::InfoConfiguration;
 pub(crate) use state::GlobalState;
+pub use state::persisted_enabled_engines;
 pub use status::{ServiceStatus, SyncResult};
 pub use storage_client::{
     SetupStorageClient, Sync15ClientResponse, Sync15StorageClient, Sync15StorageClientInit,

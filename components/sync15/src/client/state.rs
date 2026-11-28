@@ -51,25 +51,34 @@ pub(crate) fn engine_version(name: &str) -> Option<usize> {
 }
 
 /// State that we require the app to persist to storage for us.
-/// It's a little unfortunate we need this, because it's only tracking
-/// "declined engines", and even then, only needed in practice when there's
-/// no meta/global so we need to create one.
+/// It's a little unfortunate we need this. It tracks "declined engines", only
+/// needed in practice when there's no meta/global so we need to create one,
+/// and with per-device engine choices, the engines the app last declared.
 ///
 /// Apps are expected to treat this as opaque, so we support serializing it.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
 pub enum PersistedGlobalState {
     // V1 was when we persisted the entire GlobalState, keys and all!
-    /// V2 is just tracking the globally declined list.
+    /// V2 tracks the globally declined list, and the app's declared engines.
     /// None means "I've no idea" and theoretically should only happen on the
     /// very first sync for an app.
-    V2 { declined: Option<Vec<String>> },
+    V2 {
+        declined: Option<Vec<String>>,
+        /// With per-device engine choices, the engines the app last declared as
+        /// chosen, so sync_manager can reset those it newly declares.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled_engines: Option<Vec<String>>,
+    },
 }
 
 impl Default for PersistedGlobalState {
     #[inline]
     fn default() -> PersistedGlobalState {
-        PersistedGlobalState::V2 { declined: None }
+        PersistedGlobalState::V2 {
+            declined: None,
+            enabled_engines: None,
+        }
     }
 }
 
@@ -150,14 +159,37 @@ fn compute_engine_states(input: EngineStateInput) -> EngineStateOutput {
 impl PersistedGlobalState {
     fn set_declined(&mut self, new_declined: Vec<String>) {
         match self {
-            Self::V2 { declined } => *declined = Some(new_declined),
+            Self::V2 { declined, .. } => *declined = Some(new_declined),
         }
     }
+    pub(crate) fn set_enabled_engines(&mut self, new_enabled_engines: Option<Vec<String>>) {
+        match self {
+            Self::V2 {
+                enabled_engines, ..
+            } => *enabled_engines = new_enabled_engines,
+        }
+    }
+
     pub(crate) fn get_declined(&self) -> &[String] {
         match self {
-            Self::V2 { declined: Some(d) } => d,
-            Self::V2 { declined: None } => &[],
+            Self::V2 {
+                declined: Some(d), ..
+            } => d,
+            Self::V2 { declined: None, .. } => &[],
         }
+    }
+}
+
+/// With per-device engine choices, the engines last declared as chosen, from a
+/// persisted state as returned by a previous sync.
+/// This is a leaky abstraction used by the sync-manager so it can manage engine
+/// resets etc as choices change.
+pub fn persisted_enabled_engines(persisted: Option<&str>) -> Option<Vec<String>> {
+    let state = serde_json::from_str::<PersistedGlobalState>(persisted?).ok()?;
+    match state {
+        PersistedGlobalState::V2 {
+            enabled_engines, ..
+        } => enabled_engines,
     }
 }
 
@@ -228,7 +260,9 @@ fn new_global(pgs: &PersistedGlobalState) -> MetaGlobalRecord {
     // we previously saw a meta/global then we would have updated it with what
     // it was at the time.
     let declined = match pgs {
-        PersistedGlobalState::V2 { declined: Some(d) } => d.clone(),
+        PersistedGlobalState::V2 {
+            declined: Some(d), ..
+        } => d.clone(),
         _ => DEFAULT_DECLINED.iter().map(ToString::to_string).collect(),
     };
     // Declined engines must not appear in `engines`, otherwise other clients
@@ -1111,7 +1145,10 @@ mod tests {
             uploaded_sync_ids: RefCell::new(vec![]),
             wiped: Cell::new(false),
         };
-        let mut pgs = PersistedGlobalState::V2 { declined: None };
+        let mut pgs = PersistedGlobalState::V2 {
+            declined: None,
+            enabled_engines: None,
+        };
 
         let mut state_machine = SetupStateMachine::for_full_sync(
             &client,
@@ -1224,7 +1261,10 @@ mod tests {
 
         // First a test where the "previous" global state is OK to reuse.
         {
-            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            let mut pgs = PersistedGlobalState::V2 {
+                declined: None,
+                enabled_engines: None,
+            };
             // A "previous" global state.
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
@@ -1252,7 +1292,10 @@ mod tests {
 
         // Now where the meta/global record on the server is later.
         {
-            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            let mut pgs = PersistedGlobalState::V2 {
+                declined: None,
+                enabled_engines: None,
+            };
             // A "previous" global state.
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
@@ -1282,7 +1325,10 @@ mod tests {
         // other record in it (eg, meta/syncids) was written later. We last saw
         // the collection at the same timestamp, so nothing has changed.
         {
-            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            let mut pgs = PersistedGlobalState::V2 {
+                declined: None,
+                enabled_engines: None,
+            };
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
                 collections: collections.clone(),
@@ -1309,7 +1355,10 @@ mod tests {
 
         // Where keys on the server is later.
         {
-            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            let mut pgs = PersistedGlobalState::V2 {
+                declined: None,
+                enabled_engines: None,
+            };
             // A "previous" global state.
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
@@ -1337,7 +1386,10 @@ mod tests {
 
         // Where there are engine-state changes.
         {
-            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            let mut pgs = PersistedGlobalState::V2 {
+                declined: None,
+                enabled_engines: None,
+            };
             // A "previous" global state.
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
@@ -1366,7 +1418,7 @@ mod tests {
                 &sm_seq_restarted,
             );
             let declined = match pgs {
-                PersistedGlobalState::V2 { declined: d } => d,
+                PersistedGlobalState::V2 { declined: d, .. } => d,
             };
             // and check we now consider logins as declined.
             assert_eq!(declined, Some(vec!["logins".to_string()]));
@@ -1561,7 +1613,7 @@ mod tests {
 
     fn pgs_declined(pgs: &PersistedGlobalState) -> Option<HashSet<String>> {
         match pgs {
-            PersistedGlobalState::V2 { declined } => {
+            PersistedGlobalState::V2 { declined, .. } => {
                 declined.as_ref().map(|d| d.iter().cloned().collect())
             }
         }
@@ -1603,9 +1655,30 @@ mod tests {
     }
 
     #[test]
+    fn test_persisted_enabled_engines() {
+        assert_eq!(persisted_enabled_engines(None), None);
+        assert_eq!(persisted_enabled_engines(Some("not json")), None);
+        // As written before enabled engines were remembered.
+        let old = r#"{"schema_version":"V2","declined":["tabs"]}"#;
+        assert_eq!(persisted_enabled_engines(Some(old)), None);
+
+        let mut pgs = PersistedGlobalState::default();
+        let persisted = serde_json::to_string(&pgs).unwrap();
+        assert!(!persisted.contains("enabled_engines"));
+
+        pgs.set_enabled_engines(Some(vec!["tabs".to_string()]));
+        let persisted = serde_json::to_string(&pgs).unwrap();
+        assert_eq!(
+            persisted_enabled_engines(Some(&persisted)),
+            Some(vec!["tabs".to_string()])
+        );
+    }
+
+    #[test]
     fn test_new_global_omits_declined() {
         let pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string()]),
+            enabled_engines: None,
         };
         let global = new_global(&pgs);
         assert_eq!(
@@ -1638,6 +1711,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec![]),
+            enabled_engines: None,
         };
         let state = run(&client, &root_key, &mut pgs).expect("should work");
         assert_eq!(client.sync_ids_fetches.get(), 1);
@@ -1668,6 +1742,7 @@ mod tests {
         let client = recording_client(mg, sync_ids_not_found(), &root_key);
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec![]),
+            enabled_engines: None,
         };
         let mut sm = SetupStateMachine::for_full_sync(
             &client,
@@ -1704,6 +1779,7 @@ mod tests {
         let client = recording_client(meta_global_without(&["history"], &[]), response, &root_key);
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec![]),
+            enabled_engines: None,
         };
         run(&client, &root_key, &mut pgs).expect("should work");
         assert_ne!(
@@ -1728,6 +1804,7 @@ mod tests {
                 recording_client(meta_global_without(&["history"], &[]), response, &root_key);
             let mut pgs = PersistedGlobalState::V2 {
                 declined: Some(vec![]),
+                enabled_engines: None,
             };
             run(&client, &root_key, &mut pgs).expect("should mint as before");
             let uploaded = uploaded(&client);
@@ -1762,6 +1839,7 @@ mod tests {
             let changes = EngineChoicesModel::Account { enabled_changes };
             let mut pgs = PersistedGlobalState::V2 {
                 declined: Some(vec!["passwords".to_string()]),
+                enabled_engines: None,
             };
             let mut sm = SetupStateMachine::for_full_sync(
                 &client,
@@ -1794,6 +1872,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string()]),
+            enabled_engines: None,
         };
         let state = run(&client, &root_key, &mut pgs).expect("should work");
         assert_eq!(client.sync_ids_fetches.get(), 0);
@@ -1833,6 +1912,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string(), "history".to_string()]),
+            enabled_engines: None,
         };
         let mut sm = SetupStateMachine::for_full_sync(
             &client,
@@ -1874,6 +1954,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string()]),
+            enabled_engines: None,
         };
         run(&client, &root_key, &mut pgs).expect("should work");
         // We adopted the remote declined list, as usual.
@@ -1920,6 +2001,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec![]),
+            enabled_engines: None,
         };
         run(&client, &root_key, &mut pgs).expect("should work");
         assert_eq!(pgs_declined(&pgs), Some(string_set(&declined)));
@@ -1940,6 +2022,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["bookmarks".to_string()]),
+            enabled_engines: None,
         };
         let mut sm = SetupStateMachine::for_full_sync(
             &client,
@@ -2020,6 +2103,7 @@ mod tests {
                 recording_client(meta_global(&[], &declined), sync_ids_not_found(), &root_key);
             let mut pgs = PersistedGlobalState::V2 {
                 declined: Some(vec!["history".to_string()]),
+                enabled_engines: None,
             };
             let mut sm = SetupStateMachine::for_full_sync(
                 &client,
@@ -2089,6 +2173,7 @@ mod tests {
         }));
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string()]),
+            enabled_engines: None,
         };
         let mut sm = SetupStateMachine::for_full_sync(
             &client,
@@ -2122,6 +2207,7 @@ mod tests {
         );
         let mut pgs = PersistedGlobalState::V2 {
             declined: Some(vec!["passwords".to_string()]),
+            enabled_engines: None,
         };
         let state = run(&client, &root_key, &mut pgs).expect("should work");
         assert!(!state.per_device);

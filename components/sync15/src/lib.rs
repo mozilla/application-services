@@ -32,7 +32,7 @@ pub mod telemetry;
 
 pub use crate::client_types::{ClientData, RemoteClient};
 pub use crate::device_type::DeviceType;
-pub use crate::engine_choices::EngineChoicesModel;
+pub use crate::engine_choices::{AccountEngineChoices, EngineChoicesModel};
 pub use crate::error::{Error, Result};
 #[cfg(feature = "crypto")]
 pub use enc_payload::EncryptedPayload;

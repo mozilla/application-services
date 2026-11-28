@@ -14,7 +14,7 @@ use crate::clients_engine::{self, CLIENTS_TTL_REFRESH, CommandProcessor};
 use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::{Error, debug, info, trace, warn};
 use crate::telemetry;
-use crate::{EngineChoicesModel, KeyBundle};
+use crate::{AccountEngineChoices, EngineChoicesModel, KeyBundle};
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::result;
@@ -132,6 +132,7 @@ pub fn sync_multiple_with_command_processor(
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
         declined: None,
+        account_engine_choices: None,
         next_sync_after: None,
         engine_results: HashMap::with_capacity(engines.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
@@ -144,6 +145,7 @@ pub fn sync_multiple_with_command_processor(
         storage_init,
         interruptee,
         engine_choices_model: req_info.engine_choices_model,
+        enabled_engines: req_info.enabled_engines,
         backoff: backoff.clone(),
         root_sync_key,
         result: &mut sync_result,
@@ -181,6 +183,10 @@ pub fn sync_multiple_with_command_processor(
 #[derive(Debug, Default)]
 pub struct SyncRequestInfo {
     pub engine_choices_model: EngineChoicesModel,
+    /// The engines the app declares it has chosen. With per-device engine
+    /// choices, `None` means the account's declined engines aren't synced, and
+    /// it's remembered in the persisted state for `persisted_enabled_engines`.
+    pub enabled_engines: Option<Vec<String>>,
     pub is_user_action: bool,
 }
 
@@ -193,6 +199,7 @@ struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     interruptee: &'info dyn Interruptee,
     backoff: BackoffListener,
     engine_choices_model: EngineChoicesModel,
+    enabled_engines: Option<Vec<String>>,
     result: &'res mut SyncResult,
     persisted_global_state: &'pgs mut Option<String>,
     mem_cached_state: &'mcs mut MemoryCachedState,
@@ -205,6 +212,12 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
     fn sync(mut self) -> result::Result<(), Error> {
         info!("Loading/initializing persisted state");
         let mut pgs = self.prepare_persisted_state();
+        let enabled_engines = if self.per_device() {
+            self.enabled_engines.clone()
+        } else {
+            None
+        };
+        pgs.set_enabled_engines(enabled_engines);
 
         info!("Preparing client info");
         let client_info = self.prepare_client_info()?;
@@ -329,9 +342,10 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
                 break;
             }
             // With per-device engine choices, the account's declined engines
-            // are irrelevant - we sync whatever we were asked to.
-            if !global_state.per_device && global_state.global.declined.iter().any(|e| e == &*name)
-            {
+            // are irrelevant - we sync whatever we were asked to - until the
+            // app has declared its choices (normally only its first sync).
+            let honour_declined = !global_state.per_device || self.enabled_engines.is_none();
+            if honour_declined && global_state.global.declined.iter().any(|e| e == &*name) {
                 info!("The {} engine is declined. Skipping", name);
                 continue;
             }
@@ -441,6 +455,14 @@ impl SyncMultipleDriver<'_, '_, '_, '_> {
             }
             Ok(state) => state,
         };
+        // If we wrote meta/global, the state machine fetched it again, so this
+        // is what we wrote.
+        let mut enabled: Vec<String> = state.global.engines.keys().cloned().collect();
+        enabled.sort();
+        self.result.account_engine_choices = Some(AccountEngineChoices {
+            enabled,
+            declined: state.global.declined.clone(),
+        });
         self.result.telemetry.uid(client_info.client.hashed_uid()?);
         // As for client_info, put None back now so we start from scratch on error.
         self.mem_cached_state.last_global_state = None;

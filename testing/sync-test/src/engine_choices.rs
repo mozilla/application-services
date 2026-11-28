@@ -13,7 +13,10 @@ use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use sync15::engine::{EngineSyncAssociation, SyncEngineId};
+use sync15::AccountEngineChoices;
 use sync15::EngineChoicesModel::{self, Device};
+use sync_manager::SyncResult;
 
 const ENGINES: [&str; 2] = ["tabs", "passwords"];
 
@@ -22,21 +25,67 @@ fn engines() -> Vec<String> {
 }
 
 // Syncs tabs and passwords with the given engine choices model, returning the
-// engines which actually synced. `EngineChoicesModel::default()` is a per-account
-// client with no changes to make.
-fn sync(c: &mut TestClient, model: EngineChoicesModel) -> HashSet<String> {
+// result. `EngineChoicesModel::default()` is a per-account client with no
+// changes to make. Unless the test declared its own, a per-device client
+// declares it has chosen tabs and passwords, so isn't adopting the account's
+// choices.
+fn sync_result(c: &mut TestClient, model: EngineChoicesModel) -> SyncResult {
     c.engine_choices_model = model;
-    let result = c.sync(&engines(), HashMap::new()).expect("should sync");
-    result.successful.into_iter().collect()
+    with_choices(c, |c| {
+        c.sync(&engines(), HashMap::new()).expect("should sync")
+    })
+}
+
+fn with_choices<T>(c: &mut TestClient, f: impl FnOnce(&mut TestClient) -> T) -> T {
+    let declare = matches!(c.engine_choices_model, Device) && c.enabled_engines.is_none();
+    if declare {
+        c.enabled_engines = Some(engines());
+    }
+    let result = f(c);
+    if declare {
+        c.enabled_engines = None;
+    }
+    result
+}
+
+// Like `sync_result`, returning the engines which actually synced.
+fn sync(c: &mut TestClient, model: EngineChoicesModel) -> HashSet<String> {
+    sync_result(c, model).successful.into_iter().collect()
 }
 
 // Like `sync`, but some engines are expected to fail, which are returned.
 fn sync_failing(c: &mut TestClient, model: EngineChoicesModel) -> HashSet<String> {
     c.engine_choices_model = model;
-    let failures = c
-        .sync_with_failure(&engines(), HashMap::new())
-        .expect("should sync");
+    let failures = with_choices(c, |c| {
+        c.sync_with_failure(&engines(), HashMap::new())
+            .expect("should sync")
+    });
     failures.into_keys().collect()
+}
+
+// Like `sync`, but returns the account's engine choices the sync reported.
+fn reported_choices(c: &mut TestClient, model: EngineChoicesModel) -> AccountEngineChoices {
+    sync_result(c, model)
+        .account_engine_choices
+        .expect("should report the account's choices")
+}
+
+// The account's engine choices in a meta/global record, as they're reported.
+fn choices_in(global: &Value) -> AccountEngineChoices {
+    let mut enabled: Vec<String> = global["engines"]
+        .as_object()
+        .expect("should have engines")
+        .keys()
+        .cloned()
+        .collect();
+    enabled.sort();
+    let declined = global["declined"]
+        .as_array()
+        .expect("should have declined")
+        .iter()
+        .map(|e| e.as_str().expect("should be a string").to_string())
+        .collect();
+    AccountEngineChoices { enabled, declined }
 }
 
 fn meta_global(c: &TestClient) -> Value {
@@ -79,8 +128,11 @@ fn test_per_device_fresh_start(c0: &mut TestClient, c1: &mut TestClient) {
     sync(c1, set_tabs(false));
 
     c0.fully_wipe_server().expect("should wipe");
-    sync(c0, Device);
+    let choices = reported_choices(c0, Device);
     let global = meta_global(c0);
+    // What it reports is what it wrote.
+    assert_eq!(choices, choices_in(&global));
+    assert!(choices.enabled.contains(&"tabs".to_string()));
     let tabs_id = sync_id(&global, "tabs");
     assert!(tabs_id.is_some());
     assert_eq!(sync_id(&meta_syncids(c0), "tabs"), tabs_id);
@@ -97,9 +149,11 @@ fn test_per_device_fresh_start_keeps_account_choices(c0: &mut TestClient, c1: &m
     sync(c0, Device);
 
     c0.fully_wipe_server().expect("should wipe");
-    sync(c0, Device);
+    let choices = reported_choices(c0, Device);
 
     let global = meta_global(c0);
+    assert_eq!(choices, choices_in(&global));
+    assert!(choices.declined.contains(&"tabs".to_string()));
     assert!(sync_id(&global, "tabs").is_none());
     assert!(global["declined"]
         .as_array()
@@ -246,6 +300,102 @@ fn test_per_device_leaves_newer_sync_ids(c0: &mut TestClient, c1: &mut TestClien
     assert_eq!(meta_syncids(c0), sync_ids);
 }
 
+// Either kind of client reports the account's choices, which a per-device
+// client might adopt as its own.
+fn test_account_choices_reported(c0: &mut TestClient, c1: &mut TestClient) {
+    // c1 is a per-account client on which the user disabled tabs.
+    sync(c1, set_tabs(false));
+    let global = meta_global(c1);
+
+    for (c, model) in [
+        (&mut *c1, EngineChoicesModel::default()),
+        (&mut *c0, Device),
+    ] {
+        let choices = reported_choices(c, model);
+        assert_eq!(choices, choices_in(&global));
+        assert!(choices.declined.contains(&"tabs".to_string()));
+        assert!(!choices.enabled.contains(&"tabs".to_string()));
+    }
+}
+
+// Syncs `engines` with per-device engine choices, declaring `declared` for
+// this sync only, returning the engines which actually synced.
+fn sync_declaring(
+    c: &mut TestClient,
+    declared: Option<&[&str]>,
+    engines: &[&str],
+) -> HashSet<String> {
+    c.engine_choices_model = Device;
+    c.enabled_engines = declared.map(|d| d.iter().map(ToString::to_string).collect());
+    let engines: Vec<String> = engines.iter().map(ToString::to_string).collect();
+    let result = c.sync(&engines, HashMap::new());
+    c.enabled_engines = None;
+    result
+        .expect("should sync")
+        .successful
+        .into_iter()
+        .collect()
+}
+
+fn tabs_connected(c: &TestClient) -> bool {
+    matches!(
+        c.engine_assoc(SyncEngineId::Tabs)
+            .expect("should get the association"),
+        EngineSyncAssociation::Connected(_)
+    )
+}
+
+// An engine the device stops declaring is reset, so it stops tracking changes,
+// but only when the device has declared its choices.
+fn test_disabled_engine_is_reset(c0: &mut TestClient, _c1: &mut TestClient) {
+    sync_declaring(c0, None, &ENGINES);
+    assert!(tabs_connected(c0));
+    // With no choices declared, nothing is reset.
+    sync_declaring(c0, None, &["passwords"]);
+    assert!(tabs_connected(c0));
+    // The first choices declared are taken as they are, so nothing in them is
+    // reset, but anything not in them is.
+    sync_declaring(c0, Some(&ENGINES), &["passwords"]);
+    assert!(tabs_connected(c0));
+    sync_declaring(c0, Some(&["passwords"]), &["passwords"]);
+    assert!(!tabs_connected(c0));
+}
+
+// An engine the device starts declaring stays disconnected until it syncs, and
+// isn't reset again once it has.
+fn test_enabled_engine_is_reset(c0: &mut TestClient, _c1: &mut TestClient) {
+    sync_declaring(c0, Some(&["passwords"]), &["passwords"]);
+    assert!(!tabs_connected(c0));
+
+    sync_declaring(c0, Some(&ENGINES), &["passwords"]);
+    assert!(!tabs_connected(c0));
+
+    sync_declaring(c0, Some(&ENGINES), &ENGINES);
+    assert!(tabs_connected(c0));
+    sync_declaring(c0, Some(&ENGINES), &["passwords"]);
+    assert!(tabs_connected(c0));
+}
+
+// A per-device client which has yet to make any choices doesn't sync the
+// engines the account declined, but reports the account's choices so the app
+// can adopt them. Once it has made its choices, the account's don't matter.
+fn test_adopting_account_choices(c0: &mut TestClient, c1: &mut TestClient) {
+    // c1 is a per-account client on which the user disabled tabs.
+    sync(c1, set_tabs(false));
+
+    c0.engine_choices_model = Device;
+    let result = c0.sync(&engines(), HashMap::new()).expect("should sync");
+    let synced: HashSet<String> = result.successful.into_iter().collect();
+    assert_eq!(synced, HashSet::from(["passwords".to_string()]));
+    let choices = result
+        .account_engine_choices
+        .expect("should report the account's choices");
+    assert!(choices.declined.contains(&"tabs".to_string()));
+
+    // Having adopted them, choosing tabs anyway syncs it.
+    assert!(sync_declaring(c0, Some(&ENGINES), &ENGINES).contains("tabs"));
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "engine_choices",
@@ -272,6 +422,19 @@ pub fn get_test_group() -> TestGroup {
             (
                 "test_per_device_leaves_newer_sync_ids",
                 test_per_device_leaves_newer_sync_ids,
+            ),
+            (
+                "test_account_choices_reported",
+                test_account_choices_reported,
+            ),
+            (
+                "test_disabled_engine_is_reset",
+                test_disabled_engine_is_reset,
+            ),
+            ("test_enabled_engine_is_reset", test_enabled_engine_is_reset),
+            (
+                "test_adopting_account_choices",
+                test_adopting_account_choices,
             ),
         ],
     )
