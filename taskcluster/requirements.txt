@@ -295,10 +295,6 @@ click==8.1.7 \
     --hash=sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28 \
     --hash=sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de
     # via cookiecutter
-colorama==0.4.6 ; sys_platform == 'win32' \
-    --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
-    --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
-    # via click
 cookiecutter==2.6.0 \
     --hash=sha256:a54a8e37995e4ed963b3e82831072d1ad4b005af736bb17b99c2cbd9d41b6e2d \
     --hash=sha256:db21f8169ea4f4fdc2408d48ca44859349de2647fbe494a9d6c3edfc0542c21c
@@ -1020,9 +1016,9 @@ taskcluster==114.0.0 \
     --hash=sha256:8e32f6844fad5c0c2bb5d22e7fe84a6161b3b7fb053f961471f92b51f1acb54d \
     --hash=sha256:e94acb604a73c3e4ab83c6d5d11058f8a453d44acc11947076d9b33e41c73647
     # via taskcluster-taskgraph
-taskcluster-taskgraph==24.6.0 \
-    --hash=sha256:596a9ab202165d4e7a85603ff6543288f6fbb589e8a11630e3f72f43e7c6318d \
-    --hash=sha256:e3545685fdd098ef3c32696e5180d34200dbf5e8e409bdf94107a53837414581
+taskcluster-taskgraph==24.9.0 \
+    --hash=sha256:8ccf063bd4c709863be8b67a471ae5ca29c1f5d3d614f3a27c75cf841d05494d \
+    --hash=sha256:fb01a08862fef3b09aba1280c770ccb34a30f643c293725b96050ba693521a28
     # via
     #   -r requirements.in
     #   mozilla-taskgraph
@@ -1041,12 +1037,6 @@ types-python-dateutil==2.9.0.20240821 \
     --hash=sha256:9649d1dcb6fef1046fb18bebe9ea2aa0028b160918518c34589a46045f6ebd98 \
     --hash=sha256:f5889fcb4e63ed4aaa379b44f93c32593d50b9a94c9a60a0c854d8cc3511cd57
     # via arrow
-typing-extensions==4.16.0 ; python_full_version < '3.13' \
-    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
-    --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
-    # via
-    #   aiohttp
-    #   aiosignal
 urllib3==2.2.2 \
     --hash=sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472 \
     --hash=sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168
