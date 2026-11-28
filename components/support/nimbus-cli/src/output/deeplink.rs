@@ -9,20 +9,6 @@ use crate::protocol::StartAppProtocol;
 use crate::{AppOpenArgs, LaunchableApp};
 
 impl LaunchableApp {
-    pub(crate) fn copy_to_clipboard(
-        &self,
-        app_protocol: &StartAppProtocol,
-        open: &AppOpenArgs,
-    ) -> Result<usize> {
-        let url = self.longform_url(app_protocol, open)?;
-        let len = url.len();
-        if let Err(e) = set_clipboard(url) {
-            anyhow::bail!("Can't copy URL to clipboard: {}", e)
-        };
-
-        Ok(len)
-    }
-
     pub(crate) fn longform_url(
         &self,
         app_protocol: &StartAppProtocol,
@@ -125,13 +111,6 @@ pub(crate) fn longform_deeplink_url(
 fn join_query(url: &str, item: &str) -> String {
     let suffix = if url.contains('?') { '&' } else { '?' };
     format!("{url}{suffix}{item}")
-}
-
-fn set_clipboard(contents: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use copypasta::{ClipboardContext, ClipboardProvider};
-    let mut ctx = ClipboardContext::new()?;
-    ctx.set_contents(contents)?;
-    Ok(())
 }
 
 #[cfg(test)]
