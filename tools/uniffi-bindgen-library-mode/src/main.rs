@@ -130,6 +130,7 @@ fn run_uniffi_bindgen(cli: Cli) -> Result<()> {
                 format: false,
                 crate_filter: None,
                 metadata_no_deps: false,
+                ..GenerateOptions::default()
             })?;
         }
         _ => {
