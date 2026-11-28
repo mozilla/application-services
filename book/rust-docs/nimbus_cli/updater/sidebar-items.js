@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["check_for_update","print_update_instructions"],"mod":["taskcluster"]};

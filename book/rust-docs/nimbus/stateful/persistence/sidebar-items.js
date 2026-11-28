@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DatabaseMigrationReason","StoreId"],"fn":["rkv_new"],"struct":["Database","MigrationMetadata","OpenMetadata","OpenRkvMetadata","SingleStore","SingleStoreDatabase"],"trait":["Readable"],"type":["Reader","Rkv","RkvSingleStore","Writer"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CreditCardBulkResultEntry","CreditCardBulkTombstoneResultEntry"],"struct":["CreditCard","CreditCardCandidate","CreditCardMeta","CreditCardTombstone","InternalCreditCard","UpdatableCreditCardFields","UpdatableCreditCardFieldsWithMeta"]};

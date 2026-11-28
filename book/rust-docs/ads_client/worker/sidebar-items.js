@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ADS_CLIENT_WORKER_SLEEP_LENGTH_DEFAULT","ADS_CLIENT_WORKER_THREAD_NAME"],"enum":["DispatchRequest"],"struct":["BackgroundWorker"]};

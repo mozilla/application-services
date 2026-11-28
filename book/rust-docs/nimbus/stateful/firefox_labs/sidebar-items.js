@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FIREFOX_LABS_FEEDBACK_URL_KEY"],"enum":["FirefoxLabsEnrollStatus","FirefoxLabsUnenrollStatus"],"struct":["FirefoxLabsEnrollResult","FirefoxLabsMetadata","FirefoxLabsUnenrollResult"]};

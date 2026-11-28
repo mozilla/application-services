@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BuildCacheErrorLabel","ClientOperation","DeserializationErrorLabel","HttpCacheOutcomeLabel"],"fn":["record_ads_store_error","record_build_cache_error","record_client_error","record_client_operation","record_http_cache_outcome","record_invalid_ad_item"],"trait":["Telemetry"]};

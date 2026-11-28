@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AdsStoreError"],"mod":["connection_initializer","store"],"struct":["AdsStore"]};

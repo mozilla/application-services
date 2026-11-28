@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Commands","RequestType"],"fn":["main","make_post_request","make_redirect_request","make_request","print_response","run_ohttp_example"],"struct":["Cli","TestPostData"]};

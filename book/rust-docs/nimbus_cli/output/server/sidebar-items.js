@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_app","create_state","get_address","index","post_deeplink","post_handler","post_payload","rs","script","start_server","style"],"struct":["InMemoryDb","StartAppPostPayload"],"type":["Db"]};

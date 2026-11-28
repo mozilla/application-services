@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BookmarkItemRecord"],"struct":["BookmarkRecord","BookmarkRecordId","FolderRecord","LivemarkRecord","QueryRecord","SeparatorRecord"]};
