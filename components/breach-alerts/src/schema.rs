@@ -17,9 +17,8 @@ impl MigrationLogic for BreachAlertsConnectionInitializer {
     const END_VERSION: u32 = 1;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> MigrationResult<()> {
+        sql_support::setup_temp_store(conn)?;
         let initial_pragmas = "
-            -- We don't care about temp tables being persisted to disk.
-            PRAGMA temp_store = 2;
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
             -- foreign keys seem worth enforcing!

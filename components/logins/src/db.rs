@@ -61,11 +61,7 @@ impl LoginDb {
             util::init_test_logging();
         }
 
-        // `temp_store = 2` is required on Android to force the DB to keep temp
-        // files in memory, since on Android there's no tmp partition. See
-        // https://github.com/mozilla/mentat/issues/505. Ideally we'd only
-        // do this on Android, or allow caller to configure it.
-        db.set_pragma("temp_store", 2)?;
+        sql_support::setup_temp_store(&db)?;
 
         let mut logins = Self {
             interrupt_handle: Arc::new(SqlInterruptHandle::new(&db)),

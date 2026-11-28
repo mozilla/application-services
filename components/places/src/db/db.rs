@@ -58,6 +58,7 @@ impl ConnectionInitializer for PlacesInitializer {
     }
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
+        sql_support::setup_temp_store(conn)?;
         let initial_pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
             -- help ensure good performance on autocomplete-style queries.
@@ -70,14 +71,6 @@ impl ConnectionInitializer for PlacesInitializer {
             -- In practice this results in a massive speedup, especially
             -- for insert-heavy workloads.
             PRAGMA cipher_memory_security = false;
-
-            -- `temp_store = 2` is required on Android to force the DB to keep temp
-            -- files in memory, since on Android there's no tmp partition. See
-            -- https://github.com/mozilla/mentat/issues/505. Ideally we'd only
-            -- do this on Android, and/or allow caller to configure it.
-            -- (although see also bug 1313021, where Firefox enabled it for both
-            -- Android and 64bit desktop builds)
-            PRAGMA temp_store = 2;
 
             -- 6MiB, same as the value used for `promiseLargeCacheDBConnection` in PlacesUtils,
             -- which is used to improve query performance for autocomplete-style queries (by
