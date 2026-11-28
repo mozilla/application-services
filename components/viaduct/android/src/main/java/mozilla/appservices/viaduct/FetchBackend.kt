@@ -6,11 +6,14 @@ package mozilla.appservices.viaduct
 
 import mozilla.components.concept.fetch.Headers.Names.CONTENT_LENGTH
 import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import mozilla.components.concept.fetch.Client as FetchClient
 import mozilla.components.concept.fetch.Header as FetchHeader
 import mozilla.components.concept.fetch.MutableHeaders as FetchMutableHeaders
 import mozilla.components.concept.fetch.Request as FetchRequest
+import mozilla.components.concept.fetch.Response as FetchResponse
 
 private const val DEFAULT_INITIAL_BUFFER_SIZE = 8 * 1024
 
@@ -55,7 +58,7 @@ internal class FetchBackend(val client: Lazy<FetchClient>) : Backend {
             cookiePolicy = FetchRequest.CookiePolicy.OMIT,
             useCaches = true,
         )
-        val fetchResp = client.value.fetch(fetchReq)
+        val fetchResp = fetch(fetchReq)
         return Response(
             requestMethod = request.method,
             url = fetchResp.url,
@@ -81,5 +84,25 @@ internal class FetchBackend(val client: Lazy<FetchClient>) : Backend {
                 buffer.toByteArray()
             },
         )
+    }
+
+    @Suppress("ThrowsCount")
+    fun fetch(fetchReq: FetchRequest): FetchResponse {
+        try {
+            return client.value.fetch(fetchReq)
+        } catch (e: SocketTimeoutException) {
+            throw ViaductException.NetworkTimeoutException()
+        } catch (e: IOException) {
+            // This is thrown for a WebRequestError
+            // This may or may not be a timeout error -- the `WebRequestError.java` file in
+            // moz-central file says code 0x33 is a timeout error. We don't want to add a dependency
+            // on GeckoView to inspect the WebRequestError data directly, so just search the string.
+            val message = e.message ?: "Unknown error"
+            if (message.contains("error=0x33,")) {
+                throw ViaductException.NetworkTimeoutException()
+            } else {
+                throw ViaductException.NetworkException(message)
+            }
+        }
     }
 }

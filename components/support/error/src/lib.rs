@@ -8,7 +8,10 @@ pub use tracing_support::{debug, error, info, trace, warn, Level};
 #[cfg(feature = "testing")]
 pub use tracing_support::{init_for_tests, init_for_tests_with_level};
 
+mod failures;
 mod macros;
+
+pub use failures::ExpectedFailure;
 
 #[cfg(feature = "backtrace")]
 /// Re-export of the `backtrace` crate for use in macros and
