@@ -28,6 +28,8 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
 
+## ⚠️ Breaking Changes ⚠️
+
 ### Nimbus
 
 - Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
@@ -36,8 +38,6 @@
 - `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
 parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
 - Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
-
-## ⚠️ Breaking Changes ⚠️
 
 ### Firefox Accounts
 - Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
