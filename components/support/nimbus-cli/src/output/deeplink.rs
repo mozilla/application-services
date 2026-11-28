@@ -9,27 +9,6 @@ use crate::protocol::StartAppProtocol;
 use crate::{AppOpenArgs, LaunchableApp};
 
 impl LaunchableApp {
-    pub(crate) fn longform_url(
-        &self,
-        app_protocol: &StartAppProtocol,
-        open: &AppOpenArgs,
-    ) -> Result<String> {
-        let deeplink = open.deeplink.to_owned().unwrap_or_else(|| {
-            join_query(self.app_opening_deeplink(), "--nimbus-cli&--is-launcher")
-        });
-
-        let url = longform_deeplink_url(deeplink.as_str(), app_protocol)?;
-
-        self.prepend_scheme(url.as_str())
-    }
-
-    fn app_opening_deeplink(&self) -> &str {
-        match self {
-            Self::Android { open_deeplink, .. } => open_deeplink,
-            Self::Ios { .. } => "noop",
-        }
-    }
-
     pub(crate) fn deeplink(&self, open: &AppOpenArgs) -> Result<Option<String>> {
         let deeplink = &open.deeplink;
         if deeplink.is_none() {
@@ -118,7 +97,6 @@ mod unit_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::config::{App, Channel};
 
     #[test]
     fn test_url_noop() -> Result<()> {
@@ -212,55 +190,6 @@ mod unit_tests {
         assert_eq!(
             "host?query=1&--nimbus-cli&--eval-jexl=locale%20==%20%27en-US%27".to_string(),
             longform_deeplink_url("host?query=1", &p)?
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_deeplink_has_is_launcher_param_if_no_deeplink_is_specified() -> Result<()> {
-        let app = LaunchableApp::try_from_app_channel_device(
-            Some(App::Fenix),
-            Some(Channel::Developer),
-            None,
-        )?;
-
-        // No payload, or command line param for deeplink.
-        let payload: StartAppProtocol = Default::default();
-        let open: AppOpenArgs = Default::default();
-        assert_eq!(
-            "fenix-dev://open?--nimbus-cli&--is-launcher".to_string(),
-            app.longform_url(&payload, &open)?
-        );
-
-        // A command line param for deeplink.
-        let open = AppOpenArgs {
-            deeplink: Some("deeplink".to_string()),
-            ..Default::default()
-        };
-        assert_eq!(
-            "fenix-dev://deeplink".to_string(),
-            app.longform_url(&payload, &open)?
-        );
-
-        // A parameter from the payload, but no deeplink.
-        let payload = StartAppProtocol {
-            log_state: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            "fenix-dev://open?--nimbus-cli&--is-launcher&--log-state".to_string(),
-            app.longform_url(&payload, &Default::default())?
-        );
-
-        // A deeplink from the command line, and an extra param from the payload.
-        let open = AppOpenArgs {
-            deeplink: Some("deeplink".to_string()),
-            ..Default::default()
-        };
-        assert_eq!(
-            "fenix-dev://deeplink?--nimbus-cli&--log-state".to_string(),
-            app.longform_url(&payload, &open)?
         );
 
         Ok(())
