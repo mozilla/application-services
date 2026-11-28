@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::Value;
 
@@ -33,9 +33,9 @@ impl ManifestSource {
     ) -> Result<Value> {
         Ok(match feature_id {
             Some(id) => {
-                let (_, feature) = fm.find_feature(id).ok_or_else(|| {
-                    anyhow::Error::msg(format!("Feature '{id}' does not exist in this manifest"))
-                })?;
+                let (_, feature) = fm
+                    .find_feature(id)
+                    .with_context(|| format!("Feature '{id}' does not exist in this manifest"))?;
                 feature.default_json()
             }
             _ => fm.default_json(),
@@ -77,7 +77,7 @@ impl ExperimentSource {
         let b = branches
             .iter()
             .find(|b| b.get_str("slug").unwrap() == branch)
-            .ok_or_else(|| anyhow::format_err!("Branch '{branch}' does not exist"))?;
+            .with_context(|| format!("Branch '{branch}' does not exist"))?;
 
         // Find the features for this branch: there may be more than one.
         let feature_values = value_utils::try_find_features_from_branch(b)?;
@@ -88,7 +88,7 @@ impl ExperimentSource {
             let id = f.get_str("featureId")?;
             let value = f
                 .get("value")
-                .ok_or_else(|| anyhow::format_err!("Branch {branch} feature {id} has no value"))?;
+                .with_context(|| format!("Branch {branch} feature {id} has no value"))?;
             match feature_id {
                 None => {
                     // If the user hasn't specified a feature, then just add it.

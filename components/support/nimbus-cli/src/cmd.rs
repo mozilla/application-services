@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -297,12 +297,11 @@ impl LaunchableApp {
     fn ios_log_file(&self) -> Result<PathBuf> {
         let data = self.ios_app_container("data")?;
         let mut files = glob::glob(&format!("{}/**/*.log", data))?;
-        let log = files.next();
-        Ok(log.ok_or_else(|| {
-            anyhow::Error::msg(
-                "Logs are not available before the app is started for the first time",
-            )
-        })??)
+
+        files
+            .next()
+            .transpose()?
+            .context("Logs are not available before the app is started for the first time")
     }
 
     fn ios_log_file_command(&self) -> String {

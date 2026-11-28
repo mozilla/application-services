@@ -16,7 +16,7 @@ mod version_utils;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 
 use crate::cli::{Cli, CliCommand, ExperimentArgs, OpenArgs};
@@ -402,7 +402,7 @@ impl TryFrom<&Cli> for AppCommand {
                 let experiment = ExperimentSource::try_from(cli)?;
                 let first = files
                     .first()
-                    .ok_or_else(|| anyhow::Error::msg("Need at least one file to make a branch"))?;
+                    .context("Need at least one file to make a branch")?;
                 let branch = feature_utils::slug(first)?;
 
                 Self::Enroll {

@@ -1063,7 +1063,7 @@ mod test_common {
 
     use std::path::PathBuf;
 
-    use anyhow::anyhow;
+    use anyhow::{Context, anyhow};
     use tempfile::NamedTempFile;
 
     use super::*;
@@ -1136,7 +1136,7 @@ mod test_common {
         let pbuf = PathBuf::from(&test_script);
         let ext = pbuf
             .extension()
-            .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
+            .with_context(|| format!("Require a test_script with an extension: {test_script}"))?;
         let language: TargetLanguage = ext.try_into()?;
         let manifest_fml = join(pkg_dir(), manifest);
         let loader = Default::default();

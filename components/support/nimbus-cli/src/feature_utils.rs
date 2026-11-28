@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use heck::ToKebabCase;
 use serde_json::{Value, json};
 
@@ -79,21 +79,16 @@ pub(crate) fn create_experiment(
 }
 
 pub(crate) fn slug(path: &Path) -> Result<String> {
-    let filename = path
-        .file_stem()
-        .ok_or_else(|| anyhow::Error::msg("File has no filename"))?;
+    let filename = path.file_stem().context("File has no filename")?;
     Ok(filename.to_string_lossy().to_string().to_kebab_case())
 }
 
 fn branch(feature_id: &str, file: &Path) -> Result<Value> {
     let value: Value = value_utils::read_from_file(file)?;
 
-    let config = value.as_object().ok_or_else(|| {
-        anyhow::Error::msg(format!(
-            "{} does not contain a JSON object",
-            file.to_str().unwrap()
-        ))
-    })?;
+    let config = value
+        .as_object()
+        .with_context(|| format!("{} does not contain a JSON object", file.display()))?;
 
     Ok(json!({
       "feature": {

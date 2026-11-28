@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Error, Result, bail};
+use anyhow::{Context, Error, Result, bail};
 
 use crate::intermediate_representation::TargetLanguage;
 use crate::util::loaders::LoaderConfig;
@@ -92,7 +92,7 @@ impl TryFrom<&Path> for TargetLanguage {
         TryFrom::try_from(
             value
                 .extension()
-                .ok_or_else(|| anyhow::anyhow!("No extension available to determine language"))?,
+                .context("No extension available to determine language")?,
         )
     }
 }
