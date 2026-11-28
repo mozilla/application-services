@@ -78,7 +78,7 @@ impl FirefoxAccount {
                 }
                 Err(e) => {
                     error_support::report_error!(
-                        "fxaclient-close-tabs-invoke",
+                        "fxa-client-close-tabs-invoke",
                         "Failed to send bulk Close Tabs command: {}",
                         e
                     );
@@ -133,7 +133,7 @@ impl FirefoxAccount {
                 Ok(keys) => return Ok(keys),
                 Err(_) => {
                     error_support::report_error!(
-                        "fxaclient-close-tabs-key-deserialize",
+                        "fxa-client-close-tabs-key-deserialize",
                         "Could not deserialize Close Remote Tabs keys. Re-creating them."
                     );
                 }

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::fmt::Display;
+
 use crate::schema::{FieldConfigOverrideColor, FieldConfigOverrideProperty};
 
 pub fn slug(text: &str) -> String {
@@ -15,7 +17,7 @@ pub struct UrlBuilder {
 }
 
 impl UrlBuilder {
-    pub fn new_dashboard(dashboard_uid: String) -> Self {
+    pub fn new_dashboard(dashboard_uid: impl Display) -> Self {
         Self {
             base_url: format!("https://yardstick.mozilla.org/d/{dashboard_uid}"),
             params: vec![],
@@ -49,10 +51,12 @@ pub trait Join {
 impl<T, I> Join for T
 where
     T: Iterator<Item = I>,
-    I: Into<String>,
+    I: Display,
 {
     fn join(self, sep: &str) -> String {
-        self.map(I::into).collect::<Vec<String>>().join(sep)
+        self.map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join(sep)
     }
 }
 

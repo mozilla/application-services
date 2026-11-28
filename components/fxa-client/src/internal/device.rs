@@ -255,7 +255,7 @@ impl FirefoxAccount {
                 Ok(device_command) => Some(device_command),
                 Err(e) => {
                     error_support::report_error!(
-                        "fxaclient-command",
+                        "fxa-client-command",
                         "Error while processing command: {}",
                         e
                     );

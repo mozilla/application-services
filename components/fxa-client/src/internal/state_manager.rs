@@ -193,7 +193,7 @@ impl StateManager {
         // acquired a session token before the oauth flow
         if self.session_token().is_none() && new_session_token.is_none() {
             error_support::report_error!(
-                "fxaclient-complete-oauth-without-session-token",
+                "fxa-client-complete-oauth-without-session-token",
                 "complete_oauth_flow called without a session token"
             );
         }

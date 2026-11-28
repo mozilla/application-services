@@ -3,29 +3,44 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    config::{Application, EventsMetric, ReleaseChannel, TeamConfig},
-    schema::{
-        DashboardBuilder, Datasource, FieldConfig, FieldConfigCustom, FieldConfigDefaults,
-        FieldConfigOverride, FieldConfigOverrideMatcher, GridPos, Panel, Target, TimeSeriesPanel,
-        Transformation,
-    },
+    config::{Application, ReleaseChannel},
+    schema::{DashboardBuilder, Panel, TimeSeriesPanel},
     sql::{Query, Union},
-    util::dashboard_count_color,
     Result,
 };
 
-pub fn add_to_dashboard(
-    builder: &mut DashboardBuilder,
-    _config: &TeamConfig,
-    metric: &EventsMetric,
-) -> Result<()> {
-    builder.add_panel_title(metric.display_name);
-    for app in metric.applications.iter().cloned() {
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Nightly, metric));
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Beta, metric));
-        builder.add_panel_third(count_panel(app, ReleaseChannel::Release, metric));
+/// Track multiple Glean events together
+///
+/// This will create time-series panels with event counts for each event
+pub struct EventsMetric {
+    /// Name to display on the dashboard
+    pub display_name: &'static str,
+    /// Name of the ping ("metrics" by default)
+    pub ping: &'static str,
+    /// Category name (top-level key in metrics.yaml)
+    pub category: &'static str,
+    /// Metric name (key for the metric)
+    pub metrics: Vec<&'static str>,
+    // Which applications report this metric
+    pub applications: Vec<Application>,
+    pub options: EventsOptions,
+}
+
+#[derive(Default)]
+pub struct EventsOptions {
+    pub unique_user_counts: bool,
+}
+
+impl EventsMetric {
+    pub fn build_dashboard(self, builder: &mut DashboardBuilder) -> Result<()> {
+        builder.add_panel_title(self.display_name);
+        for app in self.applications.iter().cloned() {
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Nightly, &self));
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Beta, &self));
+            builder.add_panel_third(count_panel(app, ReleaseChannel::Release, &self));
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn count_panel(application: Application, channel: ReleaseChannel, metric: &EventsMetric) -> Panel {
@@ -63,7 +78,7 @@ fn count_panel(application: Application, channel: ReleaseChannel, metric: &Event
                 select: vec![
                     "TIMESTAMP(submission_date) as time".into(),
                     format!("'{metric} (daily unique users)' as label"),
-                    "SUM(client_count) as client_count".into(),
+                    "SUM(client_count) as count".into(),
                 ],
                 ..base_query.clone()
             });
@@ -71,55 +86,20 @@ fn count_panel(application: Application, channel: ReleaseChannel, metric: &Event
     }
     query.order_by = Some("submission_date asc".into());
 
-    let mut color_overrides = vec![];
+    let mut p = TimeSeriesPanel::new_grouped(
+        application.display_name(channel),
+        query.sql(),
+        "count",
+        "label",
+    )
+    .with_axis_label("count / day");
+
     for (i, metric) in metrics.iter().enumerate() {
-        color_overrides.push(FieldConfigOverride {
-            matcher: FieldConfigOverrideMatcher {
-                id: "byName".into(),
-                options: metric.to_string(),
-            },
-            properties: vec![dashboard_count_color(i, false)],
-        });
+        p = p.with_label_color(*metric, i, false);
         if options.unique_user_counts {
-            color_overrides.push(FieldConfigOverride {
-                matcher: FieldConfigOverrideMatcher {
-                    id: "byName".into(),
-                    options: format!("{metric} (daily unique users)"),
-                },
-                properties: vec![dashboard_count_color(i, true)],
-            });
+            p = p.with_label_color(format!("{metric} (daily unique users)"), i, true);
         }
     }
 
-    TimeSeriesPanel {
-        title: application.display_name(channel),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![],
-                custom: FieldConfigCustom {
-                    axis_label: "count / day".into(),
-                    ..FieldConfigCustom::default()
-                },
-                unit: None,
-            },
-            overrides: color_overrides,
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["label".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: "count (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
-    }
-    .into()
+    p.into()
 }

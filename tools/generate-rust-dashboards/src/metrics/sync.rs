@@ -2,66 +2,66 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::fmt;
+
 use crate::{
-    component_config::SyncEngine,
     config::{Application, ReleaseChannel, TeamConfig, Unit},
     schema::{
-        CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
-        FieldConfigCustom, FieldConfigDefaults, FieldConfigOverride, FieldConfigOverrideMatcher,
-        GridPos, LogOptions, LogPanel, Panel, ScaleDistribution, Target, TextPanel,
-        TimeSeriesPanel, Transformation,
+        CustomVariable, Dashboard, DashboardBuilder, LogPanel, Panel, TeamDashboardsBuilder,
+        TextPanel, TimeSeriesPanel,
     },
     sql::Query,
     util::{Join, UrlBuilder},
     Result,
 };
 
-pub fn add_to_main_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> Result<()> {
+/// Build the Sync dashboards
+///
+/// This adds sync panels to the main dashboard and also creates an extra dashboard for sync
+/// details.
+///
+/// `sync_engines` are the engines your team owns
+pub fn build_dashboards(
+    config: &TeamConfig,
+    builder: &mut TeamDashboardsBuilder,
+    sync_engines: &[SyncEngine],
+) -> Result<()> {
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync success rate",
         config,
+        sync_engines,
         SyncMetric::SuccessRate,
     );
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync: total counts",
         config,
+        sync_engines,
         SyncMetric::TotalCounts,
     );
     add_overview_panels(
-        builder,
+        &mut builder.main,
         "Sync: average time",
         config,
+        sync_engines,
         SyncMetric::AverageTime,
     );
 
     if config.team_name == "SYNC" {
-        builder.add_panel_title("Legacy dashboards");
-        builder.add_panel_full(sync_legacy_dashboard_panel());
+        builder.main.add_panel_title("Legacy dashboards");
+        builder.main.add_panel_full(sync_legacy_dashboard_panel());
     }
+    builder.extra.push(extra_dashboard(config, sync_engines)?);
 
     Ok(())
 }
 
-pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
-    let mut builder = DashboardBuilder::new(
-        format!("{} - Sync Details", config.team_name),
-        config.details_slug(),
-    );
-    builder.add_application_variable(config)?;
+fn extra_dashboard(config: &TeamConfig, sync_engines: &[SyncEngine]) -> Result<Dashboard> {
+    let mut builder = DashboardBuilder::new(config, details_dashboard_slug(), "Sync Details");
+    builder.add_application_variable();
     builder.add_channel_variable();
-    builder.add_variable(CustomVariable {
-        label: "Sync Engine".into(),
-        name: "engine".into(),
-        query: config
-            .components
-            .iter()
-            .flat_map(|a| a.sync_engines())
-            .map(|s| s.to_string())
-            .join(","),
-        ..CustomVariable::default()
-    });
+    builder.add_variable(CustomVariable::new("Sync Engine", "engine", sync_engines));
 
     builder.add_panel_title("Metrics");
     builder.add_panel_full(details_dash_count_panel(
@@ -77,10 +77,16 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
         SyncMetric::AverageTime,
     ));
     builder.add_panel_title("Errors");
-    builder.add_panel_full(details_dash_error_count_panel(config));
-    builder.add_panel_full(details_dash_error_log_panel(config));
+    builder.add_panel_full(details_dash_error_count_panel(sync_engines));
+    builder.add_panel_full(details_dash_error_log_panel(sync_engines));
 
     Ok(builder.dashboard)
+}
+
+fn details_dashboard_slug() -> &'static str {
+    // Every once in a while uploading the JSON fails for me (BDK).
+    // To hack around this, I bump the number at the end there.
+    "sync-details2"
 }
 
 #[derive(Clone, Copy)]
@@ -103,30 +109,18 @@ impl SyncMetric {
         matches!(self, SyncMetric::TotalCounts | SyncMetric::AverageTime)
     }
 
-    fn field_config_custom(&self) -> FieldConfigCustom {
+    fn update_panel(&self, panel: TimeSeriesPanel) -> TimeSeriesPanel {
         match self {
-            SyncMetric::SuccessRate => FieldConfigCustom {
-                axis_label: "success rate".into(),
-                axis_soft_min: 99,
-                axis_soft_max: 100,
-                ..FieldConfigCustom::default()
-            },
-            SyncMetric::TotalCounts => FieldConfigCustom {
-                scale_distribution: ScaleDistribution {
-                    type_: "log".into(),
-                    log: Some(10),
-                },
-                ..FieldConfigCustom::default()
-            },
-            SyncMetric::AverageTime => FieldConfigCustom::default(),
-        }
-    }
-
-    fn unit(&self) -> Option<Unit> {
-        match self {
-            SyncMetric::SuccessRate => None,
-            SyncMetric::TotalCounts => Some(Unit::SiShort),
-            SyncMetric::AverageTime => Some(Unit::Seconds),
+            SyncMetric::SuccessRate => panel
+                .with_soft_limits(99, 100)
+                .with_axis_label("success rate"),
+            SyncMetric::TotalCounts => panel
+                .with_log_distribution(10)
+                .with_unit(Unit::SiShort)
+                .with_axis_label("total counts"),
+            SyncMetric::AverageTime => panel
+                .with_unit(Unit::Seconds)
+                .with_axis_label("average sync time"),
         }
     }
 
@@ -150,21 +144,30 @@ fn add_overview_panels(
     builder: &mut DashboardBuilder,
     title: &str,
     config: &TeamConfig,
+    sync_engines: &[SyncEngine],
     metric: SyncMetric,
 ) {
     builder.add_panel_title(title);
 
-    for app in config.applications().iter() {
+    for app in Application::all() {
         builder.add_panel_third(overview_panel(
             config,
-            *app,
+            sync_engines,
+            app,
             ReleaseChannel::Nightly,
             metric,
         ));
-        builder.add_panel_third(overview_panel(config, *app, ReleaseChannel::Beta, metric));
         builder.add_panel_third(overview_panel(
             config,
-            *app,
+            sync_engines,
+            app,
+            ReleaseChannel::Beta,
+            metric,
+        ));
+        builder.add_panel_third(overview_panel(
+            config,
+            sync_engines,
+            app,
             ReleaseChannel::Release,
             metric,
         ));
@@ -173,29 +176,17 @@ fn add_overview_panels(
 
 fn overview_panel(
     config: &TeamConfig,
+    sync_engines: &[SyncEngine],
     application: Application,
     channel: ReleaseChannel,
     metric: SyncMetric,
 ) -> Panel {
     if application == Application::Ios && channel == ReleaseChannel::Nightly {
         // iOs doesn't have a nightly
-        return TextPanel {
-            content: "## N/A".into(),
-            mode: "markdown".into(),
-            grid_pos: GridPos::height(8),
-        }
-        .into();
+        return TextPanel::new("## N/A").into();
     }
 
     let column_name = metric.column_name();
-    let all_engines = all_engines(config);
-    let engine_matches: Vec<String> = config.components.iter()
-        .flat_map(|c| c.sync_engines().iter().map(|e| (c.slug(), e.to_string())))
-        .map(|(component, engine)| {
-            format!("(engine_name = '{engine}' AND '{component}' IN (SELECT * FROM UNNEST(SPLIT('${{components:csv}}', ','))))")
-        })
-        .collect();
-
     let query = Query {
         select: vec![
             "TIMESTAMP(submission_date) as time".into(),
@@ -206,68 +197,42 @@ fn overview_panel(
         where_: vec![
             "$__timeFilter(TIMESTAMP(submission_date))".into(),
             format!("channel = '{channel}'"),
+            format!(
+                "engine_name in ({})",
+                sync_engines.iter().map(|e| format!("'{e}'")).join(", ")
+            ),
             match application {
                 Application::Desktop => "application = 'desktop'",
                 Application::Ios => "application = 'firefox-ios'",
                 Application::Android => "application = 'firefox-android'",
             }
             .into(),
-            engine_matches.join(" OR "),
         ],
         order_by: Some("time".into()),
         ..Query::default()
     };
 
-    let mut color_overrides = vec![];
-    for engine in all_engines.iter() {
-        // Use the SyncEngine discriminant to keep colors consistent across all panels (SYNC-5459)
-        color_overrides.push(FieldConfigOverride {
-            matcher: FieldConfigOverrideMatcher {
-                id: "byName".into(),
-                options: engine.to_string(),
-            },
-            properties: vec![engine.dashboard_color()],
-        });
-    }
+    let mut p = TimeSeriesPanel::new_grouped(
+        application.display_name(channel),
+        query.sql(),
+        column_name,
+        "engine_name",
+    )
+    .with_link(
+        "Errors",
+        UrlBuilder::new_dashboard(config.dashboard_slug(details_dashboard_slug()))
+            .with_time_range_param()
+            .with_param("var-application", application.slug())
+            .with_param("var-channel", channel.to_string())
+            .with_param("var-engine", "${__data.fields[\"engine_name\"]}")
+            .build(),
+    );
 
-    Panel::from(TimeSeriesPanel {
-        title: application.display_name(channel),
-        grid_pos: GridPos::height(8),
-        datasource: Datasource::bigquery(),
-        // needs to be fairly large since the total sync count can be low on mobile/nightly
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![DataLink {
-                    url: UrlBuilder::new_dashboard(config.details_slug())
-                        .with_time_range_param()
-                        .with_param("var-application", application.slug())
-                        .with_param("var-channel", channel.to_string())
-                        .with_param("var-engine", "${__data.fields[\"engine_name\"]}")
-                        .build(),
-                    target_blank: true,
-                    one_click: true,
-                    title: "Errors".into(),
-                }],
-                custom: metric.field_config_custom(),
-                unit: metric.unit(),
-            },
-            overrides: color_overrides,
-        },
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["engine_name".into()],
-                keep_fields: true,
-            },
-            // Fixup the field names for better legend labels
-            Transformation::RenameByRegex {
-                regex: format!("{column_name} (.*)"),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
-    })
+    for engine in sync_engines.iter() {
+        p = p.with_label_color(engine.to_string(), engine.discriminant(), false);
+    }
+    let p = metric.update_panel(p);
+    p.into()
 }
 
 fn details_dash_count_panel(title: &str, metric: SyncMetric) -> Panel {
@@ -292,28 +257,12 @@ fn details_dash_count_panel(title: &str, metric: SyncMetric) -> Panel {
         ..Query::default()
     };
 
-    TimeSeriesPanel {
-        title: title.into(),
-        grid_pos: GridPos::height(10),
-        datasource: Datasource::bigquery(),
-        // needs to be fairly large since the total sync count can be low on mobile/nightly
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        transformations: vec![],
-        field_config: FieldConfig {
-            defaults: FieldConfigDefaults {
-                links: vec![],
-                custom: metric.field_config_custom(),
-                unit: metric.unit(),
-            },
-            ..FieldConfig::default()
-        },
-        ..TimeSeriesPanel::default()
-    }
-    .into()
+    let mut p = TimeSeriesPanel::new(title, query.sql());
+    p = metric.update_panel(p);
+    p.into()
 }
 
-fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
+fn details_dash_error_count_panel(sync_engines: &[SyncEngine]) -> Panel {
     let query = Query {
         select: vec![
             "error".into(),
@@ -326,41 +275,22 @@ fn details_dash_error_count_panel(config: &TeamConfig) -> Panel {
             "normalized_channel = '${channel}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
         ],
-        from: format!("(\n{}\n)", error_subquery(config)),
+        from: format!("(\n{}\n)", error_subquery(sync_engines)),
         group_by: Some("1, 2".into()),
         order_by: Some("count DESC".into()),
         ..Query::default()
     };
 
-    TimeSeriesPanel {
-        title: "Error counts by type".into(),
-        grid_pos: GridPos::height(10),
-        datasource: Datasource::bigquery(),
-        // needs to be fairly large since the total sync count can be low on mobile/nightly
-        interval: "1d".into(),
-        targets: vec![Target::table(query.sql())],
-        transformations: vec![
-            Transformation::PartitionByValues {
-                fields: vec!["error".into()],
-                keep_fields: true,
-            },
-            Transformation::RenameByRegex {
-                regex: "count (.*)".into(),
-                rename_pattern: "$1".into(),
-            },
-        ],
-        ..TimeSeriesPanel::default()
-    }
-    .into()
+    TimeSeriesPanel::new_grouped("Error counts by type", query.sql(), "count", "error").into()
 }
 
-fn details_dash_error_log_panel(config: &TeamConfig) -> Panel {
+fn details_dash_error_log_panel(sync_engines: &[SyncEngine]) -> Panel {
     let query = Query {
         select: vec![
             "CONCAT(IFNULL(error, 'unknown'), ': ', IFNULL(details, 'unknown')) as message".into(),
             "submission_timestamp".into(),
         ],
-        from: format!("(\n{}\n)", error_subquery(config)),
+        from: format!("(\n{}\n)", error_subquery(sync_engines)),
         where_: vec![
             "engine_name = '${engine}'".into(),
             "normalized_channel = '${channel}'".into(),
@@ -372,22 +302,11 @@ fn details_dash_error_log_panel(config: &TeamConfig) -> Panel {
         ..Query::default()
     };
 
-    LogPanel {
-        title: "Error list".into(),
-        grid_pos: GridPos::height(20),
-        datasource: Datasource::bigquery(),
-        targets: vec![Target::table(query.sql())],
-        options: LogOptions {
-            enable_log_details: false,
-            ..LogOptions::default()
-        },
-        ..LogPanel::default()
-    }
-    .into()
+    LogPanel::new("Error list", query.sql()).into()
 }
 
 // Subquery that combines errors from both the legacy and glean sync tables
-fn error_subquery(config: &TeamConfig) -> String {
+fn error_subquery(sync_engines: &[SyncEngine]) -> String {
     let mut queries = vec![];
 
     // Desktop
@@ -414,10 +333,9 @@ WHERE
     );
 
     queries.extend(
-        config
-            .components
+        sync_engines
             .iter()
-            .flat_map(|c| c.sync_engines_for_android())
+            .filter(|engine| engine.enabled_on_android())
             .map(|engine| {
                 let table_prefix = engine.to_string().replace("-", "_");
                 format!(
@@ -435,10 +353,9 @@ CROSS JOIN UNNEST(metrics.labeled_string.{table_prefix}_sync_v2_failure_reason) 
             }),
     );
     queries.extend(
-        config
-            .components
+        sync_engines
             .iter()
-            .flat_map(|c| c.sync_engines_for_ios())
+            .filter(|engine| engine.enabled_on_ios())
             .map(|engine| {
                 let table_prefix = engine.to_string().replace("-", "_");
                 format!(
@@ -466,24 +383,7 @@ fn sync_legacy_dashboard_panel() -> Panel {
 * [Mobile Logins Verification Usage](https://sql.telemetry.mozilla.org/dashboard/mobile-logins-verification-usage?p_channel=org_mozilla_ios_firefox)
 * [iOS FxA Keychain Rollout Enrollment](https://sql.telemetry.mozilla.org/dashboard/ios-credit-cards-key-regeneration-metrics)
 ";
-    TextPanel {
-        content: content.to_string(),
-        mode: "markdown".into(),
-        grid_pos: GridPos::height(8),
-    }
-    .into()
-}
-
-fn all_engines(config: &TeamConfig) -> Vec<SyncEngine> {
-    let mut engines: Vec<_> = config
-        .components
-        .iter()
-        .flat_map(|c| c.sync_engines())
-        .cloned()
-        .collect();
-    engines.sort_unstable();
-    engines.dedup();
-    engines
+    TextPanel::new(content).into()
 }
 
 /// Subquery that combines the desktop and mobile ETL tables
@@ -512,3 +412,75 @@ SELECT
 FROM
     moz-fx-data-shared-prod.sync_derived.mobile_v1
 ";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SyncEngine {
+    Addresses,
+    Bookmarks,
+    CreditCards,
+    History,
+    Logins,
+    Prefs,
+    RustLogins,
+    Tabs,
+    WebextStorage,
+}
+
+impl SyncEngine {
+    pub fn supported_applications(&self) -> &[Application] {
+        match self {
+            Self::Addresses => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Bookmarks => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::CreditCards => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::History => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Logins => &[Application::Android, Application::Ios],
+            Self::RustLogins => &[Application::Desktop],
+            Self::Tabs => &[Application::Desktop, Application::Android, Application::Ios],
+            Self::Prefs => &[Application::Desktop],
+            Self::WebextStorage => &[Application::Desktop],
+        }
+    }
+
+    pub fn enabled_on_android(&self) -> bool {
+        self.supported_applications()
+            .contains(&Application::Android)
+    }
+
+    pub fn enabled_on_ios(&self) -> bool {
+        self.supported_applications().contains(&Application::Ios)
+    }
+
+    /// Enum variant discriminant
+    ///
+    /// This is used to generate color indexes, which keeps colors consistent across panels
+    /// (SYNC-5459)".
+    pub fn discriminant(&self) -> usize {
+        match self {
+            Self::Addresses => 0,
+            Self::Bookmarks => 1,
+            Self::CreditCards => 2,
+            Self::History => 3,
+            Self::Logins => 4,
+            Self::RustLogins => 5,
+            Self::Tabs => 6,
+            Self::Prefs => 7,
+            Self::WebextStorage => 8,
+        }
+    }
+}
+
+impl fmt::Display for SyncEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Addresses => write!(f, "addresses"),
+            Self::Bookmarks => write!(f, "bookmarks"),
+            Self::CreditCards => write!(f, "creditcards"),
+            Self::History => write!(f, "history"),
+            Self::Logins => write!(f, "logins"),
+            Self::Prefs => write!(f, "prefs"),
+            Self::RustLogins => write!(f, "rust-logins"),
+            Self::Tabs => write!(f, "tabs"),
+            Self::WebextStorage => write!(f, "webext-storage"),
+        }
+    }
+}

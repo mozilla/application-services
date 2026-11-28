@@ -8,12 +8,15 @@
 //! It was created by looking at the "JSON Model" settings tab and finding the settings there.
 //! Feel free to add new fields/structs if you need additional functionality.
 
-use std::cmp::max;
+use std::{cmp::max, fmt::Display};
 
-use anyhow::anyhow;
+use anyhow::{bail, Result};
 use serde::{Serialize, Serializer};
 
-use crate::{config::TeamConfig, Result};
+use crate::{
+    config::{Application, TeamConfig},
+    util::{dashboard_count_color, slug, Join},
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -506,7 +509,7 @@ impl Default for LogOptions {
             dedup_strategy: "none".into(),
             details_mode: "inline".into(),
             enable_infinite_scrolling: false,
-            enable_log_details: true,
+            enable_log_details: false,
             prettify_log_message: false,
             show_common_labels: false,
             show_labels: false,
@@ -677,8 +680,95 @@ impl GridPos {
     }
 }
 
+impl CustomVariable {
+    pub fn new(
+        label: impl Into<String>,
+        name: impl Into<String>,
+        values: impl IntoIterator<Item = impl Display>,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            name: name.into(),
+            query: values.into_iter().join(","),
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn with_multi_select(self) -> Self {
+        Self {
+            multi: true,
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_selected(self, selected: impl Iterator<Item = String>) -> Self {
+        Self {
+            current: CustomVariableSelection::multi(selected),
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_all_selected(self) -> Self {
+        Self {
+            current: CustomVariableSelection::Multiple {
+                value: self.query.split(",").map(str::to_string).collect(),
+            },
+            ..self
+        }
+    }
+}
+
+impl QueryVariable {
+    pub fn new(label: impl Into<String>, name: impl Into<String>, sql: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            name: name.into(),
+            datasource: Datasource::bigquery(),
+            query: QueryVariableQuery::from_sql(sql),
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn with_sort(self, sort: VariableSortOrder) -> Self {
+        Self {
+            sort: Some(sort),
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_include_all(self) -> Self {
+        Self {
+            include_all: true,
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_all_option(self) -> Self {
+        Self {
+            all_value: "'<all>'".into(),
+            ..self
+        }
+    }
+}
+
+impl TextBoxVariable {
+    pub fn new(label: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            name: name.into(),
+            ..Self::default()
+        }
+    }
+}
+
 impl CustomVariableSelection {
-    pub fn single(selected: impl std::fmt::Display) -> Self {
+    pub fn single(selected: impl Display) -> Self {
         Self::Single(selected.to_string())
     }
 
@@ -728,6 +818,62 @@ impl Target {
     }
 }
 
+/// All dashboards for a team
+pub struct TeamDashboards {
+    pub team_name: &'static str,
+
+    /// Main dashboard
+    pub main: Dashboard,
+
+    /// Extra dashboards for the team.
+    ///
+    /// These are typically dashboards with extra details
+    /// for the panels on the main dashboard.
+    pub extra: Vec<Dashboard>,
+}
+
+pub struct TeamDashboardsBuilder {
+    pub team_name: &'static str,
+
+    pub main: DashboardBuilder,
+    pub extra: Vec<Dashboard>,
+}
+
+impl TeamDashboardsBuilder {
+    pub fn new(config: &TeamConfig) -> Self {
+        Self {
+            team_name: config.team_name,
+            main: DashboardBuilder::main(config),
+            extra: vec![],
+        }
+    }
+
+    /// Get UID for an extra dashboard
+    ///
+    /// slug matches the uid without the `[team_slug]-` prefix.
+    pub fn extra_dashboard_uid(&self, dashboard_slug: &str) -> Result<String> {
+        let prefix = format!("{}-", slug(self.team_name));
+        for d in self.extra.iter() {
+            match d.uid.strip_prefix(&prefix) {
+                Some(remaining) if remaining == dashboard_slug => {
+                    return Ok(d.uid.clone());
+                }
+                _ => (),
+            }
+        }
+        bail!("Can't find dashboard with slug '{dashboard_slug}'");
+    }
+
+    pub fn finish(self) -> TeamDashboards {
+        TeamDashboards {
+            team_name: self.team_name,
+            main: self.main.dashboard,
+            extra: self.extra,
+        }
+    }
+}
+
+/// Helper to build a single dashboard
 pub struct DashboardBuilder {
     pub dashboard: Dashboard,
     col: u32,
@@ -736,11 +882,18 @@ pub struct DashboardBuilder {
 }
 
 impl DashboardBuilder {
-    pub fn new(title: impl Into<String>, uid: impl Into<String>) -> Self {
+    /// Start building a new dashboard
+    ///
+    /// `slug` identifies the dashboard and will be used to generate URLs.
+    /// It must be unique among all dashboards for the team.
+    pub fn new(config: &TeamConfig, slug: &str, title: &str) -> Self {
+        let uid = config.dashboard_slug(slug);
+        let title = format!("{} - {title}", config.team_name);
+
         Self {
             dashboard: Dashboard {
-                title: title.into(),
-                uid: uid.into(),
+                title,
+                uid,
                 ..Dashboard::default()
             },
             col: 0,
@@ -749,31 +902,28 @@ impl DashboardBuilder {
         }
     }
 
+    pub fn main(config: &TeamConfig) -> Self {
+        DashboardBuilder::new(config, "main", "Main Dashboard")
+    }
+
     pub fn add_variable(&mut self, v: impl Into<Variable>) {
         self.dashboard.templating.list.push(v.into());
     }
 
     /// Add an `application` variable that the user can select
-    pub fn add_application_variable(&mut self, config: &TeamConfig) -> Result<()> {
-        let applications = config.applications();
-
-        let first_application = applications
-            .iter()
-            .next()
-            .ok_or_else(|| anyhow!("Application list empty for {}", config.team_name))?;
+    pub fn add_application_variable(&mut self) {
+        let first_application = Application::all().next().unwrap();
 
         self.add_variable(CustomVariable {
             label: "Application".into(),
             name: "application".into(),
-            query: applications
-                .iter()
+            query: Application::all()
                 .map(|a| format!("{a} : {}", a.slug()))
                 .collect::<Vec<_>>()
                 .join(","),
             current: CustomVariableSelection::single(first_application.slug()),
             ..CustomVariable::default()
         });
-        Ok(())
     }
 
     /// Add an `channel` variable that the user can select a release channel from
@@ -826,5 +976,185 @@ impl DashboardBuilder {
         self.row += self.current_row_height;
         self.current_row_height = 0;
         self.col = 0;
+    }
+}
+
+impl TimeSeriesPanel {
+    /// Create a new time series panel
+    pub fn new(title: impl Into<String>, sql: String) -> Self {
+        Self {
+            title: title.into(),
+            grid_pos: GridPos::height(8),
+            datasource: Datasource::bigquery(),
+            interval: "1d".into(),
+            targets: vec![Target::table(sql)],
+            ..Self::default()
+        }
+    }
+
+    /// Create a new time series panel from query in timeseries format
+    ///
+    /// This will create a timeseries panel using the following logic
+    ///
+    /// * There must be a time column that's in the GROUP BY list.
+    ///   This typically comes from the grafana `$__timeGroup` function.
+    /// * Other GROUP BY columns are used to group the values.
+    /// * The non-GROUP BY columns define values.
+    /// * The total number of lines is `distinct_group_by_values * num_non_group_by_columns`
+    ///
+    /// For example:
+    /// ```text
+    /// -----------------------------------------------------------
+    /// | time       | make | model    | units sold | test drives |
+    /// -----------------------------------------------------------
+    /// | 2026-01-01 | Honda | Civic   | 10         | 100         |
+    /// | 2026-01-01 | Chevy | Blazer  | 20         | 140         |
+    /// | 2026-01-01 | Chevy | Equinox | 15         | 200         |
+    /// | ...        | ...   | ...     | ...        | ..          |
+    /// -----------------------------------------------------------
+    /// ```
+    ///
+    /// Will create 6 lines:
+    ///   * Honda Civic units sold
+    ///   * Chevy Blazer units sold
+    ///   * Chevy Equinox units sold
+    ///   * Honda Civic test drives
+    ///   * Chevy Blazer test drives
+    ///   * Chevy Equinox test drives
+    pub fn new_with_timeseries_query(title: impl Into<String>, sql: String) -> Self {
+        Self {
+            title: title.into(),
+            grid_pos: GridPos::height(8),
+            datasource: Datasource::bigquery(),
+            interval: "1d".into(),
+            targets: vec![Target::timeseries(sql)],
+            ..Self::default()
+        }
+    }
+
+    /// Create a new time series panel, grouped using one column value
+    #[must_use]
+    pub fn new_grouped(
+        title: impl Into<String>,
+        sql: String,
+        value_column: impl Into<String>,
+        group_column: impl Into<String>,
+    ) -> Self {
+        let value_column = value_column.into();
+        Self {
+            transformations: vec![
+                Transformation::PartitionByValues {
+                    fields: vec![group_column.into()],
+                    keep_fields: true,
+                },
+                // Fixup the field names for better legend labels
+                Transformation::RenameByRegex {
+                    regex: format!("{value_column} (.*)"),
+                    rename_pattern: "$1".into(),
+                },
+            ],
+            ..Self::new(title, sql)
+        }
+    }
+
+    #[must_use]
+    pub fn with_height(self, height: u32) -> Self {
+        Self {
+            grid_pos: GridPos::height(height),
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_interval(self, interval: impl Into<String>) -> Self {
+        Self {
+            interval: interval.into(),
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_axis_label(mut self, label: impl Into<String>) -> Self {
+        self.field_config.defaults.custom.axis_label = label.into();
+        self
+    }
+
+    #[must_use]
+    pub fn with_unit(mut self, unit: Unit) -> Self {
+        self.field_config.defaults.unit = Some(unit);
+        self
+    }
+
+    #[must_use]
+    pub fn with_log_distribution(mut self, base: u32) -> Self {
+        self.field_config.defaults.custom.scale_distribution = ScaleDistribution {
+            type_: "log".into(),
+            log: Some(base),
+        };
+        self
+    }
+
+    #[must_use]
+    pub fn with_link(mut self, title: impl Into<String>, url: impl Into<String>) -> Self {
+        self.field_config.defaults.links.push(DataLink {
+            url: url.into(),
+            target_blank: true,
+            one_click: true,
+            title: title.into(),
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn with_label_color(
+        mut self,
+        label: impl Into<String>,
+        i: usize,
+        for_unique_users: bool,
+    ) -> Self {
+        self.field_config.overrides.push(FieldConfigOverride {
+            matcher: FieldConfigOverrideMatcher {
+                id: "byName".into(),
+                options: label.into(),
+            },
+            properties: vec![dashboard_count_color(i, for_unique_users)],
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn with_soft_limits(mut self, min: u32, max: u32) -> Self {
+        self.field_config.defaults.custom.axis_soft_min = min;
+        self.field_config.defaults.custom.axis_soft_max = max;
+        self
+    }
+}
+
+impl LogPanel {
+    pub fn new(title: impl Into<String>, sql: String) -> Self {
+        Self {
+            title: title.into(),
+            grid_pos: GridPos::height(20),
+            targets: vec![Target::table(sql)],
+            datasource: Datasource::bigquery(),
+            options: LogOptions::default(),
+            ..LogPanel::default()
+        }
+    }
+
+    #[must_use]
+    pub fn with_details(mut self) -> Self {
+        self.options.enable_log_details = true;
+        self
+    }
+}
+
+impl TextPanel {
+    pub fn new(content: impl Into<String>) -> Self {
+        TextPanel {
+            content: content.into(),
+            mode: "markdown".into(),
+            grid_pos: GridPos::height(8),
+        }
     }
 }

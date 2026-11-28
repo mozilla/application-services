@@ -21,7 +21,7 @@ impl FirefoxAccount {
                 Ok(keys) => return Ok(keys),
                 Err(_) => {
                     error_support::report_error!(
-                        "fxaclient-send-tab-key-deserialize",
+                        "fxa-client-send-tab-key-deserialize",
                         "Could not deserialize Send Tab keys. Re-creating them."
                     );
                 }
@@ -90,12 +90,12 @@ impl FirefoxAccount {
                 match self.diagnose_remote_keys(send_tab_key) {
                     Ok(_) => {
                         error_support::report_error!(
-                            "fxaclient-send-tab-decrypt",
+                            "fxa-client-send-tab-decrypt",
                             "Could not find the cause of the Send Tab keys issue."
                         );
                     }
                     Err(e) => {
-                        error_support::report_error!("fxaclient-send-tab-decrypt", "{}", e);
+                        error_support::report_error!("fxa-client-send-tab-decrypt", "{}", e);
                     }
                 };
                 // Reset the Send Tab keys.

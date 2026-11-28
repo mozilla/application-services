@@ -550,7 +550,7 @@ impl FirefoxAccount {
             || self.state.get_scoped_key(scopes::OLD_SYNC).is_some();
         if sync_scope_granted && !have_sync_key {
             error_support::report_error!(
-                "fxaclient-scoped-key",
+                "fxa-client-scoped-key",
                 "Sync scope granted, but no sync scoped key held (final scopes: {})",
                 new_refresh_token
                     .scopes
