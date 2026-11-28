@@ -164,7 +164,7 @@ impl CirrusClient {
         );
 
         let enrolled_feature_config_map =
-            map_features_by_feature_id(&enrollments, &state.experiments, &coenrolling_ids);
+            map_features_by_feature_id(&enrollments, &state.experiments, &coenrolling_ids, None);
 
         Ok(EnrollmentResponse {
             enrolled_feature_config_map,

@@ -87,6 +87,7 @@ dictionary EnrollmentChangeEvent {
     string? reason;
     EnrollmentChangeEventType change;
     sequence<string> feature_ids;
+    string? language = null;
 };
 
 enum EnrollmentChangeEventType {
@@ -141,6 +142,7 @@ dictionary EnrollmentStatusExtraDef {
     string? reason;
     string? slug;
     string? status;
+    string? language = null;
     sequence<PreviousGeckoPrefState>? prev_gecko_pref_states;
 };
 
@@ -224,7 +226,7 @@ enum NimbusError {
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
     "ParseIntError", "TransformParameterError", "ClientError", "UniFFICallbackError",
-    "RegexError",
+    "RegexError", "LocalizationError",
 };
 
 [Custom]

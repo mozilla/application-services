@@ -123,6 +123,7 @@ open class Nimbus(
                         reason = extra.reason,
                         errorString = extra.errorString,
                         conflictSlug = extra.conflictSlug,
+                        language = extra.language,
                     ),
                 )
             }
@@ -664,6 +665,7 @@ open class Nimbus(
                         NimbusEvents.DisqualificationExtra(
                             experiment = event.experimentSlug,
                             branch = event.branchSlug,
+                            language = event.language,
                         ),
                     )
 

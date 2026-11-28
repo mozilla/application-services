@@ -135,8 +135,14 @@ nimbus_events:
       branch:
         type: string
         description: The branch slug/identifier that was randomly chosen
+      language:
+        type: string
+        description: >
+          The client language that was missing from the available translations 
+          if the client was disqualified for a localization reason.
     bugs:
       - https://jira.mozilla.com/browse/SDK-126
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2079398
     data_reviews:
       - https://github.com/mozilla-mobile/android-components/pull/9168#issuecomment-743461975
     data_sensitivity:
@@ -345,10 +351,16 @@ nimbus_events:
       conflict_slug:
         type: string
         description: If the enrollment hit a feature conflict, the slug of the conflicting experiment/rollout
+      language:
+        type: string
+        description: >
+          The client language that was missing from the available translations 
+          if the client was disqualified for a localization reason.
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3827
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1996105
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1996120
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2079398
     data_reviews:
       - https://github.com/mozilla/application-services/pull/5857#issuecomment-1749722071
     data_sensitivity:

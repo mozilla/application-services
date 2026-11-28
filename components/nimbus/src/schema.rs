@@ -78,6 +78,9 @@ pub struct Experiment {
 
     #[serde(default)]
     pub requires_restart: bool,
+
+    #[serde(default)]
+    pub localizations: Option<HashMap<String, HashMap<String, String>>>,
 }
 
 #[cfg_attr(not(feature = "stateful"), allow(unused))]

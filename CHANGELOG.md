@@ -79,6 +79,7 @@ parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/moz
 
 - Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
 - Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
+- Nimbus can now localize feature values, so strings written as `$l10n` objects are replaced with the translation for the client's language (e.g. `fr` for `fr-CA`) from the experiment's `localizations`. A client is not enrolled, or is disqualified, when its language or a needed translation is missing. ([#7788](https://github.com/mozilla/application-services/pull/7788))
 
 ### Remote Settings
 
