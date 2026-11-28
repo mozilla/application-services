@@ -161,7 +161,6 @@ impl AdsClientInner {
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
             0,
-            cfg!(test),
             Box::new(DefaultContextIdCallback),
         );
 
@@ -439,7 +438,6 @@ mod tests {
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
                 0,
-                false,
                 Box::new(DefaultContextIdCallback),
             ),
         });
