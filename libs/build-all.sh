@@ -86,6 +86,8 @@ diff -r 65efa74ef84a coreconf/config.gypi
          \'include_dirs\': [
 ' | patch "${NSS_SRC_PATH}/nss/coreconf/config.gypi"
 
+patch -p1 -d "${NSS_SRC_PATH}/nss" < macos-cross-compile-nss.patch
+
 if [[ "${PLATFORM}" == "ios" ]]
 then
   ./build-all-ios.sh "${NSS_SRC_PATH}"
