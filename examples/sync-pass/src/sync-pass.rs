@@ -5,7 +5,7 @@
 #![recursion_limit = "4096"]
 #![warn(rust_2018_idioms)]
 
-use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, CREDENTIALS_FILENAME, SYNC_SCOPE};
 use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
 use db_crypto::{
     DbCryptoApiError, ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator,
@@ -397,7 +397,7 @@ fn main() -> Result<()> {
             clap::Arg::new("credential_file")
                 .short('c')
                 .long("credentials")
-                .default_value("./credentials.json")
+                .default_value(CREDENTIALS_FILENAME)
                 .default_value_if("profile_path", clap::builder::ArgPredicate::IsPresent, None)
                 .value_name("CREDENTIAL_JSON")
                 .num_args(1)

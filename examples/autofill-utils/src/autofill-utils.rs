@@ -12,7 +12,7 @@ use autofill::db::{
 };
 use autofill::{create_autofill_key, create_autofill_store_with_nss_keymanager};
 use clap::{Parser, Subcommand};
-use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, SYNC_SCOPE};
+use cli_support::fxa_creds::{get_default_fxa_config, CliFxa, CREDENTIALS_FILENAME, SYNC_SCOPE};
 use cli_support::prompt::{prompt_password, prompt_string, prompt_usize};
 use db_crypto::{
     create_managed_encdec, create_static_key_manager, DbCryptoApiError,
@@ -145,7 +145,7 @@ enum Command {
     Sync {
         #[arg(name = "engines", long)]
         /// Path to store our cached fxa credentials.
-        #[arg(name = "credentials", long, default_value = "./credentials.json")]
+        #[arg(name = "credentials", long, default_value = CREDENTIALS_FILENAME)]
         credential_file: String,
 
         /// Wipe ALL storage from the server before syncing.
