@@ -224,22 +224,20 @@ impl SyncManager {
                 .map(|engine_id| engine_id.name())
                 .collect::<Vec<_>>(),
         );
-        if let SyncEngineSelection::Some {
+        let SyncEngineSelection::Some {
             engines: engine_names,
-        } = selection
-        {
-            // Validate selection and convert to SyncEngineId
-            let mut selected_engine_ids: HashSet<SyncEngineId> = HashSet::new();
-            for name in engine_names {
-                let engine_id = Self::get_engine_id(name)?;
-                if !engine_map.contains_key(&engine_id) {
-                    return Err(SyncManagerError::UnsupportedFeature(name.to_string()));
-                }
-                selected_engine_ids.insert(engine_id);
+        } = selection;
+        // Validate selection and convert to SyncEngineId
+        let mut selected_engine_ids: HashSet<SyncEngineId> = HashSet::new();
+        for name in engine_names {
+            let engine_id = Self::get_engine_id(name)?;
+            if !engine_map.contains_key(&engine_id) {
+                return Err(SyncManagerError::UnsupportedFeature(name.to_string()));
             }
-            // Filter engines based on the selection
-            engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id))
+            selected_engine_ids.insert(engine_id);
         }
+        // Filter engines based on the selection
+        engine_map.retain(|engine_id, _| selected_engine_ids.contains(engine_id));
         Ok(engine_map.into_values().collect())
     }
 }
@@ -331,7 +329,7 @@ mod test {
     fn dummy_sync_params() -> SyncParams {
         SyncParams {
             reason: SyncReason::Scheduled,
-            engines: SyncEngineSelection::All,
+            engines: SyncEngineSelection::Some { engines: vec![] },
             engine_choices_model: EngineChoicesModel::default(),
             local_encryption_keys: HashMap::new(),
             auth_info: SyncAuthInfo {

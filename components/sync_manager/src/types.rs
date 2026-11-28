@@ -40,9 +40,10 @@ pub enum SyncReason {
     Backgrounded,
 }
 
+/// The engines to sync. Only `Some` exists; this remains an enum to avoid
+/// breaking callers, and may become a plain list of engine names.
 #[derive(Debug, uniffi::Enum)]
 pub enum SyncEngineSelection {
-    All,
     Some { engines: Vec<String> },
 }
 
