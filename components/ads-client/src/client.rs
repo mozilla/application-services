@@ -6,31 +6,26 @@
 use crate::ads::{AdImage, AdImageOrSpoc, AdSpoc, AdTile};
 #[cfg(feature = "stateful")]
 use crate::ads_store::AdsStore;
-use crate::bytesize::ByteSize;
-use crate::http_cache::{CachePolicy, HttpCache};
+use crate::http_cache::CachePolicy;
 use crate::mars::ad_request::{AdPlacementRequest, AdRequestFlags, AdRequestRelevance};
 use crate::mars::ad_response::AdResponse;
 use crate::mars::error::{RecordClickError, RecordImpressionError, ReportAdError};
 use crate::mars::{MARSClient, ReportReason};
 use crate::telemetry::{self, ClientOperation};
-use config::AdsClientConfig;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use error::RequestAdsError;
 use sql_support::open_database;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 
-pub mod config;
-pub mod error;
+pub(crate) mod builder;
+pub(crate) mod error;
 
-const DEFAULT_TTL_SECONDS: u64 = 300;
-const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 const DEFAULT_ROTATION_DAYS: u8 = 3;
 
-pub struct AdsClient {
+pub(crate) struct AdsClient {
     inner: Arc<AdsClientInner>,
 }
 
@@ -42,12 +37,19 @@ pub struct AdsClientInner {
 }
 
 impl AdsClient {
-    pub fn new(client_config: AdsClientConfig) -> Self {
-        let inner = Arc::new(AdsClientInner::new(client_config));
+    pub(crate) fn new(
+        client: MARSClient,
+        #[cfg(feature = "stateful")] ads_store: Option<AdsStore>,
+    ) -> Self {
+        let inner = Arc::new(AdsClientInner::new(
+            client,
+            #[cfg(feature = "stateful")]
+            ads_store,
+        ));
         AdsClient { inner }
     }
 
-    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+    pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.inner.clear_cache()
     }
 
@@ -56,11 +58,11 @@ impl AdsClient {
         self.inner.get_context_id()
     }
 
-    pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
+    pub(crate) fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
         self.inner.record_click(click_url, ohttp)
     }
 
-    pub fn record_impression(
+    pub(crate) fn record_impression(
         &self,
         impression_url: Url,
         ohttp: bool,
@@ -68,7 +70,7 @@ impl AdsClient {
         self.inner.record_impression(impression_url, ohttp)
     }
 
-    pub fn report_ad(
+    pub(crate) fn report_ad(
         &self,
         report_url: Url,
         reason: ReportReason,
@@ -77,7 +79,7 @@ impl AdsClient {
         self.inner.report_ad(report_url, reason, ohttp)
     }
 
-    pub fn request_image_ads(
+    pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -89,7 +91,7 @@ impl AdsClient {
             .request_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
     }
 
-    pub fn request_spoc_ads(
+    pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -101,7 +103,7 @@ impl AdsClient {
             .request_spoc_ads(ad_placement_requests, flags, options, ohttp, blocks)
     }
 
-    pub fn request_tile_ads(
+    pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -120,7 +122,7 @@ impl AdsClient {
         )
     }
 
-    pub fn request_spoc_or_image_ads(
+    pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -132,7 +134,7 @@ impl AdsClient {
             .request_spoc_or_image_ads(ad_placement_requests, flags, options, ohttp, blocks)
     }
 
-    pub fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) {
         self.inner.shutdown();
     }
 
@@ -152,7 +154,10 @@ impl AdsClient {
 }
 
 impl AdsClientInner {
-    pub fn new(client_config: AdsClientConfig) -> Self {
+    pub(crate) fn new(
+        client: MARSClient,
+        #[cfg(feature = "stateful")] ads_store: Option<AdsStore>,
+    ) -> Self {
         let context_id_component = ContextIDComponent::new(
             &Uuid::new_v4().to_string(),
             0,
@@ -160,56 +165,6 @@ impl AdsClientInner {
             Box::new(DefaultContextIdCallback),
         );
 
-        let environment = client_config.environment;
-
-        // Configure the cache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
-        let http_cache = client_config
-            .cache_config
-            .and_then(|cache_cfg| {
-                let default_cache_ttl = Duration::from_secs(
-                    cache_cfg
-                        .default_cache_ttl_seconds
-                        .unwrap_or(DEFAULT_TTL_SECONDS),
-                );
-                let max_cache_size =
-                    ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
-
-                match HttpCache::builder(cache_cfg.db_path)
-                    .max_size(max_cache_size)
-                    .default_ttl(default_cache_ttl)
-                    .build()
-                {
-                    Ok(cache) => Some(cache),
-                    Err(e) => {
-                        telemetry::record_build_cache_error(&e);
-                        None
-                    }
-                }
-            })
-            .or_else(|| {
-                // If no `cache_config` is provided, create an in-memory db with default parameters.
-                // TODO: the `build` function should be infallible, and no error would be needed here.
-                // (true for both memory and FS, because FS would default to memory)
-                HttpCache::builder_memory()
-                    .build()
-                    .inspect_err(telemetry::record_build_cache_error)
-                    .ok()
-            });
-
-        #[cfg(feature = "stateful")]
-        let ads_store =
-            client_config
-                .store_config
-                .and_then(|x| match AdsStore::builder(x.db_path).build() {
-                    Ok(store) => Some(store),
-                    Err(e) => {
-                        telemetry::record_ads_store_error(&e);
-                        None
-                    }
-                });
-
-        let client = MARSClient::new(environment, http_cache);
         telemetry::record_client_operation(ClientOperation::New);
         Self {
             #[cfg(feature = "stateful")]
@@ -219,15 +174,15 @@ impl AdsClientInner {
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+    pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.client.clear_cache()
     }
 
-    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
+    pub(crate) fn get_context_id(&self) -> context_id::ApiResult<String> {
         self.context_id_component.request(DEFAULT_ROTATION_DAYS)
     }
 
-    pub fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
+    pub(crate) fn record_click(&self, click_url: Url, ohttp: bool) -> Result<(), RecordClickError> {
         // TODO: Re-enable cache invalidation behind a Nimbus experiment.
         // The mobile team has requested this be temporarily disabled.
         // let mut click_url = click_url.clone();
@@ -244,7 +199,7 @@ impl AdsClientInner {
             })
     }
 
-    pub fn record_impression(
+    pub(crate) fn record_impression(
         &self,
         impression_url: Url,
         ohttp: bool,
@@ -288,7 +243,7 @@ impl AdsClientInner {
             })
     }
 
-    pub fn report_ad(
+    pub(crate) fn report_ad(
         &self,
         report_url: Url,
         reason: ReportReason,
@@ -305,7 +260,7 @@ impl AdsClientInner {
     }
 
     // relevance is not implemented for image ads, using an empty HashMap.
-    pub fn request_image_ads(
+    pub(crate) fn request_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -330,7 +285,7 @@ impl AdsClientInner {
     }
 
     // relevance is not implemented for spocs, using an empty HashMap.
-    pub fn request_spoc_ads(
+    pub(crate) fn request_spoc_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -360,7 +315,7 @@ impl AdsClientInner {
     // This allows both types to be returned without error (as instances of the enum `AdImageOrSpoc`)
     // TODO: This, as well as the other synchronous functions, are to be deprecated
     // when the stateful client rework is complete.
-    pub fn request_spoc_or_image_ads(
+    pub(crate) fn request_spoc_or_image_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -386,7 +341,7 @@ impl AdsClientInner {
             })
     }
 
-    pub fn request_tile_ads(
+    pub(crate) fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         flags: AdRequestFlags,
@@ -413,7 +368,7 @@ impl AdsClientInner {
             })
     }
 
-    pub fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) {
         telemetry::uninstall();
 
         #[cfg(feature = "stateful")]
@@ -457,26 +412,29 @@ impl AdsClientInner {
 #[cfg(test)]
 mod tests {
 
-    #[cfg(feature = "stateful")]
-    use crate::ads_store::builder::AdsStoreBuilder;
     use crate::{
         mars::Environment,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
-            get_example_happy_uatile_response, make_happy_placement_requests,
+            get_example_happy_uatile_response, make_happy_placement_requests, memory_http_cache,
         },
     };
 
+    use super::builder::AdsClientBuilder;
     use super::*;
+    #[cfg(feature = "stateful")]
+    use crate::test_utils::memory_ads_store;
+
+    fn test_client() -> AdsClient {
+        AdsClientBuilder::default()
+            .environment(Environment::Test)
+            .build()
+    }
 
     fn new_with_mars_client(client: MARSClient) -> AdsClient {
         let inner = Arc::new(AdsClientInner {
             #[cfg(feature = "stateful")]
-            ads_store: Arc::new(Some(
-                AdsStoreBuilder::new(crate::IN_MEMORY_DB_PATH)
-                    .build()
-                    .expect("Simplest AdsStoreBuilder should be constructable"),
-            )),
+            ads_store: Arc::new(Some(memory_ads_store())),
             client,
             context_id_component: ContextIDComponent::new(
                 &Uuid::new_v4().to_string(),
@@ -492,13 +450,7 @@ mod tests {
 
     #[test]
     fn test_get_context_id() {
-        let config = AdsClientConfig {
-            cache_config: None,
-            environment: Environment::Test,
-            #[cfg(feature = "stateful")]
-            store_config: None,
-        };
-        let client = AdsClient::new(config);
+        let client = test_client();
         let context_id = client.get_context_id().unwrap();
         assert!(!context_id.is_empty());
     }
@@ -514,7 +466,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, None, None);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_image_ads(
@@ -539,7 +491,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, None, None);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_spoc_ads(
@@ -564,7 +516,7 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, None, None);
         let ads_client = new_with_mars_client(mars_client);
 
         let result = ads_client.request_tile_ads(
@@ -583,13 +535,7 @@ mod tests {
     fn test_context_id_is_sent_to_mars() {
         viaduct_dev::init_backend_dev();
 
-        let config = AdsClientConfig {
-            cache_config: None,
-            environment: Environment::Test,
-            #[cfg(feature = "stateful")]
-            store_config: None,
-        };
-        let client = AdsClient::new(config);
+        let client = test_client();
 
         // The client generates its own context id, so read it back first and
         // assert that exactly that value reaches the wire.
@@ -621,13 +567,7 @@ mod tests {
     fn test_context_id_is_not_sent_to_mars_when_relevance_is_set() {
         viaduct_dev::init_backend_dev();
 
-        let config = AdsClientConfig {
-            cache_config: None,
-            environment: Environment::Test,
-            #[cfg(feature = "stateful")]
-            store_config: None,
-        };
-        let client = AdsClient::new(config);
+        let client = test_client();
 
         // Matcher::Json compares the whole body, ignoring key order, so any
         // extra key such as context_id makes the request go unmatched.
@@ -659,7 +599,7 @@ mod tests {
     #[test]
     fn test_record_impression_removes_cap_key() {
         viaduct_dev::init_backend_dev();
-        let mars_client = MARSClient::new(Environment::Test, None);
+        let mars_client = MARSClient::new(Environment::Test, None, None);
         let ads_client = new_with_mars_client(mars_client);
 
         let base_url = mockito::server_url();
@@ -687,8 +627,8 @@ mod tests {
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory().build().unwrap();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache));
+        let cache = memory_http_cache();
+        let mars_client = MARSClient::new(Environment::Test, Some(cache), None);
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();

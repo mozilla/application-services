@@ -1,21 +1,10 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.build = [
-        // These must be kept in sync with the android components in mozilla-central.
-        compileSdkMajorVersion: 36,
-        compileSdkMinorVersion: 1,
-        targetSdkVersion: 36,
-        minSdkVersion: 26,
-        jvmTargetCompatibility: 17,
-    ]
-
     repositories {
         mavenCentral()
         google()
-        maven {
-            url = "https://plugins.gradle.org/m2/"
-        }
+        gradlePluginPortal()
         maven {
             name = "Mozilla"
             url = "https://maven.mozilla.org/maven2"
@@ -51,7 +40,6 @@ buildscript {
 
 plugins {
     alias libs.plugins.detekt
-    alias libs.plugins.kotlin.serialization apply false
 }
 
 allprojects {
@@ -78,7 +66,7 @@ allprojects {
 }
 
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
 
 // Avoid Gradle namespace collision.  This is here, rather than in `buildscript
@@ -105,41 +93,36 @@ ext.rustTargets = [
 ]
 
 // Generate libs for our current platform so we can run unit tests.
-switch (DefaultPlatform.RESOURCE_PREFIX) {
-    case 'darwin-x86-64':
-        ext.nativeRustTarget = 'darwin-x86-64'
-        break
-    case 'darwin-aarch64':
-        ext.nativeRustTarget = 'darwin-aarch64'
-        break
-    case 'linux-x86-64':
-        ext.nativeRustTarget = 'linux-x86-64'
-        break
-}
+// rust-android-gradle names its Linux and macOS desktop targets after JNA's resource prefixes.
+ext.nativeRustTarget = DefaultPlatform.RESOURCE_PREFIX
 ext.rustTargets += ext.nativeRustTarget
 
 subprojects {
     group = "org.mozilla.appservices"
-    if (!gradle.hasProperty("mozconfig")) {
-        apply plugin: 'maven-publish'
-    }
+    apply plugin: 'maven-publish'
     tasks.withType(AbstractTestTask).configureEach {
         failOnNoDiscoveredTests = false
     }
-    // Kotlin settings applicable to all modules.
-    afterEvaluate{
-        if (it.hasProperty('android')) {
-            android {
-                publishing {
-                    singleVariant('release') {
-                        withSourcesJar()
-                    }
+    tasks.withType(Test).configureEach {
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
+    }
+    // Settings shared by all modules, applied before each module's own build script configures them.
+    pluginManager.withPlugin('com.android.base') {
+        android {
+            buildToolsVersion = rootProject.config.buildToolsVersion
+            compileOptions {
+                sourceCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+                targetCompatibility = JavaVersion.toVersion(rootProject.config.jvmTargetCompatibility)
+            }
+            publishing {
+                singleVariant('release') {
+                    withSourcesJar()
                 }
             }
         }
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-            compilerOptions.allWarningsAsErrors = true
-        }
+    }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        compilerOptions.allWarningsAsErrors = true
     }
 
     // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
@@ -148,11 +131,11 @@ subprojects {
         repositories {
             maven {
                 name = "rootProjectBuildDir"
-                url = "file://${project.rootProject.buildDir}/maven"
+                url = rootProject.layout.buildDirectory.dir("maven")
             }
             maven {
                 name = "projectBuildDir"
-                url = "file://${project.buildDir}/maven"
+                url = layout.buildDirectory.dir("maven")
             }
         }
     }
@@ -164,23 +147,18 @@ subprojects {
 ext.cargoExec = { spec, toolchain ->
     spec.environment("NSS_STATIC", "1")
     spec.environment("NSS_DIR",               new File(rootProject.rootDir, "libs/${toolchain.folder}/nss").absolutePath)
-}
-
-detekt {
-    input = files(
-        fileTree(dir: "${projectDir}/components", excludes: ["external", "**/generated", "**/templates"]),
-        "${projectDir}/gradle-plugin",
-        "buildSrc"
-    )
-    buildUponDefaultConfig = true
-    config = files("${projectDir}/.detekt.yml")
-    reports {
-        xml.enabled = false
+    if (toolchain.folder.startsWith("android/")) {
+        spec.environment("BINDGEN_EXTRA_CLANG_ARGS", "--target=${toolchain.compilerTriple}${rootProject.config.minSdkVersion}")
     }
 }
 
-tasks.withType(io.gitlab.arturbosch.detekt.Detekt) {
-    exclude(".*test.*,.*/resources/.*,.*/tmp/.*,.*/build/.*")
+detekt {
+    source.setFrom(fileTree(dir: "${projectDir}/components", excludes: ["external", "**/build", "**/generated", "**/templates"]))
+    buildUponDefaultConfig = true
+    config.setFrom(files("${projectDir}/.detekt.yml"))
+    reports {
+        xml.required = false
+    }
 }
 
 configurations {
@@ -201,7 +179,7 @@ tasks.register("ktlint", JavaExec) {
     description = "Check Kotlin code style."
     classpath = configurations.ktlint
     mainClass = "com.pinterest.ktlint.Main"
-    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
+    args "${projectDir}/components/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
 }
 
 tasks.register("ktlintFormat", JavaExec) {
@@ -209,7 +187,7 @@ tasks.register("ktlintFormat", JavaExec) {
     description = "Fix Kotlin code style deviations."
     classpath = configurations.ktlint
     mainClass = "com.pinterest.ktlint.Main"
-    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
+    args "-F", "${projectDir}/components/**/*.kt", "!**/build", "!**/templates/**", "!components/external", "!**/generated/**"
     // Fix for newer Java from https://github.com/pinterest/ktlint/issues/1195#issuecomment-1009027802
     jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
 }

@@ -1,0 +1,8 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # The glean-probe scraper can be ref-pinned, since we trust the Glean repo.
+        "mozilla/probe-scraper/*": ref-pin
+        # Everything else must be hash-pinned
+        "*": hash-pin

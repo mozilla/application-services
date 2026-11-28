@@ -1,34 +1,10 @@
-buildscript {
-    // in mozilla-central there's no build.gradle suitable for the maven/glean config, so each component gets it.
-    if (gradle.hasProperty("mozconfig")) {
-        repositories {
-            gradle.mozconfig.substs.GRADLE_MAVEN_REPOSITORIES.each { repository ->
-                maven {
-                    url = repository
-                    if (gradle.mozconfig.substs.ALLOW_INSECURE_GRADLE_REPOSITORIES) {
-                        allowInsecureProtocol = true
-                    }
-                }
-            }
-        }
-
-        dependencies {
-            classpath libs.mozilla.glean.gradle.plugin
-        }
-    }
-}
-
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
     gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
-    if (gradle.hasProperty("mozconfig")) {
-        gleanPythonEnvDir = gradle.mozconfig.substs.GRADLE_GLEAN_PARSER_VENV
-    }
 }
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
@@ -42,8 +18,6 @@ dependencies {
     api project(':sync15')
     api project(':db-crypto')
 
-    implementation project(':init_rust_components')
-
     implementation libs.mozilla.glean
 
     testImplementation project(":syncmanager")
@@ -54,5 +28,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("logins")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

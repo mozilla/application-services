@@ -25,7 +25,7 @@
 
 use std::fmt::Display;
 
-use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
+use crate::http_cache::{CacheOutcome, HttpCacheError};
 
 mod backend;
 
@@ -70,8 +70,6 @@ pub enum BuildCacheErrorLabel {
     StoreDatabaseError,
     #[cfg(feature = "stateful")]
     StoreEmptyDbPath,
-    #[cfg(feature = "stateful")]
-    StoreInvalidMaxSize,
 }
 
 impl BuildCacheErrorLabel {
@@ -85,8 +83,6 @@ impl BuildCacheErrorLabel {
             Self::StoreDatabaseError => "store_database_error",
             #[cfg(feature = "stateful")]
             Self::StoreEmptyDbPath => "store_empty_db_path",
-            #[cfg(feature = "stateful")]
-            Self::StoreInvalidMaxSize => "store_invalid_max_size",
         }
     }
 }
@@ -150,16 +146,17 @@ pub fn record_client_error(operation: ClientOperation, error: &impl Display) {
 // By design: a free function, so recording a metric is one call from anywhere.
 /// Records a failure to build the HTTP cache against
 /// `ads_client.build_cache_error`.
-pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
+pub fn record_build_cache_error(error: &HttpCacheError) {
     let label = match error {
-        HttpCacheBuilderError::Database(_) => BuildCacheErrorLabel::DatabaseError,
-        HttpCacheBuilderError::DatabaseMemory(_) => BuildCacheErrorLabel::DatabaseError,
-        HttpCacheBuilderError::EmptyDbPath => BuildCacheErrorLabel::EmptyDbPath,
-        HttpCacheBuilderError::InvalidMaxSize { .. } => BuildCacheErrorLabel::InvalidMaxSize,
-        HttpCacheBuilderError::InvalidTtl { .. } => BuildCacheErrorLabel::InvalidTtl,
+        HttpCacheError::Database(_) | HttpCacheError::DatabaseMemory(_) => {
+            BuildCacheErrorLabel::DatabaseError
+        }
+        HttpCacheError::EmptyDbPath => BuildCacheErrorLabel::EmptyDbPath,
+        HttpCacheError::InvalidMaxSize { .. } => BuildCacheErrorLabel::InvalidMaxSize,
+        HttpCacheError::InvalidTtl { .. } => BuildCacheErrorLabel::InvalidTtl,
     };
     let value = match error {
-        HttpCacheBuilderError::Database(sql_support::open_database::Error::SqlError(
+        HttpCacheError::Database(sql_support::open_database::Error::SqlError(
             rusqlite::Error::SqliteFailure(
                 rusqlite::ffi::Error {
                     code: _,
@@ -167,8 +164,12 @@ pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
                 },
                 Some(_),
             ),
-        )) => format!("{0} ({1})", error, extended_code),
-        _ => error.to_string(),
+        )) => format!("{error} ({extended_code})"),
+        HttpCacheError::Database(_)
+        | HttpCacheError::DatabaseMemory(_)
+        | HttpCacheError::EmptyDbPath
+        | HttpCacheError::InvalidMaxSize { .. }
+        | HttpCacheError::InvalidTtl { .. } => error.to_string(),
     };
     backend::build_cache_error(label.as_str(), value);
 }
@@ -177,17 +178,33 @@ pub fn record_build_cache_error(error: &HttpCacheBuilderError) {
 /// Records a failure to build the ads store against
 /// `ads_client.build_cache_error`.
 #[cfg(feature = "stateful")]
-pub fn record_ads_store_error(error: &crate::ads_store::builder::AdsStoreBuilderError) {
+pub fn record_ads_store_error(error: &crate::ads_store::AdsStoreError) {
     // By design: telemetry owns every label, even though the ads store
     // records through it.
-    use crate::ads_store::builder::AdsStoreBuilderError;
+    use crate::ads_store::AdsStoreError;
 
     let label = match error {
-        AdsStoreBuilderError::Database(_) => BuildCacheErrorLabel::StoreDatabaseError,
-        AdsStoreBuilderError::EmptyDbPath => BuildCacheErrorLabel::StoreEmptyDbPath,
-        AdsStoreBuilderError::InvalidMaxSize { .. } => BuildCacheErrorLabel::StoreInvalidMaxSize,
+        AdsStoreError::Database(_) | AdsStoreError::DatabaseMemory(_) => {
+            BuildCacheErrorLabel::DatabaseError
+        }
+        AdsStoreError::EmptyDbPath => BuildCacheErrorLabel::StoreEmptyDbPath,
     };
-    backend::build_cache_error(label.as_str(), error.to_string());
+    let value = match error {
+        AdsStoreError::Database(sql_support::open_database::Error::SqlError(
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error {
+                    code: _,
+                    extended_code,
+                },
+                Some(_),
+            ),
+        )) => format!("{error} ({extended_code})"),
+        AdsStoreError::Database(_)
+        | AdsStoreError::DatabaseMemory(_)
+        | AdsStoreError::EmptyDbPath => error.to_string(),
+    };
+
+    backend::build_cache_error(label.as_str(), value);
 }
 
 // By design: a free function, so recording a metric is one call from anywhere.
@@ -229,10 +246,10 @@ mod test {
 
         let error_code = 4874;
         let error_without_message =
-            HttpCacheBuilderError::Database(sql_support::open_database::Error::SqlError(
+            HttpCacheError::Database(sql_support::open_database::Error::SqlError(
                 rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(error_code), None),
             ));
-        let error_with_message = HttpCacheBuilderError::Database(
+        let error_with_message = HttpCacheError::Database(
             sql_support::open_database::Error::SqlError(rusqlite::Error::SqliteFailure(
                 rusqlite::ffi::Error::new(error_code),
                 Some("Some obscure description".to_string()),

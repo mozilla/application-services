@@ -3,16 +3,16 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-pub mod ad_request;
-pub mod ad_response;
-pub mod environment;
-pub mod error;
+pub(crate) mod ad_request;
+pub(crate) mod ad_response;
+pub(crate) mod environment;
+pub(crate) mod error;
 mod preflight;
-pub mod report_reason;
+pub(crate) mod report_reason;
 mod transport;
 
-pub use environment::Environment;
-pub use report_reason::ReportReason;
+pub(crate) use environment::Environment;
+pub(crate) use report_reason::ReportReason;
 use sql_support::open_database;
 
 use self::{
@@ -26,30 +26,40 @@ use self::{
 };
 use crate::{
     http_cache::{HttpCache, RequestHash},
+    non_empty_string::NonEmptyString,
     CachePolicy,
 };
 use url::Url;
 use viaduct::{Headers, Request};
 
-pub struct MARSClient {
+pub(crate) struct MARSClient {
     environment: Environment,
     transport: MARSTransport,
+    user_agent: Option<NonEmptyString>,
 }
 
 impl MARSClient {
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
+    pub(crate) fn new(
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+        user_agent: Option<NonEmptyString>,
+    ) -> Self {
         Self {
             environment,
             transport: MARSTransport::new(http_cache),
+            user_agent,
         }
     }
 
-    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
+    pub(crate) fn clear_cache(&self) -> Result<(), open_database::Error> {
         self.transport.clear_cache()
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn fetch_ads(
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the fields of an ad request, and how to send it"
+    )]
+    pub(crate) fn fetch_ads(
         &self,
         context_id: Option<String>,
         flags: AdRequestFlags,
@@ -71,9 +81,7 @@ impl MARSClient {
         let request_hash = RequestHash::new(&ad_request);
 
         if ohttp {
-            ad_request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            ad_request.headers.extend(self.preflight_headers()?);
         }
 
         let response = self.transport.send(ad_request, &cache_policy, ohttp)?;
@@ -81,20 +89,22 @@ impl MARSClient {
         Ok((ads, request_hash))
     }
 
-    // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
-    #[allow(dead_code)]
-    pub fn invalidate_cache_by_hash(
+    #[expect(
+        dead_code,
+        reason = "cache invalidation on click is off until a Nimbus experiment re-enables it"
+    )]
+    pub(crate) fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
     ) -> Result<(), open_database::Error> {
         self.transport.invalidate_cache_by_hash(request_hash)
     }
 
-    pub fn record_click(&self, callback: Url, ohttp: bool) -> Result<(), RecordClickError> {
+    pub(crate) fn record_click(&self, callback: Url, ohttp: bool) -> Result<(), RecordClickError> {
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn record_impression(
+    pub(crate) fn record_impression(
         &self,
         callback: Url,
         ohttp: bool,
@@ -102,7 +112,7 @@ impl MARSClient {
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    pub fn report_ad(
+    pub(crate) fn report_ad(
         &self,
         mut callback: Url,
         reason: ReportReason,
@@ -114,9 +124,13 @@ impl MARSClient {
         Ok(self.make_callback_request(callback, ohttp)?)
     }
 
-    #[allow(dead_code)]
-    pub fn shutdown_db(&self) {
+    pub(crate) fn shutdown_db(&self) {
         self.transport.shutdown_db();
+    }
+
+    fn preflight_headers(&self) -> Result<Headers, CallbackRequestError> {
+        self.fetch_preflight()?
+            .into_headers(self.user_agent.as_ref())
     }
 
     fn fetch_preflight(&self) -> Result<preflight::PreflightResponse, CallbackRequestError> {
@@ -135,9 +149,7 @@ impl MARSClient {
     ) -> Result<(), CallbackRequestError> {
         let mut request = Request::get(callback);
         if ohttp {
-            request
-                .headers
-                .extend(Headers::try_from(self.fetch_preflight()?)?);
+            request.headers.extend(self.preflight_headers()?);
         }
         self.transport.fire(request, ohttp).map_err(Into::into)
     }
@@ -148,12 +160,13 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        get_example_happy_image_response, make_happy_placement_requests, TEST_CONTEXT_ID,
+        get_example_happy_image_response, make_happy_placement_requests, memory_http_cache,
+        TEST_CONTEXT_ID,
     };
     use mockito::mock;
 
     fn make_test_client(http_cache: Option<HttpCache>) -> MARSClient {
-        MARSClient::new(Environment::Test, http_cache)
+        MARSClient::new(Environment::Test, http_cache, None)
     }
 
     #[test]
@@ -247,11 +260,7 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let cache = HttpCache::builder_memory()
-            .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
-            .unwrap();
+        let cache = memory_http_cache();
         let client = make_test_client(Some(cache));
 
         // First call should be a miss then warm the cache
@@ -287,11 +296,7 @@ mod tests {
     #[test]
     fn test_record_click_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory()
-            .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
-            .unwrap();
+        let cache = memory_http_cache();
 
         let client = make_test_client(Some(cache));
         let callback_url = Url::parse(&format!("{}/click", mockito::server_url())).unwrap();
@@ -306,11 +311,7 @@ mod tests {
     #[test]
     fn test_record_impression_makes_callback_request() {
         viaduct_dev::init_backend_dev();
-        let cache = HttpCache::builder_memory()
-            .default_ttl(std::time::Duration::from_secs(300))
-            .max_size(crate::bytesize::ByteSize::mib(1))
-            .build()
-            .unwrap();
+        let cache = memory_http_cache();
 
         let client = make_test_client(Some(cache));
         let callback_url = Url::parse(&format!("{}/impression", mockito::server_url())).unwrap();

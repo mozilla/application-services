@@ -11,7 +11,6 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
 viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
-viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
 fxa-client = { path = "../../components/fxa-client" }
@@ -24,14 +23,25 @@ remote_settings = { path = "../../components/remote_settings", features=["teleme
 suggest = { path = "../../components/suggest" }
 sync15 = { path = "../../components/sync15" }
 db-crypto = { path = "../../components/support/db-crypto" }
-error-support = { path = "../../components/support/error", features = ["glean-sym"] }
+error-support = { path = "../../components/support/error" }
 tracing-support = { path = "../../components/support/tracing" }
 sync_manager = { path = "../../components/sync_manager" }
 as-ohttp-client = { path = "../../components/as-ohttp-client" }
 search = { path = "../../components/search" }
-init_rust_components = { path = "../../components/init_rust_components", features = ["ohttp"] }
+init_rust_components = { path = "../../components/init_rust_components", features = ["nss", "ohttp"] }
 merino = { path = "../../components/merino" }
 context_id = { path = "../../components/context_id" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
+glean-sym = { version = "71" }
+mozilla-central-workspace-hack = { version = "0.1", features = ["megazord_ios"], optional = true }
+rc_crypto = { path = "../../components/support/rc_crypto" }
+
+[target.'cfg(target_os = "ios")'.dependencies]
 glean-sym = { version = "71", features = ["active"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+viaduct-backend-rust = { path = "../../components/support/viaduct-backend-rust" }
+
+[features]
+mozbuild-rustlib = ["rc_crypto/mozbuild-rustlib"]

@@ -24,7 +24,6 @@ dependencies = [
  "chrono",
  "context_id",
  "error-support",
- "mockall",
  "mockito",
  "once_cell",
  "parking_lot",
@@ -1638,11 +1637,10 @@ dependencies = [
 name = "filter_adult"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "anyhow",
  "clap",
  "error-support",
  "md-5",
- "regex",
  "thiserror 2.0.20",
  "uniffi",
 ]
@@ -1704,9 +1702,9 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "form_urlencoded"
-version = "1.2.1"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
+checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
 ]
@@ -2403,9 +2401,9 @@ checksum = "25a2bc672d1148e28034f176e01fffebb08b35768468cc954630da77a1449005"
 
 [[package]]
 name = "idna"
-version = "1.0.3"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
+checksum = "3b0875f23caa03898994f6ddc501886a45c7d3d62d04d2d90788d47be1b1e4de"
 dependencies = [
  "idna_adapter",
  "smallvec",
@@ -2471,6 +2469,7 @@ dependencies = [
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "nss-as",
  "uniffi",
  "viaduct",
@@ -2815,6 +2814,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2836,6 +2841,7 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "autofill",
+ "context_id",
  "crashtest",
  "db-crypto",
  "error-support",
@@ -2869,7 +2875,9 @@ version = "0.1.0"
 dependencies = [
  "ads-client",
  "error-support",
+ "mozilla-central-workspace-hack",
  "nimbus-sdk",
+ "rc_crypto",
  "remote_settings",
  "rust-log-forwarder",
  "viaduct",
@@ -2892,9 +2900,11 @@ dependencies = [
  "init_rust_components",
  "logins",
  "merino",
+ "mozilla-central-workspace-hack",
  "nimbus-sdk",
  "places",
  "push",
+ "rc_crypto",
  "relay",
  "remote_settings",
  "rust-log-forwarder",
@@ -2937,11 +2947,13 @@ name = "merino"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "uniffi",
  "url",
+ "uuid",
  "viaduct",
 ]
 
@@ -3102,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-cli"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3113,6 +3125,7 @@ dependencies = [
  "glob",
  "heck",
  "local-ip-address",
+ "maplit",
  "nimbus-fml",
  "percent-encoding",
  "remote_settings",
@@ -3143,7 +3156,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-fml"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "askama 0.16.1",
@@ -3493,9 +3506,9 @@ dependencies = [
 
 [[package]]
 name = "percent-encoding"
-version = "2.3.1"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
+checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "pin-project-lite"
@@ -3943,6 +3956,8 @@ dependencies = [
  "error-support",
  "expect-test",
  "firefox-versioning",
+ "glean-build",
+ "glean-sym",
  "jexl-eval",
  "mockall",
  "mockito",
@@ -5187,6 +5202,7 @@ dependencies = [
  "camino",
  "cargo_metadata",
  "clap",
+ "mozilla-central-workspace-hack",
  "uniffi",
  "uniffi_bindgen",
 ]
@@ -5319,14 +5335,15 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.4"
+version = "2.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
+checksum = "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a"
 dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

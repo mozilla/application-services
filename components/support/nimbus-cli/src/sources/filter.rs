@@ -2,9 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{cli::ExperimentListFilterArgs, output::info::ExperimentInfo};
 use anyhow::Result;
 use serde_json::Value;
+
+use crate::cli::ExperimentListFilterArgs;
+use crate::config::App;
+use crate::output::info::ExperimentInfo;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct ExperimentListFilter {
@@ -24,7 +27,7 @@ impl From<&ExperimentListFilterArgs> for ExperimentListFilter {
             feature_pattern: value.feature.clone(),
             active_on: value.active_on.clone(),
             enrolling_on: value.enrolling_on.clone(),
-            channel: value.channel.clone(),
+            channel: value.channel.as_ref().map(ToString::to_string),
             is_rollout: value.is_rollout,
             ..Default::default()
         }
@@ -32,7 +35,7 @@ impl From<&ExperimentListFilterArgs> for ExperimentListFilter {
 }
 
 impl ExperimentListFilter {
-    pub(crate) fn for_app(app: &str) -> Self {
+    pub(crate) fn for_app(app: App) -> Self {
         ExperimentListFilter {
             app: Some(app.to_string()),
             ..Default::default()

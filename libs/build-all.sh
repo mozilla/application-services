@@ -2,10 +2,10 @@
 
 set -euvx
 
-NSS="nss-3.125"
-NSS_ARCHIVE="nss-3.125-with-nspr-4.39.tar.gz"
-NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_125_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="fa3e7dcd151a7f3331a2dbf4cc57bcf4444e4c9c2b67ac00363409a7c4ecfa9d"
+NSS="nss-3.134"
+NSS_ARCHIVE="nss-3.134-with-nspr-4.41.tar.gz"
+NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_134_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="d37c4871ec83d72f5b98450458d09eb57e068a0b148a7f7cf5f6fa928af9664f"
 
 # End of configuration.
 
@@ -85,21 +85,6 @@ diff -r 65efa74ef84a coreconf/config.gypi
        [ \'mozpkix_only==1 and OS=="linux"\', {
          \'include_dirs\': [
 ' | patch "${NSS_SRC_PATH}/nss/coreconf/config.gypi"
-
-# Early return hack to prevent NSPR Android setup
-# which does not work with ndk unified headers and clang.
-echo $'\
-@@ -2662,6 +2662,9 @@
-
- case "$target" in
- *-android*|*-linuxandroid*)
-+    $as_echo "#define ANDROID 1" >>confdefs.h
-+    ;;
-+    unreachable)
-     if test -z "$android_ndk" ; then
-        as_fn_error $? "You must specify --with-android-ndk=/path/to/ndk when targeting Android." "$LINENO" 5
-     fi
-' | patch "${NSS_SRC_PATH}/nspr/configure"
 
 if [[ "${PLATFORM}" == "ios" ]]
 then

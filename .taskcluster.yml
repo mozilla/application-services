@@ -6,14 +6,14 @@ version: 1
 reporting: checks-v1
 policy:
     allowComments: collaborators
-    pullRequests: public
+    pullRequests: public_restricted
 tasks:
     - $let:
           trustDomain: app-services
           isPullRequest:
-              $eval: 'tasks_for == "github-pull-request" || tasks_for == "github-issue-comment"'
+              $eval: 'tasks_for[:19] == "github-pull-request" || tasks_for == "github-issue-comment"'
           pullRequestAction:
-              $if: 'tasks_for == "github-pull-request"'
+              $if: 'tasks_for[:19] == "github-pull-request"'
               then: ${event.action}
               else: 'UNDEFINED'
           issueCommentAction:
@@ -93,7 +93,7 @@ tasks:
                               $merge:
                                   - owner: "${ownerEmail}"
                                     source: '${repoUrl}/raw/${head_sha}/.taskcluster.yml'
-                                  - $if: 'tasks_for in ["github-push", "github-pull-request", "github-issue-comment"]'
+                                  - $if: 'tasks_for in ["github-push", "github-issue-comment"] || tasks_for[:19] == "github-pull-request"'
                                     then:
                                         name: "Decision Task (${tasks_for[7:]})" # strip out "github-" from tasks_for
                                         description: 'The task that creates all of the other tasks in the task graph'
@@ -111,7 +111,7 @@ tasks:
                           provisionerId: "app-services-${level}"
                           workerType: "decision"
                           tags:
-                              $if: 'tasks_for in ["github-push", "github-pull-request", "github-issue-comment"]'
+                              $if: 'tasks_for in ["github-push", "github-issue-comment"] || tasks_for[:19] == "github-pull-request"'
                               then:
                                   kind: decision-task
                               else:
@@ -149,7 +149,11 @@ tasks:
                               else:
                                   $if: isPullRequest
                                   then:
-                                      - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
+                                      $if: 'tasks_for == "github-issue-comment"'
+                                      then:
+                                          - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
+                                      else:
+                                          - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:${tasks_for[7:]}'
                                   else:
                                       $if: 'tasks_for == "action"'
                                       then:
@@ -176,7 +180,7 @@ tasks:
                                         ANDROID_SDK_ROOT: /builds/worker/android-sdk
                                         MOZ_FETCHES_DIR: /builds/worker/fetches
                                         TASKCLUSTER_CACHES: /builds/worker/checkouts
-                                      - $if: 'tasks_for in ["github-pull-request"]'
+                                      - $if: 'tasks_for[:19] == "github-pull-request"'
                                         then:
                                             APPSERVICES_PULL_REQUEST_TITLE: '${event.pull_request.title}'
                                             APPSERVICES_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
@@ -193,9 +197,11 @@ tasks:
                                   taskclusterProxy: true
                                   chainOfTrust: true
                               # Note: This task is built server side without the context or tooling that
-                              # exist in tree so we must hard code the hash
+                              # exist in tree so we must hard code the hash.
+                              # taskgraph itself comes from APPSERVICES_PIP_REQUIREMENTS, which run-task
+                              # installs into ~/.local, so the command below adds ~/.local/bin to PATH.
                               image:
-                                  mozillareleases/taskgraph:decision-v11.2.4@sha256:eb53b1ca6b86b1344d61f55aab77b130048c0ae007eef181ec82eec327e91e07
+                                  mozillareleases/taskgraph:run-task-v24.6.0@sha256:585c0fb90f39cd66baa1d3a3f43ab045d127140892ed0e327b6ee8043f264556
 
                               maxRunTime: 1800
 
@@ -218,9 +224,11 @@ tasks:
                                     in:
                                       $if: 'tasks_for == "action"'
                                       then: >
+                                        export PATH="$HOME/.local/bin:$PATH" &&
                                         ln -s /builds/worker/artifacts artifacts &&
                                         taskgraph action-callback
                                       else: >
+                                        export PATH="$HOME/.local/bin:$PATH" &&
                                         ln -s /builds/worker/artifacts artifacts &&
                                         taskgraph decision
                                         --pushlog-id='0'
@@ -255,7 +263,7 @@ tasks:
                                         $merge:
                                             - machine:
                                                   platform: gecko-decision
-                                            - $if: 'tasks_for in ["github-push", "github-pull-request"]'
+                                            - $if: 'tasks_for == "github-push" || tasks_for[:19] == "github-pull-request"'
                                               then:
                                                   symbol: D
                                               else:

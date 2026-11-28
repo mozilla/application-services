@@ -1,0 +1,7 @@
+[advisories]
+ignore = [
+  # libsqlite3-sys
+  # `libsqlite3-sys` via C SQLite CVE-2026-119375.
+  # We need to coordinate an update of rusqlite/libsqlite3-sys with glean/m-c.
+  "RUSTSEC-2026-0459",
+]

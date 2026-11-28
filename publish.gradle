@@ -4,33 +4,24 @@
 
 import groovy.xml.XmlSlurper
 
-def libLicense = properties.libLicense
-def libLicenseUrl = properties.libLicenseUrl
-def libRepositoryName = properties.libRepositoryName
-def libProjectName = properties.libProjectName
-def libUrl = properties.libUrl
-def libVcsUrl = properties.libVcsUrl
+def libLicense = providers.gradleProperty("libLicense").get()
+def libLicenseUrl = providers.gradleProperty("libLicenseUrl").get()
+def libUrl = providers.gradleProperty("libUrl").get()
+def libVcsUrl = providers.gradleProperty("libVcsUrl").get()
 
 // The `Arg` suffixes matter. Naming these `groupId`, `artifactId` or `description` shadows the
 // assignments to the publication down in `pom`, which then silently do nothing.
-ext.configurePublish = { groupIdArg = null, artifactIdArg = null, descriptionArg = null ->
-    def theGroupId = groupIdArg ?: rootProject.config.componentsGroupId
-    def theArtifactId = artifactIdArg ?: project.ext.artifactId
-    def theDescription = descriptionArg ?: project.ext.description
-
+// mozilla-central applies android-components' publish.gradle instead of this one.
+ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
     // This is a little cludgey, but it seems unlikely to cause a problem, and
     // we are already doing it inside taskcluster.
-    def isMegazord = theArtifactId.endsWith("-megazord")
+    def isMegazord = artifactIdArg.endsWith("-megazord")
 
     publishing {
         publications {
             aar(MavenPublication) {
-                // This doesn't work in m-c, but the entire "publish" flow will almost certainly need rethinking there,
-                // so just paper over this for now.
-                if (!gradle.root.hasProperty("mozconfig")) {
-                    project.afterEvaluate {
-                        from components.release
-                    }
+                project.afterEvaluate {
+                    from components.release
                 }
 
                 if (isMegazord) {
@@ -44,9 +35,9 @@ ext.configurePublish = { groupIdArg = null, artifactIdArg = null, descriptionArg
                 // see https://github.com/researchgate/gradle-release/issues/125 and
                 // https://stackoverflow.com/q/28020520.
                 pom {
-                    groupId = theGroupId
-                    artifactId = theArtifactId
-                    description = theDescription
+                    groupId = groupIdArg
+                    artifactId = artifactIdArg
+                    description = descriptionArg
                     // For mavenLocal publishing workflow, increment the version number every publish.
                     // We only do this to the .pom file and not in $MEGAZORD_VERSION, because otherwise we
                     // would need to rebuild the megazord .so on every publish, even if nothing else had changed.
@@ -61,8 +52,7 @@ ext.configurePublish = { groupIdArg = null, artifactIdArg = null, descriptionArg
                     // Megazords include compiled code from third-party rust dependencies.
                     // We add the license info of those dependencies to the .pom to make it
                     // easy for consumers to incorporate into their license info page.
-                    // Not clear what to do in mozilla-central though - bug 1963617.
-                    if (isMegazord && !gradle.root.hasProperty("mozconfig")) {
+                    if (isMegazord) {
                         def depLicenses = new XmlSlurper().parse(new File("${projectDir}/dependency-licenses.xml"))
                         depLicenses.license.each { node ->
                             license {
@@ -93,7 +83,7 @@ ext.configurePublish = { groupIdArg = null, artifactIdArg = null, descriptionArg
 
     publishing.publications.withType(MavenPublication).each {publication ->
         def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
-            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.layout.buildDirectory.get().asFile, publication.artifactId
         }
         checkMavenArtifacts.dependsOn(checkFileSizeTask)
     }

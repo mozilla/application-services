@@ -19,6 +19,8 @@ pub enum SyncStatus {
     BackoffError,
     /// Content signature verification failed.
     SignatureError,
+    /// The certificate chain URL is unreachable or has invalid content-type.
+    CertificateError,
     /// Server error (5xx status)
     ServerError,
     /// An unknown error occurred.
@@ -32,7 +34,9 @@ impl fmt::Display for SyncStatus {
             SyncStatus::UpToDate => "up_to_date",
             SyncStatus::NetworkError => "network_error",
             SyncStatus::BackoffError => "backoff_error",
-            SyncStatus::SignatureError => "signature_error",
+            // We align the telemetry value with Desktop to simplify queries.
+            SyncStatus::SignatureError => "sign_retry_error",
+            SyncStatus::CertificateError => "certificate_error",
             SyncStatus::ServerError => "server_error",
             SyncStatus::UnknownError => "unknown_error",
         };
@@ -85,10 +89,33 @@ pub trait RemoteSettingsTelemetry: Send + Sync {
     fn report_uptake(&self, extras: UptakeEventExtras);
 }
 
+#[cfg(not(feature = "glean-sym"))]
 struct NoopRemoteSettingsTelemetry;
 
+#[cfg(not(feature = "glean-sym"))]
 impl RemoteSettingsTelemetry for NoopRemoteSettingsTelemetry {
     fn report_uptake(&self, _extras: UptakeEventExtras) {}
+}
+
+#[cfg(feature = "glean-sym")]
+struct GleanSymTelemetry;
+
+#[cfg(feature = "glean-sym")]
+impl RemoteSettingsTelemetry for GleanSymTelemetry {
+    fn report_uptake(&self, extras: UptakeEventExtras) {
+        use crate::glean_metrics::remote_settings::{
+            uptake_remotesettings, UptakeRemotesettingsExtra,
+        };
+        uptake_remotesettings.record(UptakeRemotesettingsExtra {
+            value: extras.value,
+            source: extras.source,
+            age: extras.age,
+            trigger: extras.trigger,
+            timestamp: extras.timestamp,
+            duration: extras.duration,
+            errorname: extras.error_name,
+        });
+    }
 }
 
 /// Wrapper around [RemoteSettingsTelemetry] used internally.
@@ -97,15 +124,23 @@ pub struct RemoteSettingsTelemetryWrapper {
     inner: Arc<dyn RemoteSettingsTelemetry>,
 }
 
+impl Default for RemoteSettingsTelemetryWrapper {
+    fn default() -> Self {
+        // Record telemetry directly from Rust.
+        // [crate::RemoteSettingsService::set_telemetry] will be ignored.
+        #[cfg(feature = "glean-sym")]
+        let inner = Arc::new(GleanSymTelemetry);
+        // Otherwise, set to no-op untils the application calls
+        // [crate::RemoteSettingsService::set_telemetry].
+        #[cfg(not(feature = "glean-sym"))]
+        let inner = Arc::new(NoopRemoteSettingsTelemetry);
+        Self::new(inner)
+    }
+}
+
 impl RemoteSettingsTelemetryWrapper {
     pub fn new(inner: Arc<dyn RemoteSettingsTelemetry>) -> Self {
         Self { inner }
-    }
-
-    pub fn noop() -> Self {
-        Self {
-            inner: Arc::new(NoopRemoteSettingsTelemetry),
-        }
     }
 
     pub fn report_uptake_success(&self, source: &str, duration: Option<u64>) {
@@ -143,6 +178,7 @@ impl RemoteSettingsTelemetryWrapper {
             .unwrap_or("")
             .trim()
             .to_string();
+
         self.inner.report_uptake(UptakeEventExtras {
             value: Some(error_to_status(error).to_string()),
             source: Some(source.to_string()),
@@ -164,6 +200,7 @@ fn error_to_status(error: &Error) -> SyncStatus {
         Error::IncompleteSignatureDataError(_) => SyncStatus::SignatureError,
         #[cfg(feature = "signatures")]
         Error::SignatureError(_) => SyncStatus::SignatureError,
+        Error::CertificateError(_) => SyncStatus::CertificateError,
         _ => SyncStatus::UnknownError,
     }
 }

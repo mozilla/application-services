@@ -1,5 +1,11 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #[cfg(feature = "stateful")]
-use ads_client::ads_store::builder::AdsStoreBuilder;
+use ads_client::ads_store::AdsStore;
+#[cfg(feature = "stateful")]
+use ads_client::bytesize::ByteSize;
 #[cfg(feature = "stateful")]
 use std::path::Path;
 
@@ -13,7 +19,7 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
         if test_db_location_path.components().count() != 1 || !test_db_location_path.is_relative() {
             panic!("Tests provided to `clear_test_dbs` must single-component and in the current directory: {test_db_location}");
         }
-        match std::fs::remove_file(&test_db_location_path) {
+        match std::fs::remove_file(test_db_location_path) {
             Ok(()) => println!("Deleted previous test's `{test_db_location}`"),
             Err(e) => println!("Did not delete previous test's `{test_db_location}`: {e}"),
         }
@@ -26,25 +32,24 @@ fn clear_test_dbs(test_db_locations: &[&'static str]) {
 fn test_bad_path_opens_memory_db() {
     clear_test_dbs(&["good_path.db"]);
 
-    let good_path = AdsStoreBuilder::new("good_path.db")
-        .build()
+    let good_path = AdsStore::new("good_path_adsstore.db", ByteSize::mib(1))
         .expect("Should be able to build a bad path");
     assert!(
         !good_path.is_memory().unwrap(),
         "A valid path should result in a file-based sqlite database"
     );
 
-    let bad_path = AdsStoreBuilder::new("this/is/a/test/bad/path")
-        .build()
+    let bad_path = AdsStore::new("this/is/a/test/bad/path", ByteSize::mib(1))
         .expect("Should be able to build a bad path");
     assert!(
         bad_path.is_memory().unwrap(),
         "Invalid path should result in a memory-based sqlite database"
     );
 
-    let empty_path = AdsStoreBuilder::new("").build();
+    let memory =
+        AdsStore::new(":memory:", ByteSize::mib(1)).expect("Should be able to build a memory db");
     assert!(
-        empty_path.is_err(),
-        "An empty string for a path should result in an error"
-    );
+        memory.is_memory().unwrap(),
+        "`:memory:` should result in a memory-based sqlite database"
+    )
 }

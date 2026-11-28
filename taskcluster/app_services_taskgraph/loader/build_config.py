@@ -11,10 +11,10 @@ from taskgraph.loader.transform import loader as base_loader
 from ..build_config import get_components
 
 
-def loader(kind, path, config, params, loaded_tasks):
+def loader(kind, path, config, params, loaded_tasks, write_artifacts):
     config["tasks"] = {
         component["name"]: {"attributes": {"buildconfig": component}}
         for component in get_components()
     }
 
-    return base_loader(kind, path, config, params, loaded_tasks)
+    return base_loader(kind, path, config, params, loaded_tasks, write_artifacts)

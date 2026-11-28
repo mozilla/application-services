@@ -1,0 +1,7 @@
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+
+android {
+    namespace = 'org.mozilla.appservices.context_id'
+}
+
+ext.configureUniFFIBindgen("context_id")

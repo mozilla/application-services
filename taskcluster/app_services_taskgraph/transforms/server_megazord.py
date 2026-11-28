@@ -59,7 +59,7 @@ def setup_linux_build_task(task, target, binary):
         "commands": [
             ["taskcluster/scripts/server-megazord-build.py", binary, target, "build/"],
         ],
-        "use-caches": True,
+        "use-caches": ["checkout"],
     }
     task["fetches"] = {
         "toolchain": [

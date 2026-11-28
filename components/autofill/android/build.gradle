@@ -1,5 +1,4 @@
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
-apply from: "$publishDir/publish.gradle"
 
 android {
     namespace = 'org.mozilla.appservices.autofill'
@@ -17,5 +16,3 @@ dependencies {
 }
 
 ext.configureUniFFIBindgen("autofill")
-ext.dependsOnTheMegazord()
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)

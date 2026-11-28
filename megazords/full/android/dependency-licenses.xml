@@ -342,7 +342,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: pkg-config</name>
-    <url>https://github.com/rust-lang/pkg-config-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/pkg-config-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: plain</name>
@@ -454,7 +454,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: smallvec</name>
-    <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/smallvec/smallvec/blob/refs/heads/v1/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: stable_deref_trait</name>

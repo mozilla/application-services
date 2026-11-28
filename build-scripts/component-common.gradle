@@ -11,16 +11,6 @@ import javax.inject.Inject
 
 apply plugin: 'com.android.library'
 
-// When built as part of mozilla-central (mozconfig present), AGP 9 provides
-// built-in Kotlin support and rejects this plugin; standalone builds still use
-// an older AGP that requires it.
-if (!gradle.hasProperty("mozconfig")) {
-    apply plugin: 'kotlin-android'
-    kotlin {
-        jvmToolchain(rootProject.config.jvmTargetCompatibility)
-    }
-}
-
 // Typed task used in the standalone app-services build, where the megazord
 // dynamic library is produced by a separate gradle task and only exists when
 // generateUniffiBindings runs (not at configuration time).
@@ -52,10 +42,6 @@ abstract class GenerateUniffiBindingsCargo extends DefaultTask {
             include "${nativeRustTarget.get()}/libmegazord.*"
         }.singleFile
 
-        if (libraryPath == null) {
-            throw new GradleException("libmegazord dynamic library path not found")
-        }
-
         execOperations.exec {
             workingDir workingDirectory.get().asFile
             commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate',
@@ -67,25 +53,17 @@ abstract class GenerateUniffiBindingsCargo extends DefaultTask {
 }
 
 android {
-    compileSdk { version = release(config.compileSdkMajorVersion) { minorApiLevel = config.compileSdkMinorVersion } }
+    compileSdk { version = release(rootProject.config.compileSdkMajorVersion) { minorApiLevel = rootProject.config.compileSdkMinorVersion } }
 
     defaultConfig {
-        ndkVersion = config.ndkVersion
-        minSdkVersion config.minSdkVersion
-        targetSdkVersion config.targetSdkVersion
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
-    }
-
-    buildFeatures {
-        buildConfig = true
+        ndkVersion = rootProject.config.ndkVersion
+        minSdkVersion rootProject.config.minSdkVersion
+        targetSdkVersion rootProject.config.targetSdkVersion
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
@@ -93,6 +71,9 @@ android {
     testOptions {
         unitTests {
             includeAndroidResources = true
+            all {
+                jvmArgs "-javaagent:${configurations.mockitoAgent.asPath}"
+            }
         }
     }
 
@@ -102,60 +83,51 @@ android {
 
 }
 
+// Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
+// sets of files produced by one component and consumed by another.
+configurations {
+    mockitoAgent
+    megazordNative {
+        canBeConsumed = false
+    }
+}
+
 dependencies {
     testImplementation platform(libs.junit.bom)
     testImplementation libs.junit4
     testRuntimeOnly libs.junit.platform.launcher
     testRuntimeOnly libs.junit.vintage
     testImplementation libs.mockito
+    mockitoAgent(libs.mockito) {
+        transitive = false
+    }
     testImplementation libs.robolectric
 
-    androidTestImplementation libs.androidx.test.espresso.core
-    androidTestImplementation libs.androidx.test.runner
-}
+    // Every component depends on libmegazord
+    //
+    // This ensures that libmegazord will be in the library path so that it can be loaded.  It also adds
+    // the transitive JNA dependency.
+    api project(":full-megazord")
 
-// Pick the publish group id by build context. In m-c, `config` belongs to
-// android-components (`config.componentsGroupId` is `org.mozilla.components`),
-// so we hardcode `org.mozilla.appservices`. Standalone app-services uses
-// `config.componentsGroupId`, which is the only place that appends the
-// `.nightly` suffix nightly builds publish under.
-ext.appServicesGroupId = gradle.root.hasProperty("mozconfig")
-    ? "org.mozilla.appservices"
-    : rootProject.config.componentsGroupId
-
-// Shared logic for projects that depend on libmegazord
-//
-// This ensures that libmegazord will be in the library path so that it can be loaded.  It also adds
-// the transitive JNA dependency.
-ext.dependsOnTheMegazord = {
-    dependencies {
-        api project(":full-megazord")
-
-        // Add a JNA dependency, which is required by UniFFI.
-        implementation(libs.jna) {
-            artifact {
-                type = "aar"
-            }
+    // Add a JNA dependency, which is required by UniFFI.
+    implementation(libs.jna) {
+        artifact {
+            type = "aar"
         }
     }
 
-    // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
-    // sets of files produced by one component and consumed by another.
-    configurations {
-        megazordNative {
-            canBeConsumed = false
+    megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
+    testImplementation(project(":full-megazord")) {
+        capabilities {
+            requireCapability("org.mozilla.appservices:full-megazord-libsForTests")
         }
     }
-
-    dependencies {
-        megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
-        implementation project("path": ":full-megazord", "configuration": "libsForTests")
-    }
 }
+
+apply from: "$publishDir/publish.gradle"
+ext.configurePublish(rootProject.config.appServicesGroupId, project.name, project.ext.description)
 
 // Shared logic for projects that use UniFFI-generated bindings
-//
-// Make sure to also call dependsOnTheMegazord()
 ext.configureUniFFIBindgen = { crateName ->
     if (gradle.hasProperty("mozconfig")) {
         // For now, generated source files are checked into `firefox-main`.

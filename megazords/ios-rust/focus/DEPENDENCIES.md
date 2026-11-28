@@ -46,6 +46,7 @@ the details of which are reproduced below.
 
 The following text applies to code linked from these dependencies:
 [glean-build](https://github.com/mozilla/glean),
+[glean-sym](https://github.com/mozilla/glean),
 [jexl-eval](https://github.com/mozilla/jexl-rs),
 [jexl-parser](https://github.com/mozilla/jexl-rs),
 [uniffi](https://github.com/mozilla/uniffi-rs),

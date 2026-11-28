@@ -3,16 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::{HashMap, HashSet};
-use std::time::SystemTime;
 
 use crate::{
     internal::{
         oauth::{AccessTokenInfo, RefreshToken},
         profile::Profile,
+        scopes,
         state_persistence::state_to_json,
         CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    DeviceCapability, FxaRustAuthState, LocalDevice, Result, ScopedKey,
+    DeviceCapability, FxaState, LocalDevice, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client
@@ -43,24 +43,16 @@ impl StateManager {
     }
 
     pub fn refresh_token(&self) -> Option<&RefreshToken> {
-        // If we are logged out because of auth issues, we don't have a valid refresh token. We may
-        // still have a saved one from our last auth attempt, but we should only use it if we are
-        // trying to reauth, in which case `refresh_token_for_reauth()` should be used.
-        if self.persisted_state.logged_out_from_auth_issues {
-            None
-        } else {
-            self.persisted_state.refresh_token.as_ref()
-        }
-    }
-
-    /// Gets the refresh token if it is available, even if we are in the
-    /// `logged_out_from_auth_issues` state.
-    pub fn refresh_token_for_reauth(&self) -> Option<&RefreshToken> {
         self.persisted_state.refresh_token.as_ref()
     }
 
     pub fn session_token(&self) -> Option<&str> {
         self.persisted_state.session_token.as_deref()
+    }
+
+    #[cfg(test)] // only used in tests for now.
+    pub fn last_refresh_token_scopes(&self) -> &HashSet<String> {
+        &self.persisted_state.last_refresh_token_scopes
     }
 
     /// Get our device capabilities
@@ -86,31 +78,6 @@ impl StateManager {
     /// Update the last known LocalDevice info when getting one back from the server
     pub fn update_server_local_device_info(&mut self, local_device: LocalDevice) {
         self.persisted_state.server_local_device_info = Some(local_device)
-    }
-
-    /// Checks if enough time has passed since the last auth attempt that we should try checking the
-    /// auth again.
-    pub fn should_recheck_auth(&self) -> bool {
-        let last_auth_time: u64 = self.persisted_state.last_auth_check_time.unwrap_or(0);
-        // Authentication interval is one week
-        let next_auth_time = last_auth_time + (7 * 24 * 60 * 60);
-        // This should only return an error if `now()` is before the epoch. This is an unexpected
-        // case and we will just return `false` if this happens (presumably resulting in a recheck
-        // not being made).
-        if let Ok(now) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-            let now: u64 = now.as_secs();
-            if next_auth_time <= now {
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn reset_auth_recheck_timer(&mut self) {
-        // Attempt to reset the timer that indicates how long until we recheck the auth issues
-        if let Ok(now) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-            self.persisted_state.last_auth_check_time = Some(now.as_secs());
-        }
     }
 
     /// Clear out the last known LocalDevice info. This means that the next call to
@@ -175,10 +142,18 @@ impl StateManager {
         self.persisted_state.access_token_cache.get(scope)
     }
 
+    pub fn has_cached_access_token(&self, scope: &str) -> bool {
+        self.persisted_state.access_token_cache.contains_key(scope)
+    }
+
     pub fn add_cached_access_token(&mut self, scope: impl Into<String>, token: AccessTokenInfo) {
         self.persisted_state
             .access_token_cache
             .insert(scope.into(), token);
+    }
+
+    pub fn remove_cached_access_token(&mut self, scope: &str) {
+        self.persisted_state.access_token_cache.remove(scope);
     }
 
     pub fn clear_access_token_cache(&mut self) {
@@ -239,6 +214,7 @@ impl StateManager {
     pub fn disconnect(&mut self) {
         self.persisted_state.current_device_id = None;
         self.persisted_state.refresh_token = None;
+        self.persisted_state.last_refresh_token_scopes = HashSet::new();
         self.persisted_state.scoped_keys = HashMap::new();
         self.persisted_state.last_handled_command = None;
         self.persisted_state.commands_data = HashMap::new();
@@ -248,7 +224,6 @@ impl StateManager {
         self.persisted_state.session_token = None;
         self.persisted_state.logged_out_from_auth_issues = false;
         self.persisted_state.last_seen_profile = None;
-        self.persisted_state.last_auth_check_time = None;
         self.flow_store.clear();
     }
 
@@ -260,31 +235,60 @@ impl StateManager {
     ///
     ///   * `current_device_id`
     ///   * `device_capabilities`
-    ///   * `last_auth_check_time`
     ///   * `last_handled_command`
-    ///   * `refresh_token`
+    ///
+    /// Unfortunately it's not clear any of these fields must have been set for an account to move
+    /// to the Connected state, otherwise we could have used that instead of logged_out_from_auth_issues
+    /// to differentiate Disconnected from AuthIssues.
     pub fn on_auth_issues(&mut self) {
         self.persisted_state.scoped_keys = HashMap::new();
         self.persisted_state.commands_data = HashMap::new();
         self.persisted_state.access_token_cache = HashMap::new();
         self.persisted_state.server_local_device_info = None;
         self.persisted_state.session_token = None;
+        let refresh_token = std::mem::take(&mut self.persisted_state.refresh_token);
+        self.persisted_state.last_refresh_token_scopes =
+            refresh_token.map(|t| t.scopes).unwrap_or_default();
         self.persisted_state.logged_out_from_auth_issues = true;
         self.flow_store.clear();
     }
 
-    pub fn on_recovered_from_auth_issues(&mut self) {
-        self.persisted_state.logged_out_from_auth_issues = false;
+    pub fn get_initial_state(&self) -> FxaState {
+        if self.persisted_state.refresh_token.is_some() {
+            if self.stored_auth_state().is_valid() {
+                FxaState::Connected
+            } else {
+                FxaState::AuthIssues
+            }
+        } else if self.persisted_state.logged_out_from_auth_issues {
+            FxaState::AuthIssues
+        } else {
+            FxaState::Disconnected
+        }
     }
 
-    pub fn get_auth_state(&self) -> FxaRustAuthState {
-        if self.persisted_state.logged_out_from_auth_issues {
-            FxaRustAuthState::AuthIssues
-        } else if self.persisted_state.refresh_token.is_some() {
-            FxaRustAuthState::Connected
-        } else {
-            FxaRustAuthState::Disconnected
+    /// Check the stored authorization state
+    ///
+    /// If the state is valid, the refresh token will be returned.
+    /// If the state is invalid, then None will be returned.
+    pub fn stored_auth_state(&self) -> StoredAuthState<'_> {
+        if self.session_token().is_none() {
+            // Missing session token is an invalid auth state for now since we need it for
+            // `get_attached_clients()`.  Once we only can use the refresh token for all operations,
+            // consider removing this branch.
+            return StoredAuthState::Invalid;
         }
+        let Some(refresh_token) = self.refresh_token() else {
+            // Missing refresh token
+            return StoredAuthState::Invalid;
+        };
+        if refresh_token.scopes.contains(scopes::OLD_SYNC)
+            && self.get_scoped_key(scopes::OLD_SYNC).is_none()
+        {
+            // Missing sync key
+            return StoredAuthState::Invalid;
+        }
+        StoredAuthState::Valid { refresh_token }
     }
 
     /// Handle the auth tokens changing
@@ -296,6 +300,7 @@ impl StateManager {
         self.persisted_state.refresh_token = Some(refresh_token);
         self.persisted_state.access_token_cache.clear();
         self.persisted_state.server_local_device_info = None;
+        self.persisted_state.logged_out_from_auth_issues = false;
     }
 
     /// Update the refresh token only
@@ -328,6 +333,17 @@ impl StateManager {
     }
 }
 
+pub enum StoredAuthState<'a> {
+    Valid { refresh_token: &'a RefreshToken },
+    Invalid,
+}
+
+impl StoredAuthState<'_> {
+    pub fn is_valid(&self) -> bool {
+        matches!(self, Self::Valid { .. })
+    }
+}
+
 #[cfg(test)]
 impl StateManager {
     pub fn is_access_token_cache_empty(&self) -> bool {
@@ -336,6 +352,10 @@ impl StateManager {
 
     pub fn force_refresh_token(&mut self, token: RefreshToken) {
         self.persisted_state.refresh_token = Some(token)
+    }
+
+    pub fn force_session_token(&mut self, token: impl Into<String>) {
+        self.persisted_state.session_token = Some(token.into())
     }
 
     pub fn force_current_device_id(&mut self, device_id: impl Into<String>) {

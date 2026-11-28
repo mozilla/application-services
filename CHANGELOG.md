@@ -1,6 +1,116 @@
-# v161.0 (In progress)
+# v163.0 (In progress)
 
 [Full Changelog](In progress)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Firefox Accounts
+- `check_authorization_status()` now returns the `AuthorizationStatus` enum instead of the
+  `AuthorizationInfo` struct.  The main difference is that applications should now handle
+  `AuthorizationStatus::Unknown` which indicates the check was inconclusive.
+
+### Sync Manager
+
+- Added the `sync_settings.engine_toggled` metric for per-device syncing, which records each time the user toggles an individual sync engine on or off ([#7813](https://github.com/mozilla/application-services/pull/7813)).
+
+## ✨ What's Changed ✨
+
+### Filter Adult
+
+- `import-site-list` now builds `adult_set.bin` from a text file with one base
+  domain per line, instead of from the old `FilterAdult.sys.mjs`.
+
+### Logins
+
+- Added `LoginStore::check_decryptability()`, which counts the stored logins that do not decrypt with the current key without returning or deleting anything, to tell a few unreadable logins apart from a key that no longer fits the store. It fails as soon as the key itself is unavailable, with the key manager's own error (`AuthenticationCanceled`, `MissingKey`, `InvalidKey`, `NSSAuthenticationError`, ...) rather than `UnexpectedLoginsApiError`, instead of asking for the key once per login. ([bug 2095514](https://bugzilla.mozilla.org/show_bug.cgi?id=2095514))
+
+# v162.0 (_2026-11-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)
+
+### Nimbus
+
+- Support for generating FML IR files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- Support for Experimenter JSON files has been removed from nimbus-fml. ([#7782](https://github.com/mozilla/application-services/pull/7782))
+- `nimbus_fml::do_main` no longer takes the current working directory as an arugment and instead computes it. ([#7783](https://github.com/mozilla/application-services/pull/7783))
+- `nimbus_fml::do_main` no longer takes a vector of CLI arguments and instead
+parses them directly with `clap::Parser::parse`. ([#7784](https://github.com/mozilla/application-services/pull/7784))
+- Support for Focus (iOS and Android) has been removed from `nimbus-cli`. ([#7787](https://github.com/mozilla/application-services/pull/7787))
+
+## ⚠️ Breaking Changes ⚠️
+
+### Firefox Accounts
+- Removed the deprecated `FxaRustAuthState` struct and the `get_auth_state()` method.
+  Changed `FxaState::Authenticating::initial_state` to store a `FxaState` value.
+
+### Error support
+- Removed the `RustComponentsErrorTelemetry` type.  The Rust code now reports telemetry itself.
+  Use `error_support::report_error` if you want to manually trigger the ping.
+
+## ✨ What's Changed ✨
+
+### Android
+
+- Upgraded NDK from r29 to r30.
+- Upgraded Kotlin from 2.3.21 to 2.4.21.
+- Upgraded the Android Gradle Plugin from 8.13.2 to 9.5.1 and Gradle from 9.5.1 to 9.9.1.
+
+### Ads-Client
+
+- OHTTP requests always send `X-User-Agent`: the preflight's, else the new `MozAdsClientBuilder.userAgent()`, else viaduct's global default user agent. With none, the request fails.
+- The HTTP cache no longer keeps a response past its `Cache-Control: max-age` when the response was already old on arrival, for example a preflight served from the platform's HTTP cache.
+- An invalid `MozAdsCacheConfig` setting (a TTL or size out of range, or a blank path) now falls back to its own default and keeps the others, instead of dropping the whole configuration for a cache in memory. It is still recorded in `build_cache_error`.
+
+### Autofill
+
+- New method `get_credit_card_candidate(guid)`, the single-card counterpart of `list_credit_card_candidates()`: it returns a `CreditCardCandidate` without the encrypted fields, so it does not prompt for a primary password. ([bug 2091679](https://bugzilla.mozilla.org/show_bug.cgi?id=2091679))
+
+### Firefox Accounts
+- `CheckAuthorizationStatus` is now ignored from the `AuthIssues` state
+  ([bug 2092911](https://bugzilla.mozilla.org/show_bug.cgi?id=2092911)).
+- `CheckAuthorizationStatus` now checks for missing scoped keys
+  ([bug 2093432](https://bugzilla.mozilla.org/show_bug.cgi?id=2093432)).
+
+### Merino
+
+- Added `WrexhamClient`, which fetches Wrexham AFC matches (`get_matches`, with an optional `limit`) and EFL Championship standings (`get_standings`) from Merino's Wrexham widget endpoints. A `503` from Merino, when it has no Wrexham data to serve, is returned as `MerinoWrexhamApiError.Unavailable`.
+
+### Nimbus
+
+- Several FML lints were removed. ([#7730](https://github.com/mozilla/application-services/pull/7730))
+- Lint suppression annotations (`no-lint`) can now be attached to object and enum definitions in FML. ([#7781](https://github.com/mozilla/application-services/pull/7781))
+
+### Remote Settings
+
+- Uptake telemetry reports `certificate_error` when the certificate chain URL is unreachable or has invalid content-type.
+- New `glean-sym` feature: uptake telemetry is recorded directly from Rust with the application's Glean SDK. With this feature enabled, `RemoteSettingsTelemetry` implementations are ignored and applications can remove them.
+
+### Sync Manager
+
+- `EngineChoicesModel.Device` implements per-device engine choices. It's for testing only for now.
+
+### Tabs
+
+- New optional `tabsDisabled` field in the tabs record. Clients set it with `LocalTabsInfo.tabs_disabled` and read it with `ClientRemoteTabs.tabs_disabled`.
+
+## ⚠️ Breaking Changes ⚠️
+
+### Containers
+
+- **BREAKING**: `set_site_association()` takes an `include_subdomains` argument, and `SiteAssociation` reports it. No consumer uses the component yet. The new `lookup_site_association()` also matches a host against the parent domains that include their subdomains.
+- The stored document moves to version 9. Existing associations keep matching their host only.
+
+### Nimbus
+
+- FML imports are always linted by `nimbus-fml lint`. ([#7731](https://github.com/mozilla/application-services/pull/7731))
+- Disabling lints via --allow or top-level `no-lint` is no longer supported. ([#7733](https://github.com/mozilla/application-services/pull/7733))
+- `nimbus-fml lint` now always exits with a non-zero status code if un-suppressed lints are repoted. ([#7735](https://github.com/mozilla/application-services/pull/7735))
+- `nimbus-fml lint` no longer distinguishes between errors and warnings during linting. ([#7734](https://github.com/mozilla/application-services/pull/7734))
+- The `pref-key` annotation for FML feature variables has been removed. ([#7753](https://github.com/mozilla/application-services/pull/7753/))
+
+# v161.0 (_2026-11-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v160.0...v161.0)
 
 ## ✨ What's Changed ✨
 
@@ -9,6 +119,9 @@
 - New `ReportReason` and `MozAdsReportReason` variants to match new reasons supported by MARS.
 - Added attempted in-memory fallback for inner http cache if no filesystem path is provided.
 - Ads are now read by their `format`: `billboard`, `leaderboard`, `rectangle` and `skyscraper` are images, `spoc` and `tile` keep their own shapes. An ad with any other `format` is skipped and recorded under `deserialization_error/invalid_ad_item`, instead of being read as an image.
+- The HTTP cache no longer stores error responses: a failed request is retried on the next call instead of being replayed for the cache TTL.
+- Every exported type and method has a docstring in the Kotlin and Swift bindings.
+- `MozAdsRequestOptions.cachePolicy` defaults to `null`, like the record's other fields.
 
 ### Autofill
 
@@ -16,11 +129,22 @@
 - Credit card de-duplication during sync skips local cards with an empty or undecryptable number instead of failing the whole sync. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 - Updating or re-keying a missing record during sync returns a `NoSuchRecord` error instead of panicking. ([bug 2086214](https://bugzilla.mozilla.org/show_bug.cgi?id=2086214))
 
+### Remote Settings
+
+- `env.distribution` in JEXL `filter_expression`s is now `"default"` when `RemoteSettingsContext::distribution` is unset, matching the Gecko client. Previously the field was absent from `env`. ([bug 2068685](https://bugzilla.mozilla.org/show_bug.cgi?id=2068685))
+### Merino
+
+- `SuggestClient` now manages search sessions, sending the session ID (`sid`) and sequence number (`seq`) with suggest requests. A session starts automatically with the first request; consumers should call the new `reset_session()`  to end long-lived sessions.
+
 ## Breaking Changes
 
 ### Autofill
 
 - **BREAKING**: `update_credit_card` keeps the stored CVV when `cc_cvv` is `None`; `Some("")` clears it. Scrubbing encrypted data now clears the CVV along with the number. ([bug 2085717](https://bugzilla.mozilla.org/show_bug.cgi?id=2085717))
+
+### Nimbus
+
+- The `rkv-safe-mode` feature has been removed and Nimbus defaults to using the safe backend in stateful (i.e., non-cirrus) configurations. ([#7728](https://github.com/mozilla/application-services/pull/7728))
 
 # v160.0 (_2026-10-22_)
 

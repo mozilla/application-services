@@ -73,7 +73,8 @@ pub fn touch_login(s: &LoginStore, id: &str, times: usize) -> LoginResult<Login>
 
 pub fn sync_logins(client: &mut TestClient) -> Result<()> {
     let local_encryption_keys = HashMap::new();
-    client.sync(&["passwords".to_string()], local_encryption_keys)
+    client.sync(&["passwords".to_string()], local_encryption_keys)?;
+    Ok(())
 }
 
 pub fn sync_logins_with_failure(
@@ -181,8 +182,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
 
     assert_eq!(
         c0.logins_store.get(&l0id).unwrap().unwrap().times_used,
-        5, // initially 1, touched twice, updated twice (on two accounts!
-        // doing this right requires 3WM)
+        3, // initially 1, touched twice - updates don't count as a use.
         "Times used is wrong (final)"
     );
 }
@@ -263,23 +263,23 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     verify_login(&c1.logins_store, &login2);
     verify_login(&c1.logins_store, &login3);
 
-    // The 4 logins are for the for possible scenarios. All of them should result in the record
-    // being deleted.
+    // The 4 logins are for the for possible scenarios.
 
     // 1. Client A deletes record, client B has no changes (should delete).
     // 2. Client A deletes record, client B has also deleted record (should delete).
-    // 3. Client A deletes record, client B has modified record locally (should delete).
-    // 4. Same as #3 but in reverse order.
+    // 3. Client A modifies record and syncs, then client B deletes it (should revive, as a
+    //    remote modification beats a local tombstone).
+    // 4. Client A deletes record and syncs, then client B modifies it (should delete).
 
     // case 1. (c1 deletes record, c0 should have deleted on the other side)
     log::info!("Deleting {} from c1", l0id);
-    assert!(c1.logins_store.delete(&l0id).expect("Delete should work"));
+    c1.logins_store.delete(&l0id).expect("Delete should work");
     verify_missing_login(&c1.logins_store, &l0id);
 
     // case 2. Both delete l1 separately
     log::info!("Deleting {} from both", l1id);
-    assert!(c0.logins_store.delete(&l1id).expect("Delete should work"));
-    assert!(c1.logins_store.delete(&l1id).expect("Delete should work"));
+    c0.logins_store.delete(&l1id).expect("Delete should work");
+    c1.logins_store.delete(&l1id).expect("Delete should work");
 
     // case 3a. c0 modifies record (c1 will delete it after c0 syncs so the timestamps line up)
     log::info!("Updating {} on c0", l2id);
@@ -289,7 +289,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     .unwrap();
 
     // case 4a. c1 deletes record (c0 will modify it after c1 syncs so the timestamps line up)
-    assert!(c1.logins_store.delete(&l3id).expect("Delete should work"));
+    c1.logins_store.delete(&l3id).expect("Delete should work");
 
     // Sync c1
     log::info!("Syncing c1");
@@ -321,19 +321,20 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
 
     log::info!("Delete {} on c1", l2id);
     // 3b
-    assert!(c1.logins_store.delete(&l2id).expect("Delete should work"));
+    c1.logins_store.delete(&l2id).expect("Delete should work");
 
     log::info!("Syncing c1");
     sync_logins(c1).expect("c1 sync to work");
 
-    log::info!("{} should stay dead", l2id);
-    // Ensure we didn't revive it.
-    verify_missing_login(&c1.logins_store, &l2id);
+    // c0's modification was already on the server, and a remote modification beats a local
+    // tombstone (bug 1866370), so the login is revived rather than deleted.
+    log::info!("{} should be revived", l2id);
+    verify_login(&c1.logins_store, &login2_new);
 
     log::info!("Syncing c0");
     sync_logins(c0).expect("c0 sync to work");
-    log::info!("Should delete {}", l2id);
-    verify_missing_login(&c0.logins_store, &l2id);
+    log::info!("{} should still exist", l2id);
+    verify_login(&c0.logins_store, &login2_new);
 }
 
 fn test_delete_undecryptable_records_for_remote_replacement(

@@ -1,30 +1,23 @@
 apply plugin: 'com.android.library'
 
 if (!gradle.hasProperty("mozconfig")) {
-    apply plugin: 'kotlin-android'
     apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
-    kotlin {
-        jvmToolchain(rootProject.config.jvmTargetCompatibility)
-    }
 }
 
 android {
     namespace = 'org.mozilla.appservices.full_megazord'
 
-    compileSdk { version = release(config.compileSdkMajorVersion) { minorApiLevel = config.compileSdkMinorVersion } }
+    compileSdk { version = release(rootProject.config.compileSdkMajorVersion) { minorApiLevel = rootProject.config.compileSdkMinorVersion } }
 
     defaultConfig {
-        ndkVersion = config.ndkVersion
-        minSdkVersion config.minSdkVersion
-        targetSdkVersion config.targetSdkVersion
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        ndkVersion = rootProject.config.ndkVersion
+        minSdkVersion rootProject.config.minSdkVersion
+        targetSdkVersion rootProject.config.targetSdkVersion
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
@@ -50,12 +43,17 @@ configurations {
     // taskcluster/kinds/module-build/kind.yml
     //
     // For libjnidispatch, we include all libraries included in the official JAR file.
-    consumable("libsForTests")
+    consumable("libsForTests") {
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        }
+        outgoing {
+            capability("org.mozilla.appservices:full-megazord-libsForTests:${rootProject.config.componentsVersion}")
+        }
+    }
     // Stores the JNA jar file
     jna {
         canBeConsumed = false
-        canBeResolved = true
-        canBeDeclared = true
     }
     // Native megazord library, this is the one compatible with the user's local machine.  We use it
     // to run uniffi-bindgen against.
@@ -64,11 +62,7 @@ configurations {
 
 dependencies {
     // Needed so we can copy the libraries into libsForTests.
-    jna(libs.jna) {
-        artifact {
-            type = "jar"
-        }
-    }
+    jna libs.jna
 }
 
 abstract class GenerateJniLibsTask extends DefaultTask {
@@ -148,7 +142,7 @@ def jnaLibJniDispatch = zipTree(configurations.jna.singleFile).matching {
 
 def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
     from jnaLibJniDispatch
-    into layout.buildDirectory.dir("libjnidispatch").get()
+    into layout.buildDirectory.dir("libjnidispatch")
 }
 
 def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
@@ -158,14 +152,10 @@ def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
     if (!gradle.hasProperty("mozconfig")) {
         from layout.buildDirectory.dir("rustJniLibs/desktop")
         dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
-    }
-
-    if (gradle.hasProperty("mozconfig")) {
-        if (gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_DESKTOP_ARCHITECTURES) {
-            from "${gradle.mozconfig.topobjdir}/dist/fat-aar/output/desktop/resources"
-        } else {
-            from "${gradle.mozconfig.topobjdir}/dist/host/bin/appservices/resources"
-        }
+    } else if (gradle.mozconfig.substs.MOZ_ANDROID_FAT_AAR_DESKTOP_ARCHITECTURES) {
+        from "${gradle.mozconfig.topobjdir}/dist/fat-aar/output/desktop/resources"
+    } else {
+        from "${gradle.mozconfig.topobjdir}/dist/host/bin/appservices/resources"
     }
 }
 
@@ -175,13 +165,10 @@ artifacts {
 }
 
 if (!gradle.hasProperty("mozconfig")) {
-    def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
-        from layout.buildDirectory.dir("rustJniLibs/desktop")
-        into layout.buildDirectory.dir("megazordNative")
-    }
-
     artifacts {
-        megazordNative(copyMegazordNative)
+        megazordNative(layout.buildDirectory.dir("rustJniLibs/desktop")) {
+            builtBy "cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"
+        }
     }
 
     cargo {
@@ -207,7 +194,7 @@ if (!gradle.hasProperty("mozconfig")) {
         exec = { spec, toolchain ->
             rootProject.ext.cargoExec(spec, toolchain)
             // Only used in the full megazord (that is, in this project) at build time.
-            spec.environment("MEGAZORD_VERSION", config.componentsVersion)
+            spec.environment("MEGAZORD_VERSION", rootProject.config.componentsVersion)
         }
 
         extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
@@ -218,27 +205,8 @@ if (!gradle.hasProperty("mozconfig")) {
     }
 }
 
-if (!gradle.hasProperty("mozconfig")) {
-    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
-        // The `cargoBuild` task isn't available until after evaluation.
-        afterEvaluate {
-            tasks["merge${variant.name.capitalize()}JniLibFolders"].dependsOn(tasks["cargoBuild"])
-        }
-    }
-}
-
-// Duplicated from component-common.gradle, which the megazord doesn't apply.
-// Pick the publish group id by build context. In m-c, `config` belongs to
-// android-components (`config.componentsGroupId` is `org.mozilla.components`),
-// so we hardcode `org.mozilla.appservices`. Standalone app-services uses
-// `config.componentsGroupId`, which is the only place that appends the
-// `.nightly` suffix nightly builds publish under.
-ext.appServicesGroupId = gradle.root.hasProperty("mozconfig")
-    ? "org.mozilla.appservices"
-    : rootProject.config.componentsGroupId
-
 apply from: "$publishDir/publish.gradle"
-ext.configurePublish(appServicesGroupId, project.name, project.ext.description)
+ext.configurePublish(rootProject.config.appServicesGroupId, project.name, project.ext.description)
 
 afterEvaluate {
     def libUrl="https://github.com/mozilla/application-services"
@@ -261,7 +229,7 @@ afterEvaluate {
                 }
 
                 pom {
-                    groupId = project.ext.appServicesGroupId
+                    groupId = rootProject.config.appServicesGroupId
                     artifactId = "${project.ext.artifactId}-libsForTests"
                     description = project.ext.description
                     // For mavenLocal publishing workflow, increment the version number every publish.

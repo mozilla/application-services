@@ -1,6 +1,6 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::BTreeMap;
 
@@ -21,11 +21,18 @@ impl EnumDef {
                 doc: format!("Documentation for {s}"),
             })
             .collect();
+
         Self {
             name: nm.to_string(),
             doc: format!("{nm} documentation"),
             variants,
+            no_lint: vec![],
         }
+    }
+
+    pub(crate) fn with_suppressed_lints(mut self, no_lint: &[&str]) -> Self {
+        self.no_lint = no_lint.iter().map(|s| String::from(*s)).collect();
+        self
     }
 
     pub(crate) fn into_map(value: &[Self]) -> BTreeMap<String, Self> {
@@ -39,7 +46,13 @@ impl ObjectDef {
             name: nm.to_string(),
             doc: nm.to_string(),
             props: props.into(),
+            no_lint: vec![],
         }
+    }
+
+    pub(crate) fn with_suppressed_lints(mut self, no_lint: &[&str]) -> Self {
+        self.no_lint = no_lint.iter().map(|s| String::from(*s)).collect();
+        self
     }
 
     pub(crate) fn into_map(value: &[Self]) -> BTreeMap<String, Self> {
@@ -54,7 +67,6 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
-            pref_key: None,
             gecko_pref: None,
             string_alias: None,
         }
@@ -64,18 +76,17 @@ impl PropDef {
         nm: &str,
         typ: &TypeRef,
         value: &Value,
-        pref_key: &str,
-        pref_branch: PrefBranch,
+        pref: &str,
+        branch: PrefBranch,
     ) -> Self {
         Self {
             name: nm.to_string(),
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
-            pref_key: None,
             gecko_pref: Some(GeckoPrefDef {
-                pref: pref_key.into(),
-                branch: pref_branch,
+                pref: pref.into(),
+                branch,
             }),
             string_alias: None,
         }
@@ -87,7 +98,6 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: nm.to_string(),
-            pref_key: None,
             gecko_pref: None,
             string_alias: Some(sa.clone()),
         }
@@ -99,7 +109,6 @@ impl PropDef {
             doc: doc.to_string(),
             typ: typ.clone(),
             default: default.clone(),
-            pref_key: None,
             gecko_pref: None,
             string_alias: None,
         }
