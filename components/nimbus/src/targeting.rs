@@ -83,7 +83,7 @@ impl NimbusTargetingHelper {
             }
         };
 
-        serde_json::to_string_pretty(&response).map_err(|e| {
+        serde_json::to_string(&response).map_err(|e| {
             NimbusError::JSONError("Failed to serialize JEXL result".to_string(), e.to_string())
         })
     }
