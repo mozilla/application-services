@@ -13,7 +13,6 @@ use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{Value, json};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::output::deeplink;
 use crate::protocol::StartAppProtocol;
 use crate::sources::ManifestSource;
 use crate::value_utils::{
@@ -607,58 +606,17 @@ impl LaunchableApp {
     }
 
     fn android_start(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<Command> {
-        if let Self::Android {
-            package_name,
-            activity_name,
-            ..
-        } = self
-        {
+        if let Self::Android { package_name, .. } = self {
             let mut args: Vec<String> = Vec::new();
 
             let (start_args, ending_args) = open.args();
             args.extend_from_slice(start_args);
 
-            // If app_protocol is Default::default(), we are doing an open
-            // command and need to launch the browser with am start.
-            let legacy_open_mode = open.legacy_open_mode
-                || (!app_protocol.reset_db
-                    && app_protocol.experiments.is_none()
-                    && !app_protocol.log_state
-                    && app_protocol.jexl_expression.is_none());
-
-            let am_cmd = if legacy_open_mode {
-                "start"
-            } else {
-                "broadcast"
-            };
-
-            match (open.legacy_open_mode, self.deeplink(open)?) {
-                (true, Some(deeplink)) => {
-                    args.extend([
-                        "-a android.intent.action.VIEW".to_string(),
-                        "-c android.intent.category.DEFAULT".to_string(),
-                        "-c android.intent.category.BROWSABLE".to_string(),
-                        format!("-d {}", deeplink),
-                    ]);
-                }
-                (true, None) => {
-                    args.extend([
-                        format!("-n {}/{}", package_name, activity_name),
-                        "-a android.intent.action.MAIN".to_string(),
-                        "-c android.intent.category.LAUNCHER".to_string(),
-                    ]);
-                }
-                (false, Some(_)) => {
-                    bail!("--deeplink is unsupported without --legacy-open");
-                }
-                (false, None) => {
-                    args.extend([
-                        format!("-p {}", package_name),
-                        "-a org.mozilla.fenix.NIMBUS_TOOLING".to_string(),
-                        "-f 0x20".to_string(), // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
-                    ]);
-                }
-            }
+            args.extend([
+                format!("-p {}", package_name),
+                "-a org.mozilla.fenix.NIMBUS_TOOLING".to_string(),
+                "-f 0x20".to_string(), // android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES
+            ]);
 
             let StartAppProtocol {
                 reset_db,
@@ -674,20 +632,24 @@ impl LaunchableApp {
             if reset_db {
                 args.push("--ez reset-db true".to_string());
             }
+
             if let Some(s) = experiments {
                 let json = s.to_string().replace('\'', "&apos;");
                 args.push(format!("--es experiments '{}'", json))
             }
+
             if log_state {
                 args.push("--ez log-state true".to_string());
             }
+
             if let Some(expr) = jexl_expression {
                 let escaped = expr.replace('\'', "&apos;");
                 args.push(format!("--es eval-jexl '{}'", escaped));
             };
+
             args.extend_from_slice(ending_args);
 
-            let sh = format!(r#"am {am_cmd} {}"#, args.join(" \\\n        "),);
+            let sh = format!(r#"am broadcast {}"#, args.join(" \\\n        "),);
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
             write_prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
             let mut cmd = self.exe()?;
@@ -703,60 +665,50 @@ impl LaunchableApp {
             app_id, device_id, ..
         } = self
         {
-            if open.legacy_open_mode {
-                bail!("--legacy-open unsupported for iOS");
-            }
-
             let mut args: Vec<String> = Vec::new();
 
             let (starting_args, ending_args) = open.args();
 
-            if let Some(deeplink) = self.deeplink(open)? {
-                let deeplink = deeplink::longform_deeplink_url(&deeplink, &app_protocol)?;
-                if deeplink.len() >= 2047 {
-                    anyhow::bail!("Deeplink is too long for xcrun simctl openurl.")
-                }
-                args.push("openurl".to_string());
-                args.extend_from_slice(starting_args);
-                args.extend([device_id.to_string(), deeplink]);
-            } else {
-                args.push("launch".to_string());
-                args.extend_from_slice(starting_args);
-                args.extend([device_id.to_string(), app_id.to_string()]);
+            args.push("launch".to_string());
+            args.extend_from_slice(starting_args);
+            args.extend([device_id.to_string(), app_id.to_string()]);
 
-                let StartAppProtocol {
-                    log_state,
-                    experiments,
-                    reset_db,
-                    jexl_expression,
-                } = app_protocol;
+            let StartAppProtocol {
+                log_state,
+                experiments,
+                reset_db,
+                jexl_expression,
+            } = app_protocol;
 
-                if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
-                    args.extend([
-                        "--nimbus-cli".to_string(),
-                        "--version".to_string(),
-                        "1".to_string(),
-                    ]);
-                }
-
-                if reset_db {
-                    // We don't check launch here, because reset-db is never used
-                    // without enroll.
-                    args.push("--reset-db".to_string());
-                }
-                if let Some(s) = experiments {
-                    args.extend([
-                        "--experiments".to_string(),
-                        s.to_string().replace('\'', "&apos;"),
-                    ]);
-                }
-                if log_state {
-                    args.push("--log-state".to_string());
-                }
-                if let Some(expr) = jexl_expression {
-                    args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
-                }
+            if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
+                args.extend([
+                    "--nimbus-cli".to_string(),
+                    "--version".to_string(),
+                    "1".to_string(),
+                ]);
             }
+
+            if reset_db {
+                // We don't check launch here, because reset-db is never used
+                // without enroll.
+                args.push("--reset-db".to_string());
+            }
+
+            if let Some(s) = experiments {
+                args.extend([
+                    "--experiments".to_string(),
+                    s.to_string().replace('\'', "&apos;"),
+                ]);
+            }
+
+            if log_state {
+                args.push("--log-state".to_string());
+            }
+
+            if let Some(expr) = jexl_expression {
+                args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
+            }
+
             args.extend_from_slice(ending_args);
 
             let mut cmd = self.exe()?;
