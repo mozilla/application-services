@@ -28,7 +28,7 @@ use rusqlite::ErrorCode;
 use rusqlite::Row;
 use sql_support::ConnExt;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 use sync15::bso::{IncomingBso, OutgoingBso};
@@ -1237,6 +1237,31 @@ pub(crate) struct Merger<'a> {
 }
 
 impl<'a> Merger<'a> {
+    /// Returns the GUIDs of local items whose parent is missing, along with
+    /// all of their descendants. These can't be placed in the local tree,
+    /// see bug 2085434.
+    fn fetch_local_orphan_guids(&self) -> Result<HashSet<SyncGuid>> {
+        let mut stmt = self.db.prepare(
+            "WITH RECURSIVE orphans(id) AS (
+               SELECT b.id
+               FROM moz_bookmarks b
+               WHERE b.parent IS NOT NULL
+                 AND NOT EXISTS (
+                   SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent
+                 )
+               UNION
+               SELECT c.id
+               FROM moz_bookmarks c
+               JOIN orphans o ON c.parent = o.id
+             )
+             SELECT b.guid FROM moz_bookmarks b JOIN orphans o ON o.id = b.id",
+        )?;
+        let guids = stmt
+            .query_map([], |row| row.get::<_, SyncGuid>(0))?
+            .collect::<rusqlite::Result<HashSet<_>>>()?;
+        Ok(guids)
+    }
+
     #[cfg(test)]
     pub(crate) fn new(
         db: &'a PlacesDb,
@@ -1523,6 +1548,16 @@ impl dogear::Store for Merger<'_> {
         // `moz_bookmarks` once, using the index on `(b.parent, b.position)`
         // to avoid a temp B-tree for the `ORDER BY`.
         let mut child_guids_by_parent_guid: HashMap<SyncGuid, Vec<dogear::Guid>> = HashMap::new();
+        // Items whose parent is missing can't be placed in the tree, so leave
+        // them and their descendants out rather than failing the merge.
+        let orphan_guids = self.fetch_local_orphan_guids()?;
+        if !orphan_guids.is_empty() {
+            error_support::report_error!(
+                "places-bookmarks-local-orphans-skipped",
+                "Skipped {} local bookmarks with a missing ancestor",
+                orphan_guids.len()
+            );
+        }
         let mut stmt = self.db.prepare(&format!(
             "SELECT b.guid, p.guid AS parentGuid, b.type, b.syncChangeCounter,
                     b.syncStatus, b.lastModified AS localModified,
@@ -1539,6 +1574,10 @@ impl dogear::Store for Merger<'_> {
 
         while let Some(row) = results.next()? {
             self.scope.err_if_interrupted()?;
+            // Skip known orphans
+            if orphan_guids.contains(&row.get::<_, SyncGuid>("guid")?) {
+                continue;
+            }
 
             let (item, content) = self.local_row_to_item(row)?;
 
@@ -4763,6 +4802,154 @@ mod tests {
                 }],
             }),
         );
+        Ok(())
+    }
+
+    // Deletes `guid` the way bug 2084607 did: without recursive triggers, the
+    // cascade only removes direct children and leaves deeper items orphaned.
+    fn delete_with_shallow_cascade(conn: &PlacesDb, guid: &str) -> Result<()> {
+        conn.execute_batch(&format!(
+            "PRAGMA recursive_triggers = OFF;
+             DELETE FROM moz_bookmarks WHERE guid = '{guid}';
+             PRAGMA recursive_triggers = ON;"
+        ))?;
+        Ok(())
+    }
+
+    fn local_orphan_count(conn: &PlacesDb) -> Result<i64> {
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM moz_bookmarks b
+             WHERE b.parent IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent)",
+            [],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn orphan_test_tree() -> Value {
+        json!({
+            "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+            "children": [{
+                "guid": "bookmarkAAAA",
+                "title": "A",
+                "url": "http://example.com/a",
+            }, {
+                "guid": "folderAAAAAA",
+                "children": [{
+                    "guid": "folderBBBBBB",
+                    "children": [{
+                        "guid": "folderCCCCCC",
+                        "children": [{
+                            "guid": "bookmarkDDDD",
+                            "title": "D",
+                            "url": "http://example.com/d",
+                        }],
+                    }],
+                }],
+            }],
+        })
+    }
+
+    #[test]
+    fn test_fetch_local_tree_skips_unsynced_orphans() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        insert_local_json_tree(&writer, orphan_test_tree());
+
+        // Removes folderA and folderB, leaving folderC (with
+        // bookmarkD inside it) pointing at a missing parent.
+        delete_with_shallow_cascade(&writer, "folderAAAAAA")?;
+        assert_eq!(local_orphan_count(&writer)?, 1);
+
+        let engine = create_sync_engine(&api);
+        let outgoing = engine_apply_incoming(&engine, vec![]);
+        let outgoing_ids = outgoing
+            .iter()
+            .map(|p| p.envelope.id.clone())
+            .collect::<Vec<_>>();
+
+        assert!(outgoing_ids.contains(&"bookmarkAAAA".into()));
+        assert!(!outgoing_ids.contains(&"folderCCCCCC".into()));
+        assert!(!outgoing_ids.contains(&"bookmarkDDDD".into()));
+
+        // Never-synced orphans have no server record, so sync leaves them alone.
+        assert!(get_raw_bookmark(&writer, &"folderCCCCCC".into())?.is_some());
+        assert!(get_raw_bookmark(&writer, &"bookmarkDDDD".into())?.is_some());
+
+        assert_local_json_tree(
+            &api.get_sync_connection().unwrap().lock(),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({
+                "children": [{
+                    "guid": "bookmarkAAAA",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                }],
+            }),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch_local_tree_skips_synced_orphans() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        insert_local_json_tree(&writer, orphan_test_tree());
+
+        // A first sync uploads everything and populates the mirror.
+        let engine = create_sync_engine(&api);
+        let outgoing = engine_apply_incoming(&engine, vec![]);
+        let outgoing_ids = outgoing
+            .iter()
+            .map(|p| p.envelope.id.clone())
+            .collect::<Vec<_>>();
+        engine
+            .set_uploaded(ServerTimestamp(0), outgoing_ids)
+            .expect("should work");
+        engine.sync_finished().expect("should work");
+
+        // On the read-write connection, deleting folderA and folderB
+        // writes tombstones, as it would for a user.
+        delete_with_shallow_cascade(&writer, "folderAAAAAA")?;
+        assert_eq!(local_orphan_count(&writer)?, 1);
+
+        let outgoing = engine_apply_incoming(&engine, vec![]);
+        let mut outgoing = outgoing
+            .iter()
+            .map(|p| {
+                (
+                    p.envelope.id.to_string(),
+                    p.payload.contains("\"deleted\":true"),
+                )
+            })
+            .collect::<Vec<_>>();
+        outgoing.sort();
+        assert_eq!(
+            outgoing,
+            vec![
+                ("folderAAAAAA".to_string(), true),
+                ("folderBBBBBB".to_string(), true),
+                ("folderCCCCCC".to_string(), false),
+                ("unfiled".to_string(), false),
+            ]
+        );
+
+        // The skipped orphan is re-adopted from its server record: dogear moves
+        // folderCCCCCC, with its contents, into "Other Bookmarks".
+        assert_eq!(local_orphan_count(&writer)?, 0);
+        let parent_guid = |guid: &str| -> Result<String> {
+            Ok(writer.query_row(
+                "SELECT p.guid FROM moz_bookmarks b JOIN moz_bookmarks p ON p.id = b.parent
+                 WHERE b.guid = ?1",
+                [guid],
+                |row| row.get(0),
+            )?)
+        };
+        assert_eq!(
+            parent_guid("folderCCCCCC")?,
+            BookmarkRootGuid::Unfiled.as_guid().as_str()
+        );
+        assert_eq!(parent_guid("bookmarkDDDD")?, "folderCCCCCC");
         Ok(())
     }
 }
